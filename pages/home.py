@@ -18,7 +18,7 @@ os.environ.setdefault("ARROW_DEFAULT_MEMORY_POOL", "system")
 
 AUTO_HERO_REFRESH_INTERVAL = "5s"
 HOME_HERO_INDEX_KEY = "home_hero_index"
-LOCAL_HERO_IMAGE = Path(__file__).with_name("화면 캡처 2026-08-20 110623.png")
+LOCAL_HERO_IMAGE = Path(__file__).with_name("hero_fallback.svg")
 HERO_IMAGE_LABELS = (
     "따뜻한 반려동물의 하루",
     "함께 자라는 건강한 일상",
@@ -46,7 +46,7 @@ def load_hero_image(index: int) -> tuple[bytes, str]:
     if remote_image is not None:
         return remote_image, "image/jpeg"
 
-    return LOCAL_HERO_IMAGE.read_bytes(), "image/png"
+    return LOCAL_HERO_IMAGE.read_bytes(), "image/svg+xml"
 
 
 def as_data_uri(image_bytes: bytes, mime_type: str) -> str:

@@ -18,6 +18,10 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from src.ui import apply_app_theme, render_page_header
+from src.health_safety import detect_urgent_sign
+from src.hospital_distance import nearest_hospitals
+from src.report_evidence import report_evidence_from_docs, render_pdf_page
+from src.location_component import render_location_control
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
@@ -85,6 +89,26 @@ def load_vector_db():
     )
 
 
+@st.cache_resource(
+    show_spinner="건강 Q&A BM25 색인을 준비합니다. 최초 실행은 수 분 걸릴 수 있습니다."
+)
+def load_health_bm25_index():
+    from src.hybrid_retrieval import HealthBM25Index
+    from kiwipiepy import Kiwi
+
+    kiwi = Kiwi()
+
+    def tokenize(text):
+        normalized = text.replace("･", "·")
+        return [
+            token.form.lower()
+            for token in kiwi.tokenize(normalized)
+            if token.tag.startswith("N") or token.tag in {"SL", "SN"}
+        ]
+
+    return HealthBM25Index.from_chroma(load_vector_db(), tokenize)
+
+
 @st.cache_resource(show_spinner=False)
 def load_report_vector_db():
     return Chroma(
@@ -113,8 +137,7 @@ def load_rag_chain():
     if not api_key:
         return None
     return RAG_PROMPT | ChatOpenAI(
-        model="gpt-5.6-luna",
-        temperature=0,
+        model="gpt-6-luna",
         api_key=api_key,
     ) | StrOutputParser()
 
@@ -196,15 +219,26 @@ def format_rag_context(retrieved_docs):
 
 
 def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
+    from src.hybrid_retrieval import retrieve_hybrid
+
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
     db, rag_chain = initialize_rag()
     search_query = build_rag_search_query(question, chat_history)
-    retrieved_docs = db.similarity_search(
+    retrieved_docs = retrieve_hybrid(
+        db,
+        load_health_bm25_index(),
         search_query,
-        k=k,
-        filter=build_metadata_filter(filters),
+        top_k=k,
+        where=build_metadata_filter(filters),
     )
+    safety_notice = detect_urgent_sign(question)
+    if not retrieved_docs:
+        return {
+            "answer": "검색된 근거가 부족해 답변할 수 없습니다. 증상이 지속되면 동물병원에 문의해 주세요.",
+            "evidence_rows": [],
+            "safety_notice": safety_notice,
+        }
     prompt_context = format_rag_context(retrieved_docs)
     if rag_chain is None:
         answer = "유사도 검색은 성공했습니다. 답변 생성에는 OPENAI_API_KEY가 필요합니다."
@@ -218,6 +252,7 @@ def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
     return {
         "answer": answer,
         "evidence_rows": [doc.metadata for doc in retrieved_docs],
+        "safety_notice": safety_notice,
     }
 
 
@@ -340,20 +375,31 @@ def format_report_context(report_docs):
     )
 
 
-def run_report_analysis(question: str) -> str:
+def analyze_report(question: str) -> dict:
     report_db = load_report_vector_db()
     topics = get_report_analysis_topics(question)
     search_query = f"{' '.join(topics)}\n{question}"
     report_docs = report_db.similarity_search(search_query, k=REPORT_ANALYSIS_TOP_K)
+    evidence_rows = report_evidence_from_docs(report_docs)
+    if not report_docs:
+        return {"answer": "검색된 보고서 근거가 부족해 분석할 수 없습니다.", "evidence_rows": []}
     prompt_context = format_report_context(report_docs)
     model = load_chat_model()
     if model is None:
-        return "분석 자동화에는 OPENAI_API_KEY가 필요합니다."
-    return (REPORT_ANALYSIS_PROMPT | model | StrOutputParser()).invoke({
-        "topics": "\n".join(topics),
-        "context": prompt_context or "검색된 보고서 자료가 없습니다.",
-        "question": question,
-    })
+        return {"answer": "분석 자동화에는 OPENAI_API_KEY가 필요합니다.", "evidence_rows": evidence_rows}
+    try:
+        answer = (REPORT_ANALYSIS_PROMPT | model | StrOutputParser()).invoke({
+            "topics": "\n".join(topics),
+            "context": prompt_context,
+            "question": question,
+        })
+    except Exception:
+        answer = "모델 연결에 실패해 분석 답변을 생성하지 못했습니다. 아래 검색 근거만 확인해 주세요."
+    return {"answer": answer, "evidence_rows": evidence_rows}
+
+
+def run_report_analysis(question: str) -> str:
+    return analyze_report(question)["answer"]
 
 
 @tool
@@ -432,7 +478,7 @@ def load_chat_model():
     api_key = get_openai_api_key()
     if not api_key:
         return None
-    return ChatOpenAI(model="gpt-5.6-luna", temperature=0, api_key=api_key)
+    return ChatOpenAI(model="gpt-6-luna", api_key=api_key)
 
 
 def validate_sql(sql: str) -> str:
@@ -578,8 +624,27 @@ def execute_hospital_sql(sql: str, location_keywords: list[str]) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def run_sql_search(question: str) -> tuple[str, list[dict]]:
+def run_sql_search(question: str, location: tuple[float, float] | None = None) -> tuple[str, list[dict]]:
     """지역, 주소, 병원명으로 동물병원 SQLite 데이터를 검색합니다."""
+    if is_nearest_hospital_query(question):
+        if location is None:
+            return "가까운 병원을 찾으려면 현재 위치 사용 버튼을 누르거나 지역을 지정해 검색해 주세요.", []
+        connection = sqlite3.connect(f"file:{DB_PATH.as_posix()}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = [dict(row) for row in connection.execute(
+                "SELECT ids, name, new_address, old_address, x_coor, y_coor FROM hospital"
+            )]
+        finally:
+            connection.close()
+        limit = SINGLE_HOSPITAL_LIMIT if is_single_hospital_query(question) else DEFAULT_HOSPITAL_LIMIT
+        ranked = nearest_hospitals(rows, *location, limit=limit)
+        if not ranked:
+            return "위치 좌표가 유효한 동물병원을 찾지 못했습니다.", []
+        lines = ["현재 위치 기준 가까운 동물병원입니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다."]
+        for index, row in enumerate(ranked, start=1):
+            lines.append(f"{index}. {row['name']} — {row.get('new_address') or row.get('old_address') or '주소 없음'} ({row['distance_km']:.2f} km)")
+        return "\n".join(lines), ranked
     location_keywords = extract_search_parameters(question)
 
     # 지역 조건은 정해진 SQL로 처리해 SQL 생성·답변용 LLM 호출을 줄입니다.
@@ -632,6 +697,15 @@ ROUTER_PROMPT = ChatPromptTemplate.from_messages([
 
 
 OUT_OF_SCOPE_KEYWORDS = ("날씨", "기온", "미세먼지", "뉴스", "주식", "환율")
+HEALTH_QUERY_KEYWORDS = (
+    "증상", "질병", "구토", "토해", "설사", "아파", "통증", "기침",
+    "발열", "식욕", "절뚝", "골절", "상처", "충혈", "눈곱",
+    "잇몸", "가려", "발진",
+)
+HOSPITAL_LOOKUP_KEYWORDS = (
+    "목록", "주소", "위치", "검색", "찾아", "추천", "어디",
+    "몇 개", "몇개", "몇 곳", "몇곳", "가까운", "근처",
+)
 AGE_PATTERN = re.compile(r"(\d+)\s*(개월|살|세)")
 DEPARTMENT_KEYWORDS = {
     "내과": (
@@ -676,13 +750,26 @@ def is_out_of_scope_question(question: str) -> bool:
 def classify_question(question: str, chat_history=None) -> str:
     if is_out_of_scope_question(question):
         return "none"
-    if is_hospital_question(question):
-        return "sql"
     normalized_question = "".join(question.lower().split())
+    has_hospital_lookup = is_hospital_question(question) and any(
+        keyword.replace(" ", "") in normalized_question
+        for keyword in HOSPITAL_LOOKUP_KEYWORDS
+    )
+    has_health_topic = any(
+        keyword in normalized_question for keyword in HEALTH_QUERY_KEYWORDS
+    )
     has_report_topic = any(
         keyword.replace(" ", "") in normalized_question
         for keyword in REPORT_ANALYSIS_KEYWORDS
     )
+    if has_report_topic and "보고서" in normalized_question:
+        return "analysis"
+    if has_hospital_lookup:
+        return "sql"
+    if has_health_topic:
+        return "rag"
+    if is_hospital_question(question):
+        return "sql"
     if has_report_topic:
         return "analysis"
 
@@ -768,6 +855,7 @@ def chatbot(
     *,
     top_k: int = DEFAULT_RAG_TOP_K,
     chat_history=None,
+    location: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
     """질문을 분류한 뒤 rag, sql, 또는 도구 없는 일반 응답을 실행합니다."""
     if not question or not question.strip():
@@ -789,15 +877,16 @@ def chatbot(
             "route": route,
             "answer": rag_result["answer"],
             "evidence_rows": rag_result["evidence_rows"],
+            "safety_notice": rag_result.get("safety_notice"),
         }
     elif route == "analysis":
+        analysis = analyze_report(question)
         return {
             "route": route,
-            "answer": report_analysis_tool.invoke({"question": question}),
-            "evidence_rows": [],
+            **analysis,
         }
     elif route == "sql":
-        answer, hospital_rows = run_sql_search(contextual_question)
+        answer, hospital_rows = run_sql_search(contextual_question, location=location)
     else:
         answer = answer_without_tool(question, chat_history=chat_history)
         hospital_rows = []
@@ -820,6 +909,35 @@ def render_hospital_links(rows):
             st.switch_page("pages/hospital.py")
 
 
+def render_assistant_message(message: dict, *, show_notice: bool = True) -> None:
+    if show_notice and message.get("safety_notice"):
+        st.warning(message["safety_notice"])
+    st.write(message["content"])
+    evidence_rows = message.get("evidence_rows", [])
+    if not evidence_rows:
+        return
+    if message.get("route") == "analysis":
+        st.markdown("#### 보고서 근거")
+        previewed = set()
+        for index, row in enumerate(evidence_rows, start=1):
+            page = row.get("page")
+            st.markdown(f"**근거 {index} · 페이지 {page if page else '확인 불가'}**")
+            st.write(row.get("excerpt", ""))
+            if page and page not in previewed:
+                previewed.add(page)
+                png = render_pdf_page(PROJECT_DIR / "data" / "2025 한국 반려동물 보고서.pdf", page)
+                if png:
+                    st.image(png, caption=f"2025 한국 반려동물 보고서 · {page}페이지")
+                else:
+                    st.caption("이 페이지의 PDF 미리보기를 열 수 없습니다.")
+    else:
+        st.markdown("#### 검색 근거")
+        for index, row in enumerate(evidence_rows):
+            evidence = format_evidence_row(row, index)
+            with st.expander(evidence["title"]):
+                st.markdown(evidence["body"])
+
+
 def render_page():
     apply_app_theme()
     render_page_header(
@@ -839,12 +957,19 @@ def render_page():
         value=DEFAULT_RAG_TOP_K,
         key=RAG_TOP_K_SLIDER_KEY,
     )
+    st.caption("가까운 병원 검색은 위치 사용을 선택한 경우에만 직선거리로 계산합니다.")
+    location, location_status = render_location_control("rag_browser_location")
+    if location_status:
+        st.info(f"{location_status} 지역명으로 병원을 검색할 수 있습니다.")
 
     if CHAT_MESSAGES_STATE_KEY not in st.session_state:
         st.session_state[CHAT_MESSAGES_STATE_KEY] = []
     for message in st.session_state[CHAT_MESSAGES_STATE_KEY]:
         with st.chat_message(message["role"]):
-            st.write(message["content"])
+            if message["role"] == "assistant":
+                render_assistant_message(message)
+            else:
+                st.write(message["content"])
 
     question = st.chat_input(
         "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요."
@@ -875,6 +1000,9 @@ def render_page():
     with st.chat_message("user"):
         st.write(question)
     with st.chat_message("assistant"):
+        urgent_notice = detect_urgent_sign(question)
+        if urgent_notice:
+            st.warning(urgent_notice)
         try:
             with st.spinner(
                 " 답변을 생성하는 중입니다. 잠시만 기다리세요"
@@ -883,26 +1011,22 @@ def render_page():
                     question,
                     top_k=top_k,
                     chat_history=chat_history,
+                    location=location,
                 )
 
-            st.write(result["answer"])
-            st.session_state[CHAT_MESSAGES_STATE_KEY].append(
-                {"role": "assistant", "content": result["answer"]}
-            )
+            assistant_message = {
+                "role": "assistant", "content": result["answer"], "route": result["route"],
+                "evidence_rows": result.get("evidence_rows", []),
+                "safety_notice": result.get("safety_notice") or urgent_notice,
+            }
+            render_assistant_message(assistant_message, show_notice=False)
+            st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
             st.session_state[CHAT_MESSAGES_STATE_KEY] = get_recent_chat_history(
                 st.session_state[CHAT_MESSAGES_STATE_KEY]
             )
 
             st.session_state[HOSPITAL_ROWS_STATE_KEY] = result.get("hospital_rows", [])
             render_hospital_links(st.session_state[HOSPITAL_ROWS_STATE_KEY])
-
-            evidence_rows = result.get("evidence_rows", [])
-            if evidence_rows:
-                st.markdown("#### 검색 근거")
-                for index, row in enumerate(evidence_rows):
-                    evidence = format_evidence_row(row, index)
-                    with st.expander(evidence["title"]):
-                        st.markdown(evidence["body"])
         except Exception as exc:
             st.error(f"실행 중 오류가 발생했습니다: {exc}")
 

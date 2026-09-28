@@ -6,6 +6,8 @@ import streamlit as st
 import pydeck as pdk
 from pyproj import Transformer
 from src.ui import apply_app_theme, render_page_header
+from src.hospital_distance import nearest_hospitals
+from src.location_component import render_location_control
 
 apply_app_theme()
 
@@ -67,6 +69,9 @@ def render_selected_hospital():
     st.title("선택한 병원 위치")
     st.subheader(hospital["name"])
     st.write(hospital["new_address"])
+    if st.button("다른 병원 찾기", key="clear_selected_hospital"):
+        st.session_state.pop("selected_hospital_id", None)
+        st.rerun()
     st.pydeck_chart(
         pdk.Deck(
             layers=[pdk.Layer(
@@ -208,6 +213,20 @@ render_page_header(
     description="지역을 선택하면 가까운 동물병원 정보와 위치를 빠르게 확인할 수 있습니다.",
     accent="우리 동네의 든든한 진료 파트너",
 )
+
+st.subheader("현재 위치에서 가까운 병원")
+st.caption("버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간이나 영업 상태를 뜻하지 않습니다.")
+location, location_status = render_location_control("hospital_browser_location")
+if location_status:
+    st.info(f"{location_status} 아래 지역 검색은 계속 사용할 수 있습니다.")
+if location:
+    cursor.execute("SELECT ids, name, new_address, old_address, x_coor, y_coor FROM hospital")
+    nearby = nearest_hospitals([dict(zip(("ids", "name", "new_address", "old_address", "x_coor", "y_coor"), row)) for row in cursor.fetchall()], *location)
+    if nearby:
+        st.dataframe(pd.DataFrame([{"병원명": row["name"], "주소": row["new_address"] or row["old_address"], "직선거리(km)": round(row["distance_km"], 2)} for row in nearby]), use_container_width=True)
+        st.map(pd.DataFrame([{"lat": row["latitude"], "lon": row["longitude"]} for row in nearby]))
+    else:
+        st.warning("위치 좌표가 유효한 동물병원을 찾지 못했습니다.")
 
 st.subheader("검색할 시와 구/군을 선택하세요.")
 
