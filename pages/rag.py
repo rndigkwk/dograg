@@ -85,6 +85,26 @@ def load_vector_db():
     )
 
 
+@st.cache_resource(
+    show_spinner="건강 Q&A BM25 색인을 준비합니다. 최초 실행은 수 분 걸릴 수 있습니다."
+)
+def load_health_bm25_index():
+    from src.hybrid_retrieval import HealthBM25Index
+    from kiwipiepy import Kiwi
+
+    kiwi = Kiwi()
+
+    def tokenize(text):
+        normalized = text.replace("･", "·")
+        return [
+            token.form.lower()
+            for token in kiwi.tokenize(normalized)
+            if token.tag.startswith("N") or token.tag in {"SL", "SN"}
+        ]
+
+    return HealthBM25Index.from_chroma(load_vector_db(), tokenize)
+
+
 @st.cache_resource(show_spinner=False)
 def load_report_vector_db():
     return Chroma(
@@ -196,14 +216,18 @@ def format_rag_context(retrieved_docs):
 
 
 def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
+    from src.hybrid_retrieval import retrieve_hybrid
+
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
     db, rag_chain = initialize_rag()
     search_query = build_rag_search_query(question, chat_history)
-    retrieved_docs = db.similarity_search(
+    retrieved_docs = retrieve_hybrid(
+        db,
+        load_health_bm25_index(),
         search_query,
-        k=k,
-        filter=build_metadata_filter(filters),
+        top_k=k,
+        where=build_metadata_filter(filters),
     )
     prompt_context = format_rag_context(retrieved_docs)
     if rag_chain is None:
