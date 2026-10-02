@@ -26,16 +26,23 @@ def _document_key(document: Document) -> str:
 
 
 def reciprocal_rank_fusion(
-    result_lists: Iterable[list[Document]], top_k: int, c: int = DEFAULT_RRF_C
+    result_lists: Iterable[list[Document]],
+    top_k: int,
+    c: int = DEFAULT_RRF_C,
+    weights: Iterable[float] | None = None,
 ) -> list[Document]:
-    """Combine ranked result lists with equal-weight reciprocal-rank fusion."""
+    """Combine ranked result lists with weighted reciprocal-rank fusion (equal by default)."""
+    result_lists = list(result_lists)
+    weights = [0.5] * len(result_lists) if weights is None else list(weights)
+    if len(weights) != len(result_lists):
+        raise ValueError("RRF weights must match the number of result lists")
     scores: dict[str, float] = {}
     documents_by_key: dict[str, Document] = {}
-    for result_list in result_lists:
+    for weight, result_list in zip(weights, result_lists):
         for rank, document in enumerate(result_list, start=1):
             key = _document_key(document)
             documents_by_key.setdefault(key, document)
-            scores[key] = scores.get(key, 0.0) + 0.5 / (c + rank)
+            scores[key] = scores.get(key, 0.0) + weight / (c + rank)
     ordered = sorted(scores, key=lambda key: (-scores[key], key))
     return [documents_by_key[key] for key in ordered[:max(0, top_k)]]
 
