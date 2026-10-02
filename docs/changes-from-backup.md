@@ -1,9 +1,9 @@
 # dograg_backup → dograg 변경 사항 정리
 
 - 원본: `C:\Users\Playdata\Desktop\dograg_backup` (커밋 `2292ba05`, "Merge branch 'encore-ai-campus:main' into main")
-- 수정본: `C:\Users\Playdata\Desktop\dograg` (커밋 `2204acf2` + 커밋하지 않은 변경)
+- 수정본: `C:\Users\Playdata\Desktop\dograg` (`main` 커밋 `2204acf2` + 브랜치 `docs/wiki-fusion-experiment`)
 - 비교일: 2026-10-02
-- 규모: 커밋된 변경 38개 파일, +2,284 / −46줄. 이와 별도로 커밋하지 않은 변경이 있다(아래 7절).
+- 규모: `main`에 커밋된 변경 38개 파일, +2,284 / −46줄. 이와 별도로 2026-10-02 작업분이 브랜치에 있다(아래 7절).
 
 두 폴더는 같은 git 저장소다. 원본 이후 커밋 5개가 추가됐다.
 
@@ -85,7 +85,7 @@
   4. 건강 키워드(구토, 설사, 기침 …) → 건강 상담
   5. 그 외 병원 관련 → 병원 검색
   - 예: "구토하는데 병원 가야 하나요?"가 이제 병원 목록이 아니라 건강 상담으로 간다.
-- **Jev 라우터 비교 (섀도 모드, 앱 동작에는 영향 없음):** `scripts/jev_router_shadow.py`, 질문 40개 `tests/data/jev_router_questions.json`, 의존성 `typesafe-sdk==0.7.1`
+- **Jev 라우터 비교 (섀도 모드, 앱 동작에는 영향 없음):** `scripts/jev_router_shadow.py`, 질문 40개 `tests/data/jev_router_questions.json`. `typesafe-sdk==0.7.1`은 앱 의존성이 아니고, `uv run --with typesafe-sdk==0.7.1`로 실행할 때만 설치한다
 
 ## 6. 기타 앱 변경
 
@@ -98,7 +98,7 @@
 | Streamlit 설정 | 없음 | `.streamlit/config.toml`: `fileWatcherType = "none"` |
 | CI | 없음 | `.github/workflows/streamlit-ci.yml`: main 대상 PR과 push마다 uv 환경에서 테스트 실행 및 문법 검사 |
 
-## 7. 커밋하지 않은 변경 (2026-10-02 작업)
+## 7. 2026-10-02 작업 (브랜치 `docs/wiki-fusion-experiment`, `main`에 아직 병합 안 됨)
 
 | 파일 | 내용 |
 | --- | --- |
@@ -107,7 +107,7 @@
 | `tests/test_hybrid_runtime.py` | 가중치 테스트 2개 추가 |
 | `README.md` | 하이브리드 검색 설명, 비교 표, 운영 기준 수치, 프로젝트 구조 갱신 |
 | `docs/wiki/` | 프로젝트 위키 7개 페이지(신규) |
-| `pyproject.toml`, `uv.lock` | 이번 작업 전부터 있던 변경. 위 1·5절의 의존성 추가와 관련됨 |
+| `pyproject.toml`, `uv.lock` | 변경 없음. 로컬에만 있던 `typesafe-sdk` 추가분은 Jev 섀도 실험 전용이라 커밋하지 않고 되돌렸다 |
 
 ## 8. 테스트·문서·산출물
 
