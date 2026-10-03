@@ -63,6 +63,8 @@ Day 46~53 교안 20개(colab 중복본 제외)를 읽고, RagDog에 적용할 �
 - **SqliteSaver, Store, Mem0 장기 기억 (Day 51-03, 52):** 로그인이 없어 `user_id`가 없다. 건강 정보와 위치를 서버에 남기는 것은 "좌표를 저장하지 않음" 원칙과 같은 개인정보 문제를 만든다.
 - **Jev 라우팅 (Day 47-03, 49-03):** 섀도 테스트에서 정확도가 기존과 같았다([router.md](router.md)).
 
+> **갱신 (2026-10-02, [deployment-resources.md](deployment-resources.md)):** 로컬 리랭커는 Cloud에서 쓸 수 없다. bge-m3 재사용은 질문당 45~145초, Qwen3-Reranker는 최고 메모리 5.1GB에 질문당 13분 이상이 걸렸다. 2번 리랭킹은 로컬 모델 대신 CRAG의 LLM 근거 판정으로 대체하는 방향을 검토한다. 그보다 먼저 임베딩 모델을 하나로 줄여야 한다.
+
 ## 추천 순서
 
 1. ~~오프라인 측정: RRF 가중치 실험 + 후보 재현율~~ → **2026-10-02 완료** ([retrieval-experiments.md](retrieval-experiments.md) 실험 4). 가중치는 효과 없음. 후보 풀 재현율이 0.61로 hit@3 0.26보다 훨씬 높아서 **4번 리랭킹의 우선순위를 올릴 근거가 생겼다.**

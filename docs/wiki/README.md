@@ -12,6 +12,7 @@
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
 | [open-questions.md](open-questions.md) | 미해결 과제와 알려진 불일치 |
+| [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 |
 | [lecture-review.md](lecture-review.md) | Day 46~53 고급 RAG·에이전트 교안 중 적용할 기법 검토 |
 
 ## 작성 규칙

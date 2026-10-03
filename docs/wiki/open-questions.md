@@ -28,6 +28,12 @@
 
 ## 배포·검증
 
+- ~~(2026-10-04) 임베딩 전환 결정 대기~~ → 건강은 ko-sroberta, 보고서는 OpenAI로 확정했다. 메모리는 1,765MB(+답변 표 19MB), Chroma DB는 209MB다([deployment-resources.md](deployment-resources.md)).
+- ~~`qa.output`을 Chroma 메타데이터에 넣어 sqlite가 커지는 문제~~ → 2026-10-04 해결. 답변은 CSV에서 읽고, Chroma DB는 209MB가 됐다.
+- 보고서 PDF가 `data/`에서 `data/source/`로 옮겨졌다. 앱 코드는 새 위치에 맞게 고쳤지만, 커밋할 때 `data/source/*.pdf` 5개를 함께 올려야 배포 앱에서 미리보기가 된다. `data/source/`의 나머지 파일(zip, xls, csv)은 앱이 쓰지 않는다.
+
+- **메모리 한도 초과 위험 (2026-10-02 측정):** 건강 검색 구성 요소와 보고서용 bge-m3를 모두 올리면 약 3.2GB로, Cloud 한도 2.7GB를 넘는다. 리랭커는 더 무겁다. 임베딩 모델을 하나로 줄이는 것이 우선이다([deployment-resources.md](deployment-resources.md)).
+
 - ~~Streamlit Cloud(HTTPS)에서 위치 권한 동작을 확인하지 않았다.~~ 2026-10-02 부분 확인([safety-and-evidence.md](safety-and-evidence.md)). 남은 것은 실제 기기 권한 팝업에서 허용, 거부, 시간 초과를 사람이 직접 확인하는 일이다.
 - 배포가 두 곳이다. `dograg-n4gxibufynkgiuixfrkx2v.streamlit.app`(`rndigkwk/dograg` main, 최신)과 `mle-01-p1-team2-…streamlit.app`(`encore-ai-campus/mle-01-p1-team2`, 2026-09-18 README 최종본에서 멈춤). 발표 자료나 노션에 옛 주소가 남아 있으면 혼동될 수 있다.
 - ~~로컬 `pyproject.toml`에 `typesafe-sdk`(Jev 섀도 실험 전용)가 앱 의존성으로 추가돼 있었다.~~ 2026-10-02 커밋하지 않고 되돌렸다. 섀도 스크립트는 `uv run --with typesafe-sdk==0.7.1`로 실행한다.

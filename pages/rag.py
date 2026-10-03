@@ -14,19 +14,29 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
 from src.ui import apply_app_theme, render_page_header
+from src.health_answers import attach_health_answers, load_health_answers
 from src.health_safety import detect_urgent_sign
 from src.hospital_distance import nearest_hospitals
-from src.report_evidence import report_evidence_from_docs, render_pdf_page
+from src.report_evidence import report_evidence_from_docs, render_pdf_page, resolve_report_pdf
 from src.location_component import render_location_control
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
 DB_PATH = PROJECT_DIR / "data" / "hospital.db"
-REPORT_COLLECTION_NAME = "pet_analysis_1024"
+# Health answers live in the CSV, not in Chroma metadata (see src/health_answers.py).
+HEALTH_CSV_PATH = PROJECT_DIR / "data" / "df.csv"
+# Health Q&A stays on local ko-sroberta: OpenAI embeddings lowered hybrid hit@3
+# from 0.2674 to 0.2353 (docs/wiki/retrieval-experiments.md, experiment 5).
+HEALTH_COLLECTION_NAME = "pet_care"
+HEALTH_EMBEDDING_MODEL_NAME = "jhgan/ko-sroberta-multitask"
+# Reports use OpenAI text-embedding-3-small (built by scripts/ingest_openai_chroma.py);
+# the hash suffix pins the exact source PDFs the vectors were built from.
+EMBEDDING_MODEL_NAME = "text-embedding-3-small"
+REPORT_COLLECTION_NAME = "pet_reports_openai3small_1536_3233577ba398"
 
 ALL_FILTER = "전체"
 ETC_DISEASE = "기타"
@@ -71,22 +81,28 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
 
 @st.cache_resource(show_spinner=False)
 def create_embedding_model():
-    return HuggingFaceEmbeddings(
-        model_name="BAAI/bge-m3",
-        encode_kwargs={"normalize_embeddings": True},
-    )
+    """Query embeddings must match the stored vectors; None when no API key is set."""
+    api_key = get_openai_api_key()
+    if not api_key:
+        return None
+    return OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME, api_key=api_key)
 
 
 @st.cache_resource(show_spinner=False)
 def load_vector_db():
     return Chroma(
-        collection_name="pet_care",
+        collection_name=HEALTH_COLLECTION_NAME,
         embedding_function=HuggingFaceEmbeddings(
-            model_name="jhgan/ko-sroberta-multitask",
+            model_name=HEALTH_EMBEDDING_MODEL_NAME,
             encode_kwargs={"normalize_embeddings": True},
         ),
         persist_directory=str(CHROMA_DIR),
     )
+
+
+@st.cache_resource(show_spinner=False)
+def load_health_answer_table():
+    return load_health_answers(HEALTH_CSV_PATH)
 
 
 @st.cache_resource(
@@ -111,9 +127,12 @@ def load_health_bm25_index():
 
 @st.cache_resource(show_spinner=False)
 def load_report_vector_db():
+    embeddings = create_embedding_model()
+    if embeddings is None:
+        return None
     return Chroma(
         collection_name=REPORT_COLLECTION_NAME,
-        embedding_function=create_embedding_model(),
+        embedding_function=embeddings,
         persist_directory=str(CHROMA_DIR),
     )
 
@@ -232,6 +251,7 @@ def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
         top_k=k,
         where=build_metadata_filter(filters),
     )
+    attach_health_answers(retrieved_docs, load_health_answer_table())
     safety_notice = detect_urgent_sign(question)
     if not retrieved_docs:
         return {
@@ -335,10 +355,10 @@ REPORT_ANALYSIS_KEYWORDS = (
 REPORT_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
     (
         "system",
-        """2025 한국 반려동물 보고서 8~9페이지의 목차 항목을 분석 기준으로 삼고,
-보고서 검색 자료만 근거로 분석 결과를 작성하세요.
+        """반려동물 관련 보고서(2025 한국 반려동물 보고서, 복지실태, 산업 실태조사, 의료보험, 장묘서비스)의
+검색 자료만 근거로 분석 결과를 작성하세요. 아래 분석 항목은 2025 한국 반려동물 보고서의 목차 기준입니다.
 분석 항목에 해당하는 수치, 차이, 추이를 우선 정리하고, 자료에 없는 수치나 원인은 추측하지 마세요.
-검색 자료가 부족하면 부족한 부분을 명시하세요. 답변에는 분석 대상, 핵심 결과, 근거 페이지를 포함하세요.
+검색 자료가 부족하면 부족한 부분을 명시하세요. 답변에는 분석 대상, 핵심 결과, 근거 보고서명과 페이지를 포함하세요.
 검색 데이터 밖 내용은 말하지 마세요.
 
 [분석 항목]
@@ -370,13 +390,15 @@ def get_report_analysis_topics(question: str) -> list[str]:
 
 def format_report_context(report_docs):
     return "\n\n".join(
-        f"[페이지 {doc.metadata.get('page', '?')}] {doc.page_content}"
+        f"[{doc.metadata.get('title', '보고서')} · 페이지 {doc.metadata.get('page', '?')}] {doc.page_content}"
         for doc in report_docs
     )
 
 
 def analyze_report(question: str) -> dict:
     report_db = load_report_vector_db()
+    if report_db is None:
+        return {"answer": "보고서 검색에는 OPENAI_API_KEY가 필요합니다.", "evidence_rows": []}
     topics = get_report_analysis_topics(question)
     search_query = f"{' '.join(topics)}\n{question}"
     report_docs = report_db.similarity_search(search_query, k=REPORT_ANALYSIS_TOP_K)
@@ -404,7 +426,7 @@ def run_report_analysis(question: str) -> str:
 
 @tool
 def report_analysis_tool(question: str) -> str:
-    """2025 한국 반려동물 보고서의 목차 항목을 근거로 통계와 추이를 분석합니다."""
+    """반려동물 관련 보고서를 근거로 통계와 추이를 분석합니다."""
     return run_report_analysis(question)
 
 
@@ -688,7 +710,7 @@ ROUTER_PROMPT = ChatPromptTemplate.from_messages([
         """질문을 사용할 도구로 분류하세요.
 - rag: 반려견 증상, 질병, 치료, 건강 정보
 - sql: 동물병원 이름, 주소, 지역, 병원 목록 검색
-    - analysis: 2025 한국 반려동물 보고서의 현황, 통계, 추이, 비교, 비중, 분포 분석
+    - analysis: 반려동물 관련 보고서(현황, 복지, 산업, 의료보험, 장묘)의 통계, 추이, 비교, 비중, 분포 분석
 - none: 인사, 감사, 자기소개, 기능 문의 등 도구가 필요 없는 질문
 인사말은 별도 직접 응답 분기로 만들지 말고 반드시 none으로 분류하세요.""",
     ),
@@ -921,13 +943,15 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
         previewed = set()
         for index, row in enumerate(evidence_rows, start=1):
             page = row.get("page")
-            st.markdown(f"**근거 {index} · 페이지 {page if page else '확인 불가'}**")
+            title = row.get("title") or "2025 한국 반려동물 보고서"
+            st.markdown(f"**근거 {index} · {title} · 페이지 {page if page else '확인 불가'}**")
             st.write(row.get("excerpt", ""))
-            if page and page not in previewed:
-                previewed.add(page)
-                png = render_pdf_page(PROJECT_DIR / "data" / "2025 한국 반려동물 보고서.pdf", page)
+            pdf_path = resolve_report_pdf(PROJECT_DIR, row.get("source"))
+            if page and pdf_path and (pdf_path, page) not in previewed:
+                previewed.add((pdf_path, page))
+                png = render_pdf_page(pdf_path, page)
                 if png:
-                    st.image(png, caption=f"2025 한국 반려동물 보고서 · {page}페이지")
+                    st.image(png, caption=f"{title} · {page}페이지")
                 else:
                     st.caption("이 페이지의 PDF 미리보기를 열 수 없습니다.")
     else:

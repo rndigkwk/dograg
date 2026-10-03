@@ -128,8 +128,14 @@ def retrieve_hybrid(
     where: dict | None = None,
     candidate_k: int = DEFAULT_CANDIDATE_K,
 ) -> list[Document]:
-    """Run filtered Dense and BM25 searches, then return their RRF ranking."""
-    dense_documents = db.similarity_search(query, k=candidate_k, filter=where)
+    """Run filtered Dense and BM25 searches, then return their RRF ranking.
+
+    Without an embedding model (no API key), only the BM25 ranking is used.
+    """
+    if getattr(db, "embeddings", True) is None:
+        dense_documents = []
+    else:
+        dense_documents = db.similarity_search(query, k=candidate_k, filter=where)
     lexical_documents = index.search(query, candidate_k, where=where)
     return reciprocal_rank_fusion(
         [dense_documents, lexical_documents], top_k=top_k

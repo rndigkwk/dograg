@@ -131,6 +131,28 @@ BM25 우선은 holdout에서 5문항 얻고 3문항 잃었다. 방향은 일관�
 
 **결론:** 가중치 조정으로 얻을 것은 없다. 리랭킹(추천 2단계)을 시도할 근거는 충분하다. 다음 실험은 Cross-Encoder로 현재 풀(최대 24건)을 재정렬해 hit@3와 질문당 지연을 측정하는 것이다.
 
+### 5. 건강 Q&A 임베딩을 OpenAI `text-embedding-3-small`로 교체 — **품질 하락** (2026-10-04)
+
+메모리 때문에 로컬 임베딩 모델을 없애려고, GPT 세션이 만든 OpenAI 컬렉션(`pet_care_openai3small_1536_2275beb30ef5`, 질문 문장만 임베딩)으로 앱을 전환한 뒤 같은 벤치마크를 돌렸다.
+
+- 실행: `uv run python scripts/evaluate_hybrid_search.py --output output/hybrid_retrieval_benchmark_openai.json`
+- 실험 3과 같은 스크립트, 같은 동점 처리(BM25 우선)라 실험 3의 수치와 직접 비교할 수 있다.
+
+| 방법 | ko-sroberta (실험 3) | OpenAI 3-small | 차이 |
+| --- | ---: | ---: | ---: |
+| Dense hit@3 | 0.2264 | **0.1818** | −4.5%p |
+| BM25 hit@3 | 0.2531 | 0.2496 | (BM25는 같은 방식, 문서 텍스트의 `\r`만 다름) |
+| **Hybrid hit@3** | **0.2674** | **0.2353** | **−3.2%p** |
+| Hybrid 미적중 | 411 | 429 | +18 |
+| Dense 평균 지연 | 171 ms | 187 ms (API 호출 포함) | |
+
+**해석**
+- 이 데이터와 이 지표(메타데이터 3개 완전 일치)에서는 OpenAI 임베딩이 ko-sroberta보다 나쁘다. 하이브리드가 BM25 단독(0.2496)보다도 낮아졌다. 지금의 Dense 쪽이 오히려 순위를 흐린다는 뜻이다.
+- 이 지표는 의료적 정확도가 아니다. 그래도 같은 조건에서 일관되게 떨어졌으므로 "품질이 유지된다"고 볼 근거가 없다.
+- 반면 보고서 검색은 GPT의 30페이지 표본에서 OpenAI hit@3 0.94로 충분했다(`eval/report_embedding_sample_20261003/REPORT.md`).
+
+**권장:** 건강은 ko-sroberta(기존 `pet_care`)로 되돌리고, 보고서만 OpenAI로 쓴다. 메모리는 약 1.76GB로 추정되며 Cloud 한도 2.7GB 안에 들어간다([deployment-resources.md](deployment-resources.md)). **2026-10-04 적용함.** 앱은 건강 `pet_care`(ko-sroberta), 보고서 `pet_reports_openai3small_1536_…`(OpenAI)를 쓴다.
+
 ## 다음에 해볼 만한 것
 
 - **Cross-Encoder 리랭킹 오프라인 실험:** 현재 풀(Dense 12 + BM25 12)과 20+20 풀로 hit@3와 CPU 지연을 측정한다. `output/fusion_candidates.json` 캐시를 재사용하면 검색을 다시 돌릴 필요가 없다.
