@@ -44,7 +44,7 @@ class RagRefactorHelpersTest(unittest.TestCase):
 
         self.assertEqual(
             rag.format_report_context(docs),
-            "[페이지 12] 반려동물 양육 현황은 전년 대비 증가했다.",
+            "[보고서 · 페이지 12] 반려동물 양육 현황은 전년 대비 증가했다.",
         )
 
     def test_executes_hospital_sql_and_returns_dict_rows(self):

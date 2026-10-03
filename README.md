@@ -2,7 +2,8 @@
 
 > 반려견 건강 Q&A, 지역 동물병원 검색, 반려동물 보고서 분석을 한곳에서 제공하는 데이터 기반 Streamlit 서비스입니다.
 
-배포 주소: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag>
+배포 주소: <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag> (`rndigkwk/dograg`의 `main` 브랜치)
+이전 발표 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag> (`encore-ai-campus/mle-01-p1-team2`, 하이브리드 검색·위치 기반 병원 검색 등 이후 개선 미반영)
 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5>
 
 ## 프로젝트 목표
@@ -27,7 +28,7 @@
 
 ![라그도그 시스템 아키텍처와 질문별 처리 흐름](data/ragdog_architecture.svg)
 
-아키텍처는 두 가지 검색 기반을 결합합니다. 건강 Q&A와 KB 보고서는 각각 Chroma 컬렉션에 저장되어 유사도 검색을 수행하고, 검색된 근거·필터·최근 대화를 LLM에 전달해 답변을 만듭니다. 반면 동물병원 정보는 벡터 검색이 아닌 SQLite `hospital` 테이블의 읽기 전용 SQL 조회를 사용하므로, 지역·주소·병원명 조건을 정확하게 처리합니다.
+아키텍처는 두 가지 검색 기반을 결합합니다. 건강 Q&A는 `jhgan/ko-sroberta-multitask`, 반려동물 관련 보고서 5종은 OpenAI `text-embedding-3-small`(1536차원)로 임베딩해 각각 Chroma 컬렉션에 저장됩니다. 건강 Q&A는 벡터 유사도 검색과 BM25 키워드 검색을 함께 쓰는 하이브리드 검색을, 보고서는 벡터 유사도 검색을 수행하고, 검색된 근거·필터·최근 대화를 LLM에 전달해 답변을 만듭니다. 반면 동물병원 정보는 벡터 검색이 아닌 SQLite `hospital` 테이블의 읽기 전용 SQL 조회를 사용하므로, 지역·주소·병원명 조건을 정확하게 처리합니다.
 
 시스템 흐름은 사용자 질문과 최근 대화 최대 6턴에서 시작합니다. 질문 라우터는 건강·증상 질문을 `rag_tool`로, 지역·주소·병원명 질문을 `sql_tool`로, 통계·추이·비교 등의 보고서 질문을 `report_analysis_tool`로 각각 분기합니다. 일반 대화나 서비스 범위 밖 질문은 검색 도구를 호출하지 않습니다. 세 도구의 결과는 모두 Streamlit UI에서 답변으로 표시되며, 건강 RAG는 사용한 검색 근거도 함께 확인할 수 있습니다.
 
@@ -37,21 +38,23 @@
 
 | 도구 | 선택되는 질문 | 동작 | 결과·제한 |
 | --- | --- | --- | --- |
-| `rag_tool` | 반려견 증상, 질병, 치료, 건강 정보 | `pet_care` 컬렉션에서 유사 Q&A를 검색하고, 검색 문서만 근거로 LLM 답변 생성 | 기본 3건, 화면에서 1~5건 선택 가능. 연령 단계·진료과·질병 필터를 적용할 수 있으며 검색 근거를 화면에 표시 |
+| `rag_tool` | 반려견 증상, 질병, 치료, 건강 정보 | `pet_care` 컬렉션에서 Dense+BM25 하이브리드 검색으로 유사 Q&A를 찾고, 검색 문서만 근거로 LLM 답변 생성 | 기본 3건, 화면에서 1~5건 선택 가능. 연령 단계·진료과·질병 필터를 적용할 수 있으며 검색 근거를 화면에 표시 |
 | `sql_tool` | 동물병원 이름, 주소, 지역, 병원 목록 | SQLite의 `hospital` 테이블을 조회. 현재 위치를 허용한 가까운 병원 질문은 모델 SQL 대신 좌표 변환·직선거리 정렬 사용 | 기본 최대 10곳, “하나만”은 1곳. 위치 없는 “가까운 병원” 요청은 첫 DB 행을 가장 가깝다고 표시하지 않고 위치 사용·지역 검색을 안내 |
 | `report_analysis_tool` | 2025 반려동물 보고서의 현황, 통계, 추이, 비교, 비중, 분포 | 보고서 전용 컬렉션에서 관련 페이지 6개를 검색해 요약·분석 | 앱 화면에는 발췌문과 해당 PDF 페이지를 표시. 근거가 없으면 모델을 호출하지 않음 |
 
 ### 건강 RAG 상세
 
 1. 현재 질문과 최근 사용자 질문을 합쳐 후속 질문의 검색어를 보강합니다.
-2. `jhgan/ko-sroberta-multitask` 임베딩을 쓰는 Chroma `pet_care` 컬렉션에서 유사 문서를 찾습니다.
+2. 두 방식으로 각각 후보 12건을 검색한 뒤 Reciprocal Rank Fusion(RRF, c=60, 동일 가중치)으로 합쳐 상위 k건을 고릅니다. 선택한 필터는 두 검색에 똑같이 적용됩니다.
+   - **Dense:** `jhgan/ko-sroberta-multitask` 임베딩을 쓰는 Chroma `pet_care` 컬렉션의 유사도 검색. OpenAI 임베딩도 시험했지만 검색 품질이 낮아 쓰지 않습니다(`docs/wiki/retrieval-experiments.md` 실험 5).
+   - **BM25:** Kiwi 형태소 분석으로 명사·외국어·숫자 토큰만 뽑아 만든 메모리 색인(`rank-bm25`). 앱을 처음 실행할 때 Chroma 문서 전체로 한 번 구축하며, 이때 수 분이 걸릴 수 있습니다.
 3. 검색 문서의 질문·답변과 선택한 필터, 대화 이력을 프롬프트에 넣습니다.
 4. `gpt-6-luna`가 **검색 데이터 밖 내용을 추측하지 않도록** 지시받아 답변합니다.
 5. 사용자는 UI의 `검색 근거` 펼침 영역에서 사용된 연령 단계·진료과·질병·원문 답변을 확인할 수 있습니다.
 
 검색 결과가 없으면 모델을 호출하지 않고 근거 부족을 알립니다. 명백한 호흡곤란·발작·독성물질 섭취 등의 표현에는 진단과 별도로 진료 권고를 표시합니다. 키워드 기반 경고는 완전한 응급 분류기가 아니며, 관련도 점수 임계값은 아직 검증되지 않아 적용하지 않았습니다.
 
-`OPENAI_API_KEY`가 없으면 건강 RAG는 유사도 검색 결과까지만 확인되고, 생성 답변 대신 키가 필요하다는 메시지를 표시합니다. 반면 지역 키워드가 포함된 기본 병원 검색은 LLM 키 없이도 SQLite 조회로 동작합니다.
+`OPENAI_API_KEY`가 없으면 건강 RAG는 검색 결과까지만 보여주고, 생성 답변 대신 키가 필요하다는 메시지를 표시합니다. 보고서 분석은 질문 임베딩에도 OpenAI를 쓰므로 키가 없으면 검색하지 않습니다. 반면 지역 키워드가 포함된 기본 병원 검색은 LLM 키 없이도 SQLite 조회로 동작합니다.
 
 ## 서비스 시연
 
@@ -102,8 +105,8 @@
 | 반려견 건강 Q&A | `data/df.csv` | 19,206건 | 건강 RAG의 원천 Q&A. 연령 단계·진료과·질병 메타데이터 포함 |
 | 검증 Q&A | `data/df_val.csv` | 561건 | RAG 검색·답변 평가 |
 | 동물병원 | `data/hospital_completed.csv` / `data/hospital.db` | 5,448건 | 지역·주소·좌표 기반 병원 검색과 지도 표시 |
-| KB 보고서 | `data/2025 한국 반려동물 보고서.pdf` | 1개 PDF | 반려동물 보고서 분석 RAG 원문 |
-| 벡터 저장소 | `data/chroma_db/` | 영속 Chroma DB | 건강 Q&A `pet_care`, 보고서 `pet_analysis_1024` 컬렉션 |
+| 반려동물 보고서 | `data/source/*.pdf` | 5개 PDF, 922페이지, 1,193청크 | 보고서 분석 RAG 원문: 2025 한국 반려동물 보고서(KB), 반려동물 복지실태와 개선과제, 반려동물 산업 조사체계 진단 및 실태조사, 반려동물 의료보험서비스 시장 진단, 반려동물 장묘서비스 이용 실태조사 |
+| 벡터 저장소 | `data/chroma_db/` | 영속 Chroma DB | 건강 Q&A `pet_care`(ko-sroberta, 768차원), 보고서 `pet_reports_openai3small_1536_…`(OpenAI, `scripts/ingest_openai_chroma.py`로 생성) |
 
 원천 데이터는 AI Hub 반려견 성장·질병 말뭉치, KB경영연구소의 2025 반려동물 보고서, 공공데이터포털 동물병원 데이터를 바탕으로 구성했습니다.
 
@@ -111,7 +114,21 @@
 
 ## RAG 평가
 
-`notebooks/rag_retrieval_evaluation.ipynb`에서 validation 50건을 평가한 저장 결과입니다.
+### 하이브리드 검색 비교 (현재 적용)
+
+검증 Q&A 561건 전체를 대상으로 했고, 생성 답변 없이 검색만 오프라인으로 비교했습니다. 적중 기준은 검색 문서의 연령 단계·진료과·질병 메타데이터 3개가 질문과 모두 일치하는 것입니다.
+
+| 검색 방식 | `hit@3` | `MRR@3` | 미적중 | 평균 지연 | p95 지연 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Dense (이전 방식) | 0.2264 | 0.1503 | 434 | 171 ms | 234 ms |
+| BM25 | 0.2531 | 0.1800 | 419 | 532 ms | 1,333 ms |
+| **Dense+BM25 RRF (현재)** | **0.2674** | **0.1866** | **411** | 704 ms | 1,558 ms |
+
+하이브리드 검색은 Dense 대비 `hit@3`를 4.1%p 높이고 미적중을 23건 줄였습니다. 이 표의 하이브리드 수치는 점수 동점일 때 BM25 문서를 앞에 두는 벤치마크 기준입니다. 동점을 문서 ID 순으로 처리하는 운영 코드로 재현하면 `hit@3` 0.2620, 미적중 414건입니다. RRF 가중치를 바꿔도 개선이 없었고, 정답이 후보 24건 안에 있는 비율은 61%였습니다(`scripts/evaluate_fusion_weights.py`). 대신 검색 지연이 약 4배로 늘었습니다. 지연 시간은 로컬 측정값입니다. 재현 명령은 `uv run python scripts/evaluate_hybrid_search.py`이고, 결과는 `output/hybrid_retrieval_benchmark.json`에 저장됩니다. 이 지표도 의료적 정확도를 뜻하지 않습니다. 실험 경과와 결정 이유는 [`docs/wiki/retrieval-experiments.md`](docs/wiki/retrieval-experiments.md)에 정리했습니다.
+
+### 답변 유사도 평가 (Dense 검색 시점)
+
+`notebooks/rag_retrieval_evaluation.ipynb`에서 validation 50건을 평가한 저장 결과입니다. 하이브리드 검색을 적용하기 전에 측정했습니다.
 
 | 지표 | 값 | 의미 |
 | --- | ---: | --- |
@@ -121,7 +138,9 @@
 
 이 평가는 답변의 의미 유사도와 metadata 완전 일치 기준의 검색 참고 지표를 함께 봅니다. 유사도는 의료적 정확성이나 안전성을 직접 보장하지 않으므로, 실제 운영 전에는 전문가 검토와 추가 평가가 필요합니다. 상세 결과는 [`notebooks/docs/rag_answer_similarity_evaluation.md`](notebooks/docs/rag_answer_similarity_evaluation.md)와 `notebooks/outputs/`에서 확인할 수 있습니다.
 
-추가로 원본 Chroma를 임시 복사하여 검증 Q&A 561건 모두를 동일한 3개 메타데이터 완전 일치 기준으로 비교했습니다. 기존 검색은 `hit@3` 0.2264, `MRR@3` 0.1503, 미적중 434건이었고, 12건 후보의 문자 재정렬은 각각 0.2228, 0.1583, 436건이었습니다. `hit@3`가 개선되지 않았으므로 앱에는 재정렬을 적용하지 않았습니다. 이번 검증셋에는 `기타` 라벨이 없어 그 집단에 대한 비교는 불가능합니다. 이 수치는 의료적 정확도나 답변 안전성을 측정하지 않습니다. 상세 JSON은 평가 명령 실행 후 `output/health_retrieval_comparison.json`에 생성됩니다.
+### 문자 재정렬 실험 (적용하지 않음)
+
+원본 Chroma를 임시 복사하여 검증 Q&A 561건 모두를 동일한 3개 메타데이터 완전 일치 기준으로 비교했습니다. 기존 검색은 `hit@3` 0.2264, `MRR@3` 0.1503, 미적중 434건이었고, 12건 후보의 문자 재정렬은 각각 0.2228, 0.1583, 436건이었습니다. `hit@3`가 개선되지 않았으므로 앱에는 재정렬을 적용하지 않았습니다. 이번 검증셋에는 `기타` 라벨이 없어 그 집단에 대한 비교는 불가능합니다. 이 수치는 의료적 정확도나 답변 안전성을 측정하지 않습니다. 상세 JSON은 평가 명령 실행 후 `output/health_retrieval_comparison.json`에 생성됩니다.
 
 ## 프로젝트 구조
 
@@ -133,10 +152,12 @@
 │   ├── rag.py                      # 질문 라우팅, RAG·SQL·보고서 분석 도구
 │   ├── hospital.py                 # 지역 선택형 병원 목록·지도
 │   └── data.py                     # 질병·진료과·지역 분포 대시보드
-├── src/                            # 공통 UI, 키 로드, 차트 헬퍼
+├── src/                            # 하이브리드 검색, 안전 안내, 거리 계산, 보고서 근거, 공통 UI
 ├── data/                           # CSV, SQLite, PDF, Chroma 영속 저장소
 ├── notebooks/                      # 벡터 DB 구축, RAG 평가, 데이터 분석
+├── scripts/                        # 데이터 감사, 하이브리드 검색 벤치마크, 라우터 섀도 비교
 ├── tests/                          # RAG 회귀 테스트·Chroma 격리 스모크 테스트
+├── docs/wiki/                      # 실험 수치, 설계 결정, 미해결 과제 기록
 └── pyproject.toml                  # uv 의존성 정의
 ```
 
@@ -177,22 +198,23 @@ uv run python -m unittest discover -s tests -v
 uv run python tests/chroma_smoke.py
 uv run python scripts/audit_health_data.py
 uv run python tests/evaluate_health_retrieval.py
+uv run python scripts/evaluate_hybrid_search.py
 ```
 
-Chroma 스모크 테스트는 `data/chroma_db/`를 임시 폴더에 복사한 뒤 건강·보고서 검색을 수행합니다. 원본 벡터 DB는 테스트 중 수정하지 않으며, 사전에 임베딩 모델을 로컬 캐시에 받아 두어야 합니다.
+Chroma 스모크 테스트는 `data/chroma_db/`를 임시 폴더에 복사한 뒤 건강·보고서 검색을 수행합니다. 원본 벡터 DB는 테스트 중 수정하지 않으며, ko-sroberta 모델을 로컬 캐시에 받아 두고 보고서 검색용 `OPENAI_API_KEY`를 설정해야 합니다.
 
 실제 모델 호출은 별도 승인 후 `uv run python tests/live_model_smoke.py --allow-external-corpus`로 최소 건강·보고서 질문을 검증합니다. 이 명령은 검색된 데이터 일부를 외부 모델 API로 전송합니다. 자동 단위 테스트에는 포함되지 않습니다.
 
 ### 5. GitHub 검사와 Streamlit 자동 업데이트
 
-`.github/workflows/streamlit-ci.yml`은 `main` 대상 PR과 `main` 브랜치 push마다 Python 3.12 및 `uv.lock` 기준으로 테스트와 문법 검사를 실행합니다. GitHub에서 PR 검사 결과를 확인할 수 있습니다. Streamlit Community Cloud 앱이 이 GitHub 저장소에 연결돼 있으면 `main` 변경을 감지해 앱을 자동 업데이트합니다. GitHub Actions가 Streamlit Cloud에 직접 배포 요청을 보내지는 않습니다. 테스트 성공 전 병합을 막으려면 저장소의 Branch protection 규칙에서 이 워크플로의 `test` 작업을 필수 검사로 지정해야 합니다.
+`.github/workflows/streamlit-ci.yml`은 `main` 대상 PR과 `main` 브랜치 push마다 Python 3.12 및 `uv.lock` 기준으로 테스트와 문법 검사를 실행합니다. GitHub에서 PR 검사 결과를 확인할 수 있습니다. 배포 앱(<https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app>)은 Streamlit Community Cloud에서 이 저장소(`rndigkwk/dograg`)의 `main` 브랜치에 연결되어 있어, `main` 변경을 감지해 자동으로 업데이트됩니다. 앱은 `pyproject.toml`·`uv.lock`의 커밋된 의존성으로 설치되므로, 새 패키지를 쓰는 코드를 올릴 때는 두 파일도 함께 커밋해야 합니다. GitHub Actions가 Streamlit Cloud에 직접 배포 요청을 보내지는 않습니다. 테스트 성공 전 병합을 막으려면 저장소의 Branch protection 규칙에서 이 워크플로의 `test` 작업을 필수 검사로 지정해야 합니다.
 
 `OPENAI_API_KEY`는 GitHub Actions 시크릿으로 복사하지 않습니다. Streamlit 배포 앱에는 Community Cloud의 앱 설정에서 secrets를 등록하고, 로컬 실행은 `.streamlit/secrets.toml` 또는 `.env`를 사용합니다.
 
 ## 한계와 개선 방향
 
 - 건강 RAG는 저장된 Q&A와 검색 결과 범위 안에서 답하므로, 최신 진료 지침·개별 반려견의 상태를 완전하게 반영하지 못합니다.
-- 실제 HTTPS 배포에서 브라우저 위치 권한 허용·거부 동작은 아직 별도 확인이 필요합니다.
+- 배포 앱(HTTPS)에서 위치 API가 허용되는 환경인지와, 모의 좌표로 거리순 목록·지도가 표시되는지는 확인했습니다(2026-10-02). 실제 휴대폰·PC 브라우저의 권한 팝업에서 허용·거부하는 동작은 아직 사람이 직접 확인해야 합니다.
 - 병원 데이터의 주소·좌표 누락 여부와 최신 운영 정보는 별도 확인이 필요합니다.
 - 평가에서 검색 근거 유사도보다 생성 답변 유사도가 낮은 사례가 있어, 프롬프트·청킹·질병명 정규화와 전문가 기반 안전성 평가를 추가로 개선할 수 있습니다.
 

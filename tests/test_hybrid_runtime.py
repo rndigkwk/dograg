@@ -27,6 +27,30 @@ class HybridRuntimeTests(unittest.TestCase):
 
         self.assertEqual([document.id for document in fused], ["b", "a", "d"])
 
+    def test_rrf_weights_shift_ranking_toward_heavier_retriever(self):
+        if self.hybrid is None:
+            self.skipTest("runtime hybrid retrieval module is not implemented")
+        dense = [Document(id=key, page_content=key) for key in ["a", "b"]]
+        lexical = [Document(id=key, page_content=key) for key in ["b", "a"]]
+
+        dense_heavy = self.hybrid.reciprocal_rank_fusion(
+            [dense, lexical], top_k=2, c=60, weights=(0.7, 0.3)
+        )
+        lexical_heavy = self.hybrid.reciprocal_rank_fusion(
+            [dense, lexical], top_k=2, c=60, weights=(0.3, 0.7)
+        )
+
+        self.assertEqual([document.id for document in dense_heavy], ["a", "b"])
+        self.assertEqual([document.id for document in lexical_heavy], ["b", "a"])
+
+    def test_rrf_rejects_weight_count_mismatch(self):
+        if self.hybrid is None:
+            self.skipTest("runtime hybrid retrieval module is not implemented")
+        dense = [Document(id="a", page_content="a")]
+
+        with self.assertRaises(ValueError):
+            self.hybrid.reciprocal_rank_fusion([dense, dense], top_k=1, weights=(1.0,))
+
     def test_metadata_filter_supports_nested_and_or_conditions(self):
         if self.hybrid is None:
             self.skipTest("runtime hybrid retrieval module is not implemented")
