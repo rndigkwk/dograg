@@ -17,7 +17,7 @@
 
 - 검색 근거보다 생성 답변의 유사도가 낮다(0.7721 → 0.7448). 원인은 분석하지 않았다.
 - 관련도 임계값이 없어서, 범위 밖 질문에도 근거 k건이 붙는다([safety-and-evidence.md](safety-and-evidence.md)).
-- BM25 색인 구축이 앱 콜드 스타트를 수 분 늦춘다.
+- ~~BM25 색인 구축이 앱 콜드 스타트를 수 분 늦춘다.~~ 2026-10-05 토큰 캐시와 백그라운드 워밍업으로 해결. 로컬 첫 질문 165초 이상 → 8초([deployment-resources.md](deployment-resources.md)).
 - RRF 동점(검증 질문의 79%에서 상위 4건 안에 발생)을 운영 코드가 문서 ID 문자열 순으로 처리한다. 사실상 임의 순서다. BM25 우선이 holdout에서 순증 2문항으로 약간 낫다([retrieval-experiments.md](retrieval-experiments.md) 실험 4).
 - 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다.
 - 건강 컬렉션(ko-sroberta)과 보고서 컬렉션(bge-m3)의 임베딩 모델이 다르다. 건강 컬렉션도 bge-m3로 바꿀 때의 효과는 측정하지 않았다.

@@ -1,7 +1,9 @@
 import json
+import logging
 import os
 import re
 import sqlite3
+import sys
 import tomllib
 from datetime import date
 from pathlib import Path
@@ -32,6 +34,9 @@ CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
 DB_PATH = PROJECT_DIR / "data" / "hospital.db"
 # Health answers live in the CSV, not in Chroma metadata (see src/health_answers.py).
 HEALTH_CSV_PATH = PROJECT_DIR / "data" / "df.csv"
+# Pre-tokenized health documents; rebuild with scripts/build_bm25_cache.py.
+BM25_TOKEN_CACHE = PROJECT_DIR / "data" / "bm25_health_tokens.json.gz"
+HEALTH_TOKENIZER_VERSION = "kiwi-nouns-sl-sn-v1"
 # Health Q&A stays on local ko-sroberta: OpenAI embeddings lowered hybrid hit@3
 # from 0.2674 to 0.2353 (docs/wiki/retrieval-experiments.md, experiment 5).
 HEALTH_COLLECTION_NAME = "pet_care"
@@ -113,6 +118,17 @@ def load_health_answer_table():
 )
 def load_health_bm25_index():
     from src.hybrid_retrieval import HealthBM25Index
+
+    return HealthBM25Index.from_chroma(
+        load_vector_db(),
+        make_health_tokenizer(),
+        token_cache=BM25_TOKEN_CACHE,
+        tokenizer_version=HEALTH_TOKENIZER_VERSION,
+    )
+
+
+def make_health_tokenizer():
+    """Kiwi nouns, foreign words and numbers. Bump HEALTH_TOKENIZER_VERSION when this changes."""
     from kiwipiepy import Kiwi
 
     kiwi = Kiwi()
@@ -125,7 +141,7 @@ def load_health_bm25_index():
             if token.tag.startswith("N") or token.tag in {"SL", "SN"}
         ]
 
-    return HealthBM25Index.from_chroma(load_vector_db(), tokenize)
+    return tokenize
 
 
 @st.cache_resource(show_spinner=False)
@@ -1058,7 +1074,52 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
                 st.markdown(evidence["body"])
 
 
+def warmup_wanted(env: dict | None = None, modules: dict | None = None, runtime_exists=None) -> bool:
+    """Warm up on a real Streamlit server, not under AppTest; DOGRAG_WARMUP=0/1 overrides.
+
+    sys.argv cannot tell the two apart: Streamlit replaces it with the app script path.
+    AppTest also has a runtime, but it is the only one that imports streamlit.testing.
+    """
+    env = os.environ if env is None else env
+    override = str(env.get("DOGRAG_WARMUP", "")).strip().lower()
+    if override in {"0", "false", "off", "no"}:
+        return False
+    if override in {"1", "true", "on", "yes"}:
+        return True
+    modules = sys.modules if modules is None else modules
+    if runtime_exists is None:
+        from streamlit import runtime
+
+        runtime_exists = runtime.exists()
+    return bool(runtime_exists) and "streamlit.testing.v1" not in modules
+
+
+def _warm_up_health_search():
+    # 모델(ko-sroberta), BM25 색인, 답변 표를 미리 캐시에 올립니다. 실패해도 첫 질문 때 다시 시도됩니다.
+    try:
+        load_vector_db()
+        load_health_bm25_index()
+        load_health_answer_table()
+    except Exception:  # noqa: BLE001 - warm-up is best effort
+        logging.getLogger(__name__).warning("Health search warm-up failed", exc_info=True)
+
+
+@st.cache_resource(show_spinner=False)
+def start_warmup():
+    """Start one background warm-up per server process (st.cache_resource runs this once)."""
+    import threading
+
+    from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
+    thread = threading.Thread(target=_warm_up_health_search, name="dograg-warmup", daemon=True)
+    add_script_run_ctx(thread, get_script_run_ctx())
+    thread.start()
+    return thread
+
+
 def render_page():
+    if warmup_wanted():
+        start_warmup()
     apply_app_theme()
     render_page_header(
         "반려견 AI 상담",

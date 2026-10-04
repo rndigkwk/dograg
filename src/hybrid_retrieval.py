@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import gzip
+import hashlib
 import heapq
 import json
+from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from langchain_core.documents import Document
@@ -83,6 +86,43 @@ def select_bm25_candidates(
     return [documents[index] for index in indices]
 
 
+TOKEN_CACHE_FORMAT = 1
+
+
+def corpus_fingerprint(ids: Iterable[str], texts: Iterable[str]) -> str:
+    digest = hashlib.sha256()
+    for source_id, text in sorted(zip(ids, texts)):
+        digest.update(json.dumps([source_id, text], ensure_ascii=False).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def write_token_cache(
+    path: Path, ids: list[str], tokens: list[list[str]], texts: list[str], tokenizer_version: str
+) -> None:
+    payload = {
+        "format": TOKEN_CACHE_FORMAT,
+        "tokenizer": tokenizer_version,
+        "corpus_sha256": corpus_fingerprint(ids, texts),
+        "tokens": dict(zip(ids, tokens)),
+    }
+    path.write_bytes(gzip.compress(json.dumps(payload, ensure_ascii=False).encode("utf-8"), 9))
+
+
+def load_token_cache(path: Path, fingerprint: str, tokenizer_version: str) -> dict[str, list[str]] | None:
+    """Return {id: tokens} only if the cache was built from this corpus and tokenizer."""
+    try:
+        payload = json.loads(gzip.decompress(Path(path).read_bytes()))
+    except (OSError, ValueError, EOFError):
+        return None
+    if (
+        payload.get("format") != TOKEN_CACHE_FORMAT
+        or payload.get("tokenizer") != tokenizer_version
+        or payload.get("corpus_sha256") != fingerprint
+    ):
+        return None
+    return payload.get("tokens")
+
+
 class HealthBM25Index:
     """An in-memory BM25 index built once from the persisted Chroma corpus."""
 
@@ -92,7 +132,20 @@ class HealthBM25Index:
         self.tokenize = tokenize
 
     @classmethod
-    def from_chroma(cls, db: Any, tokenize: Callable[[str], list[str]]) -> "HealthBM25Index":
+    def from_chroma(
+        cls,
+        db: Any,
+        tokenize: Callable[[str], list[str]],
+        *,
+        token_cache: Path | None = None,
+        tokenizer_version: str = "",
+    ) -> "HealthBM25Index":
+        """Build the index; reuse pre-tokenized documents when the cache matches the corpus.
+
+        Tokenizing all 19,206 documents with Kiwi takes about two minutes, which used to
+        delay the first health answer after a cold start. The cache is keyed by a hash of
+        the ids and texts plus the tokenizer version, so a stale cache is ignored.
+        """
         try:
             from rank_bm25 import BM25Okapi
         except ImportError as exc:
@@ -111,7 +164,16 @@ class HealthBM25Index:
         ]
         if not documents:
             raise ValueError("BM25 색인을 만들 건강 Q&A 문서가 없습니다.")
-        tokenized = [tokenize(document.page_content) for document in documents]
+        cached = None
+        if token_cache is not None:
+            fingerprint = corpus_fingerprint(
+                [document.id for document in documents], [document.page_content for document in documents]
+            )
+            cached = load_token_cache(token_cache, fingerprint, tokenizer_version)
+        if cached is not None and all(document.id in cached for document in documents):
+            tokenized = [cached[document.id] for document in documents]
+        else:
+            tokenized = [tokenize(document.page_content) for document in documents]
         return cls(documents, BM25Okapi(tokenized), tokenize)
 
     def search(self, query: str, top_k: int, where: dict | None = None) -> list[Document]:
