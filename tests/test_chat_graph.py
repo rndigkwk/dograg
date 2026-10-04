@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from langchain_core.documents import Document
 
 from pages import rag
-from src.chat_graph import HEALTH_ABSTAIN, PARTIAL_NOTE, REPORT_ABSTAIN, run_chat
+from src.chat_graph import HEALTH_ABSTAIN, REPORT_ABSTAIN, run_chat
 from src.crag import (
     RetrievalReview,
     clean_sub_queries,
@@ -61,8 +61,8 @@ class ChatGraphTestCase(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(self.log_dir.cleanup)
 
-    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2):
-        return run_chat(tools, question, top_k=top_k, crag=crag)
+    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2, crag_reports=False):
+        return run_chat(tools, question, top_k=top_k, crag=crag, crag_reports=crag_reports)
 
     def log_records(self):
         with open(self.log_path, encoding="utf-8") as file:
@@ -114,18 +114,26 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual(result["evidence_rows"], [])
         self.assertEqual(result["safety_notice"], "응급")
 
-    def test_partial_evidence_after_rewrite_gives_partial_answer(self):
+    def test_partial_evidence_answers_without_rewrite_or_note(self):
         tools = make_tools(review_evidence=Mock(return_value=review(["a"], False)))
         result = self.run_chat(tools)
+        tools.rewrite_search_query.assert_not_called()
+        self.assertEqual(result["answer"], "생성 답변")
+        self.assertFalse(result["abstained"])
+        self.assertEqual(self.log_records()[-1]["decision"], "ambiguous")
+
+    def test_rewrite_that_finds_evidence_answers(self):
+        tools = make_tools(review_evidence=Mock(side_effect=[review([], False), review(["c"], True)]))
+        result = self.run_chat(tools)
         self.assertEqual(tools.rewrite_search_query.call_count, 1)
-        self.assertTrue(result["answer"].endswith(PARTIAL_NOTE))
+        self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["c"])
         self.assertFalse(result["abstained"])
 
     def test_grader_failure_falls_back_to_top_documents(self):
         tools = make_tools(review_evidence=Mock(side_effect=RuntimeError("down")))
         result = self.run_chat(tools)
         self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["a", "b"])
-        self.assertIn(PARTIAL_NOTE, result["answer"])
+        self.assertEqual(result["answer"], "생성 답변")
 
     def test_run_is_logged_without_question_text(self):
         tools = make_tools()
@@ -139,6 +147,17 @@ class HealthCragTests(ChatGraphTestCase):
 
 
 class ReportCragTests(ChatGraphTestCase):
+    def run_chat(self, tools, question="보고서 질문", crag=True, top_k=2, crag_reports=True):
+        return super().run_chat(tools, question, crag=crag, top_k=top_k, crag_reports=crag_reports)
+
+    def test_health_crag_alone_keeps_reports_on_the_plain_path(self):
+        tools = make_tools("analysis")
+        result = self.run_chat(tools, question="입양비와 생활비를 비교해줘", crag=True, crag_reports=False)
+        tools.analyze_report.assert_called_once()
+        tools.review_evidence.assert_not_called()
+        tools.decompose_question.assert_not_called()
+        self.assertEqual(result["answer"], "기존 분석")
+
     def test_comparison_question_is_decomposed_and_graded(self):
         tools = make_tools("analysis", review_evidence=Mock(return_value=review(["r2"], True)))
         result = self.run_chat(tools, question="입양비와 생활비를 비교해줘")
@@ -195,6 +214,17 @@ class PageWiringTests(ChatGraphTestCase):
             self.assertTrue(rag.crag_enabled())
         with patch.object(rag, "get_setting", return_value=None):
             self.assertFalse(rag.crag_enabled())
+
+    def test_chatbot_reads_report_flag_separately(self):
+        settings = {"ENABLE_CRAG": "true", "ENABLE_CRAG_REPORTS": None}
+        with (
+            patch.object(rag, "get_setting", side_effect=settings.get),
+            patch.object(rag, "load_chat_model", return_value=object()),
+            patch.object(rag, "run_chat", return_value={}) as run,
+        ):
+            rag.chatbot("질문")
+        self.assertTrue(run.call_args.kwargs["crag"])
+        self.assertFalse(run.call_args.kwargs["crag_reports"])
 
     def test_chatbot_without_model_never_uses_crag(self):
         with patch.object(rag, "load_chat_model", return_value=None), \

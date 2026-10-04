@@ -28,8 +28,6 @@ from src.crag import (
 )
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
 
-PARTIAL_NOTE = "\n\n※ 검색된 자료만으로는 질문의 일부를 확인하지 못했습니다. 증상이 계속되면 동물병원에 문의해 주세요."
-REPORT_PARTIAL_NOTE = "\n\n※ 검색된 보고서 자료만으로는 질문의 일부를 확인하지 못했습니다."
 HEALTH_ABSTAIN = (
     "검색된 상담 자료에서 이 질문에 답할 근거를 찾지 못해 답변을 드리지 않았습니다. "
     "증상이 계속되거나 걱정되면 가까운 동물병원에 문의해 주세요."
@@ -43,7 +41,8 @@ class ChatState(TypedDict, total=False):
     top_k: int
     chat_history: list
     location: tuple[float, float] | None
-    crag: bool
+    crag: bool  # 건강 상담 CRAG
+    crag_reports: bool  # 보고서 CRAG (기본 꺼짐)
     # classify
     route: str
     contextual_question: str
@@ -89,7 +88,8 @@ def build_chat_graph(tools):
         if route == "rag":
             return "health_retrieve" if crag else "health_simple"
         if route == "analysis":
-            return "report_retrieve" if crag else "report_simple"
+            # 보고서는 판정이 정답 근거를 걸러 내서(정답 페이지 12/18 -> 10/18) 따로 켭니다.
+            return "report_retrieve" if state.get("crag_reports", False) else "report_simple"
         if route == "sql":
             return "hospital"
         return "general"
@@ -179,11 +179,13 @@ def build_chat_graph(tools):
         return _grade(state, "health", _health_text)
 
     def route_after_health_grade(state: ChatState) -> str:
-        if state["decision"] == "correct":
+        # v2: 근거가 일부라도 있으면 바로 답합니다(없는 내용은 생성 프롬프트가 없다고 밝힘).
+        # 근거가 전혀 없을 때만 검색어를 다시 써서 한 번 더 찾고, 그래도 없으면 보류합니다.
+        if state.get("documents"):
             return "health_generate"
         if state.get("rewrite_count", 0) < MAX_REWRITES:
             return "health_rewrite"
-        return "health_generate" if state.get("documents") else "abstain"
+        return "abstain"
 
     def health_rewrite(state: ChatState):
         try:
@@ -197,8 +199,6 @@ def build_chat_graph(tools):
         answer = tools.generate_health_answer(
             state["question"], docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
         )
-        if state.get("decision") != "correct":
-            answer += PARTIAL_NOTE
         return {
             "answer": answer,
             "evidence_rows": [doc.metadata for doc in docs],
@@ -225,8 +225,6 @@ def build_chat_graph(tools):
     def report_generate(state: ChatState):
         docs = state["documents"]
         answer = tools.generate_report_answer(state["question"], docs)
-        if state.get("decision") != "correct":
-            answer += REPORT_PARTIAL_NOTE
         return {"answer": answer, "evidence_rows": tools.report_evidence_from_docs(docs)}
 
     builder = StateGraph(ChatState)
@@ -265,6 +263,7 @@ def run_chat(
     chat_history=None,
     location: tuple[float, float] | None = None,
     crag: bool = False,
+    crag_reports: bool = False,
     graph=None,
 ) -> dict[str, Any]:
     if not question or not question.strip():
@@ -276,7 +275,8 @@ def run_chat(
         with get_usage_metadata_callback() as usage:
             state = graph.invoke({
                 "question": question, "top_k": top_k, "chat_history": chat_history or [],
-                "location": location, "crag": crag, "trace": [], "rewrite_count": 0,
+                "location": location, "crag": crag, "crag_reports": crag_reports,
+                "trace": [], "rewrite_count": 0,
             })
     except Exception as exc:
         error = type(exc).__name__
@@ -285,6 +285,7 @@ def run_chat(
         record = {
             **question_fingerprint(question),
             "crag": crag,
+            "crag_reports": crag_reports,
             "latency_ms": round((time.perf_counter() - started) * 1000),
             "error": error,
         }

@@ -928,20 +928,27 @@ def chatbot(
     chat_history=None,
     location: tuple[float, float] | None = None,
     crag: bool | None = None,
+    crag_reports: bool | None = None,
 ) -> dict[str, Any]:
     """질문을 분류한 뒤 rag, sql, analysis, 또는 도구 없는 일반 응답을 LangGraph로 실행합니다.
 
-    crag=None이면 ENABLE_CRAG 설정을 따릅니다. 채팅 모델(API 키)이 없으면 CRAG를 쓰지 않습니다.
+    crag(건강 상담)는 ENABLE_CRAG, crag_reports(보고서)는 ENABLE_CRAG_REPORTS 설정을 따릅니다.
+    보고서 CRAG는 판정이 정답 근거를 걸러 내서 기본으로 꺼 둡니다(docs/wiki/safety-and-evidence.md).
+    채팅 모델(API 키)이 없으면 둘 다 쓰지 않습니다.
     """
     if crag is None:
         crag = crag_enabled()
+    if crag_reports is None:
+        crag_reports = setting_enabled("ENABLE_CRAG_REPORTS")
+    model_ready = load_chat_model() is not None
     return run_chat(
         _PAGE_TOOLS,
         question,
         top_k=top_k,
         chat_history=chat_history,
         location=location,
-        crag=bool(crag) and load_chat_model() is not None,
+        crag=bool(crag) and model_ready,
+        crag_reports=bool(crag_reports) and model_ready,
         graph=build_chat_graph(_PAGE_TOOLS),
     )
 
@@ -975,9 +982,13 @@ def get_setting(name: str):
         return tomllib.load(file).get(name)
 
 
+def setting_enabled(name: str) -> bool:
+    return str(get_setting(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def crag_enabled() -> bool:
-    """CRAG is off unless ENABLE_CRAG is set; it changes answers and needs evaluation first."""
-    return str(get_setting("ENABLE_CRAG") or "").strip().lower() in {"1", "true", "yes", "on"}
+    """Health-answer CRAG is off unless ENABLE_CRAG is set."""
+    return setting_enabled("ENABLE_CRAG")
 
 
 CRAG_CORPUS_NAMES = {"health": "반려견 건강 상담 Q&A", "report": "반려동물 관련 보고서"}

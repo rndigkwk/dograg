@@ -30,15 +30,11 @@ sys.path.insert(0, str(PROJECT_DIR))
 QUESTIONS = PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"
 
 
-def outcome(result: dict) -> str:
-    from src.chat_graph import PARTIAL_NOTE, REPORT_PARTIAL_NOTE
-
+def outcome(result: dict, decision: str | None) -> str:
+    """abstain / partial (answered on evidence graded ambiguous) / answer."""
     if result.get("abstained"):
         return "abstain"
-    answer = result.get("answer", "")
-    if PARTIAL_NOTE in answer or REPORT_PARTIAL_NOTE in answer:
-        return "partial"
-    return "answer"
+    return "partial" if decision == "ambiguous" else "answer"
 
 
 def gold_page_hit(item: dict, result: dict) -> bool | None:
@@ -73,6 +69,8 @@ def summarize(rows: list[dict]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--crag", choices=["on", "off"], default="on")
+    parser.add_argument("--crag-reports", choices=["on", "off"], default="off",
+                        help="also run report questions through CRAG (off in the app)")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, help="first N questions only (smoke run)")
     args = parser.parse_args()
@@ -92,14 +90,15 @@ def main() -> int:
         for index, item in enumerate(items, start=1):
             started = time.perf_counter()
             try:
-                result = rag.chatbot(item["question"], crag=args.crag == "on")
-                row_outcome, error = outcome(result), None
+                result = rag.chatbot(item["question"], crag=args.crag == "on", crag_reports=args.crag_reports == "on")
+                error = None
             except Exception as exc:  # noqa: BLE001 - one failure should not stop the evaluation
-                result, row_outcome, error = {}, "error", type(exc).__name__
+                result, error = {}, type(exc).__name__
             logged = {}
             if run_log.exists():
                 lines = run_log.read_text(encoding="utf-8").splitlines()
                 logged = json.loads(lines[-1]) if lines else {}
+            row_outcome = "error" if error else outcome(result, logged.get("decision"))
             usage = logged.get("token_usage") or {}
             rows.append({
                 "id": item["id"], "group": item["group"], "kind": item.get("kind"),
