@@ -28,8 +28,6 @@ from src.crag import (
 )
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
 
-PARTIAL_NOTE = "\n\n※ 검색된 자료만으로는 질문의 일부를 확인하지 못했습니다. 증상이 계속되면 동물병원에 문의해 주세요."
-REPORT_PARTIAL_NOTE = "\n\n※ 검색된 보고서 자료만으로는 질문의 일부를 확인하지 못했습니다."
 HEALTH_ABSTAIN = (
     "검색된 상담 자료에서 이 질문에 답할 근거를 찾지 못해 답변을 드리지 않았습니다. "
     "증상이 계속되거나 걱정되면 가까운 동물병원에 문의해 주세요."
@@ -179,11 +177,13 @@ def build_chat_graph(tools):
         return _grade(state, "health", _health_text)
 
     def route_after_health_grade(state: ChatState) -> str:
-        if state["decision"] == "correct":
+        # v2: 근거가 일부라도 있으면 바로 답합니다(없는 내용은 생성 프롬프트가 없다고 밝힘).
+        # 근거가 전혀 없을 때만 검색어를 다시 써서 한 번 더 찾고, 그래도 없으면 보류합니다.
+        if state.get("documents"):
             return "health_generate"
         if state.get("rewrite_count", 0) < MAX_REWRITES:
             return "health_rewrite"
-        return "health_generate" if state.get("documents") else "abstain"
+        return "abstain"
 
     def health_rewrite(state: ChatState):
         try:
@@ -197,8 +197,6 @@ def build_chat_graph(tools):
         answer = tools.generate_health_answer(
             state["question"], docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
         )
-        if state.get("decision") != "correct":
-            answer += PARTIAL_NOTE
         return {
             "answer": answer,
             "evidence_rows": [doc.metadata for doc in docs],
@@ -225,8 +223,6 @@ def build_chat_graph(tools):
     def report_generate(state: ChatState):
         docs = state["documents"]
         answer = tools.generate_report_answer(state["question"], docs)
-        if state.get("decision") != "correct":
-            answer += REPORT_PARTIAL_NOTE
         return {"answer": answer, "evidence_rows": tools.report_evidence_from_docs(docs)}
 
     builder = StateGraph(ChatState)

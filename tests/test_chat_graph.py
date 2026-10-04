@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from langchain_core.documents import Document
 
 from pages import rag
-from src.chat_graph import HEALTH_ABSTAIN, PARTIAL_NOTE, REPORT_ABSTAIN, run_chat
+from src.chat_graph import HEALTH_ABSTAIN, REPORT_ABSTAIN, run_chat
 from src.crag import (
     RetrievalReview,
     clean_sub_queries,
@@ -114,18 +114,26 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual(result["evidence_rows"], [])
         self.assertEqual(result["safety_notice"], "응급")
 
-    def test_partial_evidence_after_rewrite_gives_partial_answer(self):
+    def test_partial_evidence_answers_without_rewrite_or_note(self):
         tools = make_tools(review_evidence=Mock(return_value=review(["a"], False)))
         result = self.run_chat(tools)
+        tools.rewrite_search_query.assert_not_called()
+        self.assertEqual(result["answer"], "생성 답변")
+        self.assertFalse(result["abstained"])
+        self.assertEqual(self.log_records()[-1]["decision"], "ambiguous")
+
+    def test_rewrite_that_finds_evidence_answers(self):
+        tools = make_tools(review_evidence=Mock(side_effect=[review([], False), review(["c"], True)]))
+        result = self.run_chat(tools)
         self.assertEqual(tools.rewrite_search_query.call_count, 1)
-        self.assertTrue(result["answer"].endswith(PARTIAL_NOTE))
+        self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["c"])
         self.assertFalse(result["abstained"])
 
     def test_grader_failure_falls_back_to_top_documents(self):
         tools = make_tools(review_evidence=Mock(side_effect=RuntimeError("down")))
         result = self.run_chat(tools)
         self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["a", "b"])
-        self.assertIn(PARTIAL_NOTE, result["answer"])
+        self.assertEqual(result["answer"], "생성 답변")
 
     def test_run_is_logged_without_question_text(self):
         tools = make_tools()
