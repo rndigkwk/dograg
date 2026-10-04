@@ -12,6 +12,8 @@ at call time, so tests can patch individual functions.
 from __future__ import annotations
 
 import time
+import warnings
+from collections.abc import Callable
 from typing import Any, Literal
 
 from langchain_core.callbacks import get_usage_metadata_callback
@@ -33,6 +35,15 @@ HEALTH_ABSTAIN = (
     "증상이 계속되거나 걱정되면 가까운 동물병원에 문의해 주세요."
 )
 REPORT_ABSTAIN = "검색된 보고서에서 이 질문에 답할 근거를 찾지 못했습니다. 질문의 대상이나 항목을 바꿔 다시 물어봐 주세요."
+# 스트리밍 중 LangGraph가 근거 평가의 구조화 출력(parsed=RetrievalReview)을 직렬화하며 내는 경고입니다.
+# 동작에는 영향이 없고 배포 로그만 어지럽히므로 이 경고만 숨깁니다.
+warnings.filterwarnings(
+    "ignore",
+    message=r"Pydantic serializer warnings:[\s\S]*Expected `none`[\s\S]*field_name='parsed'",
+    category=UserWarning,
+)
+# 사용자에게 보일 답변을 만드는 노드. 라우터·근거 평가·재작성의 모델 출력은 스트리밍하지 않습니다.
+ANSWER_NODES = frozenset({"health_simple", "report_simple", "health_generate", "report_generate", "general"})
 
 
 class ChatState(TypedDict, total=False):
@@ -255,6 +266,25 @@ def build_chat_graph(tools):
     return builder.compile()
 
 
+def _execute(graph, inputs: dict, on_token, on_step) -> dict:
+    if on_token is None and on_step is None:
+        return graph.invoke(inputs)
+    state: dict = {}
+    for mode, payload in graph.stream(inputs, stream_mode=["messages", "updates", "values"]):
+        if mode == "messages":
+            chunk, metadata = payload
+            text = getattr(chunk, "content", "")
+            if on_token and isinstance(text, str) and text and metadata.get("langgraph_node") in ANSWER_NODES:
+                on_token(text)
+        elif mode == "updates":
+            for node, update in payload.items():
+                if on_step:
+                    on_step(node, update or {})
+        else:
+            state = payload
+    return state
+
+
 def run_chat(
     tools,
     question: str,
@@ -265,7 +295,11 @@ def run_chat(
     crag: bool = False,
     crag_reports: bool = False,
     graph=None,
+    on_token: Callable[[str], None] | None = None,
+    on_step: Callable[[str, dict], None] | None = None,
 ) -> dict[str, Any]:
+    """Run the graph once. on_token receives answer text as the model writes it;
+    on_step receives (node name, state update) after each node finishes."""
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
     graph = graph or build_chat_graph(tools)
@@ -273,11 +307,11 @@ def run_chat(
     error = None
     try:
         with get_usage_metadata_callback() as usage:
-            state = graph.invoke({
+            state = _execute(graph, {
                 "question": question, "top_k": top_k, "chat_history": chat_history or [],
                 "location": location, "crag": crag, "crag_reports": crag_reports,
                 "trace": [], "rewrite_count": 0,
-            })
+            }, on_token, on_step)
     except Exception as exc:
         error = type(exc).__name__
         raise

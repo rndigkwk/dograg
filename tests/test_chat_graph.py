@@ -6,6 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from langchain_core.documents import Document
+from langchain_core.language_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage
+from langchain_core.output_parsers import StrOutputParser
 
 from pages import rag
 from src.chat_graph import HEALTH_ABSTAIN, REPORT_ABSTAIN, run_chat
@@ -256,6 +259,68 @@ class RouterKeywordTests(unittest.TestCase):
             for question in ("반려동물 장묘 서비스 이용 실태", "펫보험 가입 현황", "반려동물 산업 시장 규모"):
                 with self.subTest(question=question):
                     self.assertEqual(rag.classify_question(question), "analysis")
+
+
+def fake_llm_text(text):
+    """Run a fake chat model the way the app does (model | StrOutputParser), streaming word by word."""
+    model = GenericFakeChatModel(messages=iter([AIMessage(content=text)]))
+    return (model | StrOutputParser()).invoke("질문")
+
+
+class StreamingTests(ChatGraphTestCase):
+    def stream(self, tools, **kwargs):
+        tokens, steps = [], []
+        result = run_chat(
+            tools, "강아지가 구토해요", top_k=2, crag=kwargs.pop("crag", True),
+            on_token=tokens.append, on_step=lambda node, update: steps.append(node), **kwargs,
+        )
+        return result, tokens, steps
+
+    def test_streams_only_the_answer_tokens(self):
+        def reviewer(*args, **kwargs):
+            fake_llm_text("평가 결과는 비공개")  # grader output must not reach the screen
+            return review(["a"], True)
+
+        tools = make_tools(
+            review_evidence=Mock(side_effect=reviewer),
+            generate_health_answer=Mock(side_effect=lambda *a, **k: fake_llm_text("수분을 보충해 주세요")),
+        )
+        result, tokens, steps = self.stream(tools)
+        self.assertGreater(len(tokens), 1)
+        self.assertEqual("".join(tokens), "수분을 보충해 주세요")
+        self.assertEqual(result["answer"], "수분을 보충해 주세요")
+        self.assertEqual(steps, ["classify", "health_retrieve", "health_grade", "health_generate"])
+
+    def test_streamed_result_matches_the_blocking_result(self):
+        for route in ("rag", "analysis", "sql", "none"):
+            with self.subTest(route=route):
+                blocking = self.run_chat(make_tools(route), crag=False)
+                streamed, tokens, _ = self.stream(make_tools(route), crag=False)
+                self.assertEqual(streamed, blocking)
+                self.assertEqual(tokens, [])  # mocked tools produce no model tokens
+
+    def test_abstain_streams_nothing_and_still_logs(self):
+        tools = make_tools(review_evidence=Mock(return_value=review([], False)))
+        result, tokens, steps = self.stream(tools)
+        self.assertTrue(result["abstained"])
+        self.assertEqual(tokens, [])
+        self.assertIn("health_rewrite", steps)
+        self.assertEqual(steps[-1], "abstain")
+        self.assertTrue(self.log_records()[-1]["abstained"])
+
+    def test_progress_messages_follow_the_graph(self):
+        self.assertIn("건강 상담", rag.progress_message("classify", {"route": "rag"}))
+        self.assertIn("확인", rag.progress_message("health_retrieve", {}))
+        self.assertIn("답변", rag.progress_message("health_grade", {"documents": [doc("a")]}))
+        self.assertIn("다시 찾고", rag.progress_message("health_grade", {"documents": []}))
+        self.assertIsNone(rag.progress_message("report_grade", {"documents": []}))
+        self.assertIsNone(rag.progress_message("health_generate", {"answer": "x"}))
+
+    def test_chatbot_passes_streaming_callbacks(self):
+        with patch.object(rag, "load_chat_model", return_value=None),                 patch.object(rag, "run_chat", return_value={}) as run:
+            rag.chatbot("질문", on_token=print, on_step=len)
+        self.assertIs(run.call_args.kwargs["on_token"], print)
+        self.assertIs(run.call_args.kwargs["on_step"], len)
 
 
 if __name__ == "__main__":
