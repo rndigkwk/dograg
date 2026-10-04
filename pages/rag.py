@@ -417,9 +417,9 @@ def analyze_report(question: str) -> dict:
     report_db = load_report_vector_db()
     if report_db is None:
         return {"answer": "보고서 검색에는 OPENAI_API_KEY가 필요합니다.", "evidence_rows": []}
-    topics = get_report_analysis_topics(question)
-    search_query = f"{' '.join(topics)}\n{question}"
-    report_docs = report_db.similarity_search(search_query, k=REPORT_ANALYSIS_TOP_K)
+    # 목차 항목은 답변 프롬프트에만 씁니다. 검색어에 붙이면 KB 목차 페이지가 근거를 차지했습니다
+    # (정답 페이지 적중 상위 6건 7/18 → 질문만으로 12/18, docs/wiki/retrieval-experiments.md).
+    report_docs = report_db.similarity_search(question, k=REPORT_ANALYSIS_TOP_K)
     evidence_rows = report_evidence_from_docs(report_docs)
     if not report_docs:
         return {"answer": "검색된 보고서 근거가 부족해 분석할 수 없습니다.", "evidence_rows": []}
@@ -431,12 +431,9 @@ def search_reports(question: str, queries: list[str] | None = None) -> list:
     report_db = load_report_vector_db()
     if report_db is None:
         return []
-    topics = " ".join(get_report_analysis_topics(question))
     found = []
     for query in queries or [question]:
-        found = merge_documents(
-            found, report_db.similarity_search(f"{topics}\n{query}", k=REPORT_ANALYSIS_TOP_K)
-        )
+        found = merge_documents(found, report_db.similarity_search(query, k=REPORT_ANALYSIS_TOP_K))
     return found
 
 

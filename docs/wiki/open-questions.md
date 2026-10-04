@@ -28,6 +28,8 @@
 
 ## 배포·검증
 
+- **배포 앱 콜드 스타트 (2026-10-04 확인):** 앱이 잠자기 상태면 면접관도 "Zzzz" 화면과 깨우기 버튼을 먼저 본다. 깨어난 직후 첫 실행에서 RAG 페이지가 numpy import 오류(`ImportError`, 부분 초기화)로 한 번 멈췄고, 새로고침하자 정상이었다. 동시에 들어온 첫 import가 충돌한 것으로 추정한다. 재현과 원인은 확인하지 못했다. 면접 직전에 앱을 미리 깨워 두는 것이 가장 확실한 대처다.
+
 - ~~(2026-10-04) 임베딩 전환 결정 대기~~ → 건강은 ko-sroberta, 보고서는 OpenAI로 확정했다. 메모리는 1,765MB(+답변 표 19MB), Chroma DB는 209MB다([deployment-resources.md](deployment-resources.md)).
 - ~~`qa.output`을 Chroma 메타데이터에 넣어 sqlite가 커지는 문제~~ → 2026-10-04 해결. 답변은 CSV에서 읽고, Chroma DB는 209MB가 됐다.
 - 보고서 PDF가 `data/`에서 `data/source/`로 옮겨졌다. 앱 코드는 새 위치에 맞게 고쳤지만, 커밋할 때 `data/source/*.pdf` 5개를 함께 올려야 배포 앱에서 미리보기가 된다. `data/source/`의 나머지 파일(zip, xls, csv)은 앱이 쓰지 않는다.

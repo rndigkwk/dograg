@@ -40,6 +40,15 @@ class OpenAIEmbeddingSwitchTests(unittest.TestCase):
         db.similarity_search.assert_not_called()
         self.assertEqual([doc.id for doc in result], ["b"])
 
+    def test_report_search_uses_the_question_without_toc_topics(self):
+        db = Mock()
+        db.similarity_search.return_value = []
+        with patch.object(rag, "load_report_vector_db", return_value=db):
+            rag.analyze_report("반려동물 장묘 서비스 불만 유형")
+            rag.search_reports("입양비와 생활비 비교", ["입양비", "생활비"])
+        queries = [call.args[0] for call in db.similarity_search.call_args_list]
+        self.assertEqual(queries, ["반려동물 장묘 서비스 불만 유형", "입양비", "생활비"])
+
     def test_report_search_without_key_explains_requirement(self):
         with patch.object(rag, "load_report_vector_db", return_value=None):
             result = rag.analyze_report("반려동물 장묘 서비스 이용 현황")
