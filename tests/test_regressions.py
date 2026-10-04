@@ -3,7 +3,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import requests
 from langchain_core.runnables import RunnableLambda
@@ -54,6 +55,44 @@ class QuestionRoutingTest(unittest.TestCase):
                 rag.classify_question("2025 반려동물 보고서의 양육비를 비교해줘"),
                 "analysis",
             )
+
+
+class RouterConflictTest(unittest.TestCase):
+    """Keyword rules decide only single-signal questions; conflicts go to the LLM router."""
+
+    @staticmethod
+    def fake_router(route):
+        decision = SimpleNamespace(route=route)
+        structured = Mock(return_value=decision)
+        model = Mock()
+        model.with_structured_output.return_value = RunnableLambda(lambda _: structured())
+        return model, structured
+
+    def test_health_story_mentioning_nearby_hospital_goes_to_llm(self):
+        model, router = self.fake_router("rag")
+        with patch.object(rag, "load_chat_model", return_value=model):
+            route = rag.classify_question("닭 뼈를 삼켰는데 가까운 동물병원에 갈 수 없는 상황이에요")
+        self.assertEqual(route, "rag")
+        router.assert_called_once()
+
+    def test_report_question_mentioning_hospitals_goes_to_llm(self):
+        model, router = self.fake_router("analysis")
+        with patch.object(rag, "load_chat_model", return_value=model):
+            route = rag.classify_question("의료·보험서비스 연구에서 동물병원 소비자가 지불한 평균 가격은?")
+        self.assertEqual(route, "analysis")
+        router.assert_called_once()
+
+    def test_single_signal_questions_skip_the_llm(self):
+        model, router = self.fake_router("none")
+        with patch.object(rag, "load_chat_model", return_value=model):
+            self.assertEqual(rag.classify_question("강남구 동물병원 목록 알려줘"), "sql")
+            self.assertEqual(rag.classify_question("강아지 배가 부풀고 흉터가 생겼어요"), "rag")
+            self.assertEqual(rag.classify_question("반려동물 장묘 서비스 이용 실태"), "analysis")
+        router.assert_not_called()
+
+    def test_without_model_conflicts_keep_previous_priority(self):
+        with patch.object(rag, "load_chat_model", return_value=None):
+            self.assertEqual(rag.classify_question("닭 뼈를 삼켰는데 가까운 동물병원에 갈 수 없어요"), "sql")
 
 
 class Gpt6ModelConfigTest(unittest.TestCase):
