@@ -1,7 +1,9 @@
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -12,12 +14,22 @@ from pages import rag
 
 class RagSecretsTest(unittest.TestCase):
     def test_reads_openai_key_from_streamlit_secrets_when_env_is_missing(self):
-        original = os.environ.pop("OPENAI_API_KEY", None)
-        try:
-            self.assertTrue(rag.get_openai_api_key())
-        finally:
-            if original is not None:
-                os.environ["OPENAI_API_KEY"] = original
+        # Use a temporary secrets file: the real one is not in git, so CI has none.
+        with tempfile.TemporaryDirectory() as directory:
+            secrets = Path(directory) / ".streamlit" / "secrets.toml"
+            secrets.parent.mkdir()
+            secrets.write_text('OPENAI_API_KEY = "sk-test-from-secrets"\n', encoding="utf-8")
+            with patch.dict(os.environ, {}, clear=False), patch.object(rag, "PROJECT_DIR", Path(directory)):
+                os.environ.pop("OPENAI_API_KEY", None)
+                self.assertEqual(rag.get_openai_api_key(), "sk-test-from-secrets")
+
+    def test_environment_key_takes_precedence_and_missing_file_returns_none(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(rag, "PROJECT_DIR", Path(directory)):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-from-env"}):
+                self.assertEqual(rag.get_openai_api_key(), "sk-test-from-env")
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("OPENAI_API_KEY", None)
+                self.assertIsNone(rag.get_openai_api_key())
 
     def test_formats_evidence_row_for_streamlit_display(self):
         row = {
