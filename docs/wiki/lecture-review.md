@@ -65,6 +65,8 @@ Day 46~53 교안 20개(colab 중복본 제외)를 읽고, RagDog에 적용할 �
 
 > **갱신 (2026-10-02, [deployment-resources.md](deployment-resources.md)):** 로컬 리랭커는 Cloud에서 쓸 수 없다. bge-m3 재사용은 질문당 45~145초, Qwen3-Reranker는 최고 메모리 5.1GB에 질문당 13분 이상이 걸렸다. 2번 리랭킹은 로컬 모델 대신 CRAG의 LLM 근거 판정으로 대체하는 방향을 검토한다. 그보다 먼저 임베딩 모델을 하나로 줄여야 한다.
 
+> **갱신 (2026-10-04):** 추천 1·5번과 질문 분해, 토큰 기록을 적용했다. 챗봇은 LangGraph(`src/chat_graph.py`)로 바뀌었고, CRAG(`src/crag.py`)는 교안 Day 53의 판정 규칙(useful_ids, sufficient, 후보 밖 ID 차단, 재검색 시 기존 근거 유지)을 따르되 웹 검색은 뺐다. 리랭킹은 별도 모델 대신 이 판정 노드가 맡는다. `ENABLE_CRAG` 플래그 뒤에 있으며, 평가 전까지 꺼 둔다.
+
 ## 추천 순서
 
 1. ~~오프라인 측정: RRF 가중치 실험 + 후보 재현율~~ → **2026-10-02 완료** ([retrieval-experiments.md](retrieval-experiments.md) 실험 4). 가중치는 효과 없음. 후보 풀 재현율이 0.61로 hit@3 0.26보다 훨씬 높아서 **4번 리랭킹의 우선순위를 올릴 근거가 생겼다.**

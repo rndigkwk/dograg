@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
@@ -18,6 +19,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
 from src.ui import apply_app_theme, render_page_header
+from src.chat_graph import build_chat_graph, run_chat
+from src.crag import build_decomposer, build_reviewer, build_rewriter, merge_documents
 from src.health_answers import attach_health_answers, load_health_answers
 from src.health_safety import detect_urgent_sign
 from src.hospital_distance import nearest_hospitals
@@ -237,13 +240,11 @@ def format_rag_context(retrieved_docs):
     )
 
 
-def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
+def retrieve_health(search_query, k=DEFAULT_RAG_TOP_K, filters=None):
+    """Hybrid (ko-sroberta + BM25) search over health Q&A, with answers attached from the CSV."""
     from src.hybrid_retrieval import retrieve_hybrid
 
-    if not question or not question.strip():
-        raise ValueError("질문을 입력해 주세요.")
-    db, rag_chain = initialize_rag()
-    search_query = build_rag_search_query(question, chat_history)
+    db, _ = initialize_rag()
     retrieved_docs = retrieve_hybrid(
         db,
         load_health_bm25_index(),
@@ -251,7 +252,26 @@ def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
         top_k=k,
         where=build_metadata_filter(filters),
     )
-    attach_health_answers(retrieved_docs, load_health_answer_table())
+    return attach_health_answers(retrieved_docs, load_health_answer_table())
+
+
+def generate_health_answer(question, retrieved_docs, filters=None, chat_history=None) -> str:
+    _, rag_chain = initialize_rag()
+    if rag_chain is None:
+        return "유사도 검색은 성공했습니다. 답변 생성에는 OPENAI_API_KEY가 필요합니다."
+    return rag_chain.invoke({
+        "context": format_rag_context(retrieved_docs),
+        "chat_history": format_chat_history(chat_history),
+        "filters": build_filter_context(filters),
+        "question": question,
+    })
+
+
+def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
+    if not question or not question.strip():
+        raise ValueError("질문을 입력해 주세요.")
+    search_query = build_rag_search_query(question, chat_history)
+    retrieved_docs = retrieve_health(search_query, k=k, filters=filters)
     safety_notice = detect_urgent_sign(question)
     if not retrieved_docs:
         return {
@@ -259,16 +279,7 @@ def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None):
             "evidence_rows": [],
             "safety_notice": safety_notice,
         }
-    prompt_context = format_rag_context(retrieved_docs)
-    if rag_chain is None:
-        answer = "유사도 검색은 성공했습니다. 답변 생성에는 OPENAI_API_KEY가 필요합니다."
-    else:
-        answer = rag_chain.invoke({
-            "context": prompt_context,
-            "chat_history": format_chat_history(chat_history),
-            "filters": build_filter_context(filters),
-            "question": question,
-        })
+    answer = generate_health_answer(question, retrieved_docs, filters=filters, chat_history=chat_history)
     return {
         "answer": answer,
         "evidence_rows": [doc.metadata for doc in retrieved_docs],
@@ -348,8 +359,15 @@ REPORT_ANALYSIS_KEYWORDS = (
     "비율",
     "증감",
     "분포",
-    "상관",
+    "상관관계",  # "상관"만 쓰면 "상관없는" 질문이 보고서로 갔다
     "세대별",
+    "장묘",
+    "동물복지",
+    "복지실태",
+    "반려동물 산업",
+    "시장 규모",
+    "실태조사",
+    "펫보험",
     "연도별",
 )
 REPORT_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
@@ -405,19 +423,35 @@ def analyze_report(question: str) -> dict:
     evidence_rows = report_evidence_from_docs(report_docs)
     if not report_docs:
         return {"answer": "검색된 보고서 근거가 부족해 분석할 수 없습니다.", "evidence_rows": []}
-    prompt_context = format_report_context(report_docs)
+    return {"answer": generate_report_answer(question, report_docs), "evidence_rows": evidence_rows}
+
+
+def search_reports(question: str, queries: list[str] | None = None) -> list:
+    """Search the report collection once per (sub)query and merge results by chunk id."""
+    report_db = load_report_vector_db()
+    if report_db is None:
+        return []
+    topics = " ".join(get_report_analysis_topics(question))
+    found = []
+    for query in queries or [question]:
+        found = merge_documents(
+            found, report_db.similarity_search(f"{topics}\n{query}", k=REPORT_ANALYSIS_TOP_K)
+        )
+    return found
+
+
+def generate_report_answer(question: str, report_docs: list) -> str:
     model = load_chat_model()
     if model is None:
-        return {"answer": "분석 자동화에는 OPENAI_API_KEY가 필요합니다.", "evidence_rows": evidence_rows}
+        return "분석 자동화에는 OPENAI_API_KEY가 필요합니다."
     try:
-        answer = (REPORT_ANALYSIS_PROMPT | model | StrOutputParser()).invoke({
-            "topics": "\n".join(topics),
-            "context": prompt_context,
+        return (REPORT_ANALYSIS_PROMPT | model | StrOutputParser()).invoke({
+            "topics": "\n".join(get_report_analysis_topics(question)),
+            "context": format_report_context(report_docs),
             "question": question,
         })
     except Exception:
-        answer = "모델 연결에 실패해 분석 답변을 생성하지 못했습니다. 아래 검색 근거만 확인해 주세요."
-    return {"answer": answer, "evidence_rows": evidence_rows}
+        return "모델 연결에 실패해 분석 답변을 생성하지 못했습니다. 아래 검색 근거만 확인해 주세요."
 
 
 def run_report_analysis(question: str) -> str:
@@ -878,41 +912,72 @@ def chatbot(
     top_k: int = DEFAULT_RAG_TOP_K,
     chat_history=None,
     location: tuple[float, float] | None = None,
+    crag: bool | None = None,
 ) -> dict[str, Any]:
-    """질문을 분류한 뒤 rag, sql, 또는 도구 없는 일반 응답을 실행합니다."""
-    if not question or not question.strip():
-        raise ValueError("질문을 입력해 주세요.")
+    """질문을 분류한 뒤 rag, sql, analysis, 또는 도구 없는 일반 응답을 LangGraph로 실행합니다.
 
-    if is_date_question(question):
-        return {"route": "none", "answer": current_date_answer()}
+    crag=None이면 ENABLE_CRAG 설정을 따릅니다. 채팅 모델(API 키)이 없으면 CRAG를 쓰지 않습니다.
+    """
+    if crag is None:
+        crag = crag_enabled()
+    return run_chat(
+        _PAGE_TOOLS,
+        question,
+        top_k=top_k,
+        chat_history=chat_history,
+        location=location,
+        crag=bool(crag) and load_chat_model() is not None,
+        graph=build_chat_graph(_PAGE_TOOLS),
+    )
 
-    contextual_question = build_rag_search_query(question, chat_history)
-    route = classify_question(question, chat_history=chat_history)
-    if route == "rag":
-        rag_result = ask_rag(
-            question,
-            k=top_k,
-            filters=infer_rag_filters(contextual_question),
-            chat_history=chat_history,
-        )
-        return {
-            "route": route,
-            "answer": rag_result["answer"],
-            "evidence_rows": rag_result["evidence_rows"],
-            "safety_notice": rag_result.get("safety_notice"),
-        }
-    elif route == "analysis":
-        analysis = analyze_report(question)
-        return {
-            "route": route,
-            **analysis,
-        }
-    elif route == "sql":
-        answer, hospital_rows = run_sql_search(contextual_question, location=location)
-    else:
-        answer = answer_without_tool(question, chat_history=chat_history)
-        hospital_rows = []
-    return {"route": route, "answer": answer, "hospital_rows": hospital_rows}
+
+class _PageTools:
+    """Graph nodes call this page's functions through here, looked up at call time.
+
+    Streamlit runs this file as a script rather than importing it, so the module
+    object cannot be passed around; reading globals() keeps test patches working.
+    """
+
+    def __getattr__(self, name: str):
+        try:
+            return globals()[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+
+_PAGE_TOOLS = _PageTools()
+
+
+def get_setting(name: str):
+    """Read a setting from the environment, then .streamlit/secrets.toml."""
+    value = os.getenv(name)
+    if value is not None:
+        return value
+    secrets_path = PROJECT_DIR / ".streamlit" / "secrets.toml"
+    if not secrets_path.exists():
+        return None
+    with secrets_path.open("rb") as file:
+        return tomllib.load(file).get(name)
+
+
+def crag_enabled() -> bool:
+    """CRAG is off unless ENABLE_CRAG is set; it changes answers and needs evaluation first."""
+    return str(get_setting("ENABLE_CRAG") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+CRAG_CORPUS_NAMES = {"health": "반려견 건강 상담 Q&A", "report": "반려동물 관련 보고서"}
+
+
+def review_evidence(kind: str, question: str, context: str):
+    return build_reviewer(load_chat_model(), CRAG_CORPUS_NAMES[kind])(question, context)
+
+
+def rewrite_search_query(question: str, search_query: str, feedback: str) -> str:
+    return build_rewriter(load_chat_model())(question, search_query, feedback)
+
+
+def decompose_question(question: str) -> list[str]:
+    return build_decomposer(load_chat_model())(question)
 
 
 def render_hospital_links(rows):
@@ -935,6 +1000,11 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
     if show_notice and message.get("safety_notice"):
         st.warning(message["safety_notice"])
     st.write(message["content"])
+    if message.get("abstained") and message.get("route") == "rag":
+        try:
+            st.page_link("pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
+        except StreamlitAPIException:  # 내비게이션 밖(테스트 등)에서는 링크 대신 안내만 표시합니다.
+            st.caption("왼쪽 메뉴의 '병원 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
     evidence_rows = message.get("evidence_rows", [])
     if not evidence_rows:
         return
@@ -1042,6 +1112,7 @@ def render_page():
                 "role": "assistant", "content": result["answer"], "route": result["route"],
                 "evidence_rows": result.get("evidence_rows", []),
                 "safety_notice": result.get("safety_notice") or urgent_notice,
+                "abstained": result.get("abstained", False),
             }
             render_assistant_message(assistant_message, show_notice=False)
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
