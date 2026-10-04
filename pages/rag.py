@@ -28,6 +28,7 @@ from src.health_safety import detect_urgent_sign
 from src.hospital_distance import nearest_hospitals
 from src.report_evidence import report_evidence_from_docs, render_pdf_page, resolve_report_pdf
 from src.location_component import render_location_control
+from src.memory_limits import release_free_memory
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
@@ -36,7 +37,7 @@ DB_PATH = PROJECT_DIR / "data" / "hospital.db"
 HEALTH_CSV_PATH = PROJECT_DIR / "data" / "df.csv"
 # Pre-tokenized health documents; rebuild with scripts/build_bm25_cache.py.
 BM25_TOKEN_CACHE = PROJECT_DIR / "data" / "bm25_health_tokens.json.gz"
-HEALTH_TOKENIZER_VERSION = "kiwi-nouns-sl-sn-v1"
+HEALTH_TOKENIZER_VERSION = "kiwi-nouns-sl-sn-v2"
 # Health Q&A stays on local ko-sroberta: OpenAI embeddings lowered hybrid hit@3
 # from 0.2674 to 0.2353 (docs/wiki/retrieval-experiments.md, experiment 5).
 HEALTH_COLLECTION_NAME = "pet_care"
@@ -131,7 +132,8 @@ def make_health_tokenizer():
     """Kiwi nouns, foreign words and numbers. Bump HEALTH_TOKENIZER_VERSION when this changes."""
     from kiwipiepy import Kiwi
 
-    kiwi = Kiwi()
+    # 다어절 사전을 끄면 Kiwi 메모리가 약 480MB에서 290MB로 줄고 hit@3은 그대로입니다(문서 0.9%만 토큰이 달라짐).
+    kiwi = Kiwi(load_multi_dict=False)
 
     def tokenize(text):
         normalized = text.replace("･", "·")
@@ -1100,6 +1102,7 @@ def _warm_up_health_search():
         load_vector_db()
         load_health_bm25_index()
         load_health_answer_table()
+        release_free_memory()  # 로딩 중 잠깐 쓴 메모리를 OS에 돌려줍니다.
     except Exception:  # noqa: BLE001 - warm-up is best effort
         logging.getLogger(__name__).warning("Health search warm-up failed", exc_info=True)
 

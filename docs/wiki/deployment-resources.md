@@ -137,3 +137,29 @@ Streamlit Community Cloud는 앱 하나에 **메모리 최대 2.7GB**, **CPU 최
 | 참고: 두 번째 질문 | 6초 |
 
 배포 앱(Streamlit Cloud)에서의 측정은 병합 후 확인이 필요하다. 앱이 잠자기 상태라면 깨우는 시간은 여전히 별도로 든다.
+
+## 메모리 초과 경고 대응 (2026-10-05)
+
+PR #6 병합 후 Streamlit에서 "It's using too much memory!" 메일이 왔다(한도 2.7GB).
+
+**어디에 쓰이나 (로컬 Windows, `scripts/measure_memory.py`)**
+| 단계 | 누적 RSS | 증가 |
+| --- | ---: | ---: |
+| import (streamlit, langchain, torch) | 374MB | 374MB |
+| + 건강 Chroma + ko-sroberta | 994MB | 620MB |
+| + BM25 색인 (Kiwi 포함) | 1,508MB | 514MB |
+| + 보고서 Chroma (OpenAI) | 1,573MB | 65MB |
+| 질의 3건 후 최대 | 1,817MB | |
+
+Kiwi 형태소 분석기 하나가 약 480MB였다. BM25 색인 자체(rank_bm25)는 약 110MB다.
+
+**조치**
+1. **Kiwi 다어절 사전 끄기** (`Kiwi(load_multi_dict=False)`): Kiwi가 482MB에서 294MB로 줄었다. 19,206개 문서 중 173개(0.9%)만 토큰이 달라졌다(사전에 붙어 있던 다어절 명사가 단어 단위로 나뉨). 검증 질문 561개에서 하이브리드 hit@3은 **0.262로 같았고** MRR@3은 0.184에서 0.185가 됐다(순위가 바뀐 질문 1개). 토크나이저 버전을 `kiwi-nouns-sl-sn-v2`로 올리고 토큰 캐시를 다시 만들었다.
+2. **스레드와 malloc arena 제한** (`src/memory_limits.py`, `main.py` 맨 위에서 호출):
+   - Cloud 컨테이너는 호스트의 CPU 수를 보여 주므로 torch와 BLAS가 코어 수만큼 스레드를 만든다. 로컬에서도 스레드가 125개까지 늘었다. `OMP/MKL/OPENBLAS_NUM_THREADS=2`로 묶었다. CPU는 2코어라서 속도 손해는 없다.
+   - Linux(glibc)는 바쁜 스레드마다 malloc arena를 따로 만들어서 RSS가 실제 사용량보다 커진다. `mallopt(M_ARENA_MAX, 2)`로 제한한다. 환경 변수 `MALLOC_ARENA_MAX`는 프로세스가 시작될 때만 읽히므로 Python 안에서 설정하면 효과가 없다. 그래서 `ctypes`로 직접 호출한다.
+   - 워밍업이 끝나면 `malloc_trim(0)`으로 로딩 중 잠깐 쓴 메모리를 OS에 돌려준다.
+
+**결과 (로컬)**: 최대 메모리가 1,817MB에서 **1,587MB**로 줄었다(−230MB). 이 수치는 1번만 반영한 것이다. 2번은 Linux에서만 효과가 있어서 로컬에서는 측정할 수 없고, 배포 앱에서 확인해야 한다.
+
+남은 큰 항목은 ko-sroberta(약 620MB, fp32)다. 더 줄여야 하면 다음 후보는 모델 양자화나 ONNX 변환이다. 둘 다 검색 품질을 다시 평가해야 한다.
