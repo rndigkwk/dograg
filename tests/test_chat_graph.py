@@ -61,8 +61,8 @@ class ChatGraphTestCase(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(self.log_dir.cleanup)
 
-    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2):
-        return run_chat(tools, question, top_k=top_k, crag=crag)
+    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2, crag_reports=False):
+        return run_chat(tools, question, top_k=top_k, crag=crag, crag_reports=crag_reports)
 
     def log_records(self):
         with open(self.log_path, encoding="utf-8") as file:
@@ -147,6 +147,17 @@ class HealthCragTests(ChatGraphTestCase):
 
 
 class ReportCragTests(ChatGraphTestCase):
+    def run_chat(self, tools, question="보고서 질문", crag=True, top_k=2, crag_reports=True):
+        return super().run_chat(tools, question, crag=crag, top_k=top_k, crag_reports=crag_reports)
+
+    def test_health_crag_alone_keeps_reports_on_the_plain_path(self):
+        tools = make_tools("analysis")
+        result = self.run_chat(tools, question="입양비와 생활비를 비교해줘", crag=True, crag_reports=False)
+        tools.analyze_report.assert_called_once()
+        tools.review_evidence.assert_not_called()
+        tools.decompose_question.assert_not_called()
+        self.assertEqual(result["answer"], "기존 분석")
+
     def test_comparison_question_is_decomposed_and_graded(self):
         tools = make_tools("analysis", review_evidence=Mock(return_value=review(["r2"], True)))
         result = self.run_chat(tools, question="입양비와 생활비를 비교해줘")
@@ -203,6 +214,17 @@ class PageWiringTests(ChatGraphTestCase):
             self.assertTrue(rag.crag_enabled())
         with patch.object(rag, "get_setting", return_value=None):
             self.assertFalse(rag.crag_enabled())
+
+    def test_chatbot_reads_report_flag_separately(self):
+        settings = {"ENABLE_CRAG": "true", "ENABLE_CRAG_REPORTS": None}
+        with (
+            patch.object(rag, "get_setting", side_effect=settings.get),
+            patch.object(rag, "load_chat_model", return_value=object()),
+            patch.object(rag, "run_chat", return_value={}) as run,
+        ):
+            rag.chatbot("질문")
+        self.assertTrue(run.call_args.kwargs["crag"])
+        self.assertFalse(run.call_args.kwargs["crag_reports"])
 
     def test_chatbot_without_model_never_uses_crag(self):
         with patch.object(rag, "load_chat_model", return_value=None), \

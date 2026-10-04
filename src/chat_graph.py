@@ -41,7 +41,8 @@ class ChatState(TypedDict, total=False):
     top_k: int
     chat_history: list
     location: tuple[float, float] | None
-    crag: bool
+    crag: bool  # 건강 상담 CRAG
+    crag_reports: bool  # 보고서 CRAG (기본 꺼짐)
     # classify
     route: str
     contextual_question: str
@@ -87,7 +88,8 @@ def build_chat_graph(tools):
         if route == "rag":
             return "health_retrieve" if crag else "health_simple"
         if route == "analysis":
-            return "report_retrieve" if crag else "report_simple"
+            # 보고서는 판정이 정답 근거를 걸러 내서(정답 페이지 12/18 -> 10/18) 따로 켭니다.
+            return "report_retrieve" if state.get("crag_reports", False) else "report_simple"
         if route == "sql":
             return "hospital"
         return "general"
@@ -261,6 +263,7 @@ def run_chat(
     chat_history=None,
     location: tuple[float, float] | None = None,
     crag: bool = False,
+    crag_reports: bool = False,
     graph=None,
 ) -> dict[str, Any]:
     if not question or not question.strip():
@@ -272,7 +275,8 @@ def run_chat(
         with get_usage_metadata_callback() as usage:
             state = graph.invoke({
                 "question": question, "top_k": top_k, "chat_history": chat_history or [],
-                "location": location, "crag": crag, "trace": [], "rewrite_count": 0,
+                "location": location, "crag": crag, "crag_reports": crag_reports,
+                "trace": [], "rewrite_count": 0,
             })
     except Exception as exc:
         error = type(exc).__name__
@@ -281,6 +285,7 @@ def run_chat(
         record = {
             **question_fingerprint(question),
             "crag": crag,
+            "crag_reports": crag_reports,
             "latency_ms": round((time.perf_counter() - started) * 1000),
             "error": error,
         }
