@@ -42,4 +42,5 @@ dependencies = [
     "seaborn>=0.13.2",
     "kiwipiepy>=0.22.2",
     "rank-bm25>=0.2.2",
+    "onnxruntime>=1.20",
 ]
