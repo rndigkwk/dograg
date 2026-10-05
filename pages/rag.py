@@ -16,7 +16,6 @@ from langchain_chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
@@ -29,6 +28,7 @@ from src.hospital_distance import nearest_hospitals
 from src.report_evidence import report_evidence_from_docs, render_pdf_page, resolve_report_pdf
 from src.location_component import render_location_control
 from src.memory_limits import release_free_memory
+from src.onnx_embeddings import OnnxSentenceEmbeddings
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
@@ -42,6 +42,8 @@ HEALTH_TOKENIZER_VERSION = "kiwi-nouns-sl-sn-v2"
 # from 0.2674 to 0.2353 (docs/wiki/retrieval-experiments.md, experiment 5).
 HEALTH_COLLECTION_NAME = "pet_care"
 HEALTH_EMBEDDING_MODEL_NAME = "jhgan/ko-sroberta-multitask"
+# 같은 가중치의 ONNX 내보내기(모델 저장소 제공). torch 없이 onnxruntime으로 질문을 임베딩합니다.
+HEALTH_ONNX_FILE = "onnx/model_qint8_avx512_vnni.onnx"
 # Reports use OpenAI text-embedding-3-small (built by scripts/ingest_openai_chroma.py);
 # the hash suffix pins the exact source PDFs the vectors were built from.
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
@@ -108,10 +110,7 @@ def create_embedding_model():
 def load_vector_db():
     return Chroma(
         collection_name=HEALTH_COLLECTION_NAME,
-        embedding_function=HuggingFaceEmbeddings(
-            model_name=HEALTH_EMBEDDING_MODEL_NAME,
-            encode_kwargs={"normalize_embeddings": True},
-        ),
+        embedding_function=OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE),
         persist_directory=str(CHROMA_DIR),
     )
 

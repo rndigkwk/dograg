@@ -9,7 +9,8 @@ disposable Chroma copy, then optionally a reranker on top of the full stack.
     uv run python scripts/measure_memory.py --reranker qwen3      # + Qwen3-Reranker-0.6B
     uv run python scripts/measure_memory.py --reranker bge-dense  # rescore with the loaded bge-m3
 
-Torch is limited to 2 threads to approximate Community Cloud's 2-core ceiling.
+Like main.py, threads are capped and transformers/torch are kept out of the process
+(the app embeds with ONNX Runtime); the reranker options load torch on purpose.
 No LLM is called.
 """
 
@@ -60,6 +61,11 @@ def run(copy_path: Path, reranker: str | None) -> dict:
     mark("python", started)
 
     started = time.perf_counter()
+    from src.memory_limits import block_torch_imports, limit_native_memory
+
+    limit_native_memory()
+    if reranker is None:
+        block_torch_imports()
     from pages import rag
     from src.hybrid_retrieval import retrieve_hybrid
 

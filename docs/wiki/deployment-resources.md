@@ -185,3 +185,34 @@ CRAG를 켠 건강 답변은 평균 19.6초가 걸리고, 그동안 화면에는
 - 건강 답변은 `gpt-6-luna`가 추론을 마친 뒤 본문을 한꺼번에 빠르게 내보낸다. 생성 노드 시작부터 첫 글자까지 약 4초, 본문 출력은 0.5초였다. 그래서 스트리밍 효과는 작고, 대기 중 단계 표시(1.3초 분류 → 3.2초 검색 → 7.0초 평가 → 답변 작성)가 더 도움이 된다.
 - 스트리밍 중에도 토큰 사용량은 실행 로그에 그대로 기록된다.
 - 다음 후보: 근거 평가와 답변 생성에 `reasoning_effort`를 낮추면 전체 지연이 줄 수 있다. 다만 답변 품질과 보류 판정을 다시 평가해야 한다.
+
+## ONNX 임베딩으로 torch 제거 (2026-10-05)
+
+**한도를 다시 확인했다.** Streamlit 공식 문서(2024-02 기준)의 메모리는 "최소 690MB, 최대 2.7GB"다. 2.7GB는 보장값이 아니라 최대치였다. 2차 자료(wikidocs "함께해요 Streamlit" 10-01)는 "앱당 약 1GB"로 안내한다. 로컬 최대 1.6GB인 앱이 메모리 초과 경고를 받은 것과 맞으므로, 목표를 약 1GB로 잡았다.
+
+**torch는 누가 불렀나:** 모델만이 아니었다. `langchain_core.language_models.base`가 transformers가 설치돼 있으면 `GPT2TokenizerFast`를 import하고(선택 기능인 토큰 수 계산용), transformers가 torch를 import한다. 앱은 OpenAI 모델을 쓰므로 이 토크나이저를 쓰지 않는다.
+
+**바꾼 것**
+- `src/onnx_embeddings.py`: 모델 저장소(`jhgan/ko-sroberta-multitask`)에 올라와 있는 ONNX 파일을 onnxruntime과 tokenizers로 실행한다. sentence-transformers와 같은 순서(최대 128토큰 → 트랜스포머 → attention mask 평균 풀링 → L2 정규화)를 numpy로 구현했다. 파일은 앱이 처음 시작할 때 Hugging Face에서 받으므로 저장소 크기는 늘지 않는다.
+- `block_torch_imports()` (`main.py` 시작 시 호출): `sys.modules["transformers"] = None`으로 transformers import를 `ImportError`로 만든다. langchain_core는 이 경우를 이미 처리한다. 테스트와 스크립트는 `main.py`를 거치지 않으므로 영향이 없다.
+- `onnxruntime`을 의존성에 명시했다(원래 chromadb의 하위 의존성으로 설치돼 있었다).
+
+**품질 (검증 Q&A 561건, 운영 하이브리드 검색)**
+| 질문 임베딩 | 원래 모델 대비 코사인 | hit@3 | 미적중 | 질문당 검색 |
+| --- | ---: | ---: | ---: | ---: |
+| PyTorch (이전) | – | 0.2620 | 414 | 0.53초 |
+| ONNX fp32 (`onnx/model.onnx`) | 1.0000 | 0.2620 | 414 | 0.56초 |
+| **ONNX int8 (`onnx/model_qint8_avx512_vnni.onnx`, 적용)** | 평균 0.992, 최소 0.984 | **0.2638** | 413 | **0.44초** |
+
+int8은 PyTorch 대비 얻은 질문 9개, 잃은 질문 8개로 같은 수준이다. 저장된 문서 벡터는 PyTorch로 만든 그대로이고, 질문 벡터만 int8 모델로 만든다.
+
+**메모리 (로컬, `scripts/measure_memory.py`, 보고서 검색과 질의 3건 포함)**
+| | import 직후 | + 건강 Chroma와 모델 | + BM25 | 최대 |
+| --- | ---: | ---: | ---: | ---: |
+| PyTorch (이전) | 374MB | 994MB | 1,432MB | 1,587MB |
+| ONNX fp32 | | | | 1,294MB |
+| **ONNX int8** | **208MB** | **441MB** | **820MB** | **985MB** |
+
+- 실제 앱(로컬 `streamlit run`)에서 건강 질문과 보고서 질문을 한 뒤 서버 프로세스의 최대 메모리는 1,055MB였다. 이전 같은 흐름에서는 1,811MB였다. torch DLL은 로딩되지 않았고, 스레드는 125개에서 63개로 줄었다.
+- 남은 가장 큰 항목은 Kiwi(약 290MB)와 BM25 색인(약 90MB)이다.
+- 배포 앱은 첫 시작 때 모델 대신 ONNX 파일(111MB)과 토크나이저를 받는다. 이전에는 PyTorch 가중치 440MB를 받았다.

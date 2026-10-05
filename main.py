@@ -1,9 +1,10 @@
 import os
 
-from src.memory_limits import limit_native_memory
+from src.memory_limits import block_torch_imports, limit_native_memory
 
 os.environ.setdefault("ARROW_DEFAULT_MEMORY_POOL", "system")
-limit_native_memory()  # before torch is imported by the chatbot page
+limit_native_memory()  # before any native library starts its threads
+block_torch_imports()  # the chatbot embeds with ONNX Runtime, not torch
 
 import streamlit as st
 
