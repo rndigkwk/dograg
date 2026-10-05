@@ -947,6 +947,8 @@ def chatbot(
     location: tuple[float, float] | None = None,
     crag: bool | None = None,
     crag_reports: bool | None = None,
+    on_token=None,
+    on_step=None,
 ) -> dict[str, Any]:
     """질문을 분류한 뒤 rag, sql, analysis, 또는 도구 없는 일반 응답을 LangGraph로 실행합니다.
 
@@ -968,7 +970,30 @@ def chatbot(
         crag=bool(crag) and model_ready,
         crag_reports=bool(crag_reports) and model_ready,
         graph=build_chat_graph(_PAGE_TOOLS),
+        on_token=on_token,
+        on_step=on_step,
     )
+
+
+ROUTE_PROGRESS = {
+    "rag": "건강 상담 자료에서 근거를 찾고 있습니다…",
+    "analysis": "보고서에서 근거를 찾고 있습니다…",
+    "sql": "동물병원을 찾고 있습니다…",
+    "none": "답변을 작성하고 있습니다…",
+}
+
+
+def progress_message(node: str, update: dict) -> str | None:
+    """그래프 노드가 끝날 때마다 다음 단계를 사용자에게 알려 줄 문구를 고릅니다."""
+    if node == "classify":
+        return ROUTE_PROGRESS.get(update.get("route"))
+    if node in {"health_retrieve", "report_retrieve"}:
+        return "찾은 근거가 질문에 맞는지 확인하고 있습니다…"
+    if node in {"health_grade", "report_grade"}:
+        if update.get("documents"):
+            return "근거를 바탕으로 답변을 작성하고 있습니다…"
+        return "맞는 근거가 없어 검색어를 바꿔 다시 찾고 있습니다…" if node == "health_grade" else None
+    return None
 
 
 class _PageTools:
@@ -1188,15 +1213,35 @@ def render_page():
         if urgent_notice:
             st.warning(urgent_notice)
         try:
-            with st.spinner(
-                " 답변을 생성하는 중입니다. 잠시만 기다리세요"
-            ):
+            # 답변 문장은 모델이 쓰는 대로 보여 주고, 그 전까지는 지금 단계를 알려 줍니다.
+            status = st.empty()
+            status.caption("⏳ 질문을 확인하고 있습니다…")
+            stream_box = st.empty()
+            streamed: list[str] = []
+
+            def show_token(text: str) -> None:
+                if not streamed:
+                    status.empty()
+                streamed.append(text)
+                stream_box.markdown("".join(streamed) + " ▌")
+
+            def show_step(node: str, update: dict) -> None:
+                message = None if streamed else progress_message(node, update)
+                if message:
+                    status.caption(f"⏳ {message}")
+
+            try:
                 result = chatbot(
                     question,
                     top_k=top_k,
                     chat_history=chat_history,
                     location=location,
+                    on_token=show_token,
+                    on_step=show_step,
                 )
+            finally:
+                status.empty()
+                stream_box.empty()
 
             assistant_message = {
                 "role": "assistant", "content": result["answer"], "route": result["route"],
