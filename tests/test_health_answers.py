@@ -5,8 +5,9 @@ from unittest.mock import patch
 
 from langchain_core.documents import Document
 
-from pages import rag
+from src import resources
 from src.health_answers import attach_health_answers, load_health_answers
+from src.tools import health
 
 
 def write_csv(directory: str) -> Path:
@@ -42,17 +43,17 @@ class HealthAnswerLookupTests(unittest.TestCase):
     def test_ask_rag_reads_answers_from_csv(self):
         doc = Document(id="1", page_content="설사해요", metadata={"meta.department": "내과"})
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(rag, "HEALTH_CSV_PATH", write_csv(directory)), \
-                patch.object(rag, "initialize_rag", return_value=(object(), None)), \
-                patch.object(rag, "load_health_bm25_index", return_value=object()), \
+                patch.object(resources, "HEALTH_CSV_PATH", write_csv(directory)), \
+                patch.object(health, "initialize_rag", return_value=(object(), None)), \
+                patch.object(resources, "load_health_bm25_index", return_value=object()), \
                 patch("src.hybrid_retrieval.retrieve_hybrid", return_value=[doc]):
-            rag.load_health_answer_table.clear()
-            result = rag.ask_rag("강아지가 설사해요")
-            rag.load_health_answer_table.clear()
+            resources.load_health_answer_table.clear()
+            result = health.ask_rag("강아지가 설사해요")
+            resources.load_health_answer_table.clear()
         self.assertEqual(result["evidence_rows"][0]["qa.output"], "수분을 보충해 주세요.")
 
     def test_project_csv_covers_every_indexed_row(self):
-        answers = load_health_answers(rag.HEALTH_CSV_PATH)
+        answers = load_health_answers(resources.HEALTH_CSV_PATH)
         self.assertEqual(len(answers), 19206)
         self.assertTrue(all(str(index) in answers for index in range(19206)))
 

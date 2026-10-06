@@ -150,13 +150,14 @@ def run_evaluation(question_path: Path) -> dict[str, Any]:
             "typesafe-sdk is required; run with --with typesafe-sdk==0.7.1"
         ) from exc
 
-    from pages import rag
+    from src import resources
+    from src.tools import router
 
     questions = load_questions(question_path)
     jev_client = TypeSafeClient(timeout=30.0)
     route_question = build_route_question(Choice)
     model_counter = {"count": 0}
-    original_load_chat_model = rag.load_chat_model
+    original_load_chat_model = resources.load_chat_model
 
     def counted_load_chat_model() -> Any:
         model = original_load_chat_model()
@@ -164,7 +165,7 @@ def run_evaluation(question_path: Path) -> dict[str, Any]:
             return None
         return _CountingChatModel(model, model_counter)
 
-    rag.load_chat_model = counted_load_chat_model
+    resources.load_chat_model = counted_load_chat_model
     records: list[dict[str, Any]] = []
     old_total = 0.0
     jev_total = 0.0
@@ -180,7 +181,7 @@ def run_evaluation(question_path: Path) -> dict[str, Any]:
 
             started = time.perf_counter()
             try:
-                record["existing_route"] = rag.classify_question(question)
+                record["existing_route"] = router.classify_question(question)
                 record["existing_error"] = None
             except Exception as exc:  # preserve timing and keep the evaluation moving
                 record["existing_route"] = None
@@ -219,7 +220,7 @@ def run_evaluation(question_path: Path) -> dict[str, Any]:
                 f"Jev={record['jev_route']} ({record['jev_latency_ms']:.0f} ms)"
             )
     finally:
-        rag.load_chat_model = original_load_chat_model
+        resources.load_chat_model = original_load_chat_model
         jev_client.close()
 
     existing_latencies = [record["existing_latency_ms"] / 1000 for record in records]

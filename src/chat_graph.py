@@ -5,7 +5,7 @@ is unchanged. With CRAG on (ENABLE_CRAG, and a chat model available), health and
 report questions go through retrieve -> grade -> (rewrite ->) generate | abstain,
 following the course's CRAG graph (day53) without its web-search step.
 
-`tools` is the pages.rag module (or a test double). Nodes look functions up on it
+`tools` is src.tools.toolset.TOOLS (or a test double). Nodes look functions up on it
 at call time, so tests can patch individual functions.
 """
 

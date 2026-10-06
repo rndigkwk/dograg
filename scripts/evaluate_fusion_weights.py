@@ -150,15 +150,15 @@ def collect_candidates(copy_path: Path, output_path: Path) -> None:
     import pandas as pd
     from rank_bm25 import BM25Okapi
 
-    from pages import rag
+    from src import resources
 
     validation = pd.read_csv(PROJECT_DIR / "data" / "df_val.csv").fillna("")
-    original_chroma_dir = rag.CHROMA_DIR
+    original_chroma_dir = resources.CHROMA_DIR
     records = []
     try:
-        rag.load_vector_db.clear()
-        rag.CHROMA_DIR = copy_path
-        dense_db = rag.load_vector_db()
+        resources.load_vector_db.clear()
+        resources.CHROMA_DIR = copy_path
+        dense_db = resources.load_vector_db()
         stored = dense_db.get(include=["documents", "metadatas"])
         corpus = [
             (source_id, text, metadata or {})
@@ -193,8 +193,8 @@ def collect_candidates(copy_path: Path, output_path: Path) -> None:
             if len(records) % 100 == 0:
                 print(f"retrieved={len(records)}/{len(validation)}", flush=True)
     finally:
-        rag.CHROMA_DIR = original_chroma_dir
-        rag.load_vector_db.clear()
+        resources.CHROMA_DIR = original_chroma_dir
+        resources.load_vector_db.clear()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")

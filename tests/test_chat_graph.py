@@ -11,6 +11,8 @@ from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import StrOutputParser
 
 from pages import rag
+from src import chatbot as app
+from src import resources, settings
 from src.chat_graph import HEALTH_ABSTAIN, REPORT_ABSTAIN, run_chat
 from src.crag import (
     RetrievalReview,
@@ -19,6 +21,8 @@ from src.crag import (
     merge_documents,
 )
 from src.run_log import log_chat_run
+from src.tools import health, router
+from src.tools import review as review_tools
 
 
 def doc(doc_id, text="본문", **metadata):
@@ -213,52 +217,52 @@ class CragHelperTests(unittest.TestCase):
 
 class PageWiringTests(ChatGraphTestCase):
     def test_crag_flag_reads_settings(self):
-        with patch.object(rag, "get_setting", return_value="true"):
-            self.assertTrue(rag.crag_enabled())
-        with patch.object(rag, "get_setting", return_value=None):
-            self.assertFalse(rag.crag_enabled())
+        with patch.object(settings, "get_setting", return_value="true"):
+            self.assertTrue(settings.crag_enabled())
+        with patch.object(settings, "get_setting", return_value=None):
+            self.assertFalse(settings.crag_enabled())
 
     def test_chatbot_reads_report_flag_separately(self):
-        settings = {"ENABLE_CRAG": "true", "ENABLE_CRAG_REPORTS": None}
+        values = {"ENABLE_CRAG": "true", "ENABLE_CRAG_REPORTS": None}
         with (
-            patch.object(rag, "get_setting", side_effect=settings.get),
-            patch.object(rag, "load_chat_model", return_value=object()),
-            patch.object(rag, "run_chat", return_value={}) as run,
+            patch.object(settings, "get_setting", side_effect=values.get),
+            patch.object(resources, "load_chat_model", return_value=object()),
+            patch.object(app, "run_chat", return_value={}) as run,
         ):
-            rag.chatbot("질문")
+            app.chatbot("질문")
         self.assertTrue(run.call_args.kwargs["crag"])
         self.assertFalse(run.call_args.kwargs["crag_reports"])
 
     def test_chatbot_without_model_never_uses_crag(self):
-        with patch.object(rag, "load_chat_model", return_value=None), \
-                patch.object(rag, "classify_question", return_value="rag"), \
-                patch.object(rag, "ask_rag", return_value={"answer": "기존", "evidence_rows": []}) as ask, \
-                patch.object(rag, "retrieve_health") as retrieve:
-            result = rag.chatbot("강아지가 구토해요", crag=True)
+        with patch.object(resources, "load_chat_model", return_value=None), \
+                patch.object(router, "classify_question", return_value="rag"), \
+                patch.object(health, "ask_rag", return_value={"answer": "기존", "evidence_rows": []}) as ask, \
+                patch.object(health, "retrieve_health") as retrieve:
+            result = app.chatbot("강아지가 구토해요", crag=True)
         ask.assert_called_once()
         retrieve.assert_not_called()
         self.assertEqual(result["answer"], "기존")
 
     def test_chatbot_routes_through_page_functions_with_crag(self):
-        with patch.object(rag, "load_chat_model", return_value=object()), \
-                patch.object(rag, "classify_question", return_value="rag"), \
-                patch.object(rag, "retrieve_health", return_value=[doc("7")]), \
-                patch.object(rag, "review_evidence", return_value=review(["7"], True)), \
-                patch.object(rag, "generate_health_answer", return_value="CRAG 답변"):
-            result = rag.chatbot("강아지가 구토해요", crag=True)
+        with patch.object(resources, "load_chat_model", return_value=object()), \
+                patch.object(router, "classify_question", return_value="rag"), \
+                patch.object(health, "retrieve_health", return_value=[doc("7")]), \
+                patch.object(review_tools, "review_evidence", return_value=review(["7"], True)), \
+                patch.object(health, "generate_health_answer", return_value="CRAG 답변"):
+            result = app.chatbot("강아지가 구토해요", crag=True)
         self.assertEqual(result["answer"], "CRAG 답변")
 
 
 class RouterKeywordTests(unittest.TestCase):
     def test_unrelated_question_mentioning_sangwan_is_not_a_report_question(self):
-        with patch.object(rag, "load_chat_model", return_value=None):
-            self.assertNotEqual(rag.classify_question("강아지와 상관없는 파이썬 리스트 정렬 방법을 알려줘"), "analysis")
+        with patch.object(resources, "load_chat_model", return_value=None):
+            self.assertNotEqual(router.classify_question("강아지와 상관없는 파이썬 리스트 정렬 방법을 알려줘"), "analysis")
 
     def test_new_report_topics_route_to_analysis(self):
-        with patch.object(rag, "load_chat_model", return_value=None):
+        with patch.object(resources, "load_chat_model", return_value=None):
             for question in ("반려동물 장묘 서비스 이용 실태", "펫보험 가입 현황", "반려동물 산업 시장 규모"):
                 with self.subTest(question=question):
-                    self.assertEqual(rag.classify_question(question), "analysis")
+                    self.assertEqual(router.classify_question(question), "analysis")
 
 
 def fake_llm_text(text):
@@ -317,8 +321,8 @@ class StreamingTests(ChatGraphTestCase):
         self.assertIsNone(rag.progress_message("health_generate", {"answer": "x"}))
 
     def test_chatbot_passes_streaming_callbacks(self):
-        with patch.object(rag, "load_chat_model", return_value=None),                 patch.object(rag, "run_chat", return_value={}) as run:
-            rag.chatbot("질문", on_token=print, on_step=len)
+        with patch.object(resources, "load_chat_model", return_value=None),                 patch.object(app, "run_chat", return_value={}) as run:
+            app.chatbot("질문", on_token=print, on_step=len)
         self.assertIs(run.call_args.kwargs["on_token"], print)
         self.assertIs(run.call_args.kwargs["on_step"], len)
 

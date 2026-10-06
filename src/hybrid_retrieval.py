@@ -11,7 +11,6 @@ from typing import Any, Callable, Iterable
 
 from langchain_core.documents import Document
 
-
 DEFAULT_CANDIDATE_K = 12
 DEFAULT_RRF_C = 60
 
@@ -51,7 +50,7 @@ def reciprocal_rank_fusion(
 
 
 def matches_metadata_filter(metadata: dict[str, Any], where: dict | None) -> bool:
-    """Evaluate the equality/AND/OR filter subset emitted by pages.rag."""
+    """Evaluate the equality/AND/OR filter subset emitted by src.tools.health."""
     if not where:
         return True
     for key, expected in where.items():

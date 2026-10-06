@@ -12,18 +12,17 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_CHROMA_DIR = PROJECT_DIR / "data" / "chroma_db"
 
 
 def run_searches(copy_path: Path) -> int:
     sys.path.insert(0, str(PROJECT_DIR))
-    from pages import rag
+    from src import resources
 
-    with patch.object(rag, "CHROMA_DIR", copy_path):
-        health_hits = rag.load_vector_db().similarity_search("강아지 구토", k=1)
-        report_hits = rag.load_report_vector_db().similarity_search(
+    with patch.object(resources, "CHROMA_DIR", copy_path):
+        health_hits = resources.load_vector_db().similarity_search("강아지 구토", k=1)
+        report_hits = resources.load_report_vector_db().similarity_search(
             "반려동물 양육 현황", k=1
         )
     print(f"health_hits={len(health_hits)} report_hits={len(report_hits)}")

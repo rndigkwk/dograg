@@ -32,26 +32,29 @@ sys.path.insert(0, str(PROJECT_DIR))
 QUESTIONS = PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"
 
 
-def generate(rag, items: list[dict], crag: bool) -> list[dict]:
+def generate(items: list[dict], crag: bool) -> list[dict]:
+    from src import chatbot as app
+    from src.tools import health, report
+
     captured: list[str] = []
-    health_answer, report_answer = rag.generate_health_answer, rag.generate_report_answer
+    health_answer, report_answer = health.generate_health_answer, report.generate_report_answer
 
     def record_health(question, docs, *args, **kwargs):
-        captured.append(rag.format_rag_context(docs))
+        captured.append(health.format_rag_context(docs))
         return health_answer(question, docs, *args, **kwargs)
 
     def record_report(question, docs, *args, **kwargs):
-        captured.append(rag.format_report_context(docs))
+        captured.append(report.format_report_context(docs))
         return report_answer(question, docs, *args, **kwargs)
 
-    rag.generate_health_answer, rag.generate_report_answer = record_health, record_report
+    health.generate_health_answer, report.generate_report_answer = record_health, record_report
     rows = []
     try:
         for index, item in enumerate(items, start=1):
             captured.clear()
             started = time.perf_counter()
             try:
-                result, error = rag.chatbot(item["question"], crag=crag, crag_reports=False), None
+                result, error = app.chatbot(item["question"], crag=crag, crag_reports=False), None
             except Exception as exc:  # noqa: BLE001 - one failure should not stop the evaluation
                 result, error = {}, type(exc).__name__
             rows.append({
@@ -64,11 +67,12 @@ def generate(rag, items: list[dict], crag: bool) -> list[dict]:
             print(f"[gen {index}/{len(items)}] {item['id']} {rows[-1]['route']}"
                   f"{' abstain' if rows[-1]['abstained'] else ''}", flush=True)
     finally:
-        rag.generate_health_answer, rag.generate_report_answer = health_answer, report_answer
+        health.generate_health_answer, report.generate_report_answer = health_answer, report_answer
     return rows
 
 
-def judge(rag, rows: list[dict]) -> None:
+def judge(rows: list[dict]) -> None:
+    from src import resources
     from src.faithfulness import (
         build_judge,
         build_verifier,
@@ -76,7 +80,7 @@ def judge(rag, rows: list[dict]) -> None:
         score_judgment,
     )
 
-    model = rag.load_chat_model()
+    model = resources.load_chat_model()
     judge_chain, verifier = build_judge(model), build_verifier(model)
     for index, row in enumerate(rows, start=1):
         row.pop("score", None)
@@ -126,7 +130,7 @@ def main() -> int:
     args = parser.parse_args()
     os.environ["HF_HUB_OFFLINE"] = "1"
 
-    from pages import rag
+    from src import resources
 
     if args.judge_only:
         output = args.output or args.judge_only
@@ -137,11 +141,11 @@ def main() -> int:
         os.environ["CHAT_RUN_LOG"] = str(output.with_suffix(".runs.jsonl"))
         items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"][: args.limit]
         with tempfile.TemporaryDirectory(prefix="dograg-faith-", ignore_cleanup_errors=True) as directory:
-            rag.CHROMA_DIR = Path(directory) / "chroma_db"
-            shutil.copytree(PROJECT_DIR / "data" / "chroma_db", rag.CHROMA_DIR)
-            rows = generate(rag, items, crag=args.crag == "on")
+            resources.CHROMA_DIR = Path(directory) / "chroma_db"
+            shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
+            rows = generate(items, crag=args.crag == "on")
         report = {"crag": args.crag, "questions": str(QUESTIONS.relative_to(PROJECT_DIR))}
-    judge(rag, rows)
+    judge(rows)
     report.update(summary=summarize(rows), rows=rows)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

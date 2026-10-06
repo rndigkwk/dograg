@@ -1,21 +1,23 @@
-import unittest
 import sqlite3
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pymupdf
 import pandas as pd
+import pymupdf
+from streamlit.testing.v1 import AppTest
 
+from pages import rag
+from src import resources
 from src.health_quality import audit_health_data, normalize_label
+from src.health_retrieval import rerank_candidates, summarize_retrieval
 from src.health_safety import detect_urgent_sign, has_usable_evidence
 from src.hospital_distance import nearest_hospitals
-from src.report_evidence import report_evidence_from_docs, render_pdf_page
 from src.location_component import parse_location_result
-from src.health_retrieval import rerank_candidates, summarize_retrieval
-from pages import rag
-from streamlit.testing.v1 import AppTest
+from src.report_evidence import render_pdf_page, report_evidence_from_docs
+from src.tools import health, places, report
 
 
 def render_saved_message_for_test(message):
@@ -57,10 +59,10 @@ class SafetyTests(unittest.TestCase):
     def test_empty_rag_skips_model_and_returns_notice(self):
         db = SimpleNamespace(similarity_search=lambda *args, **kwargs: [])
         index = SimpleNamespace(search=lambda *args, **kwargs: [])
-        with patch.object(rag, "initialize_rag", return_value=(db, object())), patch.object(
-            rag, "load_health_bm25_index", return_value=index
+        with patch.object(health, "initialize_rag", return_value=(db, object())), patch.object(
+            resources, "load_health_bm25_index", return_value=index
         ):
-            result = rag.ask_rag("강아지가 숨을 못 쉬어요")
+            result = health.ask_rag("강아지가 숨을 못 쉬어요")
         self.assertIn("근거", result["answer"])
         self.assertIn("동물병원", result["safety_notice"])
 
@@ -87,8 +89,8 @@ class DistanceTests(unittest.TestCase):
         self.assertEqual([row["ids"] for row in nearest_hospitals(rows, lat, lon)], [2, 10])
 
     def test_nearest_chat_without_location_does_not_claim_first_row(self):
-        with patch.object(rag, "load_chat_model", return_value=None):
-            answer, rows = rag.run_sql_search("가장 가까운 동물병원")
+        with patch.object(resources, "load_chat_model", return_value=None):
+            answer, rows = places.run_sql_search("가장 가까운 동물병원")
         self.assertEqual(rows, [])
         self.assertIn("위치", answer)
 
@@ -104,9 +106,9 @@ class DistanceTests(unittest.TestCase):
                 connection.commit()
             finally:
                 connection.close()
-            with patch.object(rag, "DB_PATH", db_path), patch.object(rag, "load_chat_model", side_effect=AssertionError("nearest should not use SQL model")):
-                answer, rows = rag.run_sql_search("가장 가까운 동물병원", location=(lat, lon))
-                _, one_row = rag.run_sql_search("가장 가까운 동물병원 하나만", location=(lat, lon))
+            with patch.object(resources, "DB_PATH", db_path), patch.object(resources, "load_chat_model", side_effect=AssertionError("nearest should not use SQL model")):
+                answer, rows = places.run_sql_search("가장 가까운 동물병원", location=(lat, lon))
+                _, one_row = places.run_sql_search("가장 가까운 동물병원 하나만", location=(lat, lon))
         self.assertEqual([row["name"] for row in rows], ["near", "far"])
         self.assertEqual(len(one_row), 1)
         self.assertIn("직선거리", answer)
@@ -142,8 +144,8 @@ class ReportEvidenceTests(unittest.TestCase):
 
     def test_empty_report_skips_model(self):
         db = SimpleNamespace(similarity_search=lambda *args, **kwargs: [])
-        with patch.object(rag, "load_report_vector_db", return_value=db):
-            result = rag.analyze_report("반려동물 보고서의 비만 현황")
+        with patch.object(resources, "load_report_vector_db", return_value=db):
+            result = report.analyze_report("반려동물 보고서의 비만 현황")
         self.assertEqual(result["evidence_rows"], [])
         self.assertIn("근거", result["answer"])
 
