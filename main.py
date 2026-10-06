@@ -48,3 +48,5 @@ render_profile_sidebar(session)
 render_sidebar()
 pg.run()
 render_footer()
+if session.pending_values() is not None:
+    st.rerun()  # e.g. the storage notice was just shown on this page: save "seen" now, not on the next click

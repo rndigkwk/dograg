@@ -127,6 +127,13 @@ class ConversationPageTests(unittest.TestCase):
         at = self.run_app(browser, at)  # st.switch_page to the chat page
         self.assertEqual([m.markdown[0].value for m in at.chat_message], ["기침해요", "진료받으세요"])
 
+    def test_notice_is_saved_on_the_home_page_too(self):
+        browser = FakeBrowser()
+        at = self.run_app(browser, home=True)
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertEqual(len(at.sidebar.info), 1)
+        self.assertEqual(browser.values[NOTICE_KEY], "1")
+
     def test_history_comes_before_the_brand_card(self):
         at = self.run_app(FakeBrowser(notice=True), home=True)
         sidebar = [getattr(node, "label", None) or getattr(node, "value", "") for node in at.sidebar]
