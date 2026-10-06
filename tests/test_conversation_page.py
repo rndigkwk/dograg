@@ -9,14 +9,14 @@ st.navigation, so chat-page tests run `chat_app`, which follows main.py's order.
 import json
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
 from pages import rag as chat_page
 from src import conversation_ui
-from src.storage.models import Thread, Turn
-from src.storage.snapshot import NOTICE_KEY, THREADS_KEY
+from src.storage.models import PetProfile, Thread, Turn
+from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
 
 MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
@@ -24,10 +24,15 @@ MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 def chat_app():
     """main.py's order for the chat page: sync with the browser, sidebar, then the page body."""
     from pages import rag
-    from src.conversation_ui import render_conversation_sidebar, sync_conversations
+    from src.conversation_ui import (
+        render_conversation_sidebar,
+        render_profile_sidebar,
+        sync_conversations,
+    )
 
     session = sync_conversations()
     render_conversation_sidebar(session)
+    render_profile_sidebar(session)
     rag.render_page()
 
 
@@ -56,9 +61,11 @@ def fake_chatbot(question, **kwargs):
 
 
 class ConversationPageTests(unittest.TestCase):
-    def run_app(self, browser, at=None, *, home=False):
+    def run_app(self, browser, at=None, *, home=False, detected=None):
+        self.detect = Mock(return_value=detected)
         with patch.object(conversation_ui, "sync_local_store", browser), \
-                patch.object(chat_page, "chatbot", side_effect=fake_chatbot):
+                patch.object(chat_page, "chatbot", side_effect=fake_chatbot), \
+                patch.object(chat_page, "detect_profile", self.detect):
             if at is None:
                 at = AppTest.from_file(MAIN, default_timeout=30) if home else AppTest.from_function(chat_app, default_timeout=30)
             return at.run()
@@ -126,6 +133,54 @@ class ConversationPageTests(unittest.TestCase):
         first_brand = next(i for i, text in enumerate(sidebar) if "pet-brand" in str(text))
         first_history = next(i for i, text in enumerate(sidebar) if "대화 기록" in str(text))
         self.assertLess(first_history, first_brand)
+
+
+    # --- pet profile (design doc phase 4) ---------------------------------------
+    def stored_profile(self, browser):
+        return json.loads(browser.values.get(PROFILE_KEY) or "{}")
+
+    def test_profile_form_saves_to_the_browser(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        [name] = [w for w in at.sidebar.text_input if w.label == "이름"]
+        name.input("초코")
+        [conditions] = [w for w in at.sidebar.text_input if w.label.startswith("지병")]
+        conditions.input("슬개골 탈구, 피부염")
+        [save] = [b for b in at.sidebar.button if b.label == "저장"]
+        save.click()
+        at = self.run_app(browser, at)
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertEqual(self.stored_profile(browser), {"name": "초코", "conditions": ["슬개골 탈구", "피부염"]})
+
+    def test_detected_profile_is_saved_only_after_a_click(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("우리 초코가 5개월인데 설사해요")
+        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        self.assertEqual(self.detect.call_count, 1)
+        self.assertEqual(self.stored_profile(browser), {})  # nothing saved yet
+        at.button(key="profile_suggest_save").click()
+        at = self.run_app(browser, at)
+        self.assertEqual(self.stored_profile(browser), {"name": "초코"})
+
+    def test_no_detection_when_a_profile_exists_or_after_declining(self):
+        browser = FakeBrowser(notice=True)
+        browser.values[PROFILE_KEY] = PetProfile(name="보리").model_dump_json(exclude_defaults=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("기침해요")
+        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        self.assertEqual(self.detect.call_count, 0)
+
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("우리 초코가 기침해요")
+        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        at.button(key="profile_suggest_dismiss").click()
+        at = self.run_app(browser, at)
+        at.chat_input[0].set_value("또 기침해요")
+        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        self.assertEqual(self.detect.call_count, 0)  # declined once: not asked again this session
+        self.assertEqual(self.stored_profile(browser), {})
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import streamlit as st
 
 from src.conversation_ui import (
     render_conversation_sidebar,
+    render_profile_sidebar,
     sync_conversations,
 )
 from src.ui import (
@@ -43,6 +44,7 @@ pg = st.navigation(navigation)
 # Stored conversations and the pet profile, on every page, right under the navigation.
 session = sync_conversations()
 render_conversation_sidebar(session, chat_page=pages[CHAT_PAGE])
+render_profile_sidebar(session)
 render_sidebar()
 pg.run()
 render_footer()

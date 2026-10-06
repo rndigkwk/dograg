@@ -7,10 +7,15 @@ conversation list sits right under the page navigation.
 
 from __future__ import annotations
 
+from datetime import date
+
 import streamlit as st
+from pydantic import ValidationError
 
 from src.conversation_session import LOADING, UNAVAILABLE, ConversationSession
 from src.local_store_component import sync_local_store
+from src.storage.models import PetProfile
+from src.tools.profile import profile_summary, today
 
 CHAT_MESSAGES_STATE_KEY = "fixing_messages"
 HOSPITAL_ROWS_STATE_KEY = "hospital_rows"
@@ -86,3 +91,48 @@ def render_conversation_sidebar(session: ConversationSession, chat_page=None) ->
                 session.clear_device()
                 open_conversation(session)
                 st.rerun()
+
+
+def _split_items(text: str) -> list[str]:
+    return [item.strip() for item in (text or "").replace("\n", ",").split(",") if item.strip()]
+
+
+NEUTERED_OPTIONS = ("모름", "함", "안 함")
+
+
+def render_profile_sidebar(session: ConversationSession) -> None:
+    """Long-term memory about the dog (design doc phase 4), kept in this browser only."""
+    profile = session.profiles.get()
+    current = profile or PetProfile()
+    with st.sidebar, st.expander("우리 아이 정보", icon=":material/pets:"):
+        st.caption(profile_summary(profile) if profile else "입력하면 질문에 나이가 없어도 나이에 맞는 상담 자료를 먼저 찾습니다.")
+        with st.form("pet_profile_form", border=False):
+            name = st.text_input("이름", value=current.name or "", max_chars=30)
+            breed = st.text_input("견종", value=current.breed or "", max_chars=30)
+            birth = st.date_input(
+                "태어난 달 (대략)", value=current.birth_month, min_value=date(1990, 1, 1), max_value=today(),
+            )
+            weight = st.number_input("체중 (kg, 모르면 0)", min_value=0.0, max_value=149.9, value=float(current.weight_kg or 0.0), step=0.1)
+            neutered = st.radio(
+                "중성화", NEUTERED_OPTIONS, horizontal=True,
+                index=0 if current.neutered is None else (1 if current.neutered else 2),
+            )
+            conditions = st.text_input("지병 (쉼표로 구분)", value=", ".join(current.conditions))
+            medications = st.text_input("복용약 (쉼표로 구분)", value=", ".join(current.medications))
+            allergies = st.text_input("알레르기 (쉼표로 구분)", value=", ".join(current.allergies))
+            if st.form_submit_button("저장", type="primary"):
+                try:
+                    updated = PetProfile(
+                        name=name or None, breed=breed or None, birth_month=birth, weight_kg=weight or None,
+                        neutered=None if neutered == "모름" else neutered == "함",
+                        conditions=_split_items(conditions), medications=_split_items(medications),
+                        allergies=_split_items(allergies),
+                    )
+                except ValidationError:
+                    st.error("입력값을 확인해 주세요.")
+                else:
+                    session.profiles.save(updated)
+                    st.rerun()
+        if profile is not None and st.button("정보 지우기", key="profile_clear"):
+            session.profiles.clear()
+            st.rerun()
