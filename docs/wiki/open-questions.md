@@ -43,6 +43,6 @@
 
 ## 코드 구조
 
-- (2026-10-04 일부 해결) 챗봇 흐름은 `src/chat_graph.py`(LangGraph), CRAG 판정·재작성·분해는 `src/crag.py`로 옮겼다. 라우터 키워드, SQL, 보고서 분석 함수와 UI는 아직 `pages/rag.py`(약 1,150줄)에 있다.
+- (2026-10-06 해결) 도구를 `src/tools/`(router, health, report, places, general, review)로, 설정과 공유 자원을 `src/settings.py`·`src/resources.py`로 옮겼다. `pages/rag.py`에는 화면 코드만 남았다(280줄). 설계와 결과: `docs/design/modular-tools-and-conversation-memory.md`
 - **CRAG v2 평가 완료 (2026-10-05):** 건강 상담은 켜는 것을 권장한다(보류 대상 80% 보류, 과잉 보류 1/19, 토큰 2배). 보고서는 판정이 정답 근거를 걸러 내서 끈다(정답 페이지 12/18 → 10/18). 2026-10-05 설정을 나눴다. 배포 앱은 건강 상담에만 CRAG를 쓴다([safety-and-evidence.md](safety-and-evidence.md)).
 - ~~**라우터 오분류(평가 중 발견)**~~ → 2026-10-04 해결. 키워드 신호가 충돌하면 LLM 라우터에 맡기도록 바꾸고 건강 키워드를 보강했다. 평가셋 오분류 4건이 모두 바로잡혔다([router.md](router.md)).

@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
 from pages import rag
+from src import settings
+from src.tools import health, history
 
 
 class RagSecretsTest(unittest.TestCase):
@@ -19,17 +20,17 @@ class RagSecretsTest(unittest.TestCase):
             secrets = Path(directory) / ".streamlit" / "secrets.toml"
             secrets.parent.mkdir()
             secrets.write_text('OPENAI_API_KEY = "sk-test-from-secrets"\n', encoding="utf-8")
-            with patch.dict(os.environ, {}, clear=False), patch.object(rag, "PROJECT_DIR", Path(directory)):
+            with patch.dict(os.environ, {}, clear=False), patch.object(settings, "PROJECT_DIR", Path(directory)):
                 os.environ.pop("OPENAI_API_KEY", None)
-                self.assertEqual(rag.get_openai_api_key(), "sk-test-from-secrets")
+                self.assertEqual(settings.get_openai_api_key(), "sk-test-from-secrets")
 
     def test_environment_key_takes_precedence_and_missing_file_returns_none(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(rag, "PROJECT_DIR", Path(directory)):
+        with tempfile.TemporaryDirectory() as directory, patch.object(settings, "PROJECT_DIR", Path(directory)):
             with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-from-env"}):
-                self.assertEqual(rag.get_openai_api_key(), "sk-test-from-env")
+                self.assertEqual(settings.get_openai_api_key(), "sk-test-from-env")
             with patch.dict(os.environ, {}, clear=False):
                 os.environ.pop("OPENAI_API_KEY", None)
-                self.assertIsNone(rag.get_openai_api_key())
+                self.assertIsNone(settings.get_openai_api_key())
 
     def test_formats_evidence_row_for_streamlit_display(self):
         row = {
@@ -53,7 +54,7 @@ class RagSecretsTest(unittest.TestCase):
             "disease": "vomiting",
         }
 
-        context = rag.build_filter_context(filters)
+        context = health.build_filter_context(filters)
 
         self.assertIn("adult", context)
         self.assertIn("internal", context)
@@ -61,17 +62,17 @@ class RagSecretsTest(unittest.TestCase):
 
     def test_omits_all_filters_from_prompt_context(self):
         filters = {
-            "life_cycle": rag.ALL_FILTER,
-            "department": rag.ALL_FILTER,
-            "disease": rag.ALL_FILTER,
+            "life_cycle": health.ALL_FILTER,
+            "department": health.ALL_FILTER,
+            "disease": health.ALL_FILTER,
         }
 
-        context = rag.build_filter_context(filters)
+        context = health.build_filter_context(filters)
 
         self.assertIn("없음", context)
 
     def test_builds_rag_search_query_from_question(self):
-        query = rag.build_rag_search_query("eye discharge")
+        query = history.build_rag_search_query("eye discharge")
 
         self.assertEqual(query, "eye discharge")
 
@@ -82,7 +83,7 @@ class RagSecretsTest(unittest.TestCase):
             "disease": "fracture",
         }
 
-        metadata_filter = rag.build_metadata_filter(filters)
+        metadata_filter = health.build_metadata_filter(filters)
 
         self.assertEqual(
             metadata_filter,
@@ -97,19 +98,19 @@ class RagSecretsTest(unittest.TestCase):
 
     def test_etc_disease_filter_searches_etc_and_none_metadata(self):
         filters = {
-            "life_cycle": rag.ALL_FILTER,
-            "department": rag.ALL_FILTER,
-            "disease": rag.ETC_DISEASE,
+            "life_cycle": health.ALL_FILTER,
+            "department": health.ALL_FILTER,
+            "disease": health.ETC_DISEASE,
         }
 
-        metadata_filter = rag.build_metadata_filter(filters)
+        metadata_filter = health.build_metadata_filter(filters)
 
         self.assertEqual(
             metadata_filter,
             {
                 "$or": [
-                    {"meta.disease": rag.ETC_DISEASE},
-                    {"meta.disease": rag.NONE_DISEASE},
+                    {"meta.disease": health.ETC_DISEASE},
+                    {"meta.disease": health.NONE_DISEASE},
                 ]
             },
         )

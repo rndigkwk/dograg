@@ -91,10 +91,10 @@ class BM25TokenCacheTests(unittest.TestCase):
 
 class ProjectCacheTests(unittest.TestCase):
     def test_committed_cache_matches_the_health_collection_size(self):
-        from pages import rag
+        from src import resources
 
-        payload = json.loads(gzip.decompress(rag.BM25_TOKEN_CACHE.read_bytes()))
-        self.assertEqual(payload["tokenizer"], rag.HEALTH_TOKENIZER_VERSION)
+        payload = json.loads(gzip.decompress(resources.BM25_TOKEN_CACHE.read_bytes()))
+        self.assertEqual(payload["tokenizer"], resources.HEALTH_TOKENIZER_VERSION)
         self.assertEqual(len(payload["tokens"]), 19206)
 
 

@@ -80,17 +80,18 @@ def main() -> int:
     os.environ["CHAT_RUN_LOG"] = str(run_log)
     os.environ["HF_HUB_OFFLINE"] = "1"
 
-    from pages import rag
+    from src import chatbot as app
+    from src import resources
 
     items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"][: args.limit]
     rows = []
     with tempfile.TemporaryDirectory(prefix="dograg-crag-eval-", ignore_cleanup_errors=True) as directory:
-        rag.CHROMA_DIR = Path(directory) / "chroma_db"
-        shutil.copytree(PROJECT_DIR / "data" / "chroma_db", rag.CHROMA_DIR)
+        resources.CHROMA_DIR = Path(directory) / "chroma_db"
+        shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
         for index, item in enumerate(items, start=1):
             started = time.perf_counter()
             try:
-                result = rag.chatbot(item["question"], crag=args.crag == "on", crag_reports=args.crag_reports == "on")
+                result = app.chatbot(item["question"], crag=args.crag == "on", crag_reports=args.crag_reports == "on")
                 error = None
             except Exception as exc:  # noqa: BLE001 - one failure should not stop the evaluation
                 result, error = {}, type(exc).__name__

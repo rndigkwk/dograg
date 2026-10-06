@@ -40,16 +40,17 @@ def main(argv=None) -> int:
             return subprocess.run([sys.executable, str(Path(__file__).resolve()), "--allow-external-corpus", "--worker-copy", str(copy_path)], cwd=ROOT, check=False).returncode
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
-    from pages import rag
+    from src import resources, settings
+    from src.tools import health, report
 
-    if not rag.get_openai_api_key():
+    if not settings.get_openai_api_key():
         print("health=unverified reason=missing_api_key")
         print("report=unverified reason=missing_api_key")
         return 2
-    with patch.object(rag, "CHROMA_DIR", args.worker_copy):
-            health_docs = rag.load_vector_db().similarity_search(HEALTH_QUESTION, k=3)
-            topics = rag.get_report_analysis_topics(REPORT_QUESTION)
-            report_docs = rag.load_report_vector_db().similarity_search(f"{' '.join(topics)}\n{REPORT_QUESTION}", k=rag.REPORT_ANALYSIS_TOP_K)
+    with patch.object(resources, "CHROMA_DIR", args.worker_copy):
+            health_docs = resources.load_vector_db().similarity_search(HEALTH_QUESTION, k=3)
+            topics = report.get_report_analysis_topics(REPORT_QUESTION)
+            report_docs = resources.load_report_vector_db().similarity_search(f"{' '.join(topics)}\n{REPORT_QUESTION}", k=report.REPORT_ANALYSIS_TOP_K)
             if not health_docs or not report_docs:
                 print(f"health=unverified evidence={len(health_docs)} reason=empty_retrieval")
                 print(f"report=unverified evidence={len(report_docs)} reason=empty_retrieval")
@@ -59,16 +60,16 @@ def main(argv=None) -> int:
                     print("model=unverified reason=possible_personal_information")
                     return 2
             try:
-                with patch.object(rag, "initialize_rag", return_value=(_FixedDB(health_docs), rag.load_rag_chain())):
-                    health = rag.ask_rag(HEALTH_QUESTION)
-                print(f"health={'ok' if health['answer'] and health['evidence_rows'] else 'unverified'} evidence={len(health['evidence_rows'])} nonempty_answer={bool(health['answer'])}")
+                with patch.object(health, "initialize_rag", return_value=(_FixedDB(health_docs), health.load_rag_chain())):
+                    health_result = health.ask_rag(HEALTH_QUESTION)
+                print(f"health={'ok' if health_result['answer'] and health_result['evidence_rows'] else 'unverified'} evidence={len(health_result['evidence_rows'])} nonempty_answer={bool(health_result['answer'])}")
             except Exception as exc:
                 print(f"health=unverified reason={type(exc).__name__}")
                 return 2
-            with patch.object(rag, "load_report_vector_db", return_value=_FixedDB(report_docs)):
-                report = rag.analyze_report(REPORT_QUESTION)
-            report_ok = bool(report["evidence_rows"] and report["answer"] and "실패" not in report["answer"])
-            print(f"report={'ok' if report_ok else 'unverified'} evidence={len(report['evidence_rows'])} nonempty_answer={bool(report['answer'])}")
+            with patch.object(resources, "load_report_vector_db", return_value=_FixedDB(report_docs)):
+                report_result = report.analyze_report(REPORT_QUESTION)
+            report_ok = bool(report_result["evidence_rows"] and report_result["answer"] and "실패" not in report_result["answer"])
+            print(f"report={'ok' if report_ok else 'unverified'} evidence={len(report_result['evidence_rows'])} nonempty_answer={bool(report_result['answer'])}")
             return 0 if report_ok else 2
 
 

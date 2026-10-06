@@ -1,7 +1,7 @@
 """Compare baseline and lexical reranking on an isolated Chroma copy."""
 
-import json
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -29,12 +29,12 @@ def rank_of_match(row, docs) -> int | None:
 def evaluate(copy_path: Path) -> int:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
-    from pages import rag
+    from src import resources
 
     validation = pd.read_csv(ROOT / "data" / "df_val.csv").fillna("")
     baseline, candidate = [], []
-    with patch.object(rag, "CHROMA_DIR", copy_path):
-        db = rag.load_vector_db()
+    with patch.object(resources, "CHROMA_DIR", copy_path):
+        db = resources.load_vector_db()
         for index, row in validation.iterrows():
             docs = db.similarity_search(str(row["qa.input"]), k=12)
             group = "기타" if str(row["meta.disease"]).strip() == "기타" else "non_other"

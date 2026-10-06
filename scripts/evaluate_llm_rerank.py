@@ -60,16 +60,17 @@ def mcnemar_p(gained: int, lost: int) -> float:
     return min(1.0, 2 * tail)
 
 
-def collect(rag, rows, limit_workers: int) -> list[dict]:
+def collect(rows, limit_workers: int) -> list[dict]:
     from langchain_core.callbacks import get_usage_metadata_callback
 
     from src.chat_graph import _health_text
     from src.crag import format_candidates
+    from src.tools import health, review
 
     records = []
     for index, row in rows:
         question = str(row["qa.input"])
-        docs = rag.retrieve_health(question, k=POOL, filters=None)
+        docs = health.retrieve_health(question, k=POOL, filters=None)
         gold = [d.id for d in docs if all(str(d.metadata.get(f)) == str(row[f]) for f in METADATA_FIELDS)]
         records.append({"row": int(index), "question": question, "ids": [d.id for d in docs], "gold": gold,
                         "contexts": {str(pool): format_candidates(docs[:pool], _health_text) for pool in (5, POOL)}})
@@ -80,8 +81,8 @@ def collect(rag, rows, limit_workers: int) -> list[dict]:
         started = time.perf_counter()
         with get_usage_metadata_callback() as usage:
             try:
-                review = rag.review_evidence("health", record["question"], record["contexts"][str(pool)])
-                useful, error = list(review.useful_ids), None
+                result = review.review_evidence("health", record["question"], record["contexts"][str(pool)])
+                useful, error = list(result.useful_ids), None
             except Exception as exc:  # noqa: BLE001 - count the failure, keep the hybrid order
                 useful, error = [], type(exc).__name__
         tokens = sum(v.get("total_tokens", 0) for v in usage.usage_metadata.values())
@@ -147,16 +148,16 @@ def main() -> int:
         os.environ["HF_HUB_OFFLINE"] = "1"
         import pandas as pd
 
-        from pages import rag
+        from src import resources
 
         validation = pd.read_csv(PROJECT_DIR / "data" / "df_val.csv").fillna("")
         if args.sample:
             validation = validation.sample(n=args.sample, random_state=args.seed)
         rows = list(validation.iterrows())[: args.limit]
         with tempfile.TemporaryDirectory(prefix="dograg-rerank-", ignore_cleanup_errors=True) as directory:
-            rag.CHROMA_DIR = Path(directory) / "chroma_db"
-            shutil.copytree(PROJECT_DIR / "data" / "chroma_db", rag.CHROMA_DIR)
-            records = collect(rag, rows, args.workers)
+            resources.CHROMA_DIR = Path(directory) / "chroma_db"
+            shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
+            records = collect(rows, args.workers)
     report = {"summary": analyze(records), "records": records}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")

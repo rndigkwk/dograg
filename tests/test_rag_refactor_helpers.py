@@ -6,11 +6,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from pages import rag
+from src import resources
+from src.tools import health, places, report
 
 
 class RagRefactorHelpersTest(unittest.TestCase):
@@ -27,7 +27,7 @@ class RagRefactorHelpersTest(unittest.TestCase):
         ]
 
         self.assertEqual(
-            rag.format_rag_context(docs),
+            health.format_rag_context(docs),
             "질문: 강아지가 계속 구토해요.\n"
             "답변: 반복 구토는 진료가 필요할 수 있습니다.\n\n"
             "질문: 식욕이 없어요.\n"
@@ -43,7 +43,7 @@ class RagRefactorHelpersTest(unittest.TestCase):
         ]
 
         self.assertEqual(
-            rag.format_report_context(docs),
+            report.format_report_context(docs),
             "[보고서 · 페이지 12] 반려동물 양육 현황은 전년 대비 증가했다.",
         )
 
@@ -74,8 +74,8 @@ class RagRefactorHelpersTest(unittest.TestCase):
             finally:
                 connection.close()
 
-            with patch.object(rag, "DB_PATH", db_path):
-                rows = rag.execute_hospital_sql(
+            with patch.object(resources, "DB_PATH", db_path):
+                rows = places.execute_hospital_sql(
                     """
                     SELECT ids, name, new_address, x_coor, y_coor, old_address
                     FROM hospital
@@ -99,17 +99,17 @@ class RagRefactorHelpersTest(unittest.TestCase):
         )
 
     def test_detects_questions_that_should_limit_hospital_results_to_one(self):
-        self.assertTrue(rag.should_limit_to_one_hospital("강남구 동물병원 하나만 알려줘"))
-        self.assertTrue(rag.should_limit_to_one_hospital("근처 병원 알려줘"))
-        self.assertFalse(rag.should_limit_to_one_hospital("강남구 동물병원이 몇 개야?"))
+        self.assertTrue(places.should_limit_to_one_hospital("강남구 동물병원 하나만 알려줘"))
+        self.assertTrue(places.should_limit_to_one_hospital("근처 병원 알려줘"))
+        self.assertFalse(places.should_limit_to_one_hospital("강남구 동물병원이 몇 개야?"))
 
     def test_forces_sql_limit_one_without_duplicating_limit_clause(self):
         self.assertEqual(
-            rag.force_sql_limit_one("SELECT * FROM hospital LIMIT 10"),
+            places.force_sql_limit_one("SELECT * FROM hospital LIMIT 10"),
             "SELECT * FROM hospital LIMIT 1",
         )
         self.assertEqual(
-            rag.force_sql_limit_one("SELECT * FROM hospital"),
+            places.force_sql_limit_one("SELECT * FROM hospital"),
             "SELECT * FROM hospital LIMIT 1",
         )
 

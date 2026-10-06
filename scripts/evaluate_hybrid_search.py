@@ -99,7 +99,7 @@ def evaluate(copy_path: Path, output_path: Path) -> dict[str, Any]:
     except ImportError as exc:
         raise RuntimeError("pandas, rank_bm25, and LangChain core are required") from exc
 
-    from pages import rag
+    from src import resources
     from src.health_retrieval import summarize_retrieval
 
     validation = pd.read_csv(PROJECT_DIR / "data" / "df_val.csv").fillna("")
@@ -107,15 +107,15 @@ def evaluate(copy_path: Path, output_path: Path) -> dict[str, Any]:
     if any(field not in validation.columns for field in required):
         raise ValueError("Validation CSV is missing retrieval fields")
 
-    original_chroma_dir = rag.CHROMA_DIR
+    original_chroma_dir = resources.CHROMA_DIR
     result_records = {"dense": [], "bm25": [], "hybrid": []}
     dense_latencies: list[float] = []
     bm25_latencies: list[float] = []
     hybrid_latencies: list[float] = []
     try:
-        rag.load_vector_db.clear()
-        rag.CHROMA_DIR = copy_path
-        dense_db = rag.load_vector_db()
+        resources.load_vector_db.clear()
+        resources.CHROMA_DIR = copy_path
+        dense_db = resources.load_vector_db()
         stored = dense_db.get(include=["documents", "metadatas"])
         stored_ids = stored.get("ids") or []
         stored_texts = stored.get("documents") or []
@@ -170,8 +170,8 @@ def evaluate(copy_path: Path, output_path: Path) -> dict[str, Any]:
             if (len(dense_latencies)) % 100 == 0:
                 print(f"evaluated={len(dense_latencies)}/{len(validation)}", flush=True)
     finally:
-        rag.CHROMA_DIR = original_chroma_dir
-        rag.load_vector_db.clear()
+        resources.CHROMA_DIR = original_chroma_dir
+        resources.load_vector_db.clear()
 
     metrics = {name: summarize_retrieval(records) for name, records in result_records.items()}
     result = {

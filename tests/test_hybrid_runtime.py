@@ -110,7 +110,8 @@ class HybridRuntimeTests(unittest.TestCase):
         self.assertEqual([document.id for document in found], ["more"])
 
     def test_health_rag_uses_hybrid_candidates_and_preserves_selected_filters(self):
-        from pages import rag
+        from src import resources
+        from src.tools import health
 
         dense_doc = Document(
             id="dense", page_content="구토", metadata={"meta.department": "내과"}
@@ -125,10 +126,10 @@ class HybridRuntimeTests(unittest.TestCase):
         where = {"meta.department": "내과"}
         filters = {"department": "내과"}
 
-        with patch.object(rag, "initialize_rag", return_value=(db, None)), patch.object(
-            rag, "load_health_bm25_index", return_value=index
-        ), patch.object(rag, "build_metadata_filter", return_value=where):
-            result = rag.ask_rag("강아지 구토", k=2, filters=filters)
+        with patch.object(health, "initialize_rag", return_value=(db, None)), patch.object(
+            resources, "load_health_bm25_index", return_value=index
+        ), patch.object(health, "build_metadata_filter", return_value=where):
+            result = health.ask_rag("강아지 구토", k=2, filters=filters)
 
         db.similarity_search.assert_called_once_with("강아지 구토", k=12, filter=where)
         index.search.assert_called_once_with("강아지 구토", 12, where=where)

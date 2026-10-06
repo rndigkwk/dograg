@@ -2,7 +2,7 @@
 
 Streamlit Community Cloud allows at most 2.7 GB of RAM per app, so every new
 model or index should be checked against that budget. This loads the same
-cached resources the app loads (via pages.rag) one stage at a time on a
+cached resources the app loads (via src.resources) one stage at a time on a
 disposable Chroma copy, then optionally a reranker on top of the full stack.
 
     uv run python scripts/measure_memory.py
@@ -66,23 +66,23 @@ def run(copy_path: Path, reranker: str | None) -> dict:
     limit_native_memory()
     if reranker is None:
         block_torch_imports()
-    from pages import rag
+    from src import resources
     from src.hybrid_retrieval import retrieve_hybrid
 
     mark(f"imports (streamlit, langchain; torch loaded={'torch' in sys.modules})", started)
 
-    rag.CHROMA_DIR = copy_path
+    resources.CHROMA_DIR = copy_path
     started = time.perf_counter()
-    health_db = rag.load_vector_db()
+    health_db = resources.load_vector_db()
     health_db.similarity_search(QUERIES[0], k=3)
     mark(f"+ health Chroma + {type(health_db.embeddings).__name__}", started)
 
     started = time.perf_counter()
-    bm25 = rag.load_health_bm25_index()
+    bm25 = resources.load_health_bm25_index()
     mark("+ BM25 index (Kiwi, 19,206 docs)", started)
 
     started = time.perf_counter()
-    report_db = rag.load_report_vector_db()
+    report_db = resources.load_report_vector_db()
     report_db.similarity_search(QUERIES[0], k=6)
     mark(f"+ report Chroma + {type(report_db.embeddings).__name__}", started)
 
