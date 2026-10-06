@@ -1,6 +1,6 @@
 # 설계: 도구 모듈 분리와 대화 저장·기억
 
-작성 2026-10-06 · 상태: 검토용 초안
+작성 2026-10-06 · 수정 2026-10-06 (로그인·Supabase 대신 브라우저 저장) · 상태: 검토용 초안
 
 ## 0. 요약
 
@@ -9,15 +9,21 @@
 | 단계 | 내용 | 바뀌는 동작 | 외부 의존 |
 | --- | --- | --- | --- |
 | 1 | `pages/rag.py`의 도구를 `src/tools/`로 분리 (Modular RAG) | 없음 | 없음 |
-| 2 | 대화·프로필 저장소 계층 (인터페이스 + 메모리 구현 + Supabase 구현) | 없음 | Supabase (선택) |
-| 3 | 선택적 로그인, 스레드별 대화 저장 화면 | 로그인한 사용자만 대화가 저장됨 | Google OAuth, Supabase |
-| 4 | 반려견 프로필(장기 기억)과 저장 확인 | 프로필이 검색 필터·답변에 반영됨 | Supabase |
+| 2 | 대화·프로필 저장소 계층 (인터페이스 + 메모리 구현 + 브라우저 구현) | 없음 | 없음 |
+| 3 | 스레드별 대화 저장 (브라우저 localStorage) | 같은 브라우저에서는 새로고침해도 대화가 남음 | 없음 |
+| 4 | 반려견 프로필(장기 기억)과 저장 확인 | 프로필이 검색 필터와 답변에 반영됨 | 없음 |
+
+로그인과 Supabase 동기화는 이번 범위에서 뺐다. 기기 간 동기화가 꼭 필요해질 때 7장의 조건을 만족하면 추가한다.
+
+**왜 브라우저 저장인가**
+- 로그인을 넣으면 서버가 대화 원문(개인정보가 섞일 수 있음)을 보관하게 된다. 그러면 다른 사용자 대화가 조회되는 오류, 서버 키 유출, 개인정보 보관 의무 같은 부담이 생긴다(7장 표).
+- 브라우저 저장은 대화와 프로필이 **사용자 기기에만** 남는다. 서버는 지금처럼 아무것도 보관하지 않는다.
 
 지키는 원칙:
-- **서버 RAM:** Streamlit Community Cloud가 보장하는 메모리는 690MB다(최대 2.7GB). 지금 앱의 최대 메모리는 약 1GB다. 대화 저장과 기억이 RAM을 쓰면 안 된다. 열린 대화의 최근 몇 턴 외에는 서버에 올리지 않는다.
-- **핵심 데이터는 저장소 안 파일로 둔다.** 벡터, BM25, 병원·장소 같은 답변에 꼭 필요한 데이터가 여기에 해당한다. Supabase는 "없어도 답변은 되는" 데이터(대화 기록, 프로필)에만 쓴다. Supabase가 정지돼도 챗봇은 동작해야 한다.
-- **CI와 단위 테스트는 네트워크 없이 돈다.** 외부 서비스는 인터페이스 뒤에 두고 메모리 구현으로 테스트한다.
-- **측정으로 결정한다.** 각 단계는 아래 "완료 기준"의 수치를 확인한 뒤 병합한다.
+- **서버 RAM:** Streamlit Community Cloud가 보장하는 메모리는 690MB다(최대 2.7GB). 지금 앱의 최대 메모리는 약 1GB다. 대화 저장과 기억이 서버 RAM을 쓰면 안 된다. 서버에는 지금 세션의 최근 몇 턴만 둔다.
+- **서버는 대화를 보관하지 않는다.** 실행 로그는 지금처럼 질문 해시와 길이만 남긴다.
+- **CI와 단위 테스트는 네트워크와 브라우저 없이 돈다.** 저장소는 인터페이스 뒤에 두고 메모리 구현으로 테스트한다.
+- **측정으로 결정한다.** 각 단계는 "완료 기준"의 수치를 확인한 뒤 병합한다.
 
 ## 1. 현재 구조 (2026-10-06, `main` 기준)
 
@@ -33,6 +39,7 @@
 - `pages.rag`를 import하는 파일이 20개다(테스트 12, 스크립트 8). 테스트는 `patch.object(rag, ...)`로 함수와 상수를 바꿔치기한다. 가장 많은 것은 `load_chat_model` 15회, `load_report_vector_db`와 `initialize_rag` 각 4회다.
 - 대화 기록은 `st.session_state`에 최근 6턴만 둔다. 새로고침하면 사라진다.
 - 실행 로그(`output/chat_runs.jsonl`)는 질문 원문 대신 해시와 길이만 남긴다. Cloud 디스크는 임시라서 재부팅하면 사라진다.
+- 브라우저와 값을 주고받는 선례가 있다. 위치 권한 요청(`src/location_component.py`)은 `st.components.v2` 인라인 컴포넌트로 만들었고, JS가 `setStateValue`로 Python에 값을 보낸다.
 - 병원 데이터 `data/hospital.db`는 `hospital(ids, name, new_address, x_coor, y_coor, old_address)` 5,448행이다.
   - 영업상태와 전화번호가 없다.
   - 좌표는 대부분 EPSG:5174인데, 208건은 경위도로 보인다.
@@ -83,141 +90,112 @@ pages/rag.py             # 화면만: render_page, render_assistant_message, pro
 
 ### 인터페이스
 
+브라우저 저장은 한 사용자(한 브라우저)의 데이터만 다루므로 사용자 ID가 필요 없다. 나중에 서버 동기화를 붙이면 그 구현 안에서 사용자를 구분한다(7장).
+
 ```python
 class ConversationStore(Protocol):
-    def create_thread(self, user_id: str, title: str) -> str: ...
-    def list_threads(self, user_id: str, *, limit: int = 20, before: datetime | None = None) -> list[ThreadSummary]: ...
+    def list_threads(self, *, limit: int = 20) -> list[ThreadSummary]: ...
+    def create_thread(self, title: str) -> str: ...
     def recent_messages(self, thread_id: str, *, turns: int = 6) -> list[Message]: ...
     def append_turn(self, thread_id: str, question: str, answer: str, *, route: str, evidence_ids: list[str]) -> None: ...
-    def delete_thread(self, user_id: str, thread_id: str) -> None: ...
-    def delete_user(self, user_id: str) -> None: ...
+    def delete_thread(self, thread_id: str) -> None: ...
+    def clear(self) -> None: ...
 
 class ProfileStore(Protocol):
-    def get(self, user_id: str) -> PetProfile | None: ...
-    def upsert(self, user_id: str, profile: PetProfile) -> None: ...
-    def delete(self, user_id: str) -> None: ...
+    def get(self) -> PetProfile | None: ...
+    def save(self, profile: PetProfile) -> None: ...
+    def clear(self) -> None: ...
 ```
 
 구현은 두 가지다.
-- `InMemory*`: 테스트용이자 로그인하지 않은 사용자용. 세션 안에서만 유지되며 지금과 같은 동작이다.
-- `Supabase*`: `supabase-py`(이미 의존성에 있음)로 REST 호출. 서비스 키는 서버 secrets에만 두고 브라우저로 보내지 않는다.
+- `InMemory*`: 테스트용이자 브라우저 저장을 쓸 수 없을 때의 대체 구현. 세션 안에서만 유지되며 지금과 같은 동작이다.
+- `Browser*`: `st.session_state`에 있는 사본을 읽고 쓴다. 바뀐 내용은 브라우저 컴포넌트(4장)를 통해 localStorage로 내보낸다. 서버 쪽 Python 코드는 브라우저를 직접 건드리지 않으므로 메모리 구현과 같은 방식으로 테스트할 수 있다.
 
-**REST를 쓰는 이유:** Postgres에 직접 연결하면 Streamlit의 재실행과 다중 세션 속에서 연결 풀을 관리해야 한다. HTTPS 요청은 상태가 없어 단순하다.
+### 데이터 형식 (localStorage)
 
-### 스키마 (Supabase Postgres)
-
-```sql
-create table threads (
-  id uuid primary key default gen_random_uuid(),
-  user_id text not null,              -- sha256(OIDC sub + salt), 이메일은 저장하지 않음
-  title text not null,                -- 첫 질문 앞 30자 (LLM 호출 없음)
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-create index on threads (user_id, updated_at desc);
-
-create table messages (
-  id bigint generated always as identity primary key,
-  thread_id uuid references threads(id) on delete cascade,
-  role text check (role in ('user', 'assistant')),
-  content text not null,
-  route text,                         -- rag / sql / analysis / none
-  evidence_ids text[],                -- 근거 원문은 저장하지 않고 ID만
-  created_at timestamptz default now()
-);
-create index on messages (thread_id, id desc);
-
-create table pet_profiles (
-  user_id text primary key,
-  profile jsonb not null,             -- 4장의 PetProfile
-  updated_at timestamptz default now()
-);
-```
-
-- **보관 기간:** 마지막 활동 후 30일이 지난 스레드는 삭제한다(예약 작업). 기간은 열린 질문이다.
-- **용량:** 메시지 하나를 약 1.5KB로 잡으면 무료 500MB에 약 30만 개가 들어간다. 포트폴리오 규모에서는 충분하다.
-
-### 장애 처리 (Supabase 정지·장애)
-
-- 요청마다 타임아웃을 2초로 둔다. 실패하면 5분 동안 Supabase를 건너뛰는 차단기(circuit breaker)를 연다. 그동안은 메모리 구현으로 동작하고, 화면에 "지금은 대화가 저장되지 않습니다"라고 안내한다.
-- 저장은 답변을 화면에 보여 준 뒤에 한다. 저장이 실패해도 답변에는 영향이 없다.
-- 무료 플랜은 1주일 동안 활동이 없으면 정지된다. GitHub Actions로 며칠마다 가벼운 조회를 보내 활동을 유지한다. 이 방식이 Supabase 정책과 맞는지는 적용 전에 확인한다.
-
-### RAM
-
-- 클라이언트 하나를 `st.cache_resource`로 공유한다.
-- 대화 기록은 캐시하지 않는다. 열린 스레드의 최근 6턴과 스레드 목록 20개만 세션에 둔다.
-- 교안 day51의 `InMemorySaver`처럼 모든 사용자의 상태를 서버 메모리에 쌓지 않는다.
+- 키: `ragdog:v1:threads`, `ragdog:v1:profile`. 형식을 바꾸면 `v2`로 올리고, 읽을 때 이전 버전을 변환한다.
+- 값: JSON. 스레드는 `{id, title, updated_at, turns: [{q, a, route, evidence_ids, at}]}`다.
+  - 근거 원문은 저장하지 않고 ID만 둔다. 다시 그릴 때 필요하면 ID로 조회한다.
+  - 제목은 첫 질문의 앞 30자다(LLM 호출 없음).
+- 한도: 스레드 20개, 스레드당 20턴. 넘으면 오래된 것부터 지운다. 전체 약 1MB 이내로, 브라우저 한도(보통 약 5MB)보다 충분히 작다.
 
 ### 완료 기준
 
-- 두 구현이 **같은 계약 테스트**를 통과한다.
-  - 메모리 구현: CI에서 항상 실행한다.
-  - Supabase 구현: `SUPABASE_TEST_URL`이 있을 때만 로컬에서 실행한다.
-- 차단기 테스트: 가짜 클라이언트가 타임아웃을 내면 두 번째 호출부터 바로 메모리 구현으로 간다.
-- 측정 스크립트로 잰 최대 메모리 증가가 20MB 이하다.
+- 두 구현이 **같은 계약 테스트**를 통과한다: 생성, 조회, 최근 N턴, 한도 초과 시 삭제, 삭제, 비우기.
+- 브라우저에서 들어온 값은 검증한다. 형식이 틀리거나 너무 길면 버리고 빈 상태로 시작한다(테스트 포함).
+- 측정 스크립트로 잰 서버 최대 메모리 증가가 5MB 이하다.
 
-## 4. 단계 3: 사용자 구분과 스레드별 대화 저장
+## 4. 단계 3: 스레드별 대화 저장 (브라우저 localStorage)
 
-### 사용자 구분
+### 브라우저 컴포넌트
 
-- **Streamlit 내장 로그인(`st.login`, Google OIDC)을 선택 사항으로 붙인다.**
-  - 필요한 것: `[auth]` secrets 설정, Authlib 의존성, Google OAuth 클라이언트(배포 URL을 리디렉션 주소로 등록).
-  - 로그인하지 않으면 지금처럼 세션 안에서만 동작한다. 포트폴리오를 보는 사람이 로그인 없이 바로 써 볼 수 있어야 한다.
-- `user_id`는 OIDC `sub`에 서버 비밀값(salt)을 더해 SHA-256으로 만든다. 이메일과 이름은 저장하지 않는다.
-
-### 개인정보 (지금 원칙에서 바뀌는 부분)
-
-지금은 질문 원문을 남기지 않는다. 대화 저장은 원문을 보관하는 것이므로 다음을 지킨다.
-- 처음 로그인할 때 저장 동의를 받는다. 동의하지 않으면 로그인해도 세션 모드로 동작한다.
-- "이 대화 삭제"와 "내 데이터 모두 삭제" 버튼을 둔다. 삭제는 즉시 DB에서 지운다.
-- 보관 기간은 30일이다(3장).
-- 실행 로그는 지금처럼 해시와 길이만 남긴다. 대화 저장과 분리한다.
+`src/location_component.py`와 같은 `st.components.v2` 인라인 컴포넌트를 하나 만든다.
+- **불러오기:** 페이지가 열리면 JS가 localStorage를 읽어 `setStateValue('snapshot', ...)`로 Python에 한 번 보낸다. Python은 검증한 뒤 `st.session_state`에 둔다.
+- **저장:** 답변이 끝나면 Python이 바뀐 스냅샷과 버전 번호를 컴포넌트에 넘긴다. JS는 버전이 바뀌었을 때만 localStorage에 쓴다.
+- **첫 작업은 검증용 시험 구현이다.** 확인할 것은 세 가지다.
+  - 배포 앱(`*.streamlit.app`)에서 인라인 컴포넌트가 앱과 같은 origin의 localStorage에 접근하는가?
+  - Python에서 컴포넌트로 값을 넘기는 방법(`data` 인자 등)이 현재 Streamlit 버전에서 동작하는가?
+  - 새로고침한 뒤 값이 남아 있는가?
+  - 안 되면 대안(쿠키, 다른 컴포넌트 방식)을 이 단계에서 정한다.
 
 ### 화면
 
 - 사이드바:
   - "새 대화" 버튼
-  - 최근 스레드 20개(제목, 날짜), 누르면 그 스레드를 연다
-  - 삭제 버튼
-- 스레드를 열면 최근 6턴을 불러와 화면에 그린다. 그래프에는 지금처럼 `chat_history`로 넘긴다.
-- 답변이 끝나면 질문과 답변 한 쌍을 저장한다.
+  - 최근 스레드 20개(제목, 날짜). 누르면 그 스레드를 연다.
+  - 스레드별 삭제 버튼
+  - **"이 기기의 기록 모두 지우기"** 버튼
+- 처음 쓸 때 짧게 안내한다: "대화와 반려견 정보는 이 브라우저에만 저장되며 서버에는 남지 않습니다. 공용 PC라면 사용 후 기록을 지워 주세요."
+- 스레드를 열면 최근 6턴을 화면에 그리고, 그래프에는 지금처럼 `chat_history`로 넘긴다.
+
+### 보안과 개인정보
+
+| 항목 | 처리 |
+| --- | --- |
+| 서버 보관 | 없음. 질문은 지금처럼 답변 생성에만 쓰이고, 실행 로그는 해시만 남긴다. |
+| 공용 PC | 다음 사용자가 볼 수 있다. 안내 문구와 "모두 지우기" 버튼으로 대응한다. |
+| 사용자가 저장값을 직접 고침 | localStorage는 사용자가 수정할 수 있으므로 **신뢰할 수 없는 입력**으로 다룬다. 스키마를 검증하고 길이를 제한한다. 프롬프트에는 데이터로만 넣는다. |
+| XSS | 저장된 대화는 지금처럼 `st.write`/`st.markdown`(HTML 비허용)으로만 그린다. `unsafe_allow_html`을 쓰지 않는다. |
+| 브라우저 저장을 쓸 수 없음 | 시크릿 모드나 저장이 차단된 경우다. 메모리 구현으로 대체하고 "이 브라우저에서는 대화가 저장되지 않습니다"라고 안내한다. |
 
 ### LangGraph 체크포인터를 쓰지 않는 이유
 
 교안 day51의 `SqliteSaver`/`PostgresSaver`는 노드가 끝날 때마다 State 전체를 저장한다.
-- 우리 State에는 검색 문서가 5~12건 들어 있어서 용량을 빨리 쓴다.
-- 질문당 DB 왕복이 6~8번 생겨 답변이 느려진다.
+- 우리 State에는 검색 문서가 5~12건 들어 있어서 저장량이 크다.
+- 서버 디스크는 임시라서 재부팅하면 사라진다.
 - 체크포인터가 꼭 필요한 경우는 실행 중간에 멈췄다 이어 가는 것(`interrupt`)인데, 이 앱에는 아직 없다.
 
-그래서 "질문 하나가 끝났을 때 결과만 저장"한다. HITL이 필요해지면 그때 체크포인터를 다시 검토한다.
+그래서 "질문 하나가 끝났을 때 질문과 답변 쌍만" 브라우저에 저장한다.
 
 ### 완료 기준
 
-- `AppTest` 기반 테스트(가짜 저장소, 가짜 `st.user`)로 확인한다.
-  - 로그인과 비로그인 각각에서 대화 흐름이 정상이다.
+- `AppTest` 기반 테스트(가짜 컴포넌트 값)로 확인한다.
+  - 저장된 스냅샷이 있으면 사이드바에 스레드가 보인다.
   - 스레드를 전환하면 기록이 바뀐다.
-  - 삭제가 동작한다.
+  - 삭제와 모두 지우기가 동작한다.
+  - 잘못된 스냅샷이 오면 빈 상태로 시작한다.
 - 배포 앱에서 직접 확인한다.
-  - 로그인 → 대화 → 새로고침 → 기록이 유지된다.
-  - Supabase를 일부러 끊으면 안내가 나오고 답변은 계속된다.
+  - 대화 → 새로고침 → 기록 유지
+  - 다른 브라우저 → 기록 없음
+  - 모두 지우기 → 새로고침 → 기록 없음
+  - 시크릿 창 → 안내가 나오고 대화는 정상
 
 ## 5. 단계 4: 반려견 프로필 (장기 기억)
 
 ### 형식
 
-교안 day52의 Mem0는 자유 문장으로 기억을 쌓는다. 이 앱에 필요한 기억은 형식이 정해져 있어서 스키마로 저장한다. 라이브러리 메모리와 기억을 만들 때마다 드는 LLM 호출이 필요 없다.
+교안 day52의 Mem0는 자유 문장으로 기억을 쌓는다. 이 앱에 필요한 기억은 형식이 정해져 있어서 스키마로 저장한다. 라이브러리 메모리와 기억을 만들 때마다 드는 LLM 호출이 필요 없다. 저장 위치는 브라우저(`ragdog:v1:profile`)다.
 
 ```python
 class PetProfile(BaseModel):
-    name: str | None
-    breed: str | None
-    birth_month: date | None        # 연령 단계는 여기서 계산
-    weight_kg: float | None
-    neutered: bool | None
-    conditions: list[str] = []      # 지병
-    medications: list[str] = []     # 복용약
-    allergies: list[str] = []
+    name: str | None = Field(None, max_length=30)
+    breed: str | None = Field(None, max_length=30)
+    birth_month: date | None = None     # 연령 단계는 여기서 계산
+    weight_kg: float | None = Field(None, gt=0, lt=150)
+    neutered: bool | None = None
+    conditions: list[str] = []          # 지병 (항목당 30자, 최대 10개)
+    medications: list[str] = []         # 복용약 (같은 제한)
+    allergies: list[str] = []           # 알레르기 (같은 제한)
 ```
 
 ### 입력
@@ -226,7 +204,7 @@ class PetProfile(BaseModel):
 2. **대화 중 감지 후 확인:** 건강 질문 답변이 끝난 뒤, LLM이 질문에서 프로필 정보를 찾으면 "생후 3개월로 저장할까요?" 버튼을 보여 준다. 사용자가 누를 때만 저장한다.
    - 잘못된 기억이 쌓이는 것을 막는다.
    - 확인은 화면에서 받는다. 그래프 `interrupt`를 쓰지 않으므로 체크포인터가 필요 없다.
-   - 감지 호출은 로그인한 사용자의 건강 경로에서만 한다. 토큰 증가는 평가로 잰다.
+   - 감지 호출은 건강 경로에서만 한다. 토큰 증가는 평가로 잰다.
 
 ### 활용
 
@@ -240,6 +218,7 @@ class PetProfile(BaseModel):
 - 나이 없는 건강 질문 20개에 프로필을 넣고 연령 필터가 맞게 걸리는지 확인한다(단위 테스트).
 - 충실도 평가(`scripts/evaluate_faithfulness.py`)를 프로필 있음/없음으로 돌린다. 근거 밖 주장이 늘지 않아야 한다.
 - 감지 호출의 토큰과 지연 증가를 기록한다.
+- 길이 제한을 넘는 값이나 지시문 형태의 값이 들어와도 검증에서 잘리거나 데이터로만 쓰인다(테스트).
 
 ## 6. 병행 트랙 (이 문서 범위 밖, 단계 1 이후 가능)
 
@@ -250,19 +229,38 @@ class PetProfile(BaseModel):
 - **관측:** Langfuse 트레이싱. 질문·답변은 마스킹한다.
 - **평가셋 확대:** AI Hub 검증 Q&A 2,400건(현재 561건 사용).
 
-## 7. 열린 질문
+## 7. 향후 선택: 로그인과 서버 동기화
 
-1. 대화 보관 기간: 30일이 적당한가? 보관하지 않는 선택지도 둘까?
-2. Google 로그인만으로 충분한가? 다른 OIDC 제공자도 필요한가?
-3. Supabase를 활성 상태로 유지하는 예약 작업이 정책상 괜찮은가? 안 된다면 정지 시 안내만으로 충분한가?
-4. 프로필 감지 호출을 기본으로 켤까, 사용자가 켜게 할까?
-5. 개인정보 처리 안내 문구는 어디에 어떤 수준으로 둘까?
+기기 간 동기화가 꼭 필요해질 때만 추가한다. 저장소 인터페이스에 구현(`Supabase*`)을 하나 더 붙이는 방식이다.
 
-## 8. 대략적인 작업량
+### 로그인을 넣을 때의 보안 부담
+
+| 위험 | 내용 | 대응 |
+| --- | --- | --- |
+| 다른 사용자 대화 노출 | 사용자 ID를 잘못 다루면 남의 대화가 조회된다. 서버 키는 Supabase 행 단위 권한(RLS)을 우회한다. | 사용자 ID는 서버의 `st.user`에서만 만든다(`sub` + salt의 SHA-256). 모든 쿼리에 사용자 조건을 걸고 격리 테스트를 둔다. |
+| 비밀값 유출 | OAuth 비밀키, 쿠키 서명키, Supabase 서버 키를 관리해야 한다. | secrets에만 두고 커밋하지 않는다. 유출되면 교체한다. |
+| 개인정보 보관 의무 | 서버에 대화 원문이 쌓이면 처리방침, 동의, 보관 기간, 파기, 안전조치가 필요하다. | 최소 수집, 동의, 삭제 기능, 보관 기한 |
+| 저장 공간 남용 | 무료 DB 500MB | 사용자당 하루 저장 한도 |
+| 데모 사용성 | 포트폴리오 방문자가 Google 로그인을 꺼릴 수 있다. | 로그인은 선택으로 두고, 기본은 브라우저 저장 |
+
+### Supabase 정지
+
+- 무료 플랜은 1주일 동안 활동이 없으면 정지된다.
+- 정지돼도 1년 안에는 대시보드의 복구 버튼으로 데이터가 그대로 돌아온다(사용자 확인). 그래서 활성 유지용 예약 작업이나 백업용 재생성 스크립트는 두지 않는다.
+- 정지된 동안은 저장만 안 되도록 한다. 타임아웃 2초, 5분 차단기, "지금은 동기화되지 않습니다" 안내를 둔다. 답변은 계속된다.
+
+## 8. 열린 질문
+
+1. 대화를 브라우저에 저장하는 것을 기본으로 켤까, 사용자가 켜게 할까? 공용 PC를 고려하면 기본은 켜고 안내를 강하게 하는 쪽과, 기본은 끄는 쪽 중 무엇이 나은가?
+2. 프로필 감지 호출을 기본으로 켤까, 사용자가 켜게 할까?
+3. 스레드 20개, 스레드당 20턴 한도가 적당한가?
+4. 저장 안내 문구는 어디에, 어느 수준으로 둘까? (첫 사용 시 한 번 / 사이드바 상시)
+
+## 9. 대략적인 작업량
 
 | 단계 | 예상 | 주요 위험 |
 | --- | --- | --- |
 | 1 분리 | 1~1.5일 | 테스트 patch 대상 변경이 많음(20개 파일) |
-| 2 저장소 | 1일 | Supabase 정지 처리와 계약 테스트 |
-| 3 로그인·스레드 | 1~1.5일 | OAuth 설정, Streamlit 재실행 모델 속 상태 관리 |
+| 2 저장소 | 0.5일 | 브라우저 입력 검증 |
+| 3 브라우저 대화 저장 | 1~1.5일 | 컴포넌트의 localStorage 접근과 Python→JS 값 전달(시험 구현으로 먼저 확인), Streamlit 재실행 속 상태 동기화 |
 | 4 프로필 | 1일 | 감지 정확도, 프롬프트 영향 평가 |
