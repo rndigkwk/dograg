@@ -32,7 +32,7 @@ sys.path.insert(0, str(PROJECT_DIR))
 QUESTIONS = PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"
 
 
-def generate(items: list[dict], crag: bool) -> list[dict]:
+def generate(items: list[dict], crag: bool, pet_profile=None) -> list[dict]:
     from src import chatbot as app
     from src.tools import health, report
 
@@ -40,7 +40,14 @@ def generate(items: list[dict], crag: bool) -> list[dict]:
     health_answer, report_answer = health.generate_health_answer, report.generate_report_answer
 
     def record_health(question, docs, *args, **kwargs):
-        captured.append(health.format_rag_context(docs))
+        # The answer may also use the user's pet profile; show it to the judge so
+        # profile-based statements are not counted as claims missing from the evidence.
+        context = health.format_rag_context(docs)
+        if kwargs.get("profile") is not None:
+            from src.tools.profile import profile_context
+
+            context = f"[반려견 정보]\n{profile_context(kwargs['profile'])}\n\n{context}"
+        captured.append(context)
         return health_answer(question, docs, *args, **kwargs)
 
     def record_report(question, docs, *args, **kwargs):
@@ -54,7 +61,7 @@ def generate(items: list[dict], crag: bool) -> list[dict]:
             captured.clear()
             started = time.perf_counter()
             try:
-                result, error = app.chatbot(item["question"], crag=crag, crag_reports=False), None
+                result, error = app.chatbot(item["question"], crag=crag, crag_reports=False, pet_profile=pet_profile), None
             except Exception as exc:  # noqa: BLE001 - one failure should not stop the evaluation
                 result, error = {}, type(exc).__name__
             rows.append({
@@ -127,6 +134,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, help="first N questions only (smoke run)")
     parser.add_argument("--judge-only", type=Path, help="re-judge answers saved by an earlier run")
+    parser.add_argument("--groups", help="comma-separated question groups, e.g. health_answerable")
+    parser.add_argument("--profile", help="pet profile JSON used for every question (design doc phase 4)")
     args = parser.parse_args()
     os.environ["HF_HUB_OFFLINE"] = "1"
 
@@ -139,12 +148,18 @@ def main() -> int:
     else:
         output = args.output or PROJECT_DIR / "output" / f"faithfulness_{args.crag}.json"
         os.environ["CHAT_RUN_LOG"] = str(output.with_suffix(".runs.jsonl"))
-        items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"][: args.limit]
+        items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"]
+        if args.groups:
+            items = [item for item in items if item["group"] in args.groups.split(",")]
+        items = items[: args.limit]
+        from src.storage.models import PetProfile
+
+        pet_profile = PetProfile.model_validate_json(args.profile) if args.profile else None
         with tempfile.TemporaryDirectory(prefix="dograg-faith-", ignore_cleanup_errors=True) as directory:
             resources.CHROMA_DIR = Path(directory) / "chroma_db"
             shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
-            rows = generate(items, crag=args.crag == "on")
-        report = {"crag": args.crag, "questions": str(QUESTIONS.relative_to(PROJECT_DIR))}
+            rows = generate(items, crag=args.crag == "on", pet_profile=pet_profile)
+        report = {"crag": args.crag, "questions": str(QUESTIONS.relative_to(PROJECT_DIR)), "profile": args.profile}
     judge(rows)
     report.update(summary=summarize(rows), rows=rows)
     output.parent.mkdir(parents=True, exist_ok=True)

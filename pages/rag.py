@@ -9,26 +9,27 @@ from streamlit.errors import StreamlitAPIException
 
 from src import resources
 from src.chatbot import chatbot
-from src.conversation_session import LOADING, UNAVAILABLE, ConversationSession
+from src.conversation_session import ConversationSession
+from src.conversation_ui import (
+    CHAT_MESSAGES_STATE_KEY,
+    HOSPITAL_ROWS_STATE_KEY,
+    RENDERED_THREAD_STATE_KEY,
+)
 from src.health_safety import detect_urgent_sign
-from src.local_store_component import sync_local_store
 from src.location_component import render_location_control
 from src.memory_limits import release_free_memory
 from src.report_evidence import render_pdf_page, resolve_report_pdf
 from src.settings import PROJECT_DIR
+from src.storage.models import PetProfile
 from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import get_recent_chat_history
+from src.tools.profile import detect_profile, profile_summary
 from src.ui import apply_app_theme, render_page_header
 
-CHAT_MESSAGES_STATE_KEY = "fixing_messages"
-HOSPITAL_ROWS_STATE_KEY = "hospital_rows"
 SELECTED_HOSPITAL_ID_STATE_KEY = "selected_hospital_id"
 RAG_TOP_K_SLIDER_KEY = "rag_top_k"
-RENDERED_THREAD_STATE_KEY = "rendered_thread"
-STORAGE_NOTICE = (
-    "대화와 반려견 정보는 이 브라우저에만 저장되며 서버에는 남지 않습니다. "
-    "공용 PC라면 사용 후 '이 기기의 기록 모두 지우기'로 지워 주세요."
-)
+PROFILE_SUGGESTION_KEY = "profile_suggestion"
+PROFILE_DISMISSED_KEY = "profile_detection_dismissed"
 
 
 def format_evidence_row(row, index):
@@ -159,69 +160,45 @@ def start_warmup():
     return thread
 
 
-def open_conversation(session: ConversationSession) -> None:
-    """Show the open thread's stored turns (text only; evidence is not stored)."""
-    st.session_state[CHAT_MESSAGES_STATE_KEY] = session.messages()
-    st.session_state[RENDERED_THREAD_STATE_KEY] = session.current_thread
-    st.session_state[HOSPITAL_ROWS_STATE_KEY] = []
+def suggest_profile(session: ConversationSession, question: str, route: str) -> None:
+    """Profile detection (design doc phase 4): only for health answers, only while the profile is empty,
+    and only until the user declines once in this session. Nothing is saved without a click."""
+    if route != "rag" or session.profiles.get() is not None or st.session_state.get(PROFILE_DISMISSED_KEY):
+        return
+    try:
+        detected = detect_profile(question)
+    except Exception:  # detection is optional; the answer is already shown
+        logging.getLogger(__name__).warning("Profile detection failed", exc_info=True)
+        return
+    if detected is not None:
+        st.session_state[PROFILE_SUGGESTION_KEY] = detected.model_dump(mode="json")
 
 
-def sync_conversations() -> ConversationSession:
-    """Load the browser's stored conversations once, and write back what changed since."""
-    session = ConversationSession(st.session_state)
-    values = session.pending_values()
-    report = sync_local_store("rag_local_store", request=session.request, version=session.snapshot.version, values=values)
-    if values is not None:
-        session.mark_sent()
-    if session.apply_report(report) and session.pending_values() is not None:
-        st.rerun()  # write the merged snapshot back right away
-    if st.session_state.get(RENDERED_THREAD_STATE_KEY) != session.current_thread:
-        open_conversation(session)
-    return session
-
-
-def render_conversation_sidebar(session: ConversationSession) -> None:
-    with st.sidebar:
-        st.markdown("#### 대화 기록")
-        if session.status == UNAVAILABLE:
-            st.caption("이 브라우저에서는 대화가 저장되지 않습니다.")
-        elif session.status == LOADING:
-            st.caption("저장된 대화를 불러오는 중입니다…")
-        if session.take_notice():
-            st.info(STORAGE_NOTICE)
-        if st.button("새 대화", key="thread_new", icon=":material/add:", width="stretch"):
-            session.open_thread(None)
-            open_conversation(session)
+def render_profile_suggestion(session: ConversationSession) -> None:
+    suggestion = st.session_state.get(PROFILE_SUGGESTION_KEY)
+    if not suggestion:
+        return
+    profile = PetProfile.model_validate(suggestion)
+    with st.container(border=True):
+        st.markdown(f"**대화에서 반려견 정보를 찾았어요.** {profile_summary(profile)}")
+        st.caption("저장하면 이 브라우저에만 남고, 다음 상담부터 나이에 맞는 자료를 먼저 찾습니다.")
+        save, dismiss = st.columns(2)
+        if save.button("우리 아이 정보에 저장", key="profile_suggest_save", type="primary", width="stretch"):
+            session.profiles.save(profile)
+            st.session_state.pop(PROFILE_SUGGESTION_KEY, None)
             st.rerun()
-        current = session.current_thread
-        for summary in session.threads():
-            if st.button(
-                summary.title,
-                key=f"thread_{summary.id}",
-                type="primary" if summary.id == current else "secondary",
-                width="stretch",
-            ):
-                session.open_thread(summary.id)
-                open_conversation(session)
-                st.rerun()
-        if current is not None and st.button("이 대화 삭제", key="thread_delete", icon=":material/delete:", width="stretch"):
-            session.delete_current()
-            open_conversation(session)
+        if dismiss.button("저장하지 않기", key="profile_suggest_dismiss", width="stretch"):
+            st.session_state.pop(PROFILE_SUGGESTION_KEY, None)
+            st.session_state[PROFILE_DISMISSED_KEY] = True
             st.rerun()
-        with st.popover("이 기기의 기록 모두 지우기", width="stretch"):
-            st.caption("이 브라우저에 저장된 대화와 반려견 정보를 모두 지웁니다. 되돌릴 수 없습니다.")
-            if st.button("모두 지우기", key="clear_device", type="primary"):
-                session.clear_device()
-                open_conversation(session)
-                st.rerun()
 
 
 def render_page():
     if warmup_wanted():
         start_warmup()
     apply_app_theme()
-    session = sync_conversations()
-    render_conversation_sidebar(session)
+    # main.py syncs with the browser and draws the conversation sidebar before this page runs.
+    session = ConversationSession(st.session_state)
     render_page_header(
         "반려견 AI 상담",
         eyebrow="반려동물 건강 정보",
@@ -252,6 +229,8 @@ def render_page():
                 render_assistant_message(message)
             else:
                 st.write(message["content"])
+
+    render_profile_suggestion(session)
 
     question = st.chat_input(
         "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요."
@@ -311,6 +290,7 @@ def render_page():
                     top_k=top_k,
                     chat_history=chat_history,
                     location=location,
+                    pet_profile=session.profiles.get(),
                     on_token=show_token,
                     on_step=show_step,
                 )
@@ -328,6 +308,7 @@ def render_page():
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
             session.record_turn(question, result["answer"], route=result["route"])
             st.session_state[RENDERED_THREAD_STATE_KEY] = session.current_thread
+            suggest_profile(session, question, result["route"])
 
             st.session_state[HOSPITAL_ROWS_STATE_KEY] = result.get("hospital_rows", [])
             render_hospital_links(st.session_state[HOSPITAL_ROWS_STATE_KEY])
@@ -337,13 +318,6 @@ def render_page():
         st.rerun()  # the browser bridge runs at the top of the page; rerun so it saves this turn now
 
 
-def is_streamlit_runtime():
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-    except Exception:
-        return False
-    return get_script_run_ctx(suppress_warning=True) is not None
-
-
-if is_streamlit_runtime():
+# st.Page and AppTest run this file as "__main__"; importing it (tests) renders nothing.
+if __name__ == "__main__":
     render_page()

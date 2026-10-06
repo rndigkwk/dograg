@@ -19,6 +19,9 @@ from src.tools import health, router
 
 class HomeFallbackTest(unittest.TestCase):
     def test_home_renders_when_remote_images_are_unavailable(self):
+        import streamlit as st
+
+        st.cache_data.clear()  # another test may already have cached a downloaded hero image
         with patch.object(requests, "get", side_effect=requests.ConnectionError):
             app = AppTest.from_file(str(PROJECT_DIR / "main.py"), default_timeout=30).run()
 

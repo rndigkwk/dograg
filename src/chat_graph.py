@@ -52,6 +52,7 @@ class ChatState(TypedDict, total=False):
     top_k: int
     chat_history: list
     location: tuple[float, float] | None
+    pet_profile: Any  # src.storage.models.PetProfile or None (design doc phase 4)
     crag: bool  # 건강 상담 CRAG
     crag_reports: bool  # 보고서 CRAG (기본 꺼짐)
     # classify
@@ -113,8 +114,9 @@ def build_chat_graph(tools):
         result = tools.ask_rag(
             state["question"],
             k=state["top_k"],
-            filters=tools.infer_rag_filters(state["contextual_question"]),
+            filters=tools.infer_rag_filters(state["contextual_question"], profile=state.get("pet_profile")),
             chat_history=state.get("chat_history"),
+            profile=state.get("pet_profile"),
         )
         return {
             "answer": result["answer"],
@@ -177,7 +179,7 @@ def build_chat_graph(tools):
     def health_retrieve(state: ChatState):
         filters = state.get("filters")
         if filters is None:
-            filters = tools.infer_rag_filters(state["contextual_question"])
+            filters = tools.infer_rag_filters(state["contextual_question"], profile=state.get("pet_profile"))
         query = state.get("search_query") or state["contextual_question"]
         found = tools.retrieve_health(query, k=max(HEALTH_CANDIDATE_K, state["top_k"]), filters=filters)
         return {
@@ -209,6 +211,7 @@ def build_chat_graph(tools):
         docs = state["documents"][: state["top_k"]]
         answer = tools.generate_health_answer(
             state["question"], docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
+            profile=state.get("pet_profile"),
         )
         return {
             "answer": answer,
@@ -295,6 +298,7 @@ def run_chat(
     crag: bool = False,
     crag_reports: bool = False,
     graph=None,
+    pet_profile=None,
     on_token: Callable[[str], None] | None = None,
     on_step: Callable[[str, dict], None] | None = None,
 ) -> dict[str, Any]:
@@ -309,7 +313,7 @@ def run_chat(
         with get_usage_metadata_callback() as usage:
             state = _execute(graph, {
                 "question": question, "top_k": top_k, "chat_history": chat_history or [],
-                "location": location, "crag": crag, "crag_reports": crag_reports,
+                "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
                 "trace": [], "rewrite_count": 0,
             }, on_token, on_step)
     except Exception as exc:
