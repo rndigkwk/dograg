@@ -26,6 +26,7 @@ NAVIGATION_GROUPS = (
         "items": (
             {"path": "app_pages/rag.py", "title": "질병 문의", "icon": "💬"},
             {"path": "app_pages/hospital.py", "title": "시설 찾기", "icon": "🏥"},
+            {"path": "app_pages/visit_prep.py", "title": "방문 준비 보고서", "icon": "📝"},
         ),
     },
 )

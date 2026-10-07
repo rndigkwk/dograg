@@ -1,0 +1,101 @@
+{
+ "description": "Visit-prep team consultations: 10 dog cases (4 urgent, 2 asking about fees, 9 with a region) and 2 other species (cat, rabbit). Expected: urgent flag; dog cases should pass review, other species should not get a made-up report.",
+ "items": [
+  {
+   "id": "v01",
+   "consultation": "4살 말티즈가 어제부터 설사를 하고 오늘 아침에 두 번 토했어요. 일주일 전에 사료를 바꿨고 기운이 좀 없어요. 병원비가 얼마나 나올지도 걱정돼요.",
+   "region": "강남구",
+   "profile": "말티즈, 4살, 3.2kg, 중성화함",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v02",
+   "consultation": "10살 푸들이 갑자기 경련을 하고 쓰러졌다가 1분 뒤에 일어났어요. 지금은 멍하게 있어요.",
+   "region": "마포구",
+   "profile": "푸들, 10살",
+   "scope": "dog",
+   "urgent": true
+  },
+  {
+   "id": "v03",
+   "consultation": "고양이가 사흘째 밥을 안 먹고 숨는데 괜찮을까요?",
+   "region": "",
+   "profile": "",
+   "scope": "other_species",
+   "urgent": false
+  },
+  {
+   "id": "v04",
+   "consultation": "비숑이 2주째 몸을 계속 긁고 귀에서 냄새가 나요. 귀를 자꾸 털어요.",
+   "region": "송파구",
+   "profile": "비숑, 3살",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v05",
+   "consultation": "포메라니안이 산책하다가 뒷다리를 들고 깡총거리며 걸어요. 아파하지는 않는데 며칠째 그래요.",
+   "region": "수원시",
+   "profile": "포메라니안, 5살, 2.8kg",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v06",
+   "consultation": "12살 몰티즈가 밤마다 거위 소리 같은 기침을 하고 요즘 숨을 헐떡이며 쉬어요. 혀가 보라색으로 보일 때가 있어요.",
+   "region": "해운대구",
+   "profile": "몰티즈, 12살",
+   "scope": "dog",
+   "urgent": true
+  },
+  {
+   "id": "v07",
+   "consultation": "방금 강아지가 식탁에 있던 초콜릿을 반 판 정도 먹었어요. 아직 증상은 없어요.",
+   "region": "성남시",
+   "profile": "닥스훈트, 4살, 6kg",
+   "scope": "dog",
+   "urgent": true
+  },
+  {
+   "id": "v08",
+   "consultation": "시츄가 며칠 전부터 한쪽 눈이 빨갛고 눈곱이 많이 껴요. 눈을 자꾸 비벼요.",
+   "region": "",
+   "profile": "시츄, 6살",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v09",
+   "consultation": "14살 노견이 한 달 사이 밥을 덜 먹고 살이 많이 빠졌어요. 물은 많이 마셔요. 검사비가 많이 나올까 봐 걱정이에요.",
+   "region": "수성구",
+   "profile": "믹스견, 14살, 7kg",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v10",
+   "consultation": "강아지가 소변을 자주 보는데 한 번에 조금씩 보고 오늘은 소변에 피가 섞여 나왔어요.",
+   "region": "연수구",
+   "profile": "푸들, 7살, 암컷",
+   "scope": "dog",
+   "urgent": false
+  },
+  {
+   "id": "v11",
+   "consultation": "골든리트리버가 밥을 먹고 바로 뛰어놀더니 배가 빵빵하게 부풀고 토하려는데 아무것도 안 나와요.",
+   "region": "용인시",
+   "profile": "골든리트리버, 6살, 30kg",
+   "scope": "dog",
+   "urgent": true
+  },
+  {
+   "id": "v12",
+   "consultation": "토끼가 이틀째 똥을 안 싸고 사료를 안 먹어요.",
+   "region": "",
+   "profile": "",
+   "scope": "other_species",
+   "urgent": false
+  }
+ ]
+}

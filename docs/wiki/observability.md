@@ -96,6 +96,7 @@
 | --- | --- | --- |
 | `ragdog-crag-60` | `tests/data/crag_eval_questions.json` | 답변(answer) 또는 보류(abstain), 보고서 질문은 정답 페이지 |
 | `ragdog-place-routing-36` | `tests/data/place_routing_questions.json` | 경로(route), 시설 종류(kind) |
+| `ragdog-visit-prep-12` | `tests/data/visit_prep_consultations.json` | 응급 여부, 반려견/다른 동물. 방문 준비 팀 실행 결과(`passed`, `urgent_correct`, `scope_handled`, `hospitals_listed`, `rounds`, `latency_s`) |
 
 - **항목 점수:** `correct_behavior`, `gold_page_hit`, `latency_s`, `route_correct`, `kind_correct`
 - **실행 점수:** `accuracy`, `over_abstain`(답할 질문을 보류한 비율), `missed_abstain`(보류할 질문에 답한 비율), `latency_p50_s`, `latency_p90_s`

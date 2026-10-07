@@ -130,6 +130,21 @@ class TeamGraphTests(unittest.TestCase):
         self.assertEqual(result["review"]["unsupported"], ["근거 없는 진단"])
         self.assertIn(config.HUMAN_CHECK, report.splitlines()[0])  # the draft is marked, not published as checked
 
+    def test_run_reports_each_finished_node_and_returns_the_final_state(self):
+        from team import main as team_main
+
+        tasks = [VisitTask(kind="health", query="설사", angle="a")]
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        run_dir = Path(directory.name)
+        steps = []
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)),                 patch.object(nodes, "create_researcher", side_effect=FakeResearcher),                 patch.object(nodes, "build_judge", side_effect=judge_with([])),                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0),                 patch.object(team_main, "create_writer", side_effect=FakeWriter),                 patch.object(team_main.tracing, "client", return_value=None):
+            state = team_main.run("말티즈가 설사를 해요", run_dir=run_dir, on_step=lambda node, update: steps.append(node))
+        self.assertEqual(steps, ["planner", "researcher", "supervisor", "writer", "reviewer", "publisher"])
+        self.assertEqual(state["run_dir"], run_dir)
+        self.assertTrue(state["review"]["passed"])
+        self.assertEqual(sorted(path.name for path in run_dir.iterdir()), sorted([config.REPORT_FILE, config.RESULT_FILE]))
+
 
 if __name__ == "__main__":
     unittest.main()
