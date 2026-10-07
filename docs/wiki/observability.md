@@ -51,7 +51,7 @@
 
 ## 알아 둘 점
 
-- **모델 이름:** Langfuse 콜백이 `ChatOpenAI`의 모델 이름을 `invocation_params.model_name`에서 찾는데, 지금 LangChain은 이 값을 주지 않는다. 그래서 generation의 model 칸이 비고 "not able to parse the LLM model" 경고가 찍힌다. 토큰·비용은 기록된다. 모델 이름은 메타데이터의 `ls_model_name`과 루트 span의 `token_usage`에 남는다.
+- **모델 이름:** 통합 직후에는 Langfuse 콜백이 `ChatOpenAI`의 모델 이름을 찾지 못해 generation의 model 칸이 비었다. 2026-10-07에 다시 확인하니 챗봇(Chat Completions)·방문 준비 팀(Responses API)·실험 실행의 generation 139개(production 6, development 133)에 모두 `gpt-6-luna`가 들어 있고, 새로 만든 호출에서도 경고 없이 기록됐다. 그래서 따로 고치지 않는다. 비용 계산도 이 모델 이름으로 이뤄진다.
 - **조회 API:** 2026-09-16 이후 만든 Langfuse 조직은 예전 `GET /api/public/traces`를 쓸 수 없다(410). 데이터를 읽을 때는 `GET /api/public/v2/observations`(SDK: `client.api.observations.get_many`)를 쓴다.
 
 ## 대시보드 (2026-10-07 캡처)
