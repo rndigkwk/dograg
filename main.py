@@ -20,7 +20,7 @@ from src.ui import (
     render_sidebar,
 )
 
-CHAT_PAGE = "pages/rag.py"
+CHAT_PAGE = "app_pages/rag.py"
 
 st.set_page_config(page_title="라그도그", page_icon=":material/pets:", layout="wide")
 apply_app_theme()

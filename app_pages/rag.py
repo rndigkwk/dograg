@@ -75,7 +75,7 @@ def render_hospital_links(rows):
             key=f"hospital_link_{row['id']}",
         ):
             st.session_state[SELECTED_PLACE_ID_STATE_KEY] = row["id"]
-            st.switch_page("pages/hospital.py")
+            st.switch_page("app_pages/hospital.py")
 
 
 def render_assistant_message(message: dict, *, show_notice: bool = True) -> None:
@@ -84,7 +84,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
     st.write(message["content"])
     if message.get("abstained") and message.get("route") == "rag":
         try:
-            st.page_link("pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
+            st.page_link("app_pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
         except StreamlitAPIException:  # 내비게이션 밖(테스트 등)에서는 링크 대신 안내만 표시합니다.
             st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
     evidence_rows = message.get("evidence_rows", [])

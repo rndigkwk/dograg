@@ -6,7 +6,7 @@ from streamlit.testing.v1 import AppTest
 
 class HospitalResetTests(unittest.TestCase):
     def test_selected_hospital_view_can_return_to_search(self):
-        hospital_page = Path(__file__).resolve().parents[1] / "pages" / "hospital.py"
+        hospital_page = Path(__file__).resolve().parents[1] / "app_pages" / "hospital.py"
         app = AppTest.from_file(str(hospital_page), default_timeout=30)
         app.session_state["selected_place_id"] = "hospital-does-not-exist"
 

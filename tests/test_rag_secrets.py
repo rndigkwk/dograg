@@ -8,7 +8,7 @@ from unittest.mock import patch
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from pages import rag
+from app_pages import rag
 from src import settings
 from src.tools import health, history
 

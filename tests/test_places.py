@@ -245,7 +245,7 @@ class RoutingTests(unittest.TestCase):
 class PlacePageTests(unittest.TestCase):
     def test_region_search_per_kind_on_the_page(self):
         with TemporaryDirectory() as directory, patch.object(resources, "DB_PATH", make_db(directory)):
-            app = AppTest.from_file(str(PROJECT_DIR / "pages" / "hospital.py"), default_timeout=30).run()
+            app = AppTest.from_file(str(PROJECT_DIR / "app_pages" / "hospital.py"), default_timeout=30).run()
             app.radio(key="place_kind").set_value("pharmacy").run()
             app.selectbox[0].set_value("서울특별시").run()
             app.selectbox[1].set_value("강남구").run()
@@ -265,7 +265,7 @@ class PlacePageTests(unittest.TestCase):
 
     def test_data_page_shows_the_cleaning_steps(self):
         with TemporaryDirectory() as directory, patch.object(resources, "DB_PATH", make_db(directory)):
-            app = AppTest.from_file(str(PROJECT_DIR / "pages" / "data.py"), default_timeout=30).run()
+            app = AppTest.from_file(str(PROJECT_DIR / "app_pages" / "data.py"), default_timeout=30).run()
             self.assertEqual([e.message for e in app.exception], [])
             self.assertTrue(any("정제 단계" in markdown.value for markdown in app.markdown))
 
