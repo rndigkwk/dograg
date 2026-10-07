@@ -47,55 +47,31 @@ class RagRefactorHelpersTest(unittest.TestCase):
             "[보고서 · 페이지 12] 반려동물 양육 현황은 전년 대비 증가했다.",
         )
 
-    def test_executes_hospital_sql_and_returns_dict_rows(self):
+    def test_executes_place_sql_and_returns_dict_rows(self):
+        from src.places_data import SCHEMA
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            db_path = Path(temp_dir) / "hospital.db"
+            db_path = Path(temp_dir) / "places.db"
             connection = sqlite3.connect(db_path)
             try:
+                connection.executescript(SCHEMA)
                 connection.execute(
-                    """
-                    CREATE TABLE hospital (
-                        ids INTEGER,
-                        name TEXT,
-                        new_address TEXT,
-                        x_coor REAL,
-                        y_coor REAL,
-                        old_address TEXT
-                    )
-                    """
-                )
-                connection.execute(
-                    """
-                    INSERT INTO hospital
-                    VALUES (1, '테스트동물병원', '서울특별시 강남구 테헤란로', 127.0, 37.0, '')
-                    """
+                    "INSERT INTO place (id, kind, name, road_address, latitude, longitude) "
+                    "VALUES ('hospital-1', 'hospital', '테스트동물병원', '서울특별시 강남구 테헤란로', 37.0, 127.0)"
                 )
                 connection.commit()
             finally:
                 connection.close()
 
             with patch.object(resources, "DB_PATH", db_path):
-                rows = places.execute_hospital_sql(
-                    """
-                    SELECT ids, name, new_address, x_coor, y_coor, old_address
-                    FROM hospital
-                    WHERE new_address LIKE ? OR old_address LIKE ?
-                    """,
-                    ["강남구"],
+                rows = places.execute_place_sql(
+                    "SELECT id, name, road_address, latitude, longitude FROM place WHERE road_address LIKE ?",
+                    ["%강남구%"],
                 )
 
         self.assertEqual(
             rows,
-            [
-                {
-                    "ids": 1,
-                    "name": "테스트동물병원",
-                    "new_address": "서울특별시 강남구 테헤란로",
-                    "x_coor": 127.0,
-                    "y_coor": 37.0,
-                    "old_address": "",
-                }
-            ],
+            [{"id": "hospital-1", "name": "테스트동물병원", "road_address": "서울특별시 강남구 테헤란로", "latitude": 37.0, "longitude": 127.0}],
         )
 
     def test_detects_questions_that_should_limit_hospital_results_to_one(self):

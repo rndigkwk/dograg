@@ -18,7 +18,7 @@ from src.onnx_embeddings import OnnxSentenceEmbeddings
 
 DATA_DIR = settings.PROJECT_DIR / "data"
 CHROMA_DIR = DATA_DIR / "chroma_db"
-DB_PATH = DATA_DIR / "hospital.db"
+DB_PATH = DATA_DIR / "places.db"
 # Health answers live in the CSV, not in Chroma metadata (see src/health_answers.py).
 HEALTH_CSV_PATH = DATA_DIR / "df.csv"
 # Pre-tokenized health documents; rebuild with scripts/build_bm25_cache.py.

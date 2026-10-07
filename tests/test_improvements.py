@@ -14,8 +14,8 @@ from src import resources
 from src.health_quality import audit_health_data, normalize_label
 from src.health_retrieval import rerank_candidates, summarize_retrieval
 from src.health_safety import detect_urgent_sign, has_usable_evidence
-from src.hospital_distance import nearest_hospitals
 from src.location_component import parse_location_result
+from src.places_data import SCHEMA, nearest_places
 from src.report_evidence import render_pdf_page, report_evidence_from_docs
 from src.tools import health, places, report
 
@@ -70,23 +70,20 @@ class SafetyTests(unittest.TestCase):
 class DistanceTests(unittest.TestCase):
     def test_distance_order_and_invalid_rows(self):
         rows = [
-            {"ids": 2, "name": "far", "x_coor": 200000, "y_coor": 600000},
-            {"ids": 1, "name": "near", "x_coor": 200000, "y_coor": 500000},
-            {"ids": 3, "name": "bad", "x_coor": None, "y_coor": None},
+            {"id": "b", "name": "far", "latitude": 37.6, "longitude": 127.0},
+            {"id": "a", "name": "near", "latitude": 37.5, "longitude": 127.0},
+            {"id": "c", "name": "bad", "latitude": None, "longitude": None},
         ]
-        from pyproj import Transformer
-        lon, lat = Transformer.from_crs(5174, 4326, always_xy=True).transform(200000, 500000)
-        result = nearest_hospitals(rows, lat, lon)
-        self.assertEqual([row["ids"] for row in result], [1, 2])
+        result = nearest_places(rows, 37.5, 127.0)
+        self.assertEqual([row["id"] for row in result], ["a", "b"])
         self.assertAlmostEqual(result[0]["distance_km"], 0, places=5)
+        self.assertAlmostEqual(result[1]["distance_km"], 11.12, places=1)
         with self.assertRaises(ValueError):
-            nearest_hospitals(rows, 127, 37)
+            nearest_places(rows, 127, 37)
 
-    def test_equal_distance_uses_numeric_id_order(self):
-        from pyproj import Transformer
-        lon, lat = Transformer.from_crs(5174, 4326, always_xy=True).transform(200000, 500000)
-        rows = [{"ids": 10, "x_coor": 200000, "y_coor": 500000}, {"ids": 2, "x_coor": 200000, "y_coor": 500000}]
-        self.assertEqual([row["ids"] for row in nearest_hospitals(rows, lat, lon)], [2, 10])
+    def test_equal_distance_uses_id_order(self):
+        rows = [{"id": "hospital-2", "latitude": 37.5, "longitude": 127.0}, {"id": "hospital-1", "latitude": 37.5, "longitude": 127.0}]
+        self.assertEqual([row["id"] for row in nearest_places(rows, 37.5, 127.0)], ["hospital-1", "hospital-2"])
 
     def test_nearest_chat_without_location_does_not_claim_first_row(self):
         with patch.object(resources, "load_chat_model", return_value=None):
@@ -95,20 +92,21 @@ class DistanceTests(unittest.TestCase):
         self.assertIn("위치", answer)
 
     def test_nearest_chat_ranks_inserted_second_first(self):
-        from pyproj import Transformer
-        lon, lat = Transformer.from_crs(5174, 4326, always_xy=True).transform(200000, 500000)
         with TemporaryDirectory() as directory:
-            db_path = Path(directory) / "hospital.db"
+            db_path = Path(directory) / "places.db"
             connection = sqlite3.connect(db_path)
             try:
-                connection.execute("CREATE TABLE hospital (ids INTEGER, name TEXT, new_address TEXT, old_address TEXT, x_coor REAL, y_coor REAL)")
-                connection.executemany("INSERT INTO hospital VALUES (?, ?, ?, ?, ?, ?)", [(2, "far", "far address", "", 200000, 600000), (1, "near", "near address", "", 200000, 500000)])
+                connection.executescript(SCHEMA)
+                connection.executemany(
+                    "INSERT INTO place (id, kind, name, road_address, latitude, longitude) VALUES (?, 'hospital', ?, ?, ?, ?)",
+                    [("hospital-2", "far", "far address", 37.6, 127.0), ("hospital-1", "near", "near address", 37.5, 127.0)],
+                )
                 connection.commit()
             finally:
                 connection.close()
             with patch.object(resources, "DB_PATH", db_path), patch.object(resources, "load_chat_model", side_effect=AssertionError("nearest should not use SQL model")):
-                answer, rows = places.run_sql_search("가장 가까운 동물병원", location=(lat, lon))
-                _, one_row = places.run_sql_search("가장 가까운 동물병원 하나만", location=(lat, lon))
+                answer, rows = places.run_sql_search("가장 가까운 동물병원", location=(37.5, 127.0))
+                _, one_row = places.run_sql_search("가장 가까운 동물병원 하나만", location=(37.5, 127.0))
         self.assertEqual([row["name"] for row in rows], ["near", "far"])
         self.assertEqual(len(one_row), 1)
         self.assertIn("직선거리", answer)

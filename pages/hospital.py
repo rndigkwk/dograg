@@ -1,101 +1,112 @@
+"""Pet places (data/places.db): nearest to the browser's location, or by region."""
+
+import json
 import sqlite3
-from pathlib import Path
+from contextlib import closing
 
 import pandas as pd
-import streamlit as st
 import pydeck as pdk
-from pyproj import Transformer
-from src.ui import apply_app_theme, render_page_header
-from src.hospital_distance import nearest_hospitals
+import streamlit as st
+
+from src import resources
 from src.location_component import render_location_control
+from src.places_data import (
+    INFO_LABELS,
+    KIND_LABELS,
+    NO_LOCATION_KINDS,
+    describe_info,
+    nearest_places,
+)
+from src.ui import apply_app_theme, render_page_header
 
 apply_app_theme()
 
-
-# =========================
-# DB 경로 설정
-# =========================
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "hospital.db"
-
-con = sqlite3.connect(DB_PATH)
-cursor = con.cursor()
+SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
+RESULT_COLUMNS = "id, kind, name, road_address, lot_address, phone, homepage, category, info, latitude, longitude"
+# pet_friendly details worth a column; the rest stay in the place view.
+TABLE_INFO_KEYS = ("size", "restrictions", "extra_fee", "hours")
 
 
-# =========================
-# 좌표계 설정
-# =========================
-
-SOURCE_CRS = "EPSG:5174"
-TARGET_CRS = "EPSG:4326"
-
-transformer = Transformer.from_crs(
-    SOURCE_CRS,
-    TARGET_CRS,
-    always_xy=True
-)
+def query_places(sql: str, parameters=()) -> pd.DataFrame:
+    with closing(sqlite3.connect(f"file:{resources.DB_PATH.as_posix()}?mode=ro", uri=True)) as connection:
+        return pd.read_sql_query(sql, connection, params=list(parameters))
 
 
-def render_selected_hospital():
-    hospital_id = st.session_state.get("selected_hospital_id")
-    if hospital_id is None:
-        return False
+def address_of(row) -> str:
+    return row.get("road_address") or row.get("lot_address") or "주소 없음"
 
-    selected_df = pd.read_sql_query(
-        "SELECT * FROM hospital WHERE ids = ?",
-        con,
-        params=[hospital_id],
-    )
-    if selected_df.empty:
-        st.warning("선택한 병원을 찾지 못했습니다.")
-        return True
 
-    selected_df["x_coor"] = pd.to_numeric(selected_df["x_coor"], errors="coerce")
-    selected_df["y_coor"] = pd.to_numeric(selected_df["y_coor"], errors="coerce")
-    valid_df = selected_df.dropna(subset=["x_coor", "y_coor"]).copy()
-    if valid_df.empty:
-        st.warning("선택한 병원의 좌표 정보가 없습니다.")
-        return True
+def render_place_table(places: pd.DataFrame, *, with_distance: bool = False) -> None:
+    records = places.to_dict("records")
+    table = pd.DataFrame({"이름": places["name"]})
+    if places["category"].notna().any():
+        table["분류"] = places["category"].fillna("")
+    table["주소"] = [address_of(row) for row in records]
+    table["전화번호"] = places["phone"].fillna("")
+    if places["kind"].eq("pet_friendly").any():
+        details = [json.loads(row["info"]) if isinstance(row.get("info"), str) else {} for row in records]
+        for key in TABLE_INFO_KEYS:
+            table[INFO_LABELS[key]] = [detail.get(key, "") for detail in details]
+    if with_distance:
+        table["직선거리(km)"] = places["distance_km"].round(2)
+    if places["homepage"].notna().any():
+        table["홈페이지"] = places["homepage"].fillna("")
+    st.dataframe(table, hide_index=True, width="stretch")
 
-    lon, lat = transformer.transform(
-        valid_df["x_coor"].to_numpy(),
-        valid_df["y_coor"].to_numpy(),
-    )
-    valid_df["lat"] = lat
-    valid_df["lon"] = lon
-    hospital = valid_df.iloc[0]
 
-    st.title("선택한 병원 위치")
-    st.subheader(hospital["name"])
-    st.write(hospital["new_address"])
-    if st.button("다른 병원 찾기", key="clear_selected_hospital"):
-        st.session_state.pop("selected_hospital_id", None)
-        st.rerun()
+def render_place_map(places: pd.DataFrame, *, zoom: int = 12) -> None:
+    located = places.dropna(subset=["latitude", "longitude"]).copy()
+    if located.empty:
+        st.caption("지도에 표시할 수 있는 좌표 정보가 없습니다.")
+        return
+    located["address"] = [address_of(row) for row in located.to_dict("records")]
     st.pydeck_chart(
         pdk.Deck(
             layers=[pdk.Layer(
                 "ScatterplotLayer",
-                data=valid_df,
-                get_position="[lon, lat]",
-                get_radius=30,
-                get_fill_color=[255, 0, 0, 180],
+                data=located,
+                get_position="[longitude, latitude]",
+                get_radius=12 if len(located) > 1 else 30,
+                radius_min_pixels=5,
+                get_fill_color=[255, 0, 0, 170],
                 pickable=True,
             )],
             initial_view_state=pdk.ViewState(
-                latitude=hospital["lat"],
-                longitude=hospital["lon"],
-                zoom=16,
+                latitude=located["latitude"].mean(),
+                longitude=located["longitude"].mean(),
+                zoom=zoom,
             ),
-            tooltip={"text": "{name}\n{new_address}"},
+            tooltip={"text": "{name}\n{address}"},
         ),
-        use_container_width=True,
+        width="stretch",
     )
+
+
+def render_selected_place() -> bool:
+    place_id = st.session_state.get(SELECTED_PLACE_ID_STATE_KEY)
+    if place_id is None:
+        return False
+    selected = query_places(f"SELECT {RESULT_COLUMNS} FROM place WHERE id = ?", [place_id])
+    if st.button("다른 장소 찾기", key="clear_selected_place"):
+        st.session_state.pop(SELECTED_PLACE_ID_STATE_KEY, None)
+        st.rerun()
+    if selected.empty:
+        st.warning("선택한 장소를 찾지 못했습니다.")
+        return True
+    place = selected.iloc[0].to_dict()
+    st.title(place["name"])
+    st.write(address_of(place))
+    if place.get("category"):
+        st.caption(f"{KIND_LABELS[place['kind']]} · {place['category']}")
+    if place.get("phone"):
+        st.write(f"전화번호: {place['phone']}")
+    for line in describe_info(place.get("info")):
+        st.write(line)
+    render_place_map(selected, zoom=16)
     return True
 
 
-if render_selected_hospital():
-    con.close()
+if render_selected_place():
     st.stop()
 
 
@@ -208,209 +219,66 @@ region_dict = {
 # =========================
 
 render_page_header(
-    "지역별 동물 병원 찾기",
-    eyebrow="가까운 병원 찾기",
-    description="지역을 선택하면 가까운 동물병원 정보와 위치를 빠르게 확인할 수 있습니다.",
-    accent="우리 동네의 든든한 진료 파트너",
+    "반려동물 시설 찾기",
+    eyebrow="가까운 반려동물 시설 찾기",
+    description="동물병원, 동물약국, 반려견과 함께 갈 수 있는 곳, 미용·위탁·장묘업체를 지역이나 현재 위치로 찾아볼 수 있습니다.",
+    accent="우리 동네의 든든한 반려 생활 지도",
 )
 
-st.subheader("현재 위치에서 가까운 병원")
-st.caption("버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간이나 영업 상태를 뜻하지 않습니다.")
-location, location_status = render_location_control("hospital_browser_location")
-if location_status:
-    st.info(f"{location_status} 아래 지역 검색은 계속 사용할 수 있습니다.")
-if location:
-    cursor.execute("SELECT ids, name, new_address, old_address, x_coor, y_coor FROM hospital")
-    nearby = nearest_hospitals([dict(zip(("ids", "name", "new_address", "old_address", "x_coor", "y_coor"), row)) for row in cursor.fetchall()], *location)
-    if nearby:
-        st.dataframe(pd.DataFrame([{"병원명": row["name"], "주소": row["new_address"] or row["old_address"], "직선거리(km)": round(row["distance_km"], 2)} for row in nearby]), use_container_width=True)
-        st.map(pd.DataFrame([{"lat": row["latitude"], "lon": row["longitude"]} for row in nearby]))
-    else:
-        st.warning("위치 좌표가 유효한 동물병원을 찾지 못했습니다.")
-
-st.subheader("검색할 시와 구/군을 선택하세요.")
-
-big = st.selectbox(
-    "시/도를 고르세요",
-    list(region_dict.keys())
+kind = st.radio(
+    "찾을 곳",
+    list(KIND_LABELS),
+    format_func=KIND_LABELS.get,
+    horizontal=True,
+    key="place_kind",
 )
-
-small = st.selectbox(
-    "시/군/구를 고르세요",
-    region_dict[big]
-)
-
-
-# =========================
-# 병원 조회
-# =========================
-
-if st.button("병원 조회"):
-
-    cursor.execute(
-    """
-    SELECT *
-    FROM hospital
-    WHERE new_address LIKE ?
-    AND new_address LIKE ?
-    """,
-    (
-        f"{big}%",
-        f"%{small}%"
-    )
-)
-
-    rows = cursor.fetchall()
-
-    df = pd.DataFrame(
-        rows,
-        columns=[
-            "ids",
-            "name",
-            "new_address",
-            "x_coor",
-            "y_coor",
-            "old_address"
-        ]
+label = KIND_LABELS[kind]
+sources = query_places("SELECT kind, title, url, rows, updated FROM source").set_index("kind")
+if kind in sources.index:
+    source = sources.loc[kind]
+    st.caption(
+        f"출처: [{source['title']}]({source['url']}) · {source['rows']:,}곳 · 데이터 기준 {str(source['updated'])[:10]}. "
+        "공공데이터라서 실제 영업 여부·영업시간·이용 조건은 방문 전 전화로 확인해 주세요."
     )
 
-
-    # =========================
-    # 검색 결과 없음
-    # =========================
-
-    if df.empty:
-
-        st.warning(
-            f"{big} {small} 지역의 병원을 찾지 못했습니다."
+if kind in NO_LOCATION_KINDS:
+    st.info(f"{label} 목록에는 좌표가 없어 현재 위치 검색은 지원하지 않고, 지역으로만 찾을 수 있습니다.")
+else:
+    st.subheader(f"현재 위치에서 가까운 {label}")
+    st.caption("버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다.")
+    location, location_status = render_location_control("hospital_browser_location")
+    if location_status:
+        st.info(f"{location_status} 아래 지역 검색은 계속 사용할 수 있습니다.")
+    if location:
+        located = query_places(
+            f"SELECT {RESULT_COLUMNS} FROM place WHERE kind = ? AND latitude IS NOT NULL", [kind]
         )
-
-    else:
-
-        st.success(
-            f"{big} {small} 지역에서 "
-            f"{len(df)}개의 병원을 찾았습니다."
-        )
-
-
-        # =========================
-        # 병원 목록
-        # =========================
-
-        st.subheader("병원 목록")
-
-        st.dataframe(
-            df[
-                [
-                    "name",
-                    "new_address",
-                    "old_address"
-                ]
-            ],
-            use_container_width=True
-        )
-
-
-        # =========================
-        # 좌표 숫자 변환
-        # =========================
-
-        df["x_coor"] = pd.to_numeric(
-            df["x_coor"],
-            errors="coerce"
-        )
-
-        df["y_coor"] = pd.to_numeric(
-            df["y_coor"],
-            errors="coerce"
-        )
-
-
-        valid_df = df.dropna(
-            subset=[
-                "x_coor",
-                "y_coor"
-            ]
-        ).copy()
-
-
-        # =========================
-        # 지도 출력
-        # =========================
-
-        if valid_df.empty:
-
-            st.warning(
-                "지도에 표시할 수 있는 좌표 정보가 없습니다."
-            )
-
+        nearby = pd.DataFrame(nearest_places(located.to_dict("records"), *location))
+        if nearby.empty:
+            st.warning(f"위치 좌표가 유효한 {label} 정보를 찾지 못했습니다.")
         else:
+            render_place_table(nearby, with_distance=True)
+            render_place_map(nearby, zoom=13)
 
-            # 좌표 변환
-            lon, lat = transformer.transform(
-                valid_df["x_coor"].to_numpy(),
-                valid_df["y_coor"].to_numpy()
-            )
+st.subheader("검색할 지역을 선택하세요.")
+big = st.selectbox("시/도를 고르세요", list(region_dict.keys()))
+small = None
+if kind != "funeral":
+    small = st.selectbox("시/군/구를 고르세요", region_dict[big])
 
-            valid_df["lat"] = lat
-            valid_df["lon"] = lon
-
-
-            st.subheader("병원 위치")
-
-
-            # 지도 중심 위치
-            center_lat = valid_df["lat"].mean()
-            center_lon = valid_df["lon"].mean()
-
-
-            # 병원 위치 원 표시
-            hospital_layer = pdk.Layer(
-                "ScatterplotLayer",
-                data=valid_df,
-                get_position="[lon, lat]",
-                get_radius=10,
-                get_fill_color=[255, 0, 0, 160],
-                get_line_color=[255, 0, 0],
-                line_width_min_pixels=1,
-                pickable=True,
-                stroked=True,
-                filled=True
-                )
-
-            # 지도 기본 위치
-            view_state = pdk.ViewState(
-                latitude=center_lat,
-                longitude=center_lon,
-
-                # 숫자가 클수록 확대
-                zoom=12,
-
-                pitch=0
-            )
-
-
-            # 지도 출력
-            st.pydeck_chart(
-                pdk.Deck(
-                    layers=[
-                        hospital_layer
-                    ],
-
-                    initial_view_state=view_state,
-
-                    tooltip={
-                        "html": """
-                        <b>병원명:</b> {name}<br/>
-                        <b>주소:</b> {new_address}
-                        """,
-
-                        "style": {
-                            "backgroundColor": "black",
-                            "color": "white"
-                        }
-                    }
-                ),
-
-                use_container_width=True
-            )
+if st.button("조회", key="place_search"):
+    conditions = ["kind = ?", "(road_address LIKE ? OR lot_address LIKE ?)"]
+    parameters = [kind, f"{big}%", f"{big}%"]
+    if small:
+        conditions.append("(road_address LIKE ? OR lot_address LIKE ?)")
+        parameters += [f"%{small}%", f"%{small}%"]
+    found = query_places(
+        f"SELECT {RESULT_COLUMNS} FROM place WHERE {' AND '.join(conditions)} ORDER BY name", parameters
+    )
+    area = f"{big} {small}" if small else big
+    if found.empty:
+        st.warning(f"{area} 지역의 {label} 정보를 찾지 못했습니다.")
+    else:
+        st.success(f"{area} 지역에서 {label} {len(found):,}곳을 찾았습니다.")
+        render_place_table(found)
+        render_place_map(found)
