@@ -361,4 +361,5 @@ def run_chat(
         "safety_notice": state.get("safety_notice"),
         "abstained": state.get("abstained", False),
         "trace_id": chat_trace.trace_id,
+        "decision": state.get("decision") or None,  # CRAG grade: correct, ambiguous or incorrect
     }

@@ -123,6 +123,20 @@ class Gpt6ModelConfigTest(unittest.TestCase):
         health.load_rag_chain.clear()
         resources.load_chat_model.clear()
 
+    def test_evidence_review_skips_reasoning_unless_configured(self):
+        values = {"CRAG_REVIEW_REASONING_EFFORT": None}
+        with patch.object(settings, "get_openai_api_key", return_value="test-key"), \
+                patch.object(settings, "get_setting", side_effect=values.get), \
+                patch.object(resources, "ChatOpenAI") as constructor:
+            resources.load_review_model.clear()
+            resources.load_review_model()
+            self.assertEqual(constructor.call_args.kwargs["reasoning_effort"], "none")
+            values["CRAG_REVIEW_REASONING_EFFORT"] = "low"
+            resources.load_review_model.clear()
+            resources.load_review_model()
+            self.assertEqual(constructor.call_args.kwargs["reasoning_effort"], "low")
+        resources.load_review_model.clear()
+
 
 class ChromaIsolationTest(unittest.TestCase):
     def test_smoke_test_uses_disposable_copy_of_source(self):
