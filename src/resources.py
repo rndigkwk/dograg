@@ -104,9 +104,26 @@ def load_report_vector_db():
     )
 
 
+# CRAG evidence review is a yes/no choice over a few candidates; without reasoning tokens its
+# p90 dropped from 6.1s to 2.4s on the 40 health questions with no loss in answer/abstain
+# decisions (docs/wiki/deployment-resources.md). CRAG_REVIEW_REASONING_EFFORT overrides it.
+REVIEW_REASONING_EFFORT = "none"
+
+
+@st.cache_resource(show_spinner=False)
+def load_review_model():
+    api_key = settings.get_openai_api_key()
+    if not api_key:
+        return None
+    effort = settings.get_setting("CRAG_REVIEW_REASONING_EFFORT") or REVIEW_REASONING_EFFORT
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort)
+
+
 @st.cache_resource(show_spinner=False)
 def load_chat_model():
     api_key = settings.get_openai_api_key()
     if not api_key:
         return None
-    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key)
+    # CHAT_REASONING_EFFORT: "none", "low", "medium" (the model default when unset), "high".
+    effort = settings.get_setting("CHAT_REASONING_EFFORT")
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, **({"reasoning_effort": effort} if effort else {}))

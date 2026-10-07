@@ -9,7 +9,7 @@ CRAG_CORPUS_NAMES = {"health": "반려견 건강 상담 Q&A", "report": "반려�
 
 
 def review_evidence(kind: str, question: str, context: str):
-    return build_reviewer(resources.load_chat_model(), CRAG_CORPUS_NAMES[kind])(question, context)
+    return build_reviewer(resources.load_review_model(), CRAG_CORPUS_NAMES[kind])(question, context)
 
 
 def rewrite_search_query(question: str, search_query: str, feedback: str) -> str:
