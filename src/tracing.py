@@ -113,6 +113,8 @@ class ChatTrace:
     def __init__(self, span=None, handler=None):
         self._span = span
         self.callbacks = [handler] if handler is not None else []
+        # Random id of this run's trace; the page attaches answer feedback to it.
+        self.trace_id = getattr(span, "trace_id", None)
 
     def finish(self, record: dict) -> None:
         if self._span is None:
@@ -147,6 +149,26 @@ def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None)
             logger.warning("Langfuse trace start failed", exc_info=True)
             trace = ChatTrace()
         yield trace
+
+
+FEEDBACK_SCORE = "user_feedback"
+
+
+def record_feedback(trace_id: str | None, helpful: bool) -> bool:
+    """Store a 👍/👎 as a BOOLEAN score on the run's trace. The score id is derived from the
+    trace id, so changing the vote overwrites the earlier score instead of adding one."""
+    langfuse = client()
+    if langfuse is None or not trace_id:
+        return False
+    try:
+        langfuse.create_score(
+            name=FEEDBACK_SCORE, value=1 if helpful else 0, data_type="BOOLEAN",
+            trace_id=trace_id, score_id=f"{trace_id}-{FEEDBACK_SCORE}",
+        )
+        return True
+    except Exception:
+        logger.warning("Langfuse feedback score failed", exc_info=True)
+        return False
 
 
 def flush() -> None:
