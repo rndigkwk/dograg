@@ -233,6 +233,18 @@ class SearchTests(unittest.TestCase):
         _, rows = self.search("강남구 동물병원 알려줘\n마포구는?")
         self.assertEqual([row["name"] for row in rows], ["마포동물병원"])  # kind from the earlier question
 
+    def test_emergency_lists_nearest_and_24h_named_hospitals(self):
+        with closing(sqlite3.connect(resources.DB_PATH)) as connection:
+            connection.execute(
+                "INSERT INTO place (id, kind, name, road_address, phone, latitude, longitude) "
+                "VALUES ('hospital-3', 'hospital', '24시 하늘동물의료센터', '서울특별시 송파구 1', '02-999-9999', 37.51, 127.10)"
+            )
+            connection.commit()
+        found = places.emergency_hospitals((37.50, 127.03), nearest=1, named=2)
+        self.assertEqual([row["name"] for row in found["nearest"]], ["강남동물병원"])
+        self.assertEqual([row["name"] for row in found["night"]], ["24시 하늘동물의료센터"])
+        self.assertGreater(found["night"][0]["distance_km"], 5)
+
     def test_region_word_wins_over_nearby_word(self):
         _, rows = self.search("마포구 근처에 동물병원 있어?")
         self.assertEqual([row["name"] for row in rows], ["마포동물병원"])

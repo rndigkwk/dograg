@@ -23,6 +23,7 @@ from src.settings import PROJECT_DIR
 from src.storage.models import PetProfile
 from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import get_recent_chat_history
+from src.tools.places import emergency_hospitals
 from src.tools.profile import detect_profile, profile_summary
 from src.tracing import record_feedback
 from src.ui import apply_app_theme, render_page_header
@@ -79,6 +80,42 @@ def render_hospital_links(rows):
             st.switch_page("app_pages/hospital.py")
 
 
+def find_emergency_hospitals(location) -> dict:
+    """Hospitals to show next to an urgent warning; empty when the location was not shared."""
+    if location is None:
+        return {}
+    try:
+        return emergency_hospitals(location)
+    except Exception:
+        logging.getLogger(__name__).warning("Emergency hospital lookup failed", exc_info=True)
+        return {}
+
+
+def _hospital_line(row: dict) -> str:
+    phone = row.get("phone")
+    call = f"[{phone}](tel:{''.join(ch for ch in phone if ch.isdigit())})" if phone else "전화번호 없음"
+    address = row.get("road_address") or row.get("lot_address") or ""
+    return f"- **{row['name']}** · {row['distance_km']:.1f}km · {call}  \n  {address}"
+
+
+def render_emergency(emergency: dict) -> None:
+    """Under an urgent warning: the nearest hospitals with phone numbers, or how to get them."""
+    with st.container(border=True):
+        st.markdown("**🚨 가까운 동물병원**")
+        if not emergency.get("nearest"):
+            try:
+                st.page_link("app_pages/hospital.py", label="시설 찾기에서 가까운 동물병원 찾기", icon=":material/local_hospital:")
+            except (StreamlitAPIException, KeyError):  # 내비게이션 밖(AppTest 등)
+                st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
+            st.caption("위의 '현재 위치 사용'을 누르면 다음부터 가까운 병원을 여기에 바로 보여 줍니다.")
+            return
+        st.markdown("\n".join(_hospital_line(row) for row in emergency["nearest"]))
+        if emergency.get("night"):
+            st.markdown("이름에 24시·응급·야간이 들어간 가까운 병원")
+            st.markdown("\n".join(_hospital_line(row) for row in emergency["night"]))
+        st.caption("거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.")
+
+
 def send_feedback(trace_id: str) -> None:
     value = st.session_state.get(f"feedback_{trace_id}")
     if value is not None:  # None: the vote was cleared; the stored score stays
@@ -95,6 +132,8 @@ def render_feedback(message: dict) -> None:
 def render_assistant_message(message: dict, *, show_notice: bool = True) -> None:
     if show_notice and message.get("safety_notice"):
         st.warning(message["safety_notice"])
+    if show_notice and message.get("emergency") is not None:
+        render_emergency(message["emergency"])
     st.write(message["content"])
     render_feedback(message)
     if message.get("abstained") and message.get("route") == "rag":
@@ -277,8 +316,12 @@ def render_page():
         st.write(question)
     with st.chat_message("assistant"):
         urgent_notice = detect_urgent_sign(question)
+        emergency = None
         if urgent_notice:
+            # Shown before the answer is generated: in an emergency the hospital comes first.
             st.warning(urgent_notice)
+            emergency = find_emergency_hospitals(location)
+            render_emergency(emergency)
         try:
             # 답변 문장은 모델이 쓰는 대로 보여 주고, 그 전까지는 지금 단계를 알려 줍니다.
             status = st.empty()
@@ -318,6 +361,7 @@ def render_page():
                 "safety_notice": result.get("safety_notice") or urgent_notice,
                 "abstained": result.get("abstained", False),
                 "trace_id": result.get("trace_id"),
+                "emergency": emergency,
             }
             render_assistant_message(assistant_message, show_notice=False)
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)

@@ -289,6 +289,22 @@ def _with_notice(answer: str, rows: list[dict]) -> str:
     return f"{answer}\n\n{PLACE_NOTICE}" if rows else answer
 
 
+# Names that suggest night or emergency care. The data has no opening hours, so this is
+# only a hint shown as such ("이름에 24시·응급이 들어간 병원").
+EMERGENCY_NAME_WORDS = ("24시", "24", "응급", "야간")
+
+
+def emergency_hospitals(location: tuple[float, float], nearest: int = 3, named: int = 2) -> dict[str, list[dict]]:
+    """For an urgent question: the nearest hospitals, and the nearest whose name says 24시/응급/야간."""
+    rows = execute_place_sql(
+        f"SELECT {RESULT_COLUMNS} FROM place WHERE kind = 'hospital' AND latitude IS NOT NULL"
+    )
+    closest = nearest_places(rows, *location, limit=nearest)
+    shown = {row["id"] for row in closest}
+    night = [row for row in rows if row["id"] not in shown and any(word in row["name"] for word in EMERGENCY_NAME_WORDS)]
+    return {"nearest": closest, "night": nearest_places(night, *location, limit=named)}
+
+
 def run_nearest_search(question: str, kind: str, location: tuple[float, float] | None) -> tuple[str, list[dict]]:
     label = KIND_LABELS[kind]
     if kind in NO_LOCATION_KINDS:
