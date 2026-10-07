@@ -57,7 +57,7 @@ class FakeBrowser:
 
 def fake_chatbot(question, **kwargs):
     return {"route": "rag", "answer": f"답변: {question}", "evidence_rows": [], "hospital_rows": [],
-            "safety_notice": None, "abstained": False}
+            "safety_notice": None, "abstained": False, "trace_id": f"trace-{len(question)}"}
 
 
 class ConversationPageTests(unittest.TestCase):
@@ -123,7 +123,8 @@ class ConversationPageTests(unittest.TestCase):
         night = {**hospital, "id": "hospital-2", "name": "24시 동물의료센터", "distance_km": 2.1}
         browser = FakeBrowser(notice=True)
         at = self.run_app(browser)
-        with patch.object(chat_page, "render_location_control", return_value=((37.5, 127.0), None)),                 patch.object(chat_page, "emergency_hospitals", return_value={"nearest": [hospital], "night": [night]}) as lookup:
+        with patch.object(chat_page, "render_location_control", return_value=((37.5, 127.0), None)), \
+                patch.object(chat_page, "emergency_hospitals", return_value={"nearest": [hospital], "night": [night]}) as lookup:
             at.chat_input[0].set_value("강아지가 경련을 해요")
             at = self.run_app(browser, at)
         lookup.assert_called_once_with((37.5, 127.0))
@@ -141,6 +142,26 @@ class ConversationPageTests(unittest.TestCase):
             at = self.run_app(browser, at)
         lookup.assert_not_called()
         self.assertTrue(any("현재 위치 사용" in c.value for c in at.caption))
+
+    def test_answer_feedback_becomes_a_trace_score(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("기침해요")
+        at = self.run_app(browser, at)
+        self.assertEqual(len(at.feedback), 1)
+        with patch.object(chat_page, "record_feedback") as record:
+            at.feedback[0].set_value(1)
+            at = self.run_app(browser, at)
+        record.assert_called_once_with("trace-4", helpful=True)
+        self.assertEqual([e.message for e in at.exception], [])
+
+    def test_no_feedback_without_a_trace(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        with patch.object(chat_page, "chatbot", side_effect=lambda q, **k: {**fake_chatbot(q), "trace_id": None}):
+            at.chat_input[0].set_value("기침해요")
+            at = at.run()
+        self.assertEqual(len(at.feedback), 0)
 
     def test_history_shows_on_the_home_page_and_opens_the_chat(self):
         stored = Thread(title="홈에서 연 대화", turns=[Turn(question="기침해요", answer="진료받으세요", route="rag")])

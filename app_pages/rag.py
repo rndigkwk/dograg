@@ -25,6 +25,7 @@ from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import get_recent_chat_history
 from src.tools.places import emergency_hospitals
 from src.tools.profile import detect_profile, profile_summary
+from src.tracing import record_feedback
 from src.ui import apply_app_theme, render_page_header
 
 SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
@@ -115,12 +116,26 @@ def render_emergency(emergency: dict) -> None:
         st.caption("거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.")
 
 
+def send_feedback(trace_id: str) -> None:
+    value = st.session_state.get(f"feedback_{trace_id}")
+    if value is not None:  # None: the vote was cleared; the stored score stays
+        record_feedback(trace_id, helpful=value == 1)
+
+
+def render_feedback(message: dict) -> None:
+    """👍/👎 under answers of this session that have a Langfuse trace (tracing on)."""
+    trace_id = message.get("trace_id")
+    if trace_id:
+        st.feedback("thumbs", key=f"feedback_{trace_id}", on_change=send_feedback, args=(trace_id,))
+
+
 def render_assistant_message(message: dict, *, show_notice: bool = True) -> None:
     if show_notice and message.get("safety_notice"):
         st.warning(message["safety_notice"])
     if show_notice and message.get("emergency") is not None:
         render_emergency(message["emergency"])
     st.write(message["content"])
+    render_feedback(message)
     if message.get("abstained") and message.get("route") == "rag":
         try:
             st.page_link("app_pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
@@ -345,6 +360,7 @@ def render_page():
                 "evidence_rows": result.get("evidence_rows", []),
                 "safety_notice": result.get("safety_notice") or urgent_notice,
                 "abstained": result.get("abstained", False),
+                "trace_id": result.get("trace_id"),
                 "emergency": emergency,
             }
             render_assistant_message(assistant_message, show_notice=False)

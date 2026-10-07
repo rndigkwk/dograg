@@ -360,4 +360,5 @@ def run_chat(
         "hospital_rows": state.get("hospital_rows", []),
         "safety_notice": state.get("safety_notice"),
         "abstained": state.get("abstained", False),
+        "trace_id": chat_trace.trace_id,
     }
