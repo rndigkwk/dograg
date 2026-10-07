@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
-from pages import rag as chat_page
+from app_pages import rag as chat_page
 from src import conversation_ui
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
@@ -23,7 +23,7 @@ MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
 def chat_app():
     """main.py's order for the chat page: sync with the browser, sidebar, then the page body."""
-    from pages import rag
+    from app_pages import rag
     from src.conversation_ui import (
         render_conversation_sidebar,
         render_profile_sidebar,

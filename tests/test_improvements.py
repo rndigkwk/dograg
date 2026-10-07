@@ -9,7 +9,7 @@ import pandas as pd
 import pymupdf
 from streamlit.testing.v1 import AppTest
 
-from pages import rag
+from app_pages import rag
 from src import resources
 from src.health_quality import audit_health_data, normalize_label
 from src.health_retrieval import rerank_candidates, summarize_retrieval
@@ -21,7 +21,7 @@ from src.tools import health, places, report
 
 
 def render_saved_message_for_test(message):
-    from pages import rag as page
+    from app_pages import rag as page
     page.render_assistant_message(message)
 
 
@@ -118,8 +118,8 @@ class DistanceTests(unittest.TestCase):
 
     def test_both_pages_mount_location_control(self):
         root = Path(__file__).resolve().parents[1]
-        hospital = AppTest.from_file(str(root / "pages" / "hospital.py"), default_timeout=30).run()
-        chat = AppTest.from_file(str(root / "pages" / "rag.py"), default_timeout=30).run()
+        hospital = AppTest.from_file(str(root / "app_pages" / "hospital.py"), default_timeout=30).run()
+        chat = AppTest.from_file(str(root / "app_pages" / "rag.py"), default_timeout=30).run()
         self.assertEqual([item.message for item in hospital.exception], [])
         self.assertEqual([item.message for item in chat.exception], [])
 

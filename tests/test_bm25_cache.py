@@ -100,14 +100,14 @@ class ProjectCacheTests(unittest.TestCase):
 
 class WarmupDecisionTests(unittest.TestCase):
     def test_only_a_real_server_warms_up(self):
-        from pages import rag
+        from app_pages import rag
 
         self.assertTrue(rag.warmup_wanted({}, {}, runtime_exists=True))
         self.assertFalse(rag.warmup_wanted({}, {"streamlit.testing.v1": object()}, runtime_exists=True))
         self.assertFalse(rag.warmup_wanted({}, {}, runtime_exists=False))
 
     def test_environment_override_wins(self):
-        from pages import rag
+        from app_pages import rag
 
         self.assertFalse(rag.warmup_wanted({"DOGRAG_WARMUP": "0"}, {}, runtime_exists=True))
         self.assertTrue(rag.warmup_wanted({"DOGRAG_WARMUP": "1"}, {}, runtime_exists=False))

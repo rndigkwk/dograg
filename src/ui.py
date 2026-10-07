@@ -12,20 +12,20 @@ NAVIGATION_GROUPS = (
     {
         "label": "소개 페이지",
         "items": (
-            {"path": "pages/home.py", "title": "홈", "icon": "🏠", "default": True},
+            {"path": "app_pages/home.py", "title": "홈", "icon": "🏠", "default": True},
         ),
     },
     {
         "label": "데이터 둘러보기",
         "items": (
-            {"path": "pages/data.py", "title": "데이터 소개", "icon": "📊"},
+            {"path": "app_pages/data.py", "title": "데이터 소개", "icon": "📊"},
         ),
     },
     {
         "label": "서비스",
         "items": (
-            {"path": "pages/rag.py", "title": "질병 문의", "icon": "💬"},
-            {"path": "pages/hospital.py", "title": "시설 찾기", "icon": "🏥"},
+            {"path": "app_pages/rag.py", "title": "질병 문의", "icon": "💬"},
+            {"path": "app_pages/hospital.py", "title": "시설 찾기", "icon": "🏥"},
         ),
     },
 )

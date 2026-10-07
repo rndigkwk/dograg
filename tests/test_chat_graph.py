@@ -10,7 +10,7 @@ from langchain_core.language_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import StrOutputParser
 
-from pages import rag
+from app_pages import rag
 from src import chatbot as app
 from src import resources, settings
 from src.chat_graph import HEALTH_ABSTAIN, REPORT_ABSTAIN, run_chat

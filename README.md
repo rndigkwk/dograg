@@ -49,22 +49,22 @@
 
 | 건강 상담과 검색 근거 | 보고서 분석 |
 | --- | --- |
-| ![건강 RAG 답변과 검색 근거](pages/rag_동물건강.png) | ![반려동물 현황 보고서 분석](pages/rag_분석리포트_1.png) |
+| ![건강 RAG 답변과 검색 근거](docs/images/rag_동물건강.png) | ![반려동물 현황 보고서 분석](docs/images/rag_분석리포트_1.png) |
 
 <details>
 <summary>화면 더 보기 (홈, 대시보드, 병원 검색, 지도)</summary>
 
-![라그도그 홈 화면](pages/홈페이지.png)
+![라그도그 홈 화면](docs/images/홈페이지.png)
 
-![데이터 대시보드](pages/데이터_대쉬보드.png)
+![데이터 대시보드](docs/images/데이터_대쉬보드.png)
 
-![대화형 SQLite 동물병원 검색](pages/rag_llm으로_sql검색.png)
+![대화형 SQLite 동물병원 검색](docs/images/rag_llm으로_sql검색.png)
 
-![보고서 분석의 근거와 확인 불가 항목 표시](pages/rag_분석리포트_2.png)
+![보고서 분석의 근거와 확인 불가 항목 표시](docs/images/rag_분석리포트_2.png)
 
-![지역 선택형 동물병원 검색](pages/sql_동물병원검색.png)
+![지역 선택형 동물병원 검색](docs/images/sql_동물병원검색.png)
 
-![선택 지역의 동물병원 지도](pages/sql_지도시각화.png)
+![선택 지역의 동물병원 지도](docs/images/sql_지도시각화.png)
 
 </details>
 
@@ -161,7 +161,7 @@
 ```text
 .
 ├── main.py                 # Streamlit 진입점, 스레드·메모리 제한
-├── pages/
+├── app_pages/
 │   ├── rag.py              # 챗봇 화면, 라우터, 검색·답변 도구
 │   ├── hospital.py         # 시설 찾기: 종류·지역·현재 위치로 목록과 지도
 │   ├── data.py             # 데이터 대시보드
