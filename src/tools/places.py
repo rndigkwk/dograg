@@ -183,9 +183,10 @@ def force_sql_limit_one(sql: str) -> str:
     return force_sql_limit(sql, SINGLE_HOSPITAL_LIMIT)
 
 
-def fallback_sql(question: str, kind: str = "hospital") -> tuple[str, list[str]]:
+def fallback_sql(question: str, kind: str = "hospital", location_keywords: list[str] | None = None) -> tuple[str, list[str]]:
     """Fixed SQL for region and count questions (and when no LLM key is set)."""
-    location_keywords = extract_search_parameters(question)
+    if location_keywords is None:
+        location_keywords = extract_search_parameters(question)
     parameters = [kind] + [f"%{keyword}%" for keyword in location_keywords for _ in range(2)]
     where = "kind = ?"
     if location_keywords:
@@ -310,17 +311,32 @@ def run_nearest_search(question: str, kind: str, location: tuple[float, float] |
     return _with_notice("\n".join(lines), ranked), ranked
 
 
+def _from_follow_up(current: str, earlier: list[str], read):
+    """What the current question says, else what the latest earlier question said ("거기 약국은?")."""
+    for text in [current, *reversed(earlier)]:
+        if value := read(text):
+            return value
+    return None
+
+
 def run_sql_search(question: str, location: tuple[float, float] | None = None) -> tuple[str, list[dict]]:
-    """지역, 주소, 이름으로 동물병원·동물약국·장묘업체를 검색합니다."""
-    kind = place_kind(question) or "hospital"
-    location_keywords = extract_search_parameters(question)
+    """지역, 주소, 이름으로 반려동물 시설을 검색합니다.
+
+    `question` may carry earlier user questions on the lines before the current one
+    (history.build_rag_search_query). Counts, "N곳만" and "nearest" come from the current
+    question only; the kind and region fall back to earlier questions for follow-ups.
+    """
+    *earlier, current = [line for line in question.split("\n") if line.strip()] or [question]
+    kind = _from_follow_up(current, earlier, place_kind) or "hospital"
+    location_keywords = _from_follow_up(current, earlier, extract_search_parameters) or []
+    question = current
     if wants_nearest(question):
         return run_nearest_search(question, kind, location)
 
     # 지역·개수 질문은 정해진 SQL로 처리해 SQL 생성·답변용 LLM 호출을 줄입니다.
     use_fallback = bool(location_keywords) or is_count_query(question)
     model = None if use_fallback else resources.load_chat_model()
-    sql, parameters = fallback_sql(question, kind)
+    sql, parameters = fallback_sql(question, kind, location_keywords)
     used_model = False
     if model is not None:
         generated = validate_sql(
