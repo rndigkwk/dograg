@@ -203,6 +203,15 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows, [])
             self.assertIn("좌표가 없어", answer)
 
+    def test_earlier_questions_give_only_the_missing_kind_or_region(self):
+        # The graph passes recent user questions joined by newlines, the current one last.
+        _, rows = self.search("애견동반 펜션 1곳만 추천해줘\n강남구 동물병원 알려줘")
+        self.assertEqual([row["name"] for row in rows], ["강남동물병원"])  # no "1곳만", no pet_friendly
+        _, rows = self.search("강남구 동물병원 알려줘\n동물약국은?")
+        self.assertEqual([row["name"] for row in rows], ["강남약국"])  # region from the earlier question
+        _, rows = self.search("강남구 동물병원 알려줘\n마포구는?")
+        self.assertEqual([row["name"] for row in rows], ["마포동물병원"])  # kind from the earlier question
+
     def test_region_word_wins_over_nearby_word(self):
         _, rows = self.search("마포구 근처에 동물병원 있어?")
         self.assertEqual([row["name"] for row in rows], ["마포동물병원"])
