@@ -1,0 +1,128 @@
+"""Langfuse tracing (src/tracing.py): what leaves the server for one chat run."""
+
+import json
+import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+from langchain_core.documents import Document
+from langchain_core.language_models import FakeListChatModel
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+from src import tracing
+from src.chat_graph import run_chat
+
+QUESTION = "우리 초코가 어제부터 설사를 해요 010-1234-5678"
+ANSWER = "수분을 충분히 주고 하루 이상 계속되면 병원에 가 보세요"
+DOCUMENT = "설사가 지속되면 탈수 위험이 있습니다"
+
+
+class MaskTests(unittest.TestCase):
+    def test_text_is_masked_and_structure_kept(self):
+        data = {
+            "question": QUESTION, "top_k": 3, "crag": True,
+            "messages": [{"role": "user", "content": QUESTION}],
+            "trace": [{"step": "health_grade", "kept_ids": ["12", "40"], "decision": "correct"}],
+            "documents": [Document(page_content=DOCUMENT, metadata={"id": "12"})],
+        }
+        masked = tracing.mask_text(data=data)
+        self.assertNotIn("설사", json.dumps(masked, ensure_ascii=False))
+        self.assertEqual(masked["question"], f"[masked {len(QUESTION)} chars]")
+        self.assertEqual((masked["top_k"], masked["crag"]), (3, True))
+        self.assertEqual(masked["messages"][0]["role"], "user")
+        self.assertEqual(masked["trace"][0], {"step": "health_grade", "kept_ids": ["12", "40"], "decision": "correct"})
+        self.assertEqual(tracing.mask_text(data=QUESTION), f"[masked {len(QUESTION)} chars]")
+
+    def test_off_in_tests_without_keys_or_when_disabled(self):
+        values = {"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk", "LANGFUSE_TRACING_ENABLED": None}
+        with patch.object(tracing.settings, "get_setting", side_effect=values.get):
+            self.assertFalse(tracing.enabled())  # this test run itself
+            with patch.object(tracing, "_running_tests", return_value=False):
+                self.assertTrue(tracing.enabled())
+        values["LANGFUSE_TRACING_ENABLED"] = "false"
+        with patch.object(tracing.settings, "get_setting", side_effect=values.get),                 patch.object(tracing, "_running_tests", return_value=False):
+            self.assertFalse(tracing.enabled())
+        with patch.object(tracing.settings, "get_setting", return_value=None):
+            self.assertFalse(tracing.enabled())
+
+    def test_session_id_is_hashed(self):
+        self.assertEqual(len(tracing.session_id("abc")), 16)
+        self.assertNotEqual(tracing.session_id("abc"), "abc")
+        self.assertIsNone(tracing.session_id(None))
+
+
+def health_tools():
+    """A health route whose answer comes from a real LangChain chain, so the callback sees a model call."""
+    model = FakeListChatModel(responses=[ANSWER])
+    chain = ChatPromptTemplate.from_messages([("human", "{question}\n{context}")]) | model | StrOutputParser()
+
+    def answer(question, docs, **kwargs):
+        return chain.invoke({"question": question, "context": DOCUMENT})
+
+    return SimpleNamespace(
+        is_date_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
+        build_rag_search_query=lambda q, h=None: q, infer_rag_filters=Mock(return_value={}),
+        retrieve_health=Mock(return_value=[Document(id="12", page_content=DOCUMENT, metadata={})]),
+        review_evidence=Mock(return_value=SimpleNamespace(feedback="", useful_ids=["12"], sufficient=True)),
+        generate_health_answer=answer, detect_urgent_sign=lambda q: None,
+    )
+
+
+class TraceExportTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from langfuse import Langfuse
+
+        # One client per public key: Langfuse reuses the first client's exporter for the same key.
+        cls.exporter = InMemorySpanExporter()
+        cls.client = Langfuse(
+            public_key="pk-lf-test", secret_key="sk-lf-test", base_url="http://localhost:9",
+            mask=tracing.mask_text, span_exporter=cls.exporter, flush_at=1,
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.shutdown()
+
+    def setUp(self):
+        self.exporter.clear()
+        patcher = patch.object(tracing, "client", return_value=self.client)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def exported(self):
+        self.client.flush()
+        return self.exporter.get_finished_spans()
+
+    def test_one_run_sends_structure_and_no_text(self):
+        result = run_chat(health_tools(), QUESTION, top_k=1, crag=True, session_id="browser-session")
+        self.assertEqual(result["answer"], ANSWER)
+        spans = self.exported()
+        names = {span.name for span in spans}
+        self.assertIn("chat", names)
+        self.assertTrue(any("health" in name for name in names), names)  # graph nodes from the callback
+
+        sent = json.dumps([dict(span.attributes) for span in spans], ensure_ascii=False)
+        for secret in ("초코", "설사", "010-1234-5678", "수분을", "탈수"):
+            self.assertNotIn(secret, sent)
+
+        [root] = [span for span in spans if span.name == "chat"]
+        output = json.loads(root.attributes["langfuse.observation.output"])
+        self.assertEqual(output["route"], "rag")
+        self.assertEqual(output["trace"][0]["kept_ids"], ["12"])
+        self.assertEqual(output["question_chars"], len(QUESTION))
+        self.assertEqual(root.attributes["session.id"], tracing.session_id("browser-session"))
+
+    def test_a_failing_run_is_still_recorded(self):
+        tools = health_tools()
+        tools.retrieve_health = Mock(side_effect=RuntimeError("down"))
+        with self.assertRaises(RuntimeError):
+            run_chat(tools, QUESTION, top_k=1, crag=True)
+        [root] = [span for span in self.exported() if span.name == "chat"]
+        self.assertEqual(json.loads(root.attributes["langfuse.observation.output"])["error"], "RuntimeError")
+
+
+if __name__ == "__main__":
+    unittest.main()
