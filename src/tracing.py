@@ -36,6 +36,8 @@ SAFE_KEYS = frozenset({
     "candidate_ids", "kept_ids", "evidence_ids", "useful_ids", "role", "type",
     "langgraph_node", "langgraph_step", "langgraph_triggers", "langgraph_path", "checkpoint_ns",
     "ls_provider", "ls_model_name", "ls_model_type", "model", "model_name", "finish_reason",
+    # experiment outputs (scripts/langfuse_experiments.py): evaluation labels, not user text
+    "outcome", "behavior", "group", "evidence_pages",
 })
 
 

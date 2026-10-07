@@ -87,3 +87,31 @@
   | 모델 호출 `ChatOpenAI` | 8.28초 |
 
 - 다음에 줄일 곳은 모델 호출 자체다. 그래프 오버헤드(`LangGraph` 대비 노드 합)는 작다.
+
+## 평가 데이터셋과 실험 (2026-10-07)
+
+로컬 스크립트와 JSON으로만 하던 평가를 Langfuse 데이터셋과 실험으로도 돌린다. 실행 결과는 Langfuse의 Datasets → 해당 데이터셋 → Runs에서 나란히 비교한다. 재현: `scripts/langfuse_experiments.py`.
+
+| 데이터셋 | 원천 | 기대값 |
+| --- | --- | --- |
+| `ragdog-crag-60` | `tests/data/crag_eval_questions.json` | 답변(answer) 또는 보류(abstain), 보고서 질문은 정답 페이지 |
+| `ragdog-place-routing-36` | `tests/data/place_routing_questions.json` | 경로(route), 시설 종류(kind) |
+
+- **항목 점수:** `correct_behavior`, `gold_page_hit`, `latency_s`, `route_correct`, `kind_correct`
+- **실행 점수:** `accuracy`, `over_abstain`(답할 질문을 보류한 비율), `missed_abstain`(보류할 질문에 답한 비율), `latency_p50_s`, `latency_p90_s`
+- **실행 메타데이터:** 모델, 추론 강도, 커밋을 남긴다. 실행끼리 무엇이 달랐는지 화면에서 바로 보인다.
+- **항목 ID:** 고정했다. 다시 올려도 항목이 늘지 않고 갱신된다.
+- **올리는 데이터:** 데이터셋에는 우리 평가 문항(AI Hub 검증 Q&A와 직접 만든 질문)만 올린다. 사용자 대화는 올리지 않는다. 실험 실행의 트레이스도 앱과 같은 마스킹을 거쳐서 답변은 길이로만 보인다. 결과는 점수로 남는다.
+
+**첫 실험 결과**
+
+| 실행 | accuracy | over_abstain | missed_abstain | gold_page_hit | p50 | p90 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `review-medium` (근거 평가 기본 추론) | 0.900 | 1/38 | 5/22 | 0.667 | 8.5초 | 16.7초 |
+| `review-none` (근거 평가 추론 끔, 적용) | 0.883 | 2/38 | 5/22 | 0.667 | **7.0초** | **10.6초** |
+| 시설 라우팅 `rules-only` | 경로 1.00, 종류 1.00 | | | | | |
+| 시설 라우팅 `rules-plus-llm` | 경로 1.00, 종류 1.00 | | | | | |
+
+- 근거 평가에서 추론을 끄면 p90이 6초 줄었다. 정확도 차이는 60문항 중 1문항이다.
+- 질문별 단계 시간 측정(`deployment-resources.md`)과 결론이 같다.
+- 두 실행을 같은 데이터셋에서 비교하므로 다음 변경(예: h06 과잉 보류 수정)도 같은 방식으로 잰다.
