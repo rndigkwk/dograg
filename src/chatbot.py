@@ -21,6 +21,7 @@ def chatbot(
     crag_reports: bool | None = None,
     on_token=None,
     on_step=None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """질문을 분류한 뒤 rag, sql, analysis, 또는 도구 없는 일반 응답을 LangGraph로 실행합니다.
 
@@ -45,4 +46,5 @@ def chatbot(
         graph=build_chat_graph(TOOLS),
         on_token=on_token,
         on_step=on_step,
+        session_id=session_id,
     )

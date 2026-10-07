@@ -1,0 +1,156 @@
+"""Langfuse tracing for chat runs, with every piece of user and document text masked.
+
+On when LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set (environment or
+.streamlit/secrets.toml) and LANGFUSE_TRACING_ENABLED is not "false". Each chat run
+is one trace:
+
+- root span `chat`: input is the question's hash and length (src/run_log.py), output is
+  the run record (route, CRAG decision, candidate/kept evidence ids, token counts)
+- child spans from the LangChain callback handler: one per graph node and model call,
+  with timings, model names and token usage
+
+`mask_text` runs on every input, output and metadata value the SDK sends. It keeps
+numbers, booleans and the values of SAFE_KEYS, and replaces every other string with
+its length, so questions, answers, profiles and retrieved documents never leave the
+server. Tracing never breaks an answer: setup or export failures only disable it.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import sys
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+from src import settings
+
+logger = logging.getLogger(__name__)
+
+# Keys whose string values are app vocabulary or public dataset ids, never user text.
+SAFE_KEYS = frozenset({
+    "route", "decision", "step", "error", "kind", "question_sha256",
+    "candidate_ids", "kept_ids", "evidence_ids", "useful_ids", "role", "type",
+    "langgraph_node", "langgraph_step", "langgraph_triggers", "langgraph_path", "checkpoint_ns",
+    "ls_provider", "ls_model_name", "ls_model_type", "model", "model_name", "finish_reason",
+})
+
+
+def _masked(text: str) -> str:
+    return f"[masked {len(text)} chars]"
+
+
+def mask_text(*, data: Any, **_: Any) -> Any:
+    """Langfuse `mask` hook: user and document text out, structure and numbers kept."""
+    return _mask(data, safe=False)
+
+
+def _mask(data: Any, *, safe: bool) -> Any:
+    if isinstance(data, str):
+        return data if safe else _masked(data)
+    if isinstance(data, dict):
+        return {key: _mask(value, safe=safe or key in SAFE_KEYS) for key, value in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [_mask(item, safe=safe) for item in data]
+    if data is None or isinstance(data, (bool, int, float)):
+        return data
+    return _masked(str(data))  # documents, messages and other objects: as text, masked
+
+
+def environment() -> str:
+    configured = settings.get_setting("LANGFUSE_TRACING_ENVIRONMENT")
+    if configured:
+        return configured
+    return "production" if str(settings.PROJECT_DIR).startswith("/mount/src/") else "development"
+
+
+def _running_tests() -> bool:
+    """unittest/pytest runs: .env may hold real keys, and test runs must not reach Langfuse."""
+    program = sys.argv[0] if sys.argv else ""
+    return "unittest" in program or "pytest" in program or Path(program).parent.name == "tests"
+
+
+def enabled() -> bool:
+    return bool(
+        not _running_tests()
+        and settings.get_setting("LANGFUSE_PUBLIC_KEY")
+        and settings.get_setting("LANGFUSE_SECRET_KEY")
+        and str(settings.get_setting("LANGFUSE_TRACING_ENABLED") or "true").lower() != "false"
+    )
+
+
+@lru_cache(maxsize=1)
+def client():
+    """The Langfuse client, or None when tracing is off or cannot start."""
+    if not enabled():
+        return None
+    try:
+        from langfuse import Langfuse
+
+        return Langfuse(
+            public_key=settings.get_setting("LANGFUSE_PUBLIC_KEY"),
+            secret_key=settings.get_setting("LANGFUSE_SECRET_KEY"),
+            base_url=settings.get_setting("LANGFUSE_BASE_URL") or settings.get_setting("LANGFUSE_HOST"),
+            environment=environment(),
+            mask=mask_text,
+        )
+    except Exception:
+        logger.warning("Langfuse tracing is off: client setup failed", exc_info=True)
+        return None
+
+
+def session_id(raw: str | None) -> str | None:
+    """A browser session's random id, hashed again so the trace cannot be joined to anything else."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16] if raw else None
+
+
+class ChatTrace:
+    """What run_chat needs from a trace: LangChain callbacks and a place for the run record."""
+
+    def __init__(self, span=None, handler=None):
+        self._span = span
+        self.callbacks = [handler] if handler is not None else []
+
+    def finish(self, record: dict) -> None:
+        if self._span is None:
+            return
+        try:
+            self._span.update(output=record, level="ERROR" if record.get("error") else None)
+        except Exception:
+            logger.warning("Langfuse trace update failed", exc_info=True)
+
+
+@contextmanager
+def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None) -> Iterator[ChatTrace]:
+    """One Langfuse trace around a chat run; a no-op ChatTrace when tracing is off."""
+    langfuse = client()
+    if langfuse is None:
+        yield ChatTrace()
+        return
+    with ExitStack() as stack:
+        try:
+            from langfuse import propagate_attributes
+            from langfuse.langchain import CallbackHandler
+
+            span = stack.enter_context(langfuse.start_as_current_observation(
+                as_type="span", name="chat", input=fingerprint, metadata=metadata,
+            ))
+            stack.enter_context(propagate_attributes(
+                session_id=session, trace_name="chat",
+                metadata={key: str(value) for key, value in metadata.items()},
+            ))
+            trace = ChatTrace(span, CallbackHandler())
+        except Exception:
+            logger.warning("Langfuse trace start failed", exc_info=True)
+            trace = ChatTrace()
+        yield trace
+
+
+def flush() -> None:
+    """Send queued traces now (scripts call this before exiting; the app exports in the background)."""
+    langfuse = client()
+    if langfuse is not None:
+        langfuse.flush()

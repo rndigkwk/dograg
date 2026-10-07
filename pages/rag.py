@@ -291,6 +291,7 @@ def render_page():
                     pet_profile=session.profiles.get(),
                     on_token=show_token,
                     on_step=show_step,
+                    session_id=session.request,
                 )
             finally:
                 status.empty()

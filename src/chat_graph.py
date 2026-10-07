@@ -20,6 +20,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
+from src import tracing
 from src.crag import (
     HEALTH_CANDIDATE_K,
     MAX_REWRITES,
@@ -269,11 +270,11 @@ def build_chat_graph(tools):
     return builder.compile()
 
 
-def _execute(graph, inputs: dict, on_token, on_step) -> dict:
+def _execute(graph, inputs: dict, on_token, on_step, config: dict | None = None) -> dict:
     if on_token is None and on_step is None:
-        return graph.invoke(inputs)
+        return graph.invoke(inputs, config=config)
     state: dict = {}
-    for mode, payload in graph.stream(inputs, stream_mode=["messages", "updates", "values"]):
+    for mode, payload in graph.stream(inputs, config=config, stream_mode=["messages", "updates", "values"]):
         if mode == "messages":
             chunk, metadata = payload
             text = getattr(chunk, "content", "")
@@ -286,6 +287,28 @@ def _execute(graph, inputs: dict, on_token, on_step) -> dict:
         else:
             state = payload
     return state
+
+
+def _run_record(fingerprint, crag, crag_reports, started, error, state, usage) -> dict:
+    """The run log line and the trace output: ids, counts and decisions, no text."""
+    record = {
+        **fingerprint,
+        "crag": crag,
+        "crag_reports": crag_reports,
+        "latency_ms": round((time.perf_counter() - started) * 1000),
+        "error": error,
+    }
+    if state is not None:
+        record.update(
+            route=state.get("route"),
+            decision=state.get("decision") or None,
+            rewrite_count=state.get("rewrite_count", 0),
+            abstained=state.get("abstained", False),
+            evidence_count=len(state.get("evidence_rows") or []),
+            trace=state.get("trace", []),
+            token_usage=summarize_usage(usage.usage_metadata),
+        )
+    return record
 
 
 def run_chat(
@@ -301,43 +324,35 @@ def run_chat(
     pet_profile=None,
     on_token: Callable[[str], None] | None = None,
     on_step: Callable[[str, dict], None] | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the graph once. on_token receives answer text as the model writes it;
-    on_step receives (node name, state update) after each node finishes."""
+    on_step receives (node name, state update) after each node finishes.
+    session_id groups a browser session's runs in Langfuse (src/tracing.py)."""
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
     graph = graph or build_chat_graph(tools)
     started = time.perf_counter()
     error = None
-    try:
-        with get_usage_metadata_callback() as usage:
-            state = _execute(graph, {
-                "question": question, "top_k": top_k, "chat_history": chat_history or [],
-                "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
-                "trace": [], "rewrite_count": 0,
-            }, on_token, on_step)
-    except Exception as exc:
-        error = type(exc).__name__
-        raise
-    finally:
-        record = {
-            **question_fingerprint(question),
-            "crag": crag,
-            "crag_reports": crag_reports,
-            "latency_ms": round((time.perf_counter() - started) * 1000),
-            "error": error,
-        }
-        if error is None:
-            record.update(
-                route=state.get("route"),
-                decision=state.get("decision") or None,
-                rewrite_count=state.get("rewrite_count", 0),
-                abstained=state.get("abstained", False),
-                evidence_count=len(state.get("evidence_rows") or []),
-                trace=state.get("trace", []),
-                token_usage=summarize_usage(usage.usage_metadata),
-            )
-        log_chat_run(record)
+    fingerprint = question_fingerprint(question)
+    with tracing.chat_trace(
+        fingerprint, session=tracing.session_id(session_id),
+        metadata={"crag": crag, "crag_reports": crag_reports, "top_k": top_k},
+    ) as chat_trace:
+        try:
+            with get_usage_metadata_callback() as usage:
+                state = _execute(graph, {
+                    "question": question, "top_k": top_k, "chat_history": chat_history or [],
+                    "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
+                    "trace": [], "rewrite_count": 0,
+                }, on_token, on_step, config={"callbacks": chat_trace.callbacks} if chat_trace.callbacks else None)
+        except Exception as exc:
+            error = type(exc).__name__
+            raise
+        finally:
+            record = _run_record(fingerprint, crag, crag_reports, started, error, state if error is None else None, usage)
+            log_chat_run(record)
+            chat_trace.finish(record)
     return {
         "route": state["route"],
         "answer": state["answer"],
