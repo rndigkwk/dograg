@@ -163,6 +163,41 @@ class ChromaIsolationTest(unittest.TestCase):
             self.assertEqual((source / "chroma.sqlite3").read_bytes(), b"original")
             self.assertEqual(sorted(path.name for path in source.iterdir()), ["chroma.sqlite3"])
 
+    def local_copy(self, temp_dir):
+        source = Path(temp_dir) / "chroma_db"
+        source.mkdir()
+        (source / "chroma.sqlite3").write_bytes(b"v1")
+        copy = Path(temp_dir) / "runtime"
+        patches = [patch.object(resources, name, value) for name, value in
+                   (("CHROMA_DIR", source), ("SOURCE_CHROMA_DIR", source), ("LOCAL_CHROMA_COPY", copy))]
+        for item in patches:
+            item.start()
+            self.addCleanup(item.stop)
+        return source, copy
+
+    def test_local_runs_open_a_copy_refreshed_when_the_source_changes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, copy = self.local_copy(temp_dir)
+            with patch.object(settings, "deployed", return_value=False):
+                opened = resources.chroma_dir()
+                self.assertEqual(opened, copy / "chroma_db")
+                (opened / "chroma.sqlite3").write_bytes(b"written by chroma")
+                self.assertEqual(resources.chroma_dir(), opened)  # unchanged source: no new copy
+                self.assertEqual((opened / "chroma.sqlite3").read_bytes(), b"written by chroma")
+                (source / "chroma.sqlite3").write_bytes(b"v2 rebuilt")
+                self.assertEqual((resources.chroma_dir() / "chroma.sqlite3").read_bytes(), b"v2 rebuilt")
+            self.assertEqual((source / "chroma.sqlite3").read_bytes(), b"v2 rebuilt")
+
+    def test_deployed_app_and_redirected_dirs_open_the_folder_itself(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, copy = self.local_copy(temp_dir)
+            with patch.object(settings, "deployed", return_value=True):
+                self.assertEqual(resources.chroma_dir(), source)
+            with patch.object(settings, "deployed", return_value=False), \
+                    patch.object(resources, "CHROMA_DIR", Path(temp_dir) / "script_copy"):
+                self.assertEqual(resources.chroma_dir(), Path(temp_dir) / "script_copy")
+            self.assertFalse(copy.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

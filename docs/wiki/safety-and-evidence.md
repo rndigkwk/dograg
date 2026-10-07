@@ -65,6 +65,7 @@ LLM이 만든 SQL은 `validate_sql()`을 통과해야 실행된다. `SELECT`만 
 ## 테스트·평가 원칙
 
 - 원본 `data/chroma_db/`는 Chroma가 조회 중에도 파일을 바꿀 수 있으므로, 모든 검색 테스트와 평가는 **임시 복사본**에서 실행한다(`tests/chroma_smoke.py`).
+- 로컬에서 앱이나 방문 준비 팀을 실행할 때도 같은 이유로 `output/chroma_runtime/` 복사본을 연다(`src/resources.py`의 `chroma_dir()`). 원본 `chroma.sqlite3`가 바뀌면(재구축) 다음 실행 때 복사본을 새로 만든다. 배포 앱은 매번 새로 받은 저장소에서 돌므로 원본을 그대로 연다.
 - 실제 모델 호출 테스트(`tests/live_model_smoke.py --allow-external-corpus`)는 검색된 데이터 일부를 외부 API로 보내므로, 자동 테스트에서 빼고 승인을 받은 뒤 수동으로 실행한다.
 
 ## CRAG 답변 보류 (2026-10-04, 기본값 꺼짐)
