@@ -32,6 +32,17 @@ def llm() -> ChatOpenAI:
     return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=settings.get_openai_api_key(), use_responses_api=True, timeout=120)
 
 
+# The reviewer lists every claim of a 20-sentence report and checks each one: the slowest step
+# (median 23s at the default effort over 12 consultations). Low effort; see README for the comparison.
+REVIEW_REASONING_EFFORT = "low"
+
+
+@lru_cache(maxsize=1)
+def review_llm() -> ChatOpenAI:
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=settings.get_openai_api_key(), use_responses_api=True, timeout=120,
+                      reasoning_effort=settings.get_setting("TEAM_REVIEW_REASONING_EFFORT") or REVIEW_REASONING_EFFORT)
+
+
 @lru_cache(maxsize=1)
 def writer_llm() -> ChatOpenAI:
     """Writer model: one tool call per response, so the two handoff tools are never called together."""

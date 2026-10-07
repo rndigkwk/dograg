@@ -20,6 +20,9 @@ from team.core.prompts import (
     WRITER_INPUT,
 )
 from team.core.schemas import ReworkStep, VisitPlan
+
+WRITE_WITH_WHAT_EXISTS = ("추가 조사는 이미 한 번 했습니다. 지금 조사 결과만으로 보고서를 쓰고, "
+                          "자료에 없는 내용은 '자료로 확인할 수 없음'이라고 적은 뒤 request_review를 부르세요.")
 from team.graph.state import Context, ResearchInput, State
 
 
@@ -32,6 +35,11 @@ def evidence_text(state: State) -> str:
     lines = [f"[상담 내용] {state['consultation']}"]
     if state["profile"]:
         lines.append(f"[반려견 정보] {state['profile']}")
+    if state["urgent"]:
+        # Decided by code (src/health_safety.py) from the consultation: the report's warning cites it.
+        lines.append(f"[응급 판정] 상담 내용에서 응급 징후가 감지됨: {state['urgent']}")
+    if state["region"]:
+        lines.append(f"[지역] 보호자가 입력한 지역: {state['region']}")
     for task_id, finding in sorted(state["findings"].items()):
         lines.append(f"[{task_id} 요약] {finding['summary']}")
         lines += [f"[{point['evidence_id']}] {point['fact']}" for point in finding["key_points"]]
@@ -51,11 +59,15 @@ def planner(state: State) -> dict:
         [("system", PLANNER_PROMPT.format(max_tasks=max_tasks)), ("user", message)]
     )
     tasks = [task.model_dump() for task in plan.tasks[:max_tasks]]
+    if any(task["kind"] == "place" for task in state["plan"]):
+        # The hospital tool takes only the region, so a second place task returns the same list.
+        tasks = [task for task in tasks if task["kind"] != "place"]
     if not state["plan"] and state["region"] and not any(task["kind"] == "place" for task in tasks):
         # The guardian gave an area: the report always lists hospitals there.
         tasks = tasks[: max_tasks - 1] + [{"kind": "place", "query": state["region"], "angle": "가까운 동물병원"}]
     for offset, task in enumerate(tasks, start=1):
         task["task_id"] = f"t{len(state['plan']) + offset}"  # numbered in code so ids never repeat
+        task["extra"] = bool(state["plan"])  # added after a rejection or a research request
     print("planner:", len(tasks), "개 작업", [f"{task['task_id']} {task['kind']}" for task in tasks])
     return {"plan": state["plan"] + tasks, "review": None, "instruction": ""}
 
@@ -91,6 +103,10 @@ def supervisor(state: State) -> Command[Literal["planner", "writer", "publisher"
             print("supervisor:", "반복 상한 도달 -> publisher (사람 확인 필요)")
             return Command(goto="publisher")
         return Command(goto="writer")
+    if review is not None and review.get("by") == "writer" and any(task.get("extra") for task in state["plan"]):
+        # The team already researched once more for the writer; another round finds the same data.
+        print("supervisor:", f"반려 {state['round'] + 1}회 -> writer (추가 조사는 한 번만)")
+        return Command(goto="writer", update={"round": state["round"] + 1, "instruction": WRITE_WITH_WHAT_EXISTS})
     if review is not None and not review.get("passed"):
         message = REWORK_INPUT.format(feedback=state["feedback"], findings=dump_json(state["findings"]))
         step = config.llm().with_structured_output(ReworkStep).invoke(
@@ -129,10 +145,10 @@ def reviewer(state: State, runtime: Runtime[Context]) -> Command[Literal["publis
         return Command(goto="supervisor", update={"review": review, "feedback": "write_report로 보고서를 먼저 저장하세요."})
     report = path.read_text(encoding="utf-8")
     context = evidence_text(state)
-    judgment = build_judge(config.llm()).invoke(
+    judgment = build_judge(config.review_llm()).invoke(
         {"question": state["consultation"], "context": context, "answer": report}
     )
-    verifier = build_verifier(config.llm())
+    verifier = build_verifier(config.review_llm())
     recheck_unsupported(judgment, context, lambda claim: verifier.invoke({"context": context, "claim": claim}))
     unsupported = [claim.text for claim in judgment.claims if claim.verdict == "unsupported"]
     supported = sum(claim.verdict == "supported" for claim in judgment.claims)
