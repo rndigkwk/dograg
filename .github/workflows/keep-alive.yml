@@ -1,0 +1,36 @@
+name: Keep deployed app awake
+
+# Streamlit Community Cloud puts an app to sleep after a stretch without visitors; waking it
+# then takes about 100s. A headless browser visit every 8 hours keeps it awake, and clicks
+# the wake button if it already sleeps (scripts/wake_app.py).
+on:
+  schedule:
+    - cron: "17 */8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Install headless Chromium
+        run: uvx --with playwright playwright install --with-deps chromium
+
+      - name: Visit the app
+        run: uvx --with playwright python scripts/wake_app.py
+
+      - name: Keep the failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: wake-app-failure
+          path: wake_app_failure.png
