@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" width="1100" height="700" role="img" aria-label="라그도그 LangGraph 챗봇 구조: 질문 라우터가 건강 상담(하이브리드 검색과 CRAG), 병원 검색(SQLite), 보고서 분석(OpenAI 임베딩), 일반 대화로 분기한다">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" width="1100" height="700" role="img" aria-label="라그도그 LangGraph 챗봇 구조: 질문 라우터가 건강 상담(하이브리드 검색과 CRAG), 반려동물 시설 검색(SQLite, 공공데이터 6종), 보고서 분석(OpenAI 임베딩), 일반 대화로 분기한다">
   <style>
     text { font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; fill: #1f2937; }
     .title { font-size: 22px; font-weight: 700; }
@@ -56,7 +56,7 @@
   <rect x="30" y="432" width="190" height="72" rx="10" class="ok"/>
   <text x="125" y="458" text-anchor="middle" class="h">근거만으로 답변</text>
   <text x="125" y="477" text-anchor="middle" class="t">근거 목록 표시</text>
-  <text x="125" y="494" text-anchor="middle" class="t">응급 표현이면 진료 권고</text>
+  <text x="125" y="494" text-anchor="middle" class="t">응급 신호면 가까운 병원 먼저</text>
   <rect x="240" y="432" width="190" height="72" rx="10" class="health"/>
   <text x="335" y="458" text-anchor="middle" class="h">검색어 재작성 1회</text>
   <text x="335" y="477" text-anchor="middle" class="t">재검색 후 다시 평가</text>
@@ -67,18 +67,19 @@
   <text x="335" y="573" text-anchor="middle" class="t">+ 가까운 병원 찾기 링크</text>
 
   <!-- sql -->
-  <text x="560" y="240" text-anchor="middle" class="lbl">병원 검색 · sql</text>
+  <text x="560" y="240" text-anchor="middle" class="lbl">시설 검색 · sql</text>
   <rect x="460" y="248" width="200" height="58" rx="10" class="sql"/>
-  <text x="560" y="272" text-anchor="middle" class="h">SQLite hospital</text>
-  <text x="560" y="292" text-anchor="middle" class="t">5,448곳 · 읽기 전용 SQL</text>
+  <text x="560" y="272" text-anchor="middle" class="h">SQLite place · 6종</text>
+  <text x="560" y="292" text-anchor="middle" class="t">38,529곳 · 읽기 전용 SQL</text>
   <path d="M560 306 V330" class="arrow"/>
   <rect x="460" y="332" width="200" height="58" rx="10" class="sql"/>
-  <text x="560" y="356" text-anchor="middle" class="h">위치를 허용하면</text>
-  <text x="560" y="376" text-anchor="middle" class="t">EPSG:5174→WGS84 직선거리순</text>
+  <text x="560" y="356" text-anchor="middle" class="h">종류·지역 판별</text>
+  <text x="560" y="376" text-anchor="middle" class="t">종류 조건 없는 SQL은 버림</text>
   <path d="M560 390 V430" class="arrow"/>
   <rect x="460" y="432" width="200" height="72" rx="10" class="ok"/>
-  <text x="560" y="462" text-anchor="middle" class="h">병원 목록 (최대 10곳)</text>
-  <text x="560" y="482" text-anchor="middle" class="t">버튼으로 지도 화면 이동</text>
+  <text x="560" y="458" text-anchor="middle" class="h">시설 목록 (최대 10곳)</text>
+  <text x="560" y="477" text-anchor="middle" class="t">위치 허용 시 직선거리순</text>
+  <text x="560" y="494" text-anchor="middle" class="t">버튼으로 지도 화면 이동</text>
 
   <!-- report -->
   <text x="805" y="240" text-anchor="middle" class="lbl">보고서 분석 · analysis</text>
@@ -102,7 +103,7 @@
 
   <!-- bottom bands -->
   <rect x="30" y="612" width="1040" height="34" rx="8" class="band"/>
-  <text x="46" y="634" class="t"><tspan font-weight="700" fill="#1f2937">실행 로그</tspan>  output/chat_runs.jsonl · 경로, CRAG 판정, 재작성 횟수, 토큰 사용량 (질문 원문 대신 해시·길이만)</text>
+  <text x="46" y="634" class="t"><tspan font-weight="700" fill="#1f2937">실행 기록</tspan>  chat_runs.jsonl + Langfuse 트레이스 · 경로, CRAG 판정, 노드별 시간, 토큰, 답변 피드백 점수 (질문·답변 텍스트는 마스킹, 해시·길이만)</text>
   <rect x="30" y="652" width="1040" height="34" rx="8" class="band"/>
   <text x="46" y="674" class="t"><tspan font-weight="700" fill="#1f2937">배포</tspan>  Streamlit Community Cloud (2코어·2.7GB) · 시작 시 백그라운드 워밍업 + BM25 토큰 캐시 · 스레드·메모리 제한</text>
 </svg>
