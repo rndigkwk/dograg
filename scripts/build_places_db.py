@@ -36,7 +36,7 @@ from pyproj import Transformer
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from src.places_data import SCHEMA, in_korea, normalize_address
+from src.places_data import SCHEMA, format_phone, in_korea, normalize_address
 
 DATA = PROJECT_DIR / "data"
 INPUTS = {
@@ -84,7 +84,7 @@ def clean(value) -> str | None:
 
 def clean_phone(value) -> str | None:
     text = clean(value)
-    return None if text is None or "*" in text else text  # masked in the source
+    return None if text is None or "*" in text else format_phone(text)  # "*": masked in the source
 
 
 def location(latitude, longitude) -> tuple[float | None, float | None]:

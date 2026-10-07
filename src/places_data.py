@@ -8,6 +8,7 @@ app needs no coordinate library at runtime.
 from __future__ import annotations
 
 import json
+import re
 from math import asin, cos, isfinite, radians, sin, sqrt
 
 KIND_LABELS = {
@@ -97,6 +98,32 @@ def normalize_address(address: str | None) -> str | None:
     elif first in CITY_PROVINCES:
         words.insert(0, CITY_PROVINCES[first])
     return " ".join(words)
+
+
+def format_phone(raw: str | None) -> str | None:
+    """'025434037' -> '02-543-4037', '050714049333' -> '0507-1404-9333'.
+
+    Re-splits the digits by the Korean numbering plan: 02 (Seoul), 050X (safe numbers),
+    1XXX-XXXX (nationwide), 0XX area and mobile codes, and local numbers without an area
+    code. A number that fits none of these is returned as it was written.
+    """
+    if raw is None:
+        return None
+    digits = re.sub(r"\D", "", raw)
+    if not digits:
+        return None
+    size = len(digits)
+    if digits.startswith("02") and size in (9, 10):
+        return f"02-{digits[2:-4]}-{digits[-4:]}"
+    if digits.startswith("050") and size == 12:
+        return f"{digits[:4]}-{digits[4:8]}-{digits[8:]}"
+    if digits[0] == "1" and size == 8:
+        return f"{digits[:4]}-{digits[4:]}"
+    if digits[0] == "0" and size in (10, 11):
+        return f"{digits[:3]}-{digits[3:-4]}-{digits[-4:]}"
+    if digits[0] != "0" and size in (7, 8):
+        return f"{digits[:-4]}-{digits[-4:]}"
+    return raw.strip()
 
 
 def province_of(address: str | None) -> str | None:

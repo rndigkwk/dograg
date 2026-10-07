@@ -22,6 +22,7 @@ from src import resources
 from src.places_data import (
     SCHEMA,
     describe_info,
+    format_phone,
     normalize_address,
     province_of,
 )
@@ -63,6 +64,26 @@ class AddressTests(unittest.TestCase):
         self.assertIsNone(normalize_address("null"))
         self.assertEqual(province_of("서울특별시 강남구"), "서울특별시")
         self.assertIsNone(province_of("어딘가 1번지"))
+
+    def test_phone_numbers_get_hyphens_by_prefix(self):
+        cases = {
+            "025434037": "02-543-4037",
+            "0236728441": "02-3672-8441",
+            "0316583500": "031-658-3500",
+            "01012345678": "010-1234-5678",
+            "07012345678": "070-1234-5678",
+            "050714049333": "0507-1404-9333",
+            "15882888": "1588-2888",
+            "36728441": "3672-8441",
+            "7449098": "744-9098",
+            "031-658-3500": "031-658-3500",
+            " 02 543 4037 ": "02-543-4037",
+            "02022088": "02022088",  # fits no numbering rule: left as written
+        }
+        for raw, expected in cases.items():
+            self.assertEqual(format_phone(raw), expected, raw)
+        self.assertIsNone(format_phone("-"))
+        self.assertIsNone(format_phone(None))
 
     def test_info_lines_follow_the_label_order(self):
         self.assertEqual(describe_info(CAFE_INFO), ["운영시간: 매일 10:00~22:00", "입장 가능 크기: 소형", "제한사항: 목줄", "추가 요금: 5,000원"])
