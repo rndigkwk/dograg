@@ -117,6 +117,31 @@ class ConversationPageTests(unittest.TestCase):
         self.assertEqual(browser.writes, [])
         self.assertIn("답변: 강아지가 기침해요", [m.markdown[0].value for m in at.chat_message])
 
+    def test_urgent_question_shows_nearby_hospitals_before_the_answer(self):
+        hospital = {"id": "hospital-1", "name": "강남동물병원", "road_address": "서울특별시 강남구 1",
+                    "phone": "02-111-1111", "distance_km": 0.4}
+        night = {**hospital, "id": "hospital-2", "name": "24시 동물의료센터", "distance_km": 2.1}
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        with patch.object(chat_page, "render_location_control", return_value=((37.5, 127.0), None)),                 patch.object(chat_page, "emergency_hospitals", return_value={"nearest": [hospital], "night": [night]}) as lookup:
+            at.chat_input[0].set_value("강아지가 경련을 해요")
+            at = self.run_app(browser, at)
+        lookup.assert_called_once_with((37.5, 127.0))
+        text = " ".join(m.value for m in at.markdown)
+        self.assertIn("강남동물병원", text)
+        self.assertIn("tel:021111111", text)
+        self.assertIn("24시 동물의료센터", text)
+        self.assertEqual([e.message for e in at.exception], [])
+
+    def test_urgent_question_without_location_points_to_the_place_page(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        with patch.object(chat_page, "emergency_hospitals") as lookup:
+            at.chat_input[0].set_value("강아지가 경련을 해요")
+            at = self.run_app(browser, at)
+        lookup.assert_not_called()
+        self.assertTrue(any("현재 위치 사용" in c.value for c in at.caption))
+
     def test_history_shows_on_the_home_page_and_opens_the_chat(self):
         stored = Thread(title="홈에서 연 대화", turns=[Turn(question="기침해요", answer="진료받으세요", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)
