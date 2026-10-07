@@ -13,6 +13,11 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_DIR / ".env")
 
 
+def deployed() -> bool:
+    """Streamlit Community Cloud checks the repository out under /mount/src/."""
+    return str(PROJECT_DIR).startswith("/mount/src/")
+
+
 def _secrets() -> dict:
     secrets_path = PROJECT_DIR / ".streamlit" / "secrets.toml"
     if not secrets_path.exists():

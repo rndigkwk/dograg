@@ -8,6 +8,10 @@ patches reach every tool module.
 
 from __future__ import annotations
 
+import os
+import shutil
+from pathlib import Path
+
 import streamlit as st
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -18,6 +22,10 @@ from src.onnx_embeddings import OnnxSentenceEmbeddings
 
 DATA_DIR = settings.PROJECT_DIR / "data"
 CHROMA_DIR = DATA_DIR / "chroma_db"
+SOURCE_CHROMA_DIR = CHROMA_DIR
+# Chroma writes to chroma.sqlite3 even when only reading, so local runs use a copy here
+# (output/ is ignored by git) and the committed database stays unchanged.
+LOCAL_CHROMA_COPY = settings.PROJECT_DIR / "output" / "chroma_runtime"
 DB_PATH = DATA_DIR / "places.db"
 # Health answers live in the CSV, not in Chroma metadata (see src/health_answers.py).
 HEALTH_CSV_PATH = DATA_DIR / "df.csv"
@@ -37,6 +45,29 @@ REPORT_COLLECTION_NAME = "pet_reports_openai3small_1536_3233577ba398"
 CHAT_MODEL_NAME = "gpt-6-luna"
 
 
+def _source_stamp(source: Path) -> str:
+    stat = (source / "chroma.sqlite3").stat()
+    return f"{stat.st_size}:{stat.st_mtime_ns}"
+
+
+def chroma_dir() -> Path:
+    """The folder Chroma opens. The deployed app and any redirected CHROMA_DIR (tests, scripts)
+    use it as is; a local run gets a copy that is refreshed when the source database changes."""
+    if settings.deployed() or CHROMA_DIR != SOURCE_CHROMA_DIR:
+        return CHROMA_DIR
+    stamp_file = LOCAL_CHROMA_COPY / "source_stamp.txt"
+    stamp = _source_stamp(CHROMA_DIR)
+    if stamp_file.exists() and stamp_file.read_text(encoding="utf-8") == stamp:
+        return LOCAL_CHROMA_COPY / "chroma_db"
+    staging = LOCAL_CHROMA_COPY.with_name(f"{LOCAL_CHROMA_COPY.name}.{os.getpid()}")
+    shutil.rmtree(staging, ignore_errors=True)
+    shutil.copytree(CHROMA_DIR, staging / "chroma_db")
+    (staging / "source_stamp.txt").write_text(stamp, encoding="utf-8")
+    shutil.rmtree(LOCAL_CHROMA_COPY, ignore_errors=True)
+    staging.rename(LOCAL_CHROMA_COPY)
+    return LOCAL_CHROMA_COPY / "chroma_db"
+
+
 @st.cache_resource(show_spinner=False)
 def create_embedding_model():
     """Query embeddings must match the stored vectors; None when no API key is set."""
@@ -51,7 +82,7 @@ def load_vector_db():
     return Chroma(
         collection_name=HEALTH_COLLECTION_NAME,
         embedding_function=OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE),
-        persist_directory=str(CHROMA_DIR),
+        persist_directory=str(chroma_dir()),
     )
 
 
@@ -100,7 +131,7 @@ def load_report_vector_db():
     return Chroma(
         collection_name=REPORT_COLLECTION_NAME,
         embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        persist_directory=str(chroma_dir()),
     )
 
 

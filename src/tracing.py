@@ -66,7 +66,7 @@ def environment() -> str:
     configured = settings.get_setting("LANGFUSE_TRACING_ENVIRONMENT")
     if configured:
         return configured
-    return "production" if str(settings.PROJECT_DIR).startswith("/mount/src/") else "development"
+    return "production" if settings.deployed() else "development"
 
 
 def _running_tests() -> bool:
