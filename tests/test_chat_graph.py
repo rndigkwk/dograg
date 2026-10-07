@@ -136,6 +136,16 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["c"])
         self.assertFalse(result["abstained"])
 
+    def test_rewrite_searches_again_without_the_department_filter(self):
+        tools = make_tools(
+            infer_rag_filters=lambda question, profile=None: {"life_cycle": "성견", "department": "피부과"},
+            review_evidence=Mock(side_effect=[review([], False), review(["c"], True)]),
+        )
+        self.run_chat(tools)
+        first, second = (call.kwargs["filters"] for call in tools.retrieve_health.call_args_list)
+        self.assertEqual(first, {"life_cycle": "성견", "department": "피부과"})
+        self.assertEqual(second, {"life_cycle": "성견"})  # the user-stated age stays
+
     def test_grader_failure_falls_back_to_top_documents(self):
         tools = make_tools(review_evidence=Mock(side_effect=RuntimeError("down")))
         result = self.run_chat(tools)

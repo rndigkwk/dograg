@@ -231,6 +231,14 @@ def main() -> int:
             result = run(langfuse, args.set, args.name, args.description, args.concurrency)
         print(result.format())
         print(json.dumps({e.name: e.value for e in result.run_evaluations}, ensure_ascii=False))
+        saved = PROJECT_DIR / "output" / "experiments" / f"{args.set}_{args.name}.json"
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        saved.write_text(json.dumps({
+            "run": args.name, "url": result.dataset_run_url,
+            "run_scores": {e.name: e.value for e in result.run_evaluations},
+            "items": [{"id": r.item.metadata["id"], "output": r.output,
+                       "scores": {e.name: e.value for e in r.evaluations}} for r in result.item_results],
+        }, ensure_ascii=False, indent=2), encoding="utf-8")  # local copy for item-by-item comparisons
         if result.dataset_run_url:
             print(result.dataset_run_url)
         return 0
