@@ -57,7 +57,7 @@ class FakeBrowser:
 
 def fake_chatbot(question, **kwargs):
     return {"route": "rag", "answer": f"답변: {question}", "evidence_rows": [], "hospital_rows": [],
-            "safety_notice": None, "abstained": False}
+            "safety_notice": None, "abstained": False, "trace_id": f"trace-{len(question)}"}
 
 
 class ConversationPageTests(unittest.TestCase):
@@ -116,6 +116,26 @@ class ConversationPageTests(unittest.TestCase):
         self.assertEqual([e.message for e in at.exception], [])
         self.assertEqual(browser.writes, [])
         self.assertIn("답변: 강아지가 기침해요", [m.markdown[0].value for m in at.chat_message])
+
+    def test_answer_feedback_becomes_a_trace_score(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("기침해요")
+        at = self.run_app(browser, at)
+        self.assertEqual(len(at.feedback), 1)
+        with patch.object(chat_page, "record_feedback") as record:
+            at.feedback[0].set_value(1)
+            at = self.run_app(browser, at)
+        record.assert_called_once_with("trace-4", helpful=True)
+        self.assertEqual([e.message for e in at.exception], [])
+
+    def test_no_feedback_without_a_trace(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        with patch.object(chat_page, "chatbot", side_effect=lambda q, **k: {**fake_chatbot(q), "trace_id": None}):
+            at.chat_input[0].set_value("기침해요")
+            at = at.run()
+        self.assertEqual(len(at.feedback), 0)
 
     def test_history_shows_on_the_home_page_and_opens_the_chat(self):
         stored = Thread(title="홈에서 연 대화", turns=[Turn(question="기침해요", answer="진료받으세요", route="rag")])

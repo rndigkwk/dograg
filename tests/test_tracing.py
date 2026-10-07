@@ -47,6 +47,17 @@ class MaskTests(unittest.TestCase):
         with patch.object(tracing.settings, "get_setting", return_value=None):
             self.assertFalse(tracing.enabled())
 
+    def test_feedback_score_overwrites_by_trace(self):
+        langfuse = Mock()
+        with patch.object(tracing, "client", return_value=langfuse):
+            self.assertTrue(tracing.record_feedback("abc", helpful=False))
+            self.assertFalse(tracing.record_feedback(None, helpful=True))
+        langfuse.create_score.assert_called_once_with(
+            name="user_feedback", value=0, data_type="BOOLEAN", trace_id="abc", score_id="abc-user_feedback",
+        )
+        with patch.object(tracing, "client", return_value=None):
+            self.assertFalse(tracing.record_feedback("abc", helpful=True))
+
     def test_session_id_is_hashed(self):
         self.assertEqual(len(tracing.session_id("abc")), 16)
         self.assertNotEqual(tracing.session_id("abc"), "abc")
@@ -109,6 +120,7 @@ class TraceExportTests(unittest.TestCase):
             self.assertNotIn(secret, sent)
 
         [root] = [span for span in spans if span.name == "chat"]
+        self.assertEqual(result["trace_id"], format(root.context.trace_id, "032x"))  # for the feedback score
         output = json.loads(root.attributes["langfuse.observation.output"])
         self.assertEqual(output["route"], "rag")
         self.assertEqual(output["trace"][0]["kept_ids"], ["12"])

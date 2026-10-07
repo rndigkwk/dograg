@@ -111,7 +111,7 @@
 
 - **보고서에는 끔:** 보고서 질문 18개에 CRAG를 켜면 정답 페이지가 근거에 포함되는 질문이 12개에서 10개로 줄었습니다. 표와 수치가 많은 청크를 LLM이 잘못 걸러 냈기 때문입니다. 설정을 `ENABLE_CRAG`(건강)와 `ENABLE_CRAG_REPORTS`(보고서, 기본 꺼짐)로 나눴습니다.
 - 실행마다 경로, 판정, 재작성 횟수, 토큰 사용량을 `output/chat_runs.jsonl`에 기록합니다. 질문 원문은 저장하지 않고 해시와 길이만 남깁니다.
-- 같은 기록을 Langfuse 트레이스로도 보냅니다. 그래프 노드별 시간, 모델 호출별 토큰·비용, 세션별 묶음을 대시보드에서 봅니다. 질문·답변·근거 본문은 SDK의 마스킹 훅이 `[masked N chars]`로 바꿔서 보내고, 보낼 span에 텍스트가 없는지 테스트와 실제 API 조회로 확인했습니다. [모니터링 기록](docs/wiki/observability.md)
+- 같은 기록을 Langfuse 트레이스로도 보냅니다. 그래프 노드별 시간, 모델 호출별 토큰·비용, 세션별 묶음을 대시보드에서 봅니다. 답변마다 👍/👎를 누르면 그 트레이스에 점수로 붙습니다. 질문·답변·근거 본문은 SDK의 마스킹 훅이 `[masked N chars]`로 바꿔서 보내고, 보낼 span에 텍스트가 없는지 테스트와 실제 API 조회로 확인했습니다. [모니터링 기록](docs/wiki/observability.md)
 - [평가 기록](docs/wiki/safety-and-evidence.md), 재현: `uv run python scripts/evaluate_crag.py --crag on|off`
 
 ### 4. 라우터: 확실한 건 규칙으로, 애매한 건 LLM으로
