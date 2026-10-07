@@ -109,7 +109,7 @@ class HybridRuntimeTests(unittest.TestCase):
         self.assertEqual(scorer.tokens, ["구토", "치료"])
         self.assertEqual([document.id for document in found], ["more"])
 
-    def test_health_rag_uses_hybrid_candidates_and_preserves_selected_filters(self):
+    def test_health_rag_uses_hybrid_candidates_without_inferred_filters(self):
         from src import resources
         from src.tools import health
 
@@ -123,16 +123,16 @@ class HybridRuntimeTests(unittest.TestCase):
         db.similarity_search.return_value = [dense_doc]
         index = Mock()
         index.search.return_value = [lexical_doc]
-        where = {"meta.department": "내과"}
-        filters = {"department": "내과"}
+        filters = {"department": "내과", "life_cycle": "성견"}
 
         with patch.object(health, "initialize_rag", return_value=(db, None)), patch.object(
             resources, "load_health_bm25_index", return_value=index
-        ), patch.object(health, "build_metadata_filter", return_value=where):
+        ):
             result = health.ask_rag("강아지 구토", k=2, filters=filters)
 
-        db.similarity_search.assert_called_once_with("강아지 구토", k=12, filter=where)
-        index.search.assert_called_once_with("강아지 구토", 12, where=where)
+        # Inferred filters stay out of the search: the corpus labels are unreliable (experiment 8).
+        db.similarity_search.assert_called_once_with("강아지 구토", k=12, filter=None)
+        index.search.assert_called_once_with("강아지 구토", 12, where=None)
         self.assertEqual(len(result["evidence_rows"]), 2)
 
 
