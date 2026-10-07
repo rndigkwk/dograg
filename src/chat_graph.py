@@ -206,7 +206,16 @@ def build_chat_graph(tools):
             query = tools.rewrite_search_query(state["question"], state["search_query"], state.get("feedback", ""))
         except Exception:  # noqa: BLE001 - 재작성 실패 시 같은 검색어로 한 번 더 검색합니다.
             query = state["search_query"]
-        return {"search_query": query or state["search_query"], "rewrite_count": state.get("rewrite_count", 0) + 1}
+        # The department filter comes from keywords anywhere in the question, so one stray word
+        # can lock the search into the wrong department (h06: a urinary question ending in a
+        # "가려움" sentence searched only dermatology). Nothing usable was found, so search
+        # again without it; the life stage is stated by the user and stays.
+        filters = {key: value for key, value in (state.get("filters") or {}).items() if key != "department"}
+        return {
+            "search_query": query or state["search_query"],
+            "rewrite_count": state.get("rewrite_count", 0) + 1,
+            "filters": filters,
+        }
 
     def health_generate(state: ChatState):
         docs = state["documents"][: state["top_k"]]
