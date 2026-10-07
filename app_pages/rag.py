@@ -30,6 +30,9 @@ from src.ui import apply_app_theme, render_page_header
 
 SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
 RAG_TOP_K_SLIDER_KEY = "rag_top_k"
+# The question being answered. A rerun mid-answer (a widget changed, or the browser location
+# arrived) stops the run that holds it; the next run finds it here and answers it then.
+IN_FLIGHT_STATE_KEY = "answer_in_flight"
 PROFILE_SUGGESTION_KEY = "profile_suggestion"
 PROFILE_DISMISSED_KEY = "profile_detection_dismissed"
 
@@ -245,6 +248,19 @@ def render_profile_suggestion(session: ConversationSession) -> None:
             st.rerun()
 
 
+def interrupted_question(session: ConversationSession, messages: list[dict]) -> dict | None:
+    """The question an earlier run was answering when a rerun stopped it, if it still applies:
+    same conversation, and its question is still the last message (not a new or other chat)."""
+    in_flight = st.session_state.get(IN_FLIGHT_STATE_KEY)
+    if not in_flight:
+        return None
+    last = messages[-1] if messages else {}
+    if in_flight["thread"] != session.current_thread or last != {"role": "user", "content": in_flight["question"]}:
+        st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
+        return None
+    return in_flight
+
+
 def render_page():
     if warmup_wanted():
         start_warmup()
@@ -304,16 +320,23 @@ def render_page():
         """,
         unsafe_allow_html=True,
     )
-    if not question:
+    messages = st.session_state[CHAT_MESSAGES_STATE_KEY]
+    if question:
+        chat_history = get_recent_chat_history(messages)
+        messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.write(question)
+    elif interrupted := interrupted_question(session, messages):
+        # Its question is already on screen (drawn from the messages above); answer it now.
+        question, chat_history = interrupted["question"], interrupted["chat_history"]
+    else:
         render_hospital_links(st.session_state.get(HOSPITAL_ROWS_STATE_KEY, []))
         if session.pending_values() is not None:
             st.rerun()  # e.g. the storage notice was just shown: save "seen" now, not on the next click
         return
-
-    chat_history = get_recent_chat_history(st.session_state[CHAT_MESSAGES_STATE_KEY])
-    st.session_state[CHAT_MESSAGES_STATE_KEY].append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.write(question)
+    st.session_state[IN_FLIGHT_STATE_KEY] = {
+        "question": question, "chat_history": chat_history, "thread": session.current_thread,
+    }
     with st.chat_message("assistant"):
         urgent_notice = detect_urgent_sign(question)
         emergency = None
@@ -365,6 +388,7 @@ def render_page():
             }
             render_assistant_message(assistant_message, show_notice=False)
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
+            st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
             session.record_turn(question, result["answer"], route=result["route"])
             st.session_state[RENDERED_THREAD_STATE_KEY] = session.current_thread
             suggest_profile(session, question, result["route"])
@@ -372,6 +396,9 @@ def render_page():
             st.session_state[HOSPITAL_ROWS_STATE_KEY] = result.get("hospital_rows", [])
             render_hospital_links(st.session_state[HOSPITAL_ROWS_STATE_KEY])
         except Exception as exc:
+            # Only errors end the attempt here; a rerun stops the run with Streamlit's
+            # StopException (not an Exception), which leaves the question in flight.
+            st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
             st.error(f"실행 중 오류가 발생했습니다: {exc}")
     if session.pending_values() is not None:
         st.rerun()  # the browser bridge runs at the top of the page; rerun so it saves this turn now

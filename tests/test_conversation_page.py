@@ -163,6 +163,34 @@ class ConversationPageTests(unittest.TestCase):
             at = at.run()
         self.assertEqual(len(at.feedback), 0)
 
+    def interrupt(self, at, question, thread=None):
+        """State a rerun leaves when it stops the run that was answering `question`."""
+        at.session_state[conversation_ui.CHAT_MESSAGES_STATE_KEY] = [{"role": "user", "content": question}]
+        at.session_state[chat_page.IN_FLIGHT_STATE_KEY] = {"question": question, "chat_history": [], "thread": thread}
+
+    def test_an_interrupted_answer_is_finished_on_the_next_run(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        self.interrupt(at, "강아지가 이틀째 설사를 해요")
+        at = self.run_app(browser, at)  # e.g. the location result arrived mid-answer
+        self.assertEqual([m.markdown[0].value for m in at.chat_message],
+                         ["강아지가 이틀째 설사를 해요", "답변: 강아지가 이틀째 설사를 해요"])
+        self.assertNotIn(chat_page.IN_FLIGHT_STATE_KEY, at.session_state)
+        [thread] = browser.stored_threads()
+        self.assertEqual(thread["turns"][0]["answer"], "답변: 강아지가 이틀째 설사를 해요")
+        at = self.run_app(browser, at)
+        self.assertEqual(len(at.chat_message), 2)  # answered once, not again on later runs
+
+    def test_an_interrupted_answer_is_dropped_after_switching_conversations(self):
+        stored = Thread(title="다른 대화", turns=[Turn(question="q", answer="a", route="rag")])
+        browser = FakeBrowser(threads=[stored], notice=True)
+        at = self.run_app(browser)
+        self.interrupt(at, "기침해요", thread="some-other-thread")
+        with patch.object(chat_page, "chatbot") as chatbot:
+            at = self.run_app(browser, at)
+        chatbot.assert_not_called()
+        self.assertNotIn(chat_page.IN_FLIGHT_STATE_KEY, at.session_state)
+
     def test_history_shows_on_the_home_page_and_opens_the_chat(self):
         stored = Thread(title="홈에서 연 대화", turns=[Turn(question="기침해요", answer="진료받으세요", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)
