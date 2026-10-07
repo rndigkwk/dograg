@@ -207,7 +207,7 @@ def visit_task(*, item, **kwargs):
     }
 
 
-NO_EVIDENCE_PHRASES = ("찾지 못", "근거가 없", "근거를 찾", "자료가 없", "확인되지 않")
+NO_EVIDENCE_PHRASES = ("찾지 못", "근거가 없", "근거를 찾", "자료가 없", "확인되지 않", "확인할 수 없")
 
 
 def visit_evaluators():

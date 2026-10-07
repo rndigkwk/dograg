@@ -146,5 +146,39 @@ class TeamGraphTests(unittest.TestCase):
         self.assertEqual(sorted(path.name for path in run_dir.iterdir()), sorted([config.REPORT_FILE, config.RESULT_FILE]))
 
 
+class ReworkRuleTests(unittest.TestCase):
+    def test_a_second_research_request_goes_back_to_the_writer(self):
+        state = {**initial_state(), "review": {"passed": False, "by": "writer"}, "feedback": "영업 여부가 없습니다",
+                 "plan": [{"task_id": "t1", "kind": "health"}, {"task_id": "t2", "kind": "health", "extra": True}]}
+        with patch.object(config, "llm") as llm:
+            step = nodes.supervisor(state)
+        llm.assert_not_called()  # decided in code, no model call
+        self.assertEqual((step.goto, step.update["round"]), ("writer", 1))
+        self.assertEqual(step.update["instruction"], nodes.WRITE_WITH_WHAT_EXISTS)
+
+    def test_the_first_research_request_still_reaches_the_planner(self):
+        state = {**initial_state(), "review": {"passed": False, "by": "writer"}, "feedback": "비용 자료가 없습니다",
+                 "plan": [{"task_id": "t1", "kind": "health"}]}
+        with patch.object(config, "llm", return_value=FakeLLM([])):
+            with patch.object(FakeLLM, "with_structured_output",
+                              return_value=SimpleNamespace(invoke=lambda m: ReworkStep(next="planner", instruction="비용"))):
+                step = nodes.supervisor(state)
+        self.assertEqual(step.goto, "planner")
+
+    def test_planner_adds_no_second_place_task_and_marks_extra_tasks(self):
+        extra = [VisitTask(kind="place", query="강남구 24시", angle="a"), VisitTask(kind="cost", query="비용", angle="b")]
+        state = {**initial_state(), "plan": [{"task_id": "t1", "kind": "place", "query": "강남구"}], "findings": {"t1": {}}}
+        with patch.object(config, "llm", return_value=FakeLLM(extra)):
+            update = nodes.planner(state)
+        added = update["plan"][1:]
+        self.assertEqual([(task["task_id"], task["kind"], task["extra"]) for task in added], [("t2", "cost", True)])
+
+    def test_evidence_includes_the_urgency_decision_and_the_region(self):
+        state = {**initial_state(), "urgent": "응급 징후가 의심됩니다."}
+        text = nodes.evidence_text(state)
+        self.assertIn("[응급 판정]", text)
+        self.assertIn("보호자가 입력한 지역: 강남구", text)
+
+
 if __name__ == "__main__":
     unittest.main()
