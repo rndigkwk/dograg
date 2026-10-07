@@ -1,0 +1,75 @@
+name: Weekly regression evaluation
+
+# Runs the CRAG answer/abstain set (60) and the place routing set (36) as Langfuse experiments
+# with real model calls, then fails when a score crosses its limit (scripts/check_regression.py).
+# Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and
+# LANGFUSE_BASE_URL. One run costs about 60 chatbot answers.
+on:
+  schedule:
+    - cron: "23 0 * * 1"  # Monday 09:23 KST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-eval
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+      LANGFUSE_TRACING_ENVIRONMENT: ci
+      HF_HUB_OFFLINE: "0"  # the runner downloads the ONNX embedding model once
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$LANGFUSE_PUBLIC_KEY" ] || [ -z "$LANGFUSE_SECRET_KEY" ]; then
+            echo "::error::Set OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY (and LANGFUSE_BASE_URL) as repository secrets."
+            exit 1
+          fi
+
+      - name: Check out repository (with the LFS vector database)
+        uses: actions/checkout@v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --locked --no-install-project
+
+      - name: Name this run
+        run: echo "RUN_NAME=ci-$(date -u +%Y-%m-%d)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: CRAG answer/abstain set
+        run: .venv/bin/python scripts/langfuse_experiments.py run crag --name "$RUN_NAME" --description "weekly regression (${{ github.event_name }})"
+
+      - name: Place routing set
+        run: .venv/bin/python scripts/langfuse_experiments.py run routing --name "$RUN_NAME" --description "weekly regression (${{ github.event_name }})"
+
+      - name: Compare with limits
+        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME"
+
+      - name: Keep the item-level results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: regression-${{ env.RUN_NAME }}
+          path: output/experiments/
+          if-no-files-found: ignore

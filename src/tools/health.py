@@ -27,6 +27,12 @@ PUPPY_MAX_YEARS = 1
 ADULT_MIN_YEARS = 2
 ADULT_MAX_YEARS = 6
 AGE_PATTERN = re.compile(r"(\d+)\s*(개월|살|세)")
+# Filters inferred from the question are not applied to the search. The corpus labels disagree
+# with the questions' own text (life stage vs the stated age 34%, department vs its keywords 59%),
+# so filtering searched an arbitrary part of the corpus: hit@3 on the 561 validation questions
+# was 0.141 with both filters and 0.264 without (docs/wiki/retrieval-experiments.md, experiment 8).
+# The inferred values still reach the answer prompt as context ([선택 조건]).
+SEARCH_FILTER_KEYS: tuple[str, ...] = ()
 DEPARTMENT_KEYWORDS = {
     "내과": (
         "내과",
@@ -150,7 +156,7 @@ def retrieve_health(search_query, k=DEFAULT_RAG_TOP_K, filters=None):
         resources.load_health_bm25_index(),
         search_query,
         top_k=k,
-        where=build_metadata_filter(filters),
+        where=build_metadata_filter({key: value for key, value in (filters or {}).items() if key in SEARCH_FILTER_KEYS}),
     )
     return attach_health_answers(retrieved_docs, resources.load_health_answer_table())
 
