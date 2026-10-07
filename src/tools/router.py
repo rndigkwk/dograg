@@ -14,7 +14,7 @@ from src.tools import history, places, report
 
 class RouteDecision(BaseModel):
     route: Literal["rag", "sql", "analysis", "none"] = Field(
-        description="rag: 건강/질병, sql: 병원 검색, analysis: 보고서 분석, none: 기타 대화"
+        description="rag: 건강/질병, sql: 반려동물 시설(병원·약국·동반 시설·미용·위탁·장묘) 검색, analysis: 보고서 분석, none: 기타 대화"
     )
 
 
@@ -23,13 +23,14 @@ ROUTER_PROMPT = ChatPromptTemplate.from_messages([
         "system",
         """질문을 사용할 도구로 분류하세요.
 - rag: 반려견 증상, 질병, 치료, 건강 정보
-- sql: 동물병원 이름, 주소, 지역, 병원 목록 검색
+- sql: 동물병원, 동물약국, 반려동물 동반 가능 시설(카페·펜션·여행지·박물관), 애견미용실, 애견호텔·위탁관리업체, 반려동물 장례식장(장묘업체)의 이름, 주소, 지역, 목록 검색
     - analysis: 반려동물 관련 보고서(현황, 복지, 산업, 의료보험, 장묘)의 통계, 추이, 비교, 비중, 분포 분석
 - none: 인사, 감사, 자기소개, 기능 문의 등 도구가 필요 없는 질문
 인사말은 별도 직접 응답 분기로 만들지 말고 반드시 none으로 분류하세요.
 판단 기준:
 - 반려견의 몸 상태나 사고(흉터, 부기, 이물 섭취 등)를 설명하는 질문은 병원 방문 여부나 병원에 갈 수 없는 사정이 함께 적혀 있어도 rag입니다.
-- 병원을 찾아 달라거나 병원의 목록·주소·위치·개수를 묻는 질문만 sql입니다.
+- 이런 시설을 찾아 달라거나 그 목록·주소·위치·개수·이용 조건을 묻는 질문만 sql입니다.
+- 장묘 서비스의 이용 실태·비용 통계는 analysis이고, 장례식장이나 장묘업체를 찾아 달라는 질문은 sql입니다.
 - 연구·조사·보고서의 통계, 가격, 비율을 묻는 질문은 동물병원이 언급돼도 analysis입니다.""",
     ),
     ("human", "[대화 이력]\n{chat_history}\n\n[현재 질문]\n{question}"),
@@ -70,7 +71,7 @@ def classify_question(question: str, chat_history=None) -> str:
     if is_out_of_scope_question(question):
         return "none"
     normalized_question = "".join(question.lower().split())
-    has_hospital_lookup = places.is_hospital_question(question) and any(
+    has_hospital_lookup = places.is_place_question(question) and any(
         keyword.replace(" ", "") in normalized_question
         for keyword in HOSPITAL_LOOKUP_KEYWORDS
     )
@@ -81,7 +82,7 @@ def classify_question(question: str, chat_history=None) -> str:
         keyword.replace(" ", "") in normalized_question
         for keyword in report.REPORT_ANALYSIS_KEYWORDS
     )
-    mentions_hospital = places.is_hospital_question(question)
+    mentions_hospital = places.is_place_question(question)
     if has_report_topic and "보고서" in normalized_question:
         return "analysis"
     # 키워드 신호가 하나뿐일 때만 규칙으로 정하고, 신호가 충돌하면 LLM 라우터에 맡깁니다.
@@ -114,7 +115,7 @@ def classify_question(question: str, chat_history=None) -> str:
         return decision.route
 
     contextual_question = history.build_rag_search_query(question, chat_history).lower()
-    if any(word in contextual_question for word in ("병원", "주소", "지역", "동물병원")):
+    if any(word in contextual_question for word in ("병원", "주소", "지역", "동물병원", "동물약국", "장례식장", "애견미용", "애견호텔", "애견동반", "애견카페")):
         return "sql"
     if any(word in contextual_question for word in ("증상", "질병", "아파", "구토", "치료")):
         return "rag"

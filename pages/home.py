@@ -57,7 +57,7 @@ def as_data_uri(image_bytes: bytes, mime_type: str) -> str:
 def render_service_cards() -> None:
     services = (
         ("💬", "질병 문의", "반려견의 증상과 질병에 대해 근거 있는 정보를 확인해보세요."),
-        ("📍", "지역별 동물 병원 찾기", "내 위치를 기준으로 가까운 동물병원을 빠르게 찾아보세요."),
+        ("📍", "반려동물 시설 찾기", "동물병원·약국부터 반려견 동반 카페·펜션, 미용·위탁 업체까지 내 주변에서 찾아보세요."),
         ("▥", "통계 대시보드", "반려동물 관련 최신 통계와 트렌드를 한눈에 살펴보세요."),
     )
     columns = st.columns(len(services))

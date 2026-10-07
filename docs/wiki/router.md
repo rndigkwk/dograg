@@ -1,6 +1,6 @@
 # 질문 라우터
 
-질문을 `rag`(건강) / `sql`(병원) / `analysis`(보고서) / `none`(일반 대화) 중 하나로 보낸다. 구현은 `src/tools/router.py`의 `classify_question()`.
+질문을 `rag`(건강) / `sql`(반려동물 시설: 병원·약국·동반 시설·미용·위탁·장묘) / `analysis`(보고서) / `none`(일반 대화) 중 하나로 보낸다. 시설 종류 판별 규칙은 [places-data.md](places-data.md). 구현은 `src/tools/router.py`의 `classify_question()`.
 
 ## 구조: 키워드 우선, LLM은 마지막
 

@@ -8,6 +8,7 @@
 | 페이지 | 내용 |
 | --- | --- |
 | [data.md](data.md) | 데이터 출처, 규모, 품질 감사 결과, 라벨 문제 |
+| [places-data.md](places-data.md) | 반려동물 시설 DB: 공공데이터 6종 정제, 출처 간 중복 판단, 종류 판별 규칙 |
 | [retrieval-experiments.md](retrieval-experiments.md) | 건강 RAG 검색 실험: Dense → 재정렬(기각) → Dense+BM25 RRF(채택), 답변 유사도 평가 |
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |

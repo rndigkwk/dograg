@@ -26,7 +26,7 @@ from src.tools.history import get_recent_chat_history
 from src.tools.profile import detect_profile, profile_summary
 from src.ui import apply_app_theme, render_page_header
 
-SELECTED_HOSPITAL_ID_STATE_KEY = "selected_hospital_id"
+SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
 RAG_TOP_K_SLIDER_KEY = "rag_top_k"
 PROFILE_SUGGESTION_KEY = "profile_suggestion"
 PROFILE_DISMISSED_KEY = "profile_detection_dismissed"
@@ -65,18 +65,16 @@ def progress_message(node: str, update: dict) -> str | None:
 
 
 def render_hospital_links(rows):
+    rows = [row for row in rows if row.get("id") and row.get("latitude") is not None]
     if not rows:
         return
-    st.markdown("#### 지도에서 병원 보기")
+    st.markdown("#### 지도에서 위치 보기")
     for row in rows:
-        hospital_id = row.get("ids")
-        if hospital_id is None:
-            continue
         if st.button(
-            f"{row.get('name', '병원')} - {row.get('new_address', '')}",
-            key=f"hospital_link_{hospital_id}",
+            f"{row.get('name', '장소')} - {row.get('road_address') or row.get('lot_address') or ''}",
+            key=f"hospital_link_{row['id']}",
         ):
-            st.session_state[SELECTED_HOSPITAL_ID_STATE_KEY] = hospital_id
+            st.session_state[SELECTED_PLACE_ID_STATE_KEY] = row["id"]
             st.switch_page("pages/hospital.py")
 
 
@@ -88,7 +86,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
         try:
             st.page_link("pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
         except StreamlitAPIException:  # 내비게이션 밖(테스트 등)에서는 링크 대신 안내만 표시합니다.
-            st.caption("왼쪽 메뉴의 '병원 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
+            st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
     evidence_rows = message.get("evidence_rows", [])
     if not evidence_rows:
         return

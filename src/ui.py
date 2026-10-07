@@ -25,7 +25,7 @@ NAVIGATION_GROUPS = (
         "label": "서비스",
         "items": (
             {"path": "pages/rag.py", "title": "질병 문의", "icon": "💬"},
-            {"path": "pages/hospital.py", "title": "병원 찾기", "icon": "🏥"},
+            {"path": "pages/hospital.py", "title": "시설 찾기", "icon": "🏥"},
         ),
     },
 )
