@@ -53,3 +53,37 @@
 
 - **모델 이름:** Langfuse 콜백이 `ChatOpenAI`의 모델 이름을 `invocation_params.model_name`에서 찾는데, 지금 LangChain은 이 값을 주지 않는다. 그래서 generation의 model 칸이 비고 "not able to parse the LLM model" 경고가 찍힌다. 토큰·비용은 기록된다. 모델 이름은 메타데이터의 `ls_model_name`과 루트 span의 `token_usage`에 남는다.
 - **조회 API:** 2026-09-16 이후 만든 Langfuse 조직은 예전 `GET /api/public/traces`를 쓸 수 없다(410). 데이터를 읽을 때는 `GET /api/public/v2/observations`(SDK: `client.api.observations.get_many`)를 쓴다.
+
+## 대시보드 (2026-10-07 캡처)
+
+하루치 기본 대시보드다. 환경은 `production`과 `development`를 모두 포함했다.
+
+![대시보드 요약](../images/langfuse_overview.png)
+
+- 트레이스 40건, 모델 비용 표에는 `gpt-6-luna` 토큰 23.13K가 잡혔다.
+- 비용은 $0.00으로 표시된다. 사용자별 비용 차트로 보면 하루 합계가 $0.004056이라 반올림된 값이다.
+- 점수는 `user_feedback` 2건(평균 0.5)이다. 개발 환경 확인용 👎 1건과 배포 앱 👍 1건이다.
+
+![시간대별 observation과 모델 비용](../images/langfuse_timeline.png)
+
+- observation 310건 중 ERROR 레벨이 4건이다.
+- 처음 통합할 때 테스트가 실제 프로젝트로 보낸 실행(일부러 실패시키는 테스트 포함)이 여기에 섞였다. 지금은 테스트 실행 중 트레이싱이 꺼진다.
+
+![사용자별 비용과 점수 추이](../images/langfuse_scores.png)
+
+- 사용자 ID를 보내지 않으므로 사용자별 비용은 "Unknown" 하나로 모인다. 의도한 동작이다.
+
+![지연 분포](../images/langfuse_latency.png)
+
+- **트레이스 `chat`:** p50 0.01초, p90 8.45초, p99 14.89초. 시설 검색과 일반 대화는 LLM 호출이 없어 거의 0초이고, 건강·보고서 답변이 꼬리를 만든다.
+- **노드별 p90:**
+
+  | 노드 | p90 |
+  | --- | ---: |
+  | `health_simple` | 10.24초 |
+  | `report_simple` | 9.72초 |
+  | `health_grade`(CRAG 근거 평가) | 3.95초 |
+  | `health_generate` | 3.72초 |
+  | 모델 호출 `ChatOpenAI` | 8.28초 |
+
+- 다음에 줄일 곳은 모델 호출 자체다. 그래프 오버헤드(`LangGraph` 대비 노드 합)는 작다.
