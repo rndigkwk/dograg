@@ -173,15 +173,45 @@ class FailureTests(unittest.TestCase):
     def test_one_failed_researcher_does_not_cancel_the_others(self):
         # The cost researcher fails; both health findings and the place finding survive.
         _, result, report, _ = self.run_team(broken_kinds=("cost",))
-        self.assertEqual(sorted(result["findings"]), ["t1", "t2", "t4"])
         self.assertEqual(list(result["failures"]), ["t3"])
         self.assertIn("ConnectionError", result["failures"]["t3"]["error"])
+        # Fallback: the failed cost task gets the fixed guide as its finding, marked as such
+        self.assertEqual(sorted(result["findings"]), ["t1", "t2", "t3", "t4"])
+        self.assertTrue(result["findings"]["t3"]["fallback"])
+        self.assertEqual([p["evidence_id"] for p in result["findings"]["t3"]["key_points"]], ["guide-cost-1", "guide-cost-2"])
         from team.main import run_record
-        record = run_record({**result, "failures": result["failures"]}, 1.0)
-        self.assertEqual((record["failed_kinds"], record["failed_errors"]), (["cost"], ["ConnectionError"]))
-        self.assertEqual((result["outcome"], result["status"]), ("degraded", config.PASSED))
+        record = run_record(result, 1.0)
+        self.assertEqual((record["failed_kinds"], record["failed_errors"], record["fallback_kinds"]),
+                         (["cost"], ["ConnectionError"], ["cost"]))
+        self.assertEqual((result["outcome"], result["status"], result["fallback_kinds"]), ("degraded", config.PASSED, ["cost"]))
         # The code, not the writer, states what is missing
-        self.assertIn("수집하지 못한 자료: 진료비 통계", report)
+        self.assertIn("수집하지 못한 자료: 진료비 통계(조사 중 오류, 기본 안내로 대신함)", report)
+
+    def test_a_failed_place_task_has_no_fallback(self):
+        _, result, report, _ = self.run_team(broken_kinds=("place",))
+        self.assertNotIn("t4", result["findings"])
+        self.assertEqual(result["fallback_kinds"], [])
+        self.assertIn("수집하지 못한 자료: 지역 동물병원 목록(조사 중 오류).", report)
+
+    def test_cost_research_that_finds_nothing_uses_the_fixed_guide(self):
+        empty = SimpleNamespace(invoke=lambda inputs: {"structured_response": Finding(summary="근거를 찾지 못했다", key_points=[])})
+        update = None
+        with patch.object(nodes, "create_researcher", return_value=empty):
+            update = nodes.researcher({"task": {"task_id": "t3", "kind": "cost", "query": "진료비", "angle": "a"},
+                                       "consultation": "x", "urgent": False})
+        finding = update["findings"]["t3"]
+        self.assertTrue(finding["fallback"])
+        self.assertEqual(finding["summary"], "근거를 찾지 못했다")
+        self.assertNotIn("failures", update)  # nothing failed, so the outcome stays complete
+
+    def test_the_writer_is_told_which_section_uses_the_guide(self):
+        state = {**initial_state(), "failures": {"t3": {"kind": "cost", "error": "x"}},
+                 "findings": {"t3": nodes.fallback_finding("cost")}}
+        self.assertIn("진료비 통계: 조사 중 오류로 결과를 얻지 못함 (기본 안내로 대신함)", nodes.evidence_text(state))
+        self.assertIn("[guide-cost-1]", nodes.evidence_text(state))
+        from team.core.citations import readable_report
+        shown = readable_report("병원에 비용을 물어보세요 [guide-cost-1]", state["findings"])
+        self.assertIn("① 기본 안내 (조사로 통계를 찾지 못했을 때 쓰는 고정 문구)", shown)
 
     def test_failed_required_research_stops_before_writing(self):
         _, result, report, writer = self.run_team(broken_kinds=("health",))
