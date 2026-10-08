@@ -8,6 +8,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from src import resources
+from src.chat_graph import HEALTH_ABSTAIN
 from src.chatbot import chatbot
 from src.conversation_session import ConversationSession
 from src.conversation_ui import (
@@ -185,12 +186,15 @@ def render_assistant_message(message: dict, *, show_notice: bool = True, key: st
         render_emergency(message["emergency"])
     st.write(message["content"])
     render_feedback(message)
-    if question and message.get("route") == "rag":
+    # Not under an abstention: there was no evidence, so a report would spend 10-20 model calls
+    # on the same empty search. Stored turns keep no "abstained" flag, so the text is checked too.
+    abstained = message.get("abstained") or str(message.get("content", "")).startswith(HEALTH_ABSTAIN)
+    if question and message.get("route") == "rag" and not abstained:
         render_visit_prep_button(question, key)
     if message.get("abstained") and message.get("route") == "rag":
         try:
             st.page_link("app_pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
-        except StreamlitAPIException:  # 내비게이션 밖(테스트 등)에서는 링크 대신 안내만 표시합니다.
+        except (StreamlitAPIException, KeyError):  # 내비게이션 밖(AppTest 등)에서는 링크 대신 안내만 표시합니다.
             st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
     evidence_rows = message.get("evidence_rows", [])
     if not evidence_rows:

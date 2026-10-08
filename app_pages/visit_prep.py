@@ -31,6 +31,10 @@ CONSULTATION_KEY = "visit_prep_consultation"
 RESULT_STATE_KEY = "visit_prep_result"
 # A run paused at ask_guardian: {"thread_id", "questions", "consultation", "region", "profile", "steps", "seconds"}
 PENDING_STATE_KEY = "visit_prep_pending"
+# A paused run whose questions are not answered within this time is deleted from the server
+# (the guardian closed the tab, or went away); answering after that asks for a new run.
+PAUSED_RUN_TTL_SECONDS = 30 * 60
+EXPIRED_NOTICE = "질문을 받은 지 30분이 지나 답변 대기가 끝났습니다. 남은 횟수는 그대로이니 다시 만들어 주세요."
 ANSWER_KEY = "visit_prep_answer"
 PREPARED = "검색 자료를 준비했습니다"
 STEP_LABELS = {
@@ -55,14 +59,35 @@ def team_lock() -> threading.Lock:
 def team_checkpointer():
     """Where a run paused for the guardian's answer waits (one per server, keyed by thread_id).
     In memory: a paused run holds the consultation, and the server keeps no consultation text
-    on disk. Each thread is deleted when its run finishes or is replaced."""
+    on disk. Each thread is deleted when its run finishes, is replaced, or expires."""
     from langgraph.checkpoint.memory import InMemorySaver
 
     return InMemorySaver()
 
 
+@st.cache_resource(show_spinner=False)
+def paused_runs() -> dict[str, float]:
+    """{thread_id: time it paused} for every run waiting on a guardian's answer, server-wide."""
+    return {}
+
+
+def remember_paused_run(thread_id: str) -> None:
+    paused_runs()[thread_id] = time.time()
+
+
 def forget_paused_run(thread_id: str) -> None:
     team_checkpointer().delete_thread(thread_id)
+    paused_runs().pop(thread_id, None)
+
+
+def forget_expired_runs(now: float | None = None) -> list[str]:
+    """Delete paused runs nobody answered within PAUSED_RUN_TTL_SECONDS; returns their ids."""
+    now = time.time() if now is None else now
+    expired = [thread_id for thread_id, paused_at in list(paused_runs().items())
+               if now - paused_at > PAUSED_RUN_TTL_SECONDS]
+    for thread_id in expired:
+        forget_paused_run(thread_id)
+    return expired
 
 
 def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step, *,
@@ -141,6 +166,7 @@ def generate(consultation: str, region: str, profile: str, pending: dict | None 
             state = run_team(consultation, region, profile, run_dir, show, thread_id=thread_id,
                              resume=answer if pending else None)
             if state["paused"]:
+                remember_paused_run(thread_id)
                 status.update(label="보고서에 필요한 내용을 몇 가지 여쭤볼게요", state="complete", expanded=False)
                 return {"paused": True, "thread_id": thread_id, "questions": state["questions"],
                         "consultation": consultation, "region": region, "profile": profile, "steps": steps,
@@ -243,6 +269,11 @@ def render_page() -> None:
         ),
         accent="조사 · 작성 · 검수를 나눠 맡아요",
     )
+    forget_expired_runs()
+    if (pending := st.session_state.get(PENDING_STATE_KEY)) and pending["thread_id"] not in paused_runs():
+        st.session_state.pop(PENDING_STATE_KEY, None)  # expired: give the run back before the form shows the count
+        st.session_state[RUNS_STATE_KEY] = max(st.session_state.get(RUNS_STATE_KEY, 1) - 1, 0)
+        st.info(EXPIRED_NOTICE)
     session = ConversationSession(st.session_state)
     runs = st.session_state.get(RUNS_STATE_KEY, 0)
     saved_profile = session.profiles.get()
