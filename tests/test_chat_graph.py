@@ -39,6 +39,7 @@ def make_tools(route="rag", **overrides):
         current_date_answer=lambda: "오늘",
         classify_question=lambda question, chat_history=None: route,
         build_rag_search_query=lambda question, history=None: question,
+        memory_search_query=lambda question, history=None: question,
         infer_rag_filters=lambda question, profile=None: {},
         ask_rag=Mock(return_value={"answer": "기존 답변", "evidence_rows": [{"qa.output": "x"}], "safety_notice": None}),
         analyze_report=Mock(return_value={"answer": "기존 분석", "evidence_rows": []}),

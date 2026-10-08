@@ -96,7 +96,8 @@ class ProfileInRetrievalTests(unittest.TestCase):
         profile = PetProfile(name="초코")
         tools = SimpleNamespace(
             is_date_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
-            build_rag_search_query=lambda q, h=None: q, is_symptom_and_place_request=lambda q: False,
+            build_rag_search_query=lambda q, h=None: q, memory_search_query=lambda q, h=None: q,
+            is_symptom_and_place_request=lambda q: False,
             infer_rag_filters=Mock(return_value={}),
             retrieve_health=Mock(return_value=[Document(id="1", page_content="q", metadata={})]),
             review_evidence=Mock(return_value=SimpleNamespace(feedback="", useful_ids=["1"], sufficient=True)),

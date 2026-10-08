@@ -89,6 +89,38 @@ def format_chat_history(messages):
     ) or "이전 대화 없음"
 
 
+MEMORY_QUERY_PROMPT = """반려견 건강 상담 사례를 검색할 검색어 한 문장을 만듭니다.
+[이전 대화 요약]에 보호자가 말한 지병·검사 결과·먹는 약·알레르기·수술이나 입원 중 [현재 질문]의 답에 영향을 주는 것이 있으면, 그 상태를 검색어에 넣으세요(예: "췌장염 퇴원 후 기름진 음식 급여 시기").
+관련 없는 지난 이야기는 넣지 마세요. 검색어만 쓰고 설명은 쓰지 마세요."""
+
+
+def memory_search_query(question, chat_history=None):
+    """The health search query. Without a summary of older turns it is the usual query (recent
+    questions + this one). With one (a long conversation, day52), one low-effort model call
+    rewrites it as a standalone query that carries a condition from the summary, so the search
+    finds cases about that condition, not only the generic question."""
+    query = build_rag_search_query(question, chat_history)
+    summary = next((message.get("content", "") for message in chat_history or []
+                    if message.get("role") == SUMMARY_ROLE), "")
+    if not summary:
+        return query
+    # Imported here: the chat model is only needed once a conversation gets long.
+    from src import resources
+
+    model = resources.load_chat_model()
+    if model is None:
+        return query
+    try:
+        reply = model.bind(reasoning_effort="low").invoke([
+            ("system", MEMORY_QUERY_PROMPT),
+            ("user", f"[이전 대화 요약]\n{summary}\n\n[최근 질문들]\n{query}\n\n[현재 질문]\n{question}"),
+        ])
+    except Exception:  # noqa: BLE001 - a failed rewrite keeps the usual query
+        return query
+    rewritten = " ".join(str(reply.content).split())
+    return rewritten[:200] or query
+
+
 def build_rag_search_query(question, chat_history=None):
     """현재 질문과 이전 사용자 질문을 합쳐 후속 질문 검색을 보강합니다."""
     previous_questions = [
