@@ -14,7 +14,7 @@ from pathlib import Path
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
-from src import settings, tracing
+from src import resources, settings, tracing
 from src.conversation_session import ConversationSession
 from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
 from src.health_safety import detect_urgent_sign
@@ -25,6 +25,7 @@ MAX_RUNS_PER_SESSION = 2
 MAX_CONSULTATION_CHARS = 500
 RUNS_STATE_KEY = "visit_prep_runs"
 RESULT_STATE_KEY = "visit_prep_result"
+PREPARED = "검색 자료를 준비했습니다"
 STEP_LABELS = {
     "planner": "상담을 조사 작업으로 나눴습니다",
     "researcher": "조사 하나를 마쳤습니다",
@@ -72,6 +73,18 @@ def step_line(node: str, update: dict) -> str | None:
     return label
 
 
+def prepare_search() -> None:
+    """Load the search resources in this page's own script thread before the team starts.
+
+    Researchers run in worker threads with no Streamlit session. A cached loader with a
+    spinner (the BM25 index) loading there for the first time raises NoSessionContext, and
+    right after a reboot that failed every health researcher on the deployed app (run held)."""
+    resources.load_vector_db()
+    resources.load_health_bm25_index()
+    resources.load_health_answer_table()
+    resources.load_report_vector_db()
+
+
 def generate(consultation: str, region: str, profile: str) -> dict:
     """Run the team in a temporary folder and keep only the report text and its status."""
     from team.core import config
@@ -80,9 +93,11 @@ def generate(consultation: str, region: str, profile: str) -> dict:
 
     started = time.perf_counter()
     with st.status("보고서를 만드는 중입니다. 1~2분 걸립니다.", expanded=True) as status:
+        prepare_search()
+        status.write(f"✓ {PREPARED}")
         with tempfile.TemporaryDirectory(prefix="ragdog-visit-", ignore_cleanup_errors=True) as directory:
             run_dir = Path(directory)
-            steps = []
+            steps = [PREPARED]
 
             def show(node: str, update: dict) -> None:
                 line = step_line(node, update)

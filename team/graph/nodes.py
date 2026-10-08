@@ -122,7 +122,7 @@ def researcher(state: ResearchInput) -> dict:
         return {"failures": {task["task_id"]: {"kind": task["kind"], "error": error}}}
     finding = result.get("structured_response")
     if finding is None:  # call limit reached before an answer
-        error = "조사 호출 상한에 닿아 결과를 정리하지 못함"
+        error = "CallLimitReached: 조사 호출 상한에 닿아 결과를 정리하지 못함"
         return {"failures": {task["task_id"]: {"kind": task["kind"], "error": error}}}
     finding_dict = finding.model_dump()
     finding_dict["kind"] = task["kind"]
