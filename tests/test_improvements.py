@@ -158,6 +158,24 @@ class ReportEvidenceTests(unittest.TestCase):
         self.assertTrue(any("진료 권고" in item.value for item in app.warning))
         self.assertTrue(any("페이지 2" in item.value for item in app.markdown))
 
+    def test_report_evidence_shows_a_preview_and_the_pdf_page_only_on_request(self):
+        excerpt = "반려동물 양육 가구의 월평균 양육비는 " + "항목별로 나뉘며 " * 40 + "끝 문장"
+        message = {"role": "assistant", "content": "요약", "route": "analysis",
+                   "evidence_rows": [{"page": 2, "excerpt": excerpt, "source": "report.pdf", "title": "보고서"}]}
+        with patch.object(rag, "render_pdf_page", return_value=None) as render, \
+                patch.object(rag, "resolve_report_pdf", return_value=Path("report.pdf")):
+            app = AppTest.from_function(render_saved_message_for_test, args=(message,), default_timeout=30).run()
+            preview = app.caption[0].value
+            self.assertLessEqual(len(preview), rag.EXCERPT_PREVIEW_CHARS + 1)
+            self.assertTrue(preview.endswith("…"))
+            self.assertFalse(any("끝 문장" in item.value for item in app.markdown))
+            render.assert_not_called()  # no PDF page is rendered until someone asks
+
+            app.toggle[0].set_value(True).run()
+            render.assert_called_once_with(Path("report.pdf"), 2)
+            self.assertTrue(any("끝 문장" in item.value for item in app.markdown))
+            self.assertIn("PDF 미리보기를 열 수 없습니다", " ".join(item.value for item in app.caption))
+
 
 if __name__ == "__main__":
     unittest.main()

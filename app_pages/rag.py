@@ -132,7 +132,38 @@ def render_feedback(message: dict) -> None:
         st.feedback("thumbs", key=f"feedback_{trace_id}", on_change=send_feedback, args=(trace_id,))
 
 
-def render_assistant_message(message: dict, *, show_notice: bool = True) -> None:
+EXCERPT_PREVIEW_CHARS = 150  # about 2-3 lines in the chat column
+
+
+def excerpt_preview(text: str) -> str:
+    """The first 2-3 lines of a report excerpt, on one line; the rest is behind 자세히 보기."""
+    flat = " ".join(str(text).split())
+    return flat if len(flat) <= EXCERPT_PREVIEW_CHARS else flat[:EXCERPT_PREVIEW_CHARS].rstrip() + "…"
+
+
+def render_report_evidence(evidence_rows: list[dict], key: str) -> None:
+    """Report evidence: title, page and a short preview; full text and the PDF page on request.
+    The page image is rendered only when opened, so long answers stay short and the server
+    renders no PDF page nobody looks at."""
+    st.markdown("#### 보고서 근거")
+    for index, row in enumerate(evidence_rows, start=1):
+        page = row.get("page")
+        title = row.get("title") or "2025 한국 반려동물 보고서"
+        with st.container(border=True):
+            st.markdown(f"**근거 {index} · {title} · 페이지 {page if page else '확인 불가'}**")
+            st.caption(excerpt_preview(row.get("excerpt", "")))
+            if not st.toggle("자세히 보기", key=f"report_evidence_{key}_{index}"):
+                continue
+            st.write(row.get("excerpt", ""))
+            pdf_path = resolve_report_pdf(PROJECT_DIR, row.get("source"))
+            png = render_pdf_page(pdf_path, page) if page and pdf_path else None
+            if png:
+                st.image(png, caption=f"{title} · {page}페이지")
+            else:
+                st.caption("이 페이지의 PDF 미리보기를 열 수 없습니다.")
+
+
+def render_assistant_message(message: dict, *, show_notice: bool = True, key: str = "latest") -> None:
     if show_notice and message.get("safety_notice"):
         st.warning(message["safety_notice"])
     if show_notice and message.get("emergency") is not None:
@@ -148,21 +179,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True) -> None
     if not evidence_rows:
         return
     if message.get("route") == "analysis":
-        st.markdown("#### 보고서 근거")
-        previewed = set()
-        for index, row in enumerate(evidence_rows, start=1):
-            page = row.get("page")
-            title = row.get("title") or "2025 한국 반려동물 보고서"
-            st.markdown(f"**근거 {index} · {title} · 페이지 {page if page else '확인 불가'}**")
-            st.write(row.get("excerpt", ""))
-            pdf_path = resolve_report_pdf(PROJECT_DIR, row.get("source"))
-            if page and pdf_path and (pdf_path, page) not in previewed:
-                previewed.add((pdf_path, page))
-                png = render_pdf_page(pdf_path, page)
-                if png:
-                    st.image(png, caption=f"{title} · {page}페이지")
-                else:
-                    st.caption("이 페이지의 PDF 미리보기를 열 수 없습니다.")
+        render_report_evidence(evidence_rows, key)
     else:
         st.markdown("#### 검색 근거")
         for index, row in enumerate(evidence_rows):
@@ -291,10 +308,11 @@ def render_page():
 
     if CHAT_MESSAGES_STATE_KEY not in st.session_state:
         st.session_state[CHAT_MESSAGES_STATE_KEY] = []
-    for message in st.session_state[CHAT_MESSAGES_STATE_KEY]:
+    for position, message in enumerate(st.session_state[CHAT_MESSAGES_STATE_KEY]):
         with st.chat_message(message["role"]):
             if message["role"] == "assistant":
-                render_assistant_message(message)
+                # Keyed by thread and position, so an opened 자세히 보기 stays open on reruns.
+                render_assistant_message(message, key=f"{session.current_thread}_{position}")
             else:
                 st.write(message["content"])
 
@@ -386,7 +404,9 @@ def render_page():
                 "trace_id": result.get("trace_id"),
                 "emergency": emergency,
             }
-            render_assistant_message(assistant_message, show_notice=False)
+            # Same key it gets in the history loop once appended below.
+            render_assistant_message(assistant_message, show_notice=False,
+                                     key=f"{session.current_thread}_{len(st.session_state[CHAT_MESSAGES_STATE_KEY])}")
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
             st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
             session.record_turn(question, result["answer"], route=result["route"])
