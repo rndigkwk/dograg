@@ -74,7 +74,8 @@ def health_tools():
 
     return SimpleNamespace(
         is_date_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
-        build_rag_search_query=lambda q, h=None: q, infer_rag_filters=Mock(return_value={}),
+        build_rag_search_query=lambda q, h=None: q, memory_search_query=lambda q, h=None: q,
+        infer_rag_filters=Mock(return_value={}),
         retrieve_health=Mock(return_value=[Document(id="12", page_content=DOCUMENT, metadata={})]),
         review_evidence=Mock(return_value=SimpleNamespace(feedback="", useful_ids=["12"], sufficient=True)),
         generate_health_answer=answer, detect_urgent_sign=lambda q: None,

@@ -114,10 +114,11 @@ def build_chat_graph(tools):
         question, history = state["question"], state.get("chat_history")
         if tools.is_date_question(question):
             return {"route": "date"}
-        return {
-            "route": tools.classify_question(question, chat_history=history),
-            "contextual_question": tools.build_rag_search_query(question, history),
-        }
+        route = tools.classify_question(question, chat_history=history)
+        # Health questions in a long conversation carry a condition from the summary (day52);
+        # other routes and short conversations keep the plain query (no extra call).
+        build_query = tools.memory_search_query if route == "rag" else tools.build_rag_search_query
+        return {"route": route, "contextual_question": build_query(question, history)}
 
     def route_after_classify(state: ChatState) -> str:
         route, crag = state["route"], state.get("crag", False)

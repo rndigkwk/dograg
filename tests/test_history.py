@@ -61,5 +61,37 @@ class HistorySummaryTests(unittest.TestCase):
         self.assertEqual(history.build_rag_search_query("사료는요?", shown), "간식은 뭘 줘도 되나요?\n사료는요?")
 
 
+class MemorySearchQueryTests(unittest.TestCase):
+    """Day52: in a long conversation the summary's condition reaches the health search query."""
+
+    def test_without_a_summary_the_usual_query_is_kept_and_no_model_is_called(self):
+        from unittest.mock import patch
+
+        from src import resources
+
+        recent = [{"role": "user", "content": "간식은 뭘 줘도 되나요?"}]
+        with patch.object(resources, "load_chat_model", side_effect=AssertionError("no model call")):
+            self.assertEqual(history.memory_search_query("사료는요?", recent), "간식은 뭘 줘도 되나요?\n사료는요?")
+
+    def test_with_a_summary_the_model_rewrites_the_query(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+
+        from src import resources
+
+        model = Mock()
+        model.bind.return_value.invoke.return_value = SimpleNamespace(content=" 췌장염 퇴원 후  기름진 음식 급여 시기 ")
+        shown = [{"role": history.SUMMARY_ROLE, "content": "슈나우저가 췌장염으로 입원했다가 어제 퇴원했다"},
+                 {"role": "user", "content": "목욕은 얼마나 자주?"}]
+        with patch.object(resources, "load_chat_model", return_value=model):
+            query = history.memory_search_query("기름진 음식은 언제부터 줘도 되나요?", shown)
+        self.assertEqual(query, "췌장염 퇴원 후 기름진 음식 급여 시기")
+        prompt = model.bind.return_value.invoke.call_args.args[0][1][1]
+        self.assertIn("췌장염으로 입원", prompt)  # the summary goes to the rewrite
+        model.bind.return_value.invoke.side_effect = RuntimeError("API down")
+        with patch.object(resources, "load_chat_model", return_value=model):  # a failed rewrite keeps the usual query
+            self.assertEqual(history.memory_search_query("기름진 음식은?", shown), "목욕은 얼마나 자주?\n기름진 음식은?")
+
+
 if __name__ == "__main__":
     unittest.main()
