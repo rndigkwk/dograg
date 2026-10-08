@@ -105,7 +105,8 @@ class TeamGraphTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         run_dir = Path(directory.name)
         writer = FakeWriter(run_dir)
-        with patch.object(config, "llm", return_value=FakeLLM(tasks)), \
+        # review_llm is replaced too: building a real ChatOpenAI needs an API key, which CI does not have.
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)), patch.object(config, "review_llm"), \
                 patch.object(nodes, "create_researcher", side_effect=FakeResearcher), \
                 patch.object(nodes, "build_judge", side_effect=judge_with(unsupported)), \
                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0):
@@ -138,7 +139,12 @@ class TeamGraphTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         run_dir = Path(directory.name)
         steps = []
-        with patch.object(config, "llm", return_value=FakeLLM(tasks)),                 patch.object(nodes, "create_researcher", side_effect=FakeResearcher),                 patch.object(nodes, "build_judge", side_effect=judge_with([])),                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0),                 patch.object(team_main, "create_writer", side_effect=FakeWriter),                 patch.object(team_main.tracing, "client", return_value=None):
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)), patch.object(config, "review_llm"), \
+                patch.object(nodes, "create_researcher", side_effect=FakeResearcher), \
+                patch.object(nodes, "build_judge", side_effect=judge_with([])), \
+                patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0), \
+                patch.object(team_main, "create_writer", side_effect=FakeWriter), \
+                patch.object(team_main.tracing, "client", return_value=None):
             state = team_main.run("말티즈가 설사를 해요", run_dir=run_dir, on_step=lambda node, update: steps.append(node))
         self.assertEqual(steps, ["planner", "researcher", "supervisor", "writer", "reviewer", "publisher"])
         self.assertEqual(state["run_dir"], run_dir)
