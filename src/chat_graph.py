@@ -82,12 +82,15 @@ class ChatState(TypedDict, total=False):
     safety_notice: str | None
     hospital_rows: list
     abstained: bool
+    # day54: a question that describes a symptom and asks for places runs both paths
+    also_health: bool
+    place_answer: str
 
 
 def abstain_message(state: dict) -> str:
     """The abstention text: the fixed notice, then what was searched, what the evidence did not
     cover and how to ask again. Built in code from the graph's own record."""
-    kind = "rag" if state.get("route") == "rag" else "report"
+    kind = "rag" if state.get("route") == "rag" or state.get("also_health") else "report"
     grades = [entry for entry in state.get("trace", []) if entry.get("step", "").endswith("_grade")]
     reviewed = len({doc_id for entry in grades for doc_id in entry.get("candidate_ids", [])})
     rewrites = state.get("rewrite_count", 0)
@@ -115,22 +118,23 @@ def build_chat_graph(tools):
         question, history = state["question"], state.get("chat_history")
         if tools.is_date_question(question):
             return {"route": "date"}
-        return {
-            "route": tools.classify_question(question, chat_history=history),
-            "contextual_question": tools.build_rag_search_query(question, history),
-        }
+        route = tools.classify_question(question, chat_history=history)
+        # Health questions in a long conversation carry a condition from the summary (day52);
+        # other routes and short conversations keep the plain query (no extra call).
+        build_query = tools.memory_search_query if route == "rag" else tools.build_rag_search_query
+        return {"route": route, "contextual_question": build_query(question, history)}
 
     def route_after_classify(state: ChatState) -> str:
         route, crag = state["route"], state.get("crag", False)
         if route == "date":
             return "date_answer"
-        if route == "rag":
+        if route == "rag" and not (crag and tools.is_symptom_and_place_request(state["question"])):
             return "health_retrieve" if crag else "health_simple"
         if route == "analysis":
             # 보고서는 판정이 정답 근거를 걸러 내서(정답 페이지 12/18 -> 10/18) 따로 켭니다.
             return "report_retrieve" if state.get("crag_reports", False) else "report_simple"
-        if route == "sql":
-            return "hospital"
+        if route == "sql" or (route == "rag" and crag and tools.is_symptom_and_place_request(state["question"])):
+            return "hospital"  # a symptom + place request goes on to the health path after the places
         return "general"
 
     # --- 기존 경로 (CRAG 꺼짐) ---
@@ -157,7 +161,19 @@ def build_chat_graph(tools):
 
     def hospital(state: ChatState):
         answer, rows = tools.run_sql_search(state["contextual_question"], location=state.get("location"))
-        return {"answer": answer, "hospital_rows": rows}
+        also_health = bool(state.get("crag")) and tools.is_symptom_and_place_request(state["question"])
+        return {"answer": answer, "hospital_rows": rows, "also_health": also_health,
+                "place_answer": answer if also_health else ""}
+
+    def route_after_hospital(state: ChatState) -> str:
+        # The places come first (that was the request); the symptom gets the usual health
+        # path (search, evidence check, answer or abstain) and both are shown together.
+        return "health_retrieve" if state.get("also_health") else END
+
+    def with_places(answer: str, state: ChatState) -> str:
+        if not state.get("place_answer"):
+            return answer
+        return f"{state['place_answer']}\n\n---\n\n**증상에 대해**\n\n{answer}"
 
     def general(state: ChatState):
         return {
@@ -194,9 +210,9 @@ def build_chat_graph(tools):
         }
 
     def abstain(state: ChatState):
-        health = state["route"] == "rag"
+        health = state["route"] == "rag" or state.get("also_health")
         return {
-            "answer": abstain_message(state),
+            "answer": with_places(abstain_message(state), state),
             "evidence_rows": [],
             "abstained": True,
             "safety_notice": tools.detect_urgent_sign(state["question"]) if health else None,
@@ -245,12 +261,18 @@ def build_chat_graph(tools):
 
     def health_generate(state: ChatState):
         docs = state["documents"][: state["top_k"]]
+        question = state["question"]
+        if state.get("place_answer"):
+            # The places are listed above this answer. Given the whole question the model also
+            # answered the place request from health cases ("자료에 병원 위치가 없습니다"), so it
+            # gets only the symptom half.
+            question = tools.symptom_part(question)
         answer = tools.generate_health_answer(
-            state["question"], docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
+            question, docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
             profile=state.get("pet_profile"),
         )
         return {
-            "answer": answer,
+            "answer": with_places(answer, state),
             "evidence_rows": [doc.metadata for doc in docs],
             "safety_notice": tools.detect_urgent_sign(state["question"]),
         }
@@ -263,7 +285,9 @@ def build_chat_graph(tools):
         return {"answer": answer, "trace": [*state.get("trace", []), entry]}
 
     def route_after_health_generate(state: ChatState) -> str:
-        return "health_review" if state.get("self_rag") else END
+        # A symptom + place answer starts with the place list, which is not in the health
+        # evidence; the review would take it for unsupported claims.
+        return "health_review" if state.get("self_rag") and not state.get("place_answer") else END
 
     # --- CRAG: 보고서 분석 (질문 분해 + 평가, 재작성 없음) ---
     def report_retrieve(state: ChatState):
@@ -309,8 +333,9 @@ def build_chat_graph(tools):
     builder.add_edge("health_rewrite", "health_retrieve")  # 검색어를 바꾼 뒤 실제 재검색
     builder.add_edge("report_retrieve", "report_grade")
     builder.add_conditional_edges("report_grade", route_after_report_grade, ["report_generate", "abstain"])
+    builder.add_conditional_edges("hospital", route_after_hospital, ["health_retrieve", END])
     builder.add_conditional_edges("health_generate", route_after_health_generate, ["health_review", END])
-    for name in ("date_answer", "general", "hospital", "health_simple", "report_simple",
+    for name in ("date_answer", "general", "health_simple", "report_simple",
                  "health_review", "report_generate", "abstain"):
         builder.add_edge(name, END)
     return builder.compile()

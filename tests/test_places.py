@@ -305,3 +305,56 @@ class PlacePageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NightCareTests(unittest.TestCase):
+    """"24시간 하는 곳": no opening hours in the data, so names with 24시/응급/야간 are shown."""
+
+    def setUp(self):
+        directory = TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        db_path = Path(directory.name) / "places.sqlite"
+        with closing(sqlite3.connect(db_path)) as connection:
+            connection.execute(
+                "CREATE TABLE place (id TEXT, kind TEXT, name TEXT, road_address TEXT, lot_address TEXT, phone TEXT, "
+                "category TEXT, info TEXT, latitude REAL, longitude REAL)")
+            rows = [("h1", "hospital", "청담동물병원", "서울 강남구 1", "", "02-1", "", "", 37.5, 127.0),
+                    ("h2", "hospital", "강남24시동물메디컬센터", "서울 강남구 2", "", "02-2", "", "", 37.5, 127.01),
+                    ("h3", "hospital", "마포야간동물병원", "서울 마포구 3", "", "02-3", "", "", 37.55, 126.9),
+                    ("h4", "hospital", "서초동물병원", "서울 서초구 4", "", "02-4", "", "", 37.48, 127.03)]
+            connection.executemany("INSERT INTO place VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+            connection.commit()
+        patcher = patch.object(resources, "DB_PATH", db_path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        places.known_region_words.cache_clear()
+
+    def test_a_follow_up_keeps_the_region_and_shows_only_night_named_hospitals(self):
+        with patch.object(resources, "load_chat_model", return_value=None):
+            answer, rows = places.run_sql_search("강남구 동물병원 알려줘\n그중에 24시간 하는 곳도 있어?")
+        self.assertEqual([row["id"] for row in rows], ["h2"])
+        self.assertIn("영업시간 정보가 없어", answer)
+
+    def test_none_found_says_so_instead_of_listing_everything(self):
+        with patch.object(resources, "load_chat_model", return_value=None):
+            answer, rows = places.run_sql_search("서초구 야간 진료하는 동물병원")
+        self.assertEqual(rows, [])
+        self.assertIn("찾지 못했습니다", answer)
+
+    def test_nearest_night_hospital_filters_by_name_too(self):
+        answer, rows = places.run_sql_search("가장 가까운 24시 동물병원", location=(37.5, 127.0))
+        self.assertEqual({row["id"] for row in rows}, {"h2", "h3"})  # h1, h4 are closer but not night-named
+        self.assertTrue(answer.startswith("영업시간 정보가 없어"))
+
+    def test_symptom_and_place_requests_are_recognized(self):
+        self.assertTrue(router.is_symptom_and_place_request("설사가 이틀째인데 마포구 동물병원 어디 있어?"))
+        self.assertFalse(router.is_symptom_and_place_request("설사가 이틀째예요"))
+        self.assertFalse(router.is_symptom_and_place_request("마포구 동물병원 어디 있어?"))
+        self.assertTrue(router.is_symptom_and_place_request("강아지가 토하는데 강남구 동물병원 알려줘"))
+        self.assertEqual(router.symptom_part("설사가 이틀째인데 마포구 동물병원 어디 있어?"), "설사가 이틀째인데")
+        self.assertEqual(router.symptom_part("혈변을 봤어요 근처 동물병원 알려줘"), "혈변을 봤어요")
+        self.assertEqual(router.symptom_part("기침을 계속 하는데 수원 동물병원 목록 보여줘"), "기침을 계속 하는데")
+
+    def test_other_questions_are_unchanged(self):
+        self.assertFalse(places.wants_night_care("강남구 동물병원 알려줘"))
+        self.assertTrue(places.wants_night_care("밤에 여는 병원 있어?"))
