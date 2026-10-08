@@ -11,7 +11,8 @@ from src.tools import general, health, history, places, report, review, router
 TOOL_SOURCES = {
     router: ("is_date_question", "current_date_answer", "classify_question"),
     history: ("build_rag_search_query",),
-    health: ("infer_rag_filters", "retrieve_health", "generate_health_answer", "ask_rag", "detect_urgent_sign"),
+    health: ("infer_rag_filters", "retrieve_health", "generate_health_answer", "ask_rag", "detect_urgent_sign",
+             "review_health_answer"),
     report: ("analyze_report", "search_reports", "generate_report_answer", "report_evidence_from_docs"),
     places: ("run_sql_search",),
     general: ("answer_without_tool",),

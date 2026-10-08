@@ -140,6 +140,40 @@ def build_metadata_filter(filters):
     return conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
 
+REVISE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """[답변]에서 [근거에 없는 문장]으로 표시된 문장만 지우거나 [검색 데이터]에 있는 내용으로 고쳐, 답변 전체를 다시 쓰세요.
+나머지 문장과 순서, 말투는 그대로 두세요. [검색 데이터]에 없는 내용을 새로 넣지 마세요. 답변만 쓰세요.
+
+[검색 데이터]
+{context}"""),
+    ("human", "[질문]\n{question}\n\n[답변]\n{answer}\n\n[근거에 없는 문장]\n{unsupported}"),
+])
+
+
+def review_health_answer(question: str, retrieved_docs, answer: str) -> tuple[str, dict]:
+    """Day53 Self-RAG: split the answer into claims, check each against the evidence (the
+    faithfulness judge, reasoning off, with the one-claim recheck), and when some are not in the
+    evidence rewrite the answer once fixing only those. Returns (answer, record)."""
+    from src.faithfulness import build_judge, build_verifier, recheck_unsupported
+
+    reviewer, writer = resources.load_review_model(), resources.load_chat_model()
+    if reviewer is None or writer is None:
+        return answer, {}
+    context = format_rag_context(retrieved_docs)
+    judgment = build_judge(reviewer).invoke({"question": question, "context": context, "answer": answer})
+    verifier = build_verifier(reviewer)
+    recheck_unsupported(judgment, context, lambda claim: verifier.invoke({"context": context, "claim": claim}))
+    unsupported = [claim.text for claim in judgment.claims if claim.verdict == "unsupported"]
+    record = {"claims": len(judgment.claims), "unsupported": len(unsupported), "revised": bool(unsupported)}
+    if not unsupported:
+        return answer, record
+    revised = (REVISE_PROMPT | writer | StrOutputParser()).invoke({
+        "context": context, "question": question, "answer": answer,
+        "unsupported": "\n".join(f"- {claim}" for claim in unsupported),
+    })
+    return revised.strip() or answer, record
+
+
 def format_rag_context(retrieved_docs):
     return "\n\n".join(
         f"질문: {doc.page_content}\n답변: {doc.metadata.get('qa.output', '')}"

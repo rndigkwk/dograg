@@ -19,6 +19,7 @@ def chatbot(
     pet_profile=None,
     crag: bool | None = None,
     crag_reports: bool | None = None,
+    self_rag: bool | None = None,
     on_token=None,
     on_step=None,
     session_id: str | None = None,
@@ -33,6 +34,8 @@ def chatbot(
         crag = settings.crag_enabled()
     if crag_reports is None:
         crag_reports = settings.setting_enabled("ENABLE_CRAG_REPORTS")
+    if self_rag is None:
+        self_rag = settings.setting_enabled("CHAT_SELF_RAG")
     model_ready = resources.load_chat_model() is not None
     return run_chat(
         TOOLS,
@@ -43,6 +46,7 @@ def chatbot(
         pet_profile=pet_profile,
         crag=bool(crag) and model_ready,
         crag_reports=bool(crag_reports) and model_ready,
+        self_rag=bool(self_rag) and model_ready,
         graph=build_chat_graph(TOOLS),
         on_token=on_token,
         on_step=on_step,
