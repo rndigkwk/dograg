@@ -118,6 +118,53 @@ def is_out_of_scope_question(question: str) -> bool:
     return any(keyword in normalized for keyword in OUT_OF_SCOPE_KEYWORDS)
 
 
+# Words for the symptom + place check only. Adding them to the routing keywords would move
+# questions the routing evaluations already pin down.
+EXTRA_SYMPTOM_WORDS = ("토하",)
+# Request verbs, not lookup hints: "가까운 동물병원에 갈 수 없어요" or "모습을 보여서" in a long
+# health story is not a request for places (both were in the evaluation sets).
+PLACE_REQUEST_WORDS = ("알려", "찾아", "추천", "어디", "목록", "주소", "보여줘", "보여 줘", "전화번호", "연락처")
+
+
+def describes_symptom(question: str) -> bool:
+    """A health keyword in this question."""
+    normalized_question = "".join(question.lower().split())
+    return any(keyword in normalized_question for keyword in (*HEALTH_QUERY_KEYWORDS, *EXTRA_SYMPTOM_WORDS))
+
+
+def asks_for_places(question: str) -> bool:
+    """A facility named together with a request verb (알려줘, 찾아줘, 추천, 어디 ...)."""
+    normalized_question = "".join(question.lower().split())
+    return places.is_place_question(question) and any(
+        keyword.replace(" ", "") in normalized_question
+        for keyword in PLACE_REQUEST_WORDS)
+
+
+CLAUSE_ENDINGS = ("데", "요", "서", "고", "며", "면", "니", "다", "?", "!")
+PLACE_CUT_WORDS = ("동물병원", "병원", "동물약국", "약국", "근처", "가까운", "애견", "장례", "미용실")
+
+
+def symptom_part(question: str) -> str:
+    """The symptom half of a symptom + place request, cut before the region or place words:
+    "설사가 이틀째인데 마포구 동물병원 어디 있어?" -> "설사가 이틀째인데". The health answer gets
+    this, so it does not also answer the place request from health cases."""
+    cuts = [question.find(word) for word in (*places.extract_search_parameters(question), *PLACE_CUT_WORDS)]
+    cut = min((index for index in cuts if index > 0), default=len(question))
+    part = question[:cut].strip(" ,.")
+    words = part.split()
+    # A symptom clause ends in a connective (하는데, 봤어요, 해서 ...); a trailing word without
+    # one is a place name the region list did not know ("수원", "부산").
+    if len(words) > 1 and not words[-1].endswith(CLAUSE_ENDINGS):
+        part = " ".join(words[:-1])
+    return part if len(part) >= 4 else question
+
+
+def is_symptom_and_place_request(question: str) -> bool:
+    """Day54 Adaptive RAG: "토하는데 강남구 동물병원 알려줘" needs both answers. The router picks
+    one route for these (rag or sql, about half each); the graph runs both paths instead."""
+    return describes_symptom(question) and asks_for_places(question)
+
+
 def classify_question(question: str, chat_history=None) -> str:
     if is_out_of_scope_question(question):
         return "none"
