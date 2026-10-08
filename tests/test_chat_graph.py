@@ -117,7 +117,9 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual(tools.retrieve_health.call_args_list[1].args[0], "다시 쓴 검색어")
         tools.generate_health_answer.assert_not_called()
         self.assertTrue(result["abstained"])
-        self.assertEqual(result["answer"], HEALTH_ABSTAIN)
+        self.assertTrue(result["answer"].startswith(HEALTH_ABSTAIN))
+        self.assertIn("- **찾아본 것:** 반려견 건강 상담 사례", result["answer"])
+        self.assertIn("- **다시 물어볼 때:**", result["answer"])
         self.assertEqual(result["evidence_rows"], [])
         self.assertEqual(result["safety_notice"], "응급")
 
@@ -193,7 +195,8 @@ class ReportCragTests(ChatGraphTestCase):
         result = self.run_chat(tools, question="반려동물 장묘 비용")
         tools.generate_report_answer.assert_not_called()
         tools.rewrite_search_query.assert_not_called()
-        self.assertEqual(result["answer"], REPORT_ABSTAIN)
+        self.assertTrue(result["answer"].startswith(REPORT_ABSTAIN))
+        self.assertIn("반려동물 보고서 5종", result["answer"])
         self.assertIsNone(result["safety_notice"])
 
 
