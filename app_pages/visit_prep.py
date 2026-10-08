@@ -24,6 +24,9 @@ from src.ui import apply_app_theme, render_page_header
 MAX_RUNS_PER_SESSION = 2
 MAX_CONSULTATION_CHARS = 500
 RUNS_STATE_KEY = "visit_prep_runs"
+# The consultation box's widget key. The chat page sets it to an answer's question before
+# switching here ("이 상담으로 방문 준비 보고서 만들기").
+CONSULTATION_KEY = "visit_prep_consultation"
 RESULT_STATE_KEY = "visit_prep_result"
 PREPARED = "검색 자료를 준비했습니다"
 STEP_LABELS = {
@@ -165,7 +168,11 @@ def render_page() -> None:
     saved_profile = session.profiles.get()
 
     with st.form("visit_prep_form"):
-        consultation = st.text_area("상담 내용", value=last_question(), max_chars=MAX_CONSULTATION_CHARS,
+        if CONSULTATION_KEY not in st.session_state:
+            # Seeded once, not passed as value=: a default that changes between reruns makes
+            # Streamlit treat the box as a new widget and drop what was typed.
+            st.session_state[CONSULTATION_KEY] = last_question()
+        consultation = st.text_area("상담 내용", key=CONSULTATION_KEY, max_chars=MAX_CONSULTATION_CHARS,
                                     placeholder="예: 4살 말티즈가 어제부터 설사를 하고 오늘 아침에 두 번 토했어요. 병원비도 걱정돼요.")
         left, right = st.columns(2)
         region = left.text_input("근처 동물병원을 찾을 지역 (선택)", placeholder="예: 강남구")

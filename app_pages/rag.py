@@ -163,13 +163,28 @@ def render_report_evidence(evidence_rows: list[dict], key: str) -> None:
                 st.caption("이 페이지의 PDF 미리보기를 열 수 없습니다.")
 
 
-def render_assistant_message(message: dict, *, show_notice: bool = True, key: str = "latest") -> None:
+def render_visit_prep_button(question: str, key: str) -> None:
+    """Under a health answer: carry this question to the visit-prep report page."""
+    from app_pages.visit_prep import CONSULTATION_KEY, MAX_CONSULTATION_CHARS
+
+    if st.button("이 상담으로 방문 준비 보고서 만들기", key=f"visit_prep_{key}", icon=":material/description:"):
+        st.session_state[CONSULTATION_KEY] = question[:MAX_CONSULTATION_CHARS]
+        try:
+            st.switch_page("app_pages/visit_prep.py")
+        except (StreamlitAPIException, KeyError):  # 내비게이션 밖(AppTest 등)
+            st.caption("왼쪽 메뉴의 '방문 준비 보고서'에서 이어서 만들 수 있습니다.")
+
+
+def render_assistant_message(message: dict, *, show_notice: bool = True, key: str = "latest",
+                             question: str | None = None) -> None:
     if show_notice and message.get("safety_notice"):
         st.warning(message["safety_notice"])
     if show_notice and message.get("emergency") is not None:
         render_emergency(message["emergency"])
     st.write(message["content"])
     render_feedback(message)
+    if question and message.get("route") == "rag":
+        render_visit_prep_button(question, key)
     if message.get("abstained") and message.get("route") == "rag":
         try:
             st.page_link("app_pages/hospital.py", label="가까운 동물병원 찾기", icon=":material/local_hospital:")
@@ -312,7 +327,9 @@ def render_page():
         with st.chat_message(message["role"]):
             if message["role"] == "assistant":
                 # Keyed by thread and position, so an opened 자세히 보기 stays open on reruns.
-                render_assistant_message(message, key=f"{session.current_thread}_{position}")
+                asked = st.session_state[CHAT_MESSAGES_STATE_KEY][position - 1] if position else None
+                render_assistant_message(message, key=f"{session.current_thread}_{position}",
+                                         question=asked["content"] if asked and asked["role"] == "user" else None)
             else:
                 st.write(message["content"])
 
@@ -405,7 +422,7 @@ def render_page():
                 "emergency": emergency,
             }
             # Same key it gets in the history loop once appended below.
-            render_assistant_message(assistant_message, show_notice=False,
+            render_assistant_message(assistant_message, show_notice=False, question=question,
                                      key=f"{session.current_thread}_{len(st.session_state[CHAT_MESSAGES_STATE_KEY])}")
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
             st.session_state.pop(IN_FLIGHT_STATE_KEY, None)

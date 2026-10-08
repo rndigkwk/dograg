@@ -73,6 +73,15 @@ class VisitPrepPageTests(unittest.TestCase):
         self.assertNotIn("[qa-5250]", markdown)
         self.assertIn("② 비슷한 건강 상담 사례 (AI Hub qa-5250)", markdown)
 
+    def test_a_question_carried_from_the_chat_fills_the_box(self):
+        from streamlit.testing.v1 import AppTest
+
+        with patch.object(settings, "get_openai_api_key", return_value="sk-test"):
+            at = AppTest.from_function(page_app, default_timeout=30)
+            at.session_state[visit_prep.CONSULTATION_KEY] = "시츄 눈이 빨개요"
+            at.run()
+        self.assertEqual(at.text_area[0].value, "시츄 눈이 빨개요")
+
     def test_unchecked_report_is_marked_for_a_person(self):
         at = self.open_page(FakeTeam(passed=False))
         self.submit(at, "말티즈가 설사를 해요")
