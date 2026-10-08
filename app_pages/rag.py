@@ -22,7 +22,7 @@ from src.report_evidence import render_pdf_page, resolve_report_pdf
 from src.settings import PROJECT_DIR
 from src.storage.models import PetProfile
 from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
-from src.tools.history import get_recent_chat_history
+from src.tools.history import history_with_summary, summary_due
 from src.tools.places import emergency_hospitals
 from src.tools.profile import detect_profile, profile_summary
 from src.tracing import record_feedback
@@ -34,6 +34,8 @@ RAG_TOP_K_SLIDER_KEY = "rag_top_k"
 # arrived) stops the run that holds it; the next run finds it here and answers it then.
 IN_FLIGHT_STATE_KEY = "answer_in_flight"
 PROFILE_SUGGESTION_KEY = "profile_suggestion"
+# {thread id: {"upto", "summary"}}: the running summary of each conversation's older turns
+HISTORY_SUMMARY_STATE_KEY = "history_summaries"
 PROFILE_DISMISSED_KEY = "profile_detection_dismissed"
 
 
@@ -280,6 +282,17 @@ def render_profile_suggestion(session: ConversationSession) -> None:
             st.rerun()
 
 
+def conversation_history(session: ConversationSession, messages: list[dict]) -> list[dict]:
+    """What the prompts see of this conversation: a summary of older turns + the recent ones.
+    The summary lives in this browser session only (like the conversation itself)."""
+    memories = st.session_state.setdefault(HISTORY_SUMMARY_STATE_KEY, {})
+    memory = memories.setdefault(session.current_thread or "new", {})
+    if summary_due(messages, memory):
+        with st.spinner("이전 대화를 요약하고 있습니다…"):
+            return history_with_summary(messages, memory)
+    return history_with_summary(messages, memory)
+
+
 def interrupted_question(session: ConversationSession, messages: list[dict]) -> dict | None:
     """The question an earlier run was answering when a rerun stopped it, if it still applies:
     same conversation, and its question is still the last message (not a new or other chat)."""
@@ -357,7 +370,7 @@ def render_page():
     )
     messages = st.session_state[CHAT_MESSAGES_STATE_KEY]
     if question:
-        chat_history = get_recent_chat_history(messages)
+        chat_history = conversation_history(session, messages)
         messages.append({"role": "user", "content": question})
         with st.chat_message("user"):
             st.write(question)

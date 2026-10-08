@@ -36,6 +36,13 @@ HEALTH_ABSTAIN = (
     "증상이 계속되거나 걱정되면 가까운 동물병원에 문의해 주세요."
 )
 REPORT_ABSTAIN = "검색된 보고서에서 이 질문에 답할 근거를 찾지 못했습니다. 질문의 대상이나 항목을 바꿔 다시 물어봐 주세요."
+# Day53: an abstention says what was searched, what the evidence did not cover (the grader's own
+# feedback, no extra model call) and how to ask again, instead of only "not found".
+ABSTAIN_SEARCHED = {"rag": "반려견 건강 상담 사례(AI Hub 19,206건)", "report": "반려동물 보고서 5종"}
+ABSTAIN_TIPS = {
+    "rag": "증상이 언제부터·하루 몇 번인지, 나이·품종, 함께 나타난 증상을 넣어 다시 물어봐 주세요.",
+    "report": "보고서 이름이나 연도, 알고 싶은 항목(예: 2025 한국 반려동물 보고서의 월평균 양육비)을 넣어 다시 물어봐 주세요.",
+}
 # 스트리밍 중 LangGraph가 근거 평가의 구조화 출력(parsed=RetrievalReview)을 직렬화하며 내는 경고입니다.
 # 동작에는 영향이 없고 배포 로그만 어지럽히므로 이 경고만 숨깁니다.
 warnings.filterwarnings(
@@ -74,6 +81,24 @@ class ChatState(TypedDict, total=False):
     safety_notice: str | None
     hospital_rows: list
     abstained: bool
+
+
+def abstain_message(state: dict) -> str:
+    """The abstention text: the fixed notice, then what was searched, what the evidence did not
+    cover and how to ask again. Built in code from the graph's own record."""
+    kind = "rag" if state.get("route") == "rag" else "report"
+    grades = [entry for entry in state.get("trace", []) if entry.get("step", "").endswith("_grade")]
+    reviewed = len({doc_id for entry in grades for doc_id in entry.get("candidate_ids", [])})
+    rewrites = state.get("rewrite_count", 0)
+    searched = f"{ABSTAIN_SEARCHED[kind]}에서 질문과 가까운 {reviewed}건을 근거로 쓸 수 있는지 하나씩 확인했습니다"
+    if rewrites:
+        searched += f"(검색어를 바꿔 {rewrites}번 더 찾음)"
+    lines = [HEALTH_ABSTAIN if kind == "rag" else REPORT_ABSTAIN, "", f"- **찾아본 것:** {searched}."]
+    feedback = " ".join(str(state.get("feedback") or "").split())
+    if feedback:
+        lines.append(f"- **확인하지 못한 것:** {feedback}")
+    lines.append(f"- **다시 물어볼 때:** {ABSTAIN_TIPS[kind]}")
+    return "\n".join(lines)
 
 
 def _health_text(doc) -> str:
@@ -170,7 +195,7 @@ def build_chat_graph(tools):
     def abstain(state: ChatState):
         health = state["route"] == "rag"
         return {
-            "answer": HEALTH_ABSTAIN if health else REPORT_ABSTAIN,
+            "answer": abstain_message(state),
             "evidence_rows": [],
             "abstained": True,
             "safety_notice": tools.detect_urgent_sign(state["question"]) if health else None,
