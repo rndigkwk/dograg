@@ -40,7 +40,7 @@ SAFE_KEYS = frozenset({
     "outcome", "behavior", "group", "evidence_pages",
     # visit-prep team run records: the status word and the kinds of research that failed
     # (error messages stay masked: they can quote the request)
-    "status", "failed_kinds", "failed_errors",
+    "status", "failed_kinds", "failed_errors", "fallback_kinds",
 })
 
 

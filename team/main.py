@@ -23,7 +23,7 @@ from src.run_log import question_fingerprint
 from team.agents.workers import create_writer
 from team.core.config import OUTPUT_DIR
 from team.graph.builder import build_graph
-from team.graph.nodes import failed_kinds, run_status
+from team.graph.nodes import failed_kinds, fallback_kinds, run_status
 
 
 def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path | None = None,
@@ -75,6 +75,7 @@ def run_record(state: dict | None, seconds: float) -> dict:
         "round": state.get("round", 0),
         "kind": [task["kind"] for task in state.get("plan", [])],
         "failed_kinds": failed_kinds(state),
+        "fallback_kinds": fallback_kinds(state),
         # Exception class names only (the messages can quote the request): enough to tell an
         # API outage from a code error when a production run is held.
         "failed_errors": sorted({failure["error"].split(":", 1)[0] for failure in (state.get("failures") or {}).values()}),
