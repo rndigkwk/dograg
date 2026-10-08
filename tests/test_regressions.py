@@ -63,6 +63,13 @@ class QuestionRoutingTest(unittest.TestCase):
 class RouterConflictTest(unittest.TestCase):
     """Keyword rules decide only single-signal questions; conflicts go to the LLM router."""
 
+    def setUp(self):
+        # These check the rules hand conflicts to the model fallback; the Decisions call before the
+        # chat model (tests/test_router_decisions.py) must not reach the network here.
+        decisions = patch.object(router, "decide_route", return_value=None)
+        decisions.start()
+        self.addCleanup(decisions.stop)
+
     @staticmethod
     def fake_router(route):
         decision = SimpleNamespace(route=route)

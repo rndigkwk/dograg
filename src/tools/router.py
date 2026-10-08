@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Literal
 
+import httpx
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-from src import resources
+from src import resources, settings
 from src.tools import history, places, report
+
+logger = logging.getLogger(__name__)
+ROUTES = ("rag", "sql", "analysis", "none")
 
 
 class RouteDecision(BaseModel):
@@ -35,6 +40,50 @@ ROUTER_PROMPT = ChatPromptTemplate.from_messages([
     ),
     ("human", "[대화 이력]\n{chat_history}\n\n[현재 질문]\n{question}"),
 ])
+
+
+# Fallback for the questions the keyword rules cannot decide (about 15%): OpenAI's Decisions API,
+# a classification endpoint that returns one of the given choices (0.35 s vs 1.5 s for a chat call
+# with structured output, same accuracy; docs/wiki/router.md). Called over HTTP because the
+# openai SDK that has it (3.26+) is a major upgrade from the one langchain-openai uses here.
+# Any error or refusal falls back to the chat-model router below. ROUTER_FALLBACK=llm turns it off.
+DECISIONS_URL = "https://api.openai.com/v1/decisions"
+DECISIONS_TIMEOUT_SECONDS = 5.0
+ROUTE_INSTRUCTIONS = (
+    "반려견 서비스 챗봇에 들어온 질문을 처리할 도구 하나로 분류하세요. 대화 이력이 있으면 현재 질문의 맥락으로만 참고하세요. "
+    "rag: 반려견 증상, 질병, 치료, 건강 정보(몸 상태를 설명하면 병원 언급이 있어도 rag). "
+    "sql: 동물병원·동물약국·반려동물 동반 시설·애견미용·위탁·장묘업체를 찾거나 그 목록·주소·위치·개수·이용 조건을 묻는 질문. "
+    "analysis: 반려동물 보고서(현황, 복지, 산업, 의료보험, 장묘)의 통계, 추이, 비교, 비중, 분포 (동물병원이 언급돼도 통계면 analysis). "
+    "none: 인사, 감사, 기능 문의, 서비스 범위 밖 대화."
+)
+
+
+def decide_route(question: str, chat_history=None) -> str | None:
+    """One Decisions API call; None when it is off, fails, refuses or answers outside ROUTES."""
+    if (settings.get_setting("ROUTER_FALLBACK") or "decisions").strip().lower() != "decisions":
+        return None
+    api_key = settings.get_openai_api_key()
+    if not api_key:
+        return None
+    text = f"[대화 이력]\n{history.format_chat_history(chat_history)}\n\n[현재 질문]\n{question}"
+    body = {
+        "model": resources.CHAT_MODEL_NAME,
+        "input": text,
+        "questions": [{"type": "choice", "name": "route", "instructions": ROUTE_INSTRUCTIONS,
+                       "choices": [{"value": route} for route in ROUTES]}],
+    }
+    try:
+        response = httpx.post(DECISIONS_URL, json=body, headers={"Authorization": f"Bearer {api_key}"},
+                              timeout=DECISIONS_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        answer = response.json()["answers"][0]
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+        logger.warning("Decisions router failed (%s); using the chat-model router", type(exc).__name__)
+        return None
+    if answer.get("type") == "choice" and answer.get("choice") in ROUTES:
+        return answer["choice"]
+    logger.info("Decisions router gave no route (%s); using the chat-model router", answer.get("type"))
+    return None
 
 
 OUT_OF_SCOPE_KEYWORDS = ("날씨", "기온", "미세먼지", "뉴스", "주식", "환율")
@@ -108,6 +157,8 @@ def classify_question(question: str, chat_history=None) -> str:
         if has_report_topic:
             return "analysis"
     if model is not None:
+        if route := decide_route(question, chat_history):
+            return route
         decision = (ROUTER_PROMPT | model.with_structured_output(RouteDecision)).invoke(
             {
                 "chat_history": history.format_chat_history(chat_history),
