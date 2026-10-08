@@ -16,7 +16,7 @@
 | [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 운영 설정(태그·release), 실험·정기 회귀 평가 |
 | [visit-prep-team.md](visit-prep-team.md) | 멀티에이전트 방문 준비 보고서 팀: 상담 12개 실험(기준선 → 개선), 실패 처리와 장애 주입, 배포 장애 기록 |
 | [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 |
-| [lecture-review.md](lecture-review.md) | Day 46~53 고급 RAG·에이전트 교안 중 적용할 기법 검토 |
+| [lecture-review.md](lecture-review.md) | Day 46~56 교안 기법별 적용·테스트·미적용 정리 (어떻게, 결과, 이유) |
 
 ## 작성 규칙
 
