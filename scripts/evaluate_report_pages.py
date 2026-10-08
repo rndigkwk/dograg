@@ -1,4 +1,5 @@
 """Search small, answer from the whole page? (day46 Parent-Child, page as the parent)
+Or keep only the sentences the question needs? (day48 context compression)
 
 Report answers get the 6 nearest 1,000-character chunks. Tables and lists are often cut at a
 chunk boundary, so the number a question asks for can sit in the half that was not retrieved.
@@ -7,9 +8,13 @@ This compares, on the 18 answerable report questions of tests/data/crag_eval_que
 - chunks: the app today (top 6 chunks)
 - pages:  the same top 6 chunks, each replaced by its whole PDF page (unique pages in rank
           order, rebuilt from the page's stored chunks), i.e. search by the child, answer from the parent
+- compressed:   the same top 6 chunks, cut to the sentences the question needs (one extraction
+                call over all chunks, sentences copied verbatim), then the same answer prompt
+- compressed12: top 12 chunks, compressed: more candidates in about the same context
 
     uv run python scripts/evaluate_report_pages.py references   # reference answers from the gold pages
     uv run python scripts/evaluate_report_pages.py compare --repeats 2
+    uv run python scripts/evaluate_report_pages.py compare --variants chunks compressed compressed12
 
 References are written by a model reading only the gold page(s) and saved to
 tests/data/report_reference_answers.json (review them; they are the yardstick). Each answer is
@@ -30,7 +35,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
@@ -66,6 +71,45 @@ def model(effort: str | None = None):
 class Reference(BaseModel):
     answerable: bool
     answer: str
+
+
+class Extract(BaseModel):
+    chunk: int = Field(description="자료 번호")
+    sentences: list[str] = Field(description="질문에 답하는 데 필요한 문장을 원문 그대로. 표는 필요한 행 그대로")
+
+
+class Extraction(BaseModel):
+    extracts: list[Extract] = Field(description="필요한 문장이 있는 자료만")
+
+
+COMPRESS_PROMPT = ("질문에 답하는 데 필요한 문장만 각 자료에서 원문 그대로 옮기세요. 질문이 묻는 수치, 그 수치의 조건·대상·연도, "
+                   "예외와 표의 해당 행은 빠뜨리지 마세요. 고쳐 쓰거나 요약하지 말고, 필요한 문장이 없는 자료는 빼세요.")
+
+
+def _squash(text: str) -> str:
+    return "".join(text.split())
+
+
+def compress(question: str, docs: list, extractor) -> tuple[list, float]:
+    """The docs cut to the sentences the question needs, in rank order, and the share of
+    extracted sentences found verbatim in their chunk (a check that nothing was rewritten)."""
+    from langchain_core.documents import Document
+
+    numbered = "\n\n".join(
+        f"[자료 {number}] ({doc.metadata.get('title', '보고서')} {doc.metadata.get('page', '?')}쪽)\n{doc.page_content}"
+        for number, doc in enumerate(docs, start=1))
+    result = extractor.invoke([("system", COMPRESS_PROMPT), ("user", f"[질문]\n{question}\n\n{numbered}")])
+    kept, found, total = {}, 0, 0
+    for extract in result.extracts:
+        if not 1 <= extract.chunk <= len(docs) or not extract.sentences:
+            continue
+        source = _squash(docs[extract.chunk - 1].page_content)
+        total += len(extract.sentences)
+        found += sum(_squash(sentence) in source for sentence in extract.sentences)
+        kept.setdefault(extract.chunk, []).extend(extract.sentences)
+    out = [Document(page_content="\n".join(kept[number]), metadata=dict(docs[number - 1].metadata))
+           for number in sorted(kept)]
+    return out, (found / total if total else 1.0)
 
 
 class Grade(BaseModel):
@@ -113,26 +157,39 @@ def as_pages(db, docs: list) -> list:
     return pages
 
 
-def compare(repeats: int, workers: int) -> None:
+def has_gold(docs: list, item: dict) -> bool:
+    """Is one of the question's gold pages among the docs? (metadata source is a path)"""
+    gold = {(name, page) for name, page in item["gold_pages"]}
+    return any((Path(str(doc.metadata.get("source", ""))).name, doc.metadata.get("page")) in gold for doc in docs)
+
+
+def compare(repeats: int, workers: int, variants: list[str]) -> None:
     from src import resources
     from src.tools import report
 
     refs = {item["id"]: item for item in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"]}
     items = [item for item in answerable_items() if refs[item["id"]]["answerable"]]
     grader = model("medium").with_structured_output(Grade)
+    extractor = model("low").with_structured_output(Extraction)
     with tempfile.TemporaryDirectory(prefix="ragdog-pages-", ignore_cleanup_errors=True) as directory:
         resources.CHROMA_DIR = Path(directory) / "chroma_db"
         shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
         db = resources.load_report_vector_db()
         contexts = {}
         for item in items:
-            chunks = db.similarity_search(item["question"], k=report.REPORT_ANALYSIS_TOP_K)
-            contexts[item["id"]] = {"chunks": chunks, "pages": as_pages(db, chunks)}
+            chunks12 = db.similarity_search(item["question"], k=12)
+            chunks = chunks12[: report.REPORT_ANALYSIS_TOP_K]
+            contexts[item["id"]] = {"chunks": chunks, "pages": as_pages(db, chunks), "compressed": chunks,
+                                    "compressed12": chunks12}
 
         def run(job):
             item, variant, _ = job
             docs = contexts[item["id"]][variant]
             started = time.perf_counter()
+            verbatim = None
+            if variant.startswith("compressed"):
+                docs, verbatim = compress(item["question"], docs, extractor)
+            compress_seconds = time.perf_counter() - started
             answer = report.generate_report_answer(item["question"], docs)
             seconds = time.perf_counter() - started
             grade = grader.invoke([
@@ -141,13 +198,15 @@ def compare(repeats: int, workers: int) -> None:
                 ("user", f"[질문]\n{item['question']}\n\n[정답]\n{refs[item['id']]['reference']}\n\n[답변]\n{answer}"),
             ])
             return {"id": item["id"], "variant": variant, "verdict": grade.verdict, "reason": grade.reason,
-                    "seconds": round(seconds, 1), "context_chars": sum(len(d.page_content) for d in docs)}
+                    "seconds": round(seconds, 1), "compress_seconds": round(compress_seconds, 1),
+                    "context_chars": sum(len(d.page_content) for d in docs), "verbatim": verbatim,
+                    "gold_in_context": has_gold(docs, item)}
 
-        jobs = [(item, variant, r) for r in range(repeats) for item in items for variant in ("chunks", "pages")]
+        jobs = [(item, variant, r) for r in range(repeats) for item in items for variant in variants]
         with ThreadPoolExecutor(workers) as pool:
             rows = list(pool.map(run, jobs))
     summary = {}
-    for variant in ("chunks", "pages"):
+    for variant in variants:
         mine = [row for row in rows if row["variant"] == variant]
         summary[variant] = {
             **{v: sum(row["verdict"] == v for row in mine) for v in ("correct", "partial", "wrong", "abstained")},
@@ -155,7 +214,12 @@ def compare(repeats: int, workers: int) -> None:
             "correct_rate": round(sum(row["verdict"] == "correct" for row in mine) / len(mine), 3),
             "context_chars_mean": round(statistics.mean(row["context_chars"] for row in mine)),
             "answer_seconds_p50": statistics.median(row["seconds"] for row in mine),
+            "gold_in_context": round(sum(row["gold_in_context"] for row in mine) / len(mine), 3),
         }
+        if variant.startswith("compressed"):
+            summary[variant]["verbatim_mean"] = round(statistics.mean(row["verbatim"] for row in mine), 3)
+            summary[variant]["compress_seconds_p50"] = statistics.median(row["compress_seconds"] for row in mine)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"summary": summary, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
@@ -165,9 +229,11 @@ def main() -> int:
     parser.add_argument("command", choices=("references", "compare"))
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--variants", nargs="+", default=["chunks", "pages"],
+                        choices=("chunks", "pages", "compressed", "compressed12"))
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    references() if args.command == "references" else compare(args.repeats, args.workers)
+    references() if args.command == "references" else compare(args.repeats, args.workers, args.variants)
     return 0
 
 
