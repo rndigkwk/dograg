@@ -14,7 +14,7 @@ from pathlib import Path
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
-from src import settings
+from src import settings, tracing
 from src.conversation_session import ConversationSession
 from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
 from src.health_safety import detect_urgent_sign
@@ -44,7 +44,8 @@ def team_lock() -> threading.Lock:
 def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step):
     from team.main import run  # imported on use: the chat pages do not need the agents
 
-    return run(consultation, region, profile, run_dir=run_dir, on_step=on_step)
+    session = tracing.session_id(ConversationSession(st.session_state).request)
+    return run(consultation, region, profile, run_dir=run_dir, on_step=on_step, session=session)
 
 
 def last_question() -> str:
@@ -60,6 +61,10 @@ def step_line(node: str, update: dict) -> str | None:
         kinds = {"health": "증상", "place": "병원", "cost": "비용"}
         tasks = ", ".join(kinds.get(task["kind"], task["kind"]) for task in update["plan"])
         return f"{label}: {tasks}"
+    if node == "researcher" and update.get("failures"):
+        kinds = {"health": "증상", "place": "병원", "cost": "비용"}
+        failed = ", ".join(kinds.get(item["kind"], item["kind"]) for item in update["failures"].values())
+        return f"조사 하나가 오류로 실패했습니다: {failed} (나머지 조사로 계속합니다)"
     if node == "reviewer" and update.get("review"):
         review = update["review"]
         verdict = "통과" if review.get("passed") else f"반려(근거 없는 문장 {len(review.get('unsupported', []))}개)"
@@ -71,6 +76,7 @@ def generate(consultation: str, region: str, profile: str) -> dict:
     """Run the team in a temporary folder and keep only the report text and its status."""
     from team.core import config
     from team.core.citations import readable_report
+    from team.graph.nodes import run_status as status_of
 
     started = time.perf_counter()
     with st.status("보고서를 만드는 중입니다. 1~2분 걸립니다.", expanded=True) as status:
@@ -88,10 +94,11 @@ def generate(consultation: str, region: str, profile: str) -> dict:
             # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
             report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
                                      state.get("findings") or {})
-        passed = bool(state.get("review") and state["review"].get("passed"))
-        status.update(label="보고서를 만들었습니다" if passed else config.HUMAN_CHECK,
+        run_status = status_of(state)
+        passed = run_status == config.PASSED
+        status.update(label="보고서를 만들었습니다" if passed else run_status,
                       state="complete" if passed else "error", expanded=False)
-    return {"report": report, "passed": passed, "round": state["round"], "steps": steps,
+    return {"report": report, "passed": passed, "status": run_status, "round": state["round"], "steps": steps,
             "urgent": bool(detect_urgent_sign(consultation)), "seconds": round(time.perf_counter() - started)}
 
 
@@ -103,13 +110,22 @@ def render_urgent_notice() -> None:
         st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
 
 
+UNCHECKED_NOTICES = {
+    "필수 조사 실패: 수의사(사람) 확인 필요":
+        "비슷한 상담 사례 조사가 오류로 실패해 보고서를 쓰지 않았습니다. 잠시 뒤 다시 시도하거나 병원에 바로 문의하세요.",
+    "같은 지적 반복: 수의사(사람) 확인 필요":
+        "다시 써도 같은 문장이 근거 없음으로 지적돼, 수의사(사람)의 확인이 필요한 초안으로 표시했습니다.",
+    None: "두 번 고쳐도 근거를 확인하지 못한 문장이 있어, 수의사(사람)의 확인이 필요한 초안으로 표시했습니다.",
+}
+
+
 def render_result(result: dict) -> None:
     if result["urgent"]:
         render_urgent_notice()
     if result["passed"]:
         st.success(f"검수 통과 · 다시 쓰기 {result['round']}회 · {result['seconds']}초")
     else:
-        st.warning("두 번 고쳐도 근거를 확인하지 못한 문장이 있어, 수의사(사람)의 확인이 필요한 초안으로 표시했습니다.")
+        st.warning(UNCHECKED_NOTICES.get(result.get("status"), UNCHECKED_NOTICES[None]))
     with st.expander("진행 과정"):
         st.markdown("\n".join(f"- {line}" for line in result["steps"]))
     with st.container(border=True):

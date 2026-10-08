@@ -18,8 +18,8 @@ def page_app():
 
 
 class FakeTeam:
-    def __init__(self, passed=True):
-        self.passed, self.calls, self.run_dirs = passed, [], []
+    def __init__(self, passed=True, outcome="complete"):
+        self.passed, self.outcome, self.calls, self.run_dirs = passed, outcome, [], []
 
     def __call__(self, consultation, region, profile, run_dir, on_step):
         self.calls.append((consultation, region, profile))
@@ -29,7 +29,8 @@ class FakeTeam:
         (run_dir / config.REPORT_FILE).write_text(
             "# 방문 준비 보고서\n\n설사 정리 [상담 내용]\n\n사료를 천천히 바꾼 사례 [qa-5250] [qa-5250]", encoding="utf-8")
         findings = {"t1": {"summary": "설사 사례", "key_points": [{"fact": "사료는 10일에 걸쳐 바꾼다", "evidence_id": "qa-5250"}]}}
-        return {"review": {"passed": self.passed}, "round": 0 if self.passed else 2, "findings": findings}
+        return {"review": {"passed": self.passed}, "round": 0 if self.passed else 2, "findings": findings,
+                "outcome": self.outcome}
 
 
 class VisitPrepPageTests(unittest.TestCase):
@@ -89,6 +90,15 @@ class VisitPrepPageTests(unittest.TestCase):
             lock.release()
         self.assertEqual(team.calls, [])
         self.assertIn("다른 사용자의 보고서", " ".join(item.value for item in at.info))
+
+    def test_a_failed_research_task_shows_in_the_progress(self):
+        self.assertEqual(visit_prep.step_line("researcher", {"failures": {"t3": {"kind": "cost", "error": "x"}}}),
+                         "조사 하나가 오류로 실패했습니다: 비용 (나머지 조사로 계속합니다)")
+
+    def test_held_report_explains_that_required_research_failed(self):
+        at = self.open_page(FakeTeam(passed=False, outcome="held"))
+        self.submit(at, "말티즈가 설사를 해요")
+        self.assertIn("비슷한 상담 사례 조사가 오류로 실패", " ".join(item.value for item in at.warning))
 
     def test_urgent_consultation_points_to_a_hospital_first(self):
         at = self.open_page(FakeTeam())

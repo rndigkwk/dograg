@@ -51,14 +51,40 @@ class FakeWriter:
 
 
 def judge_with(unsupported):
-    claims = [SimpleNamespace(text=text, verdict="unsupported") for text in unsupported]
-    claims.append(SimpleNamespace(text="증상 정리", verdict="supported"))
-    return lambda model: SimpleNamespace(invoke=lambda inputs: SimpleNamespace(claims=claims))
+    """A judge that flags the same claims in every review."""
+    return judge_rounds([unsupported])
+
+
+def judge_rounds(rounds):
+    """A judge that flags rounds[i] in review i (the last entry repeats)."""
+    calls = []
+
+    def invoke(inputs):
+        flagged = rounds[min(len(calls), len(rounds) - 1)]
+        calls.append(flagged)
+        claims = [SimpleNamespace(text=text, verdict="unsupported") for text in flagged]
+        return SimpleNamespace(claims=[*claims, SimpleNamespace(text="증상 정리", verdict="supported")])
+
+    return lambda model: SimpleNamespace(invoke=invoke)
+
+
+class BrokenResearcher(FakeResearcher):
+    """A researcher whose model call fails after the SDK's own retries (e.g. an API outage)."""
+
+    def __init__(self, kind, broken_kinds):
+        super().__init__(kind)
+        self.broken = kind in broken_kinds
+
+    def invoke(self, inputs):
+        if self.broken:
+            raise ConnectionError("API 연결 끊김")
+        return super().invoke(inputs)
 
 
 def initial_state(region="강남구"):
     return {"consultation": "말티즈가 설사와 구토를 해요", "region": region, "profile": "", "urgent": "",
-            "plan": [], "findings": {}, "round": 0, "draft": "", "review": None, "feedback": "", "instruction": ""}
+            "plan": [], "findings": {}, "failures": {}, "outcome": "", "round": 0, "draft": "", "review": None,
+            "feedback": "", "instruction": ""}
 
 
 class ToolPermissionTests(unittest.TestCase):
@@ -98,7 +124,7 @@ class FanOutTests(unittest.TestCase):
 
 
 class TeamGraphTests(unittest.TestCase):
-    def run_team(self, unsupported):
+    def run_team(self, unsupported=(), *, judge=None, broken_kinds=()):
         tasks = [VisitTask(kind="health", query="설사", angle="a"), VisitTask(kind="health", query="구토", angle="b"),
                  VisitTask(kind="cost", query="진료비", angle="c")]
         directory = tempfile.TemporaryDirectory()
@@ -107,8 +133,8 @@ class TeamGraphTests(unittest.TestCase):
         writer = FakeWriter(run_dir)
         # review_llm is replaced too: building a real ChatOpenAI needs an API key, which CI does not have.
         with patch.object(config, "llm", return_value=FakeLLM(tasks)), patch.object(config, "review_llm"), \
-                patch.object(nodes, "create_researcher", side_effect=FakeResearcher), \
-                patch.object(nodes, "build_judge", side_effect=judge_with(unsupported)), \
+                patch.object(nodes, "create_researcher", side_effect=lambda kind: BrokenResearcher(kind, broken_kinds)), \
+                patch.object(nodes, "build_judge", side_effect=judge or judge_with(list(unsupported))), \
                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0):
             state = build_graph().invoke(initial_state(), context={"run_dir": run_dir, "writer": writer})
         result = json.loads((run_dir / config.RESULT_FILE).read_text(encoding="utf-8"))
@@ -124,12 +150,63 @@ class TeamGraphTests(unittest.TestCase):
         self.assertTrue(report.startswith("# 방문 준비 보고서"))
 
     def test_rejections_stop_at_the_round_limit_for_a_person_to_check(self):
-        _, result, report, writer = self.run_team(unsupported=["근거 없는 진단"])
+        # A different flagged sentence each time: real progress, so only the round limit stops it.
+        judge = judge_rounds([["근거 없는 진단"], ["근거 없는 약 이름"], ["근거 없는 검사 비용"]])
+        _, result, report, writer = self.run_team(judge=judge)
         self.assertEqual(result["status"], config.HUMAN_CHECK)
         self.assertEqual(result["round"], config.MAX_ROUNDS)
         self.assertEqual(writer.calls, config.MAX_ROUNDS + 1)  # first draft + one rewrite per round
-        self.assertEqual(result["review"]["unsupported"], ["근거 없는 진단"])
+        self.assertEqual(result["review"]["unsupported"], ["근거 없는 검사 비용"])
         self.assertIn(config.HUMAN_CHECK, report.splitlines()[0])  # the draft is marked, not published as checked
+
+    def test_the_same_rejection_twice_stops_before_the_round_limit(self):
+        # Ping-pong: the rewrite keeps the flagged sentence, so stop at the second review.
+        _, result, report, writer = self.run_team(unsupported=["근거 없는 진단"])
+        self.assertEqual(result["status"], config.REPEATED_CHECK)
+        self.assertEqual((result["round"], writer.calls), (1, 2))  # one rewrite, not MAX_ROUNDS
+        self.assertTrue(result["review"]["repeated"])
+        self.assertIn(config.REPEATED_CHECK, report.splitlines()[0])
+
+
+class FailureTests(unittest.TestCase):
+    run_team = TeamGraphTests.run_team
+    def test_one_failed_researcher_does_not_cancel_the_others(self):
+        # The cost researcher fails; both health findings and the place finding survive.
+        _, result, report, _ = self.run_team(broken_kinds=("cost",))
+        self.assertEqual(sorted(result["findings"]), ["t1", "t2", "t4"])
+        self.assertEqual(list(result["failures"]), ["t3"])
+        self.assertIn("ConnectionError", result["failures"]["t3"]["error"])
+        self.assertEqual((result["outcome"], result["status"]), ("degraded", config.PASSED))
+        # The code, not the writer, states what is missing
+        self.assertIn("수집하지 못한 자료: 진료비 통계", report)
+
+    def test_failed_required_research_stops_before_writing(self):
+        _, result, report, writer = self.run_team(broken_kinds=("health",))
+        self.assertEqual((result["outcome"], result["status"]), ("held", config.RESEARCH_HELD))
+        self.assertEqual(writer.calls, 0)  # nothing to write from
+        self.assertIn("필수 조사(비슷한 상담 사례)가 오류로 실패", report)
+        self.assertIn("말티즈가 설사와 구토를 해요", report)  # the person taking over sees the consultation
+
+    def test_the_writer_and_reviewer_see_what_failed(self):
+        state = {**initial_state(), "failures": {"t3": {"kind": "cost", "error": "x"}}}
+        self.assertIn("[수집 실패] 진료비 통계", nodes.evidence_text(state))
+        self.assertEqual(nodes.research_outcome({**state, "plan": [{"task_id": "t1", "kind": "health"}]}), "degraded")
+
+    def test_model_retries_live_in_one_layer(self):
+        # The SDK retries; the graph adds no RetryPolicy, so attempts are not multiplied.
+        with patch.object(config.settings, "get_openai_api_key", return_value="sk-test"):
+            config.llm.cache_clear()
+            config.review_llm.cache_clear()
+            config.writer_llm.cache_clear()
+            try:
+                models = [config.llm(), config.review_llm(), config.writer_llm()]
+            finally:
+                config.llm.cache_clear()
+                config.review_llm.cache_clear()
+                config.writer_llm.cache_clear()
+        self.assertEqual({model.max_retries for model in models}, {config.MODEL_MAX_RETRIES})
+        graph = build_graph()
+        self.assertTrue(all(not node.retry_policy for node in graph.builder.nodes.values()))
 
     def test_run_reports_each_finished_node_and_returns_the_final_state(self):
         from team import main as team_main
