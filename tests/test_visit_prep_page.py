@@ -23,6 +23,7 @@ class FakeTeam:
 
     def __call__(self, consultation, region, profile, run_dir, on_step):
         self.calls.append((consultation, region, profile))
+        getattr(self, "events", []).append("run_team")
         self.run_dirs.append(run_dir)
         on_step("planner", {"plan": [{"kind": "health"}, {"kind": "place"}]})
         on_step("reviewer", {"review": {"passed": self.passed, "unsupported": [] if self.passed else ["x"]}})
@@ -35,7 +36,11 @@ class FakeTeam:
 
 class VisitPrepPageTests(unittest.TestCase):
     def open_page(self, team, api_key="sk-test"):
+        self.events = []
+        team.events = self.events
+        prepare = lambda: self.events.append("prepare_search")  # records the call order
         patches = [patch.object(visit_prep, "run_team", side_effect=team),
+                   patch.object(visit_prep, "prepare_search", side_effect=prepare),
                    patch.object(settings, "get_openai_api_key", return_value=api_key)]
         for item in patches:
             item.start()
@@ -59,6 +64,9 @@ class VisitPrepPageTests(unittest.TestCase):
         self.assertIn("상담을 조사 작업으로 나눴습니다: 증상, 병원", markdown)
         self.assertIn("검수 통과", " ".join(item.value for item in at.success))
         self.assertFalse(Path(team.run_dirs[0]).exists())  # nothing kept on the server
+        # Search resources load in the page's thread first, never first inside a worker thread
+        self.assertEqual(self.events, ["prepare_search", "run_team"])
+        self.assertIn("검색 자료를 준비했습니다", markdown)
         # Evidence ids are shown as short numbers with a source list
         self.assertIn("설사 정리 ①", markdown)
         self.assertIn("바꾼 사례 ②", markdown)

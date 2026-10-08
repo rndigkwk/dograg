@@ -75,6 +75,9 @@ def run_record(state: dict | None, seconds: float) -> dict:
         "round": state.get("round", 0),
         "kind": [task["kind"] for task in state.get("plan", [])],
         "failed_kinds": failed_kinds(state),
+        # Exception class names only (the messages can quote the request): enough to tell an
+        # API outage from a code error when a production run is held.
+        "failed_errors": sorted({failure["error"].split(":", 1)[0] for failure in (state.get("failures") or {}).values()}),
         "supported_claims": review.get("supported", 0),
         "unsupported_claims": len(review.get("unsupported", [])),
         "seconds": round(seconds, 1),

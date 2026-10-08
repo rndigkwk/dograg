@@ -176,6 +176,9 @@ class FailureTests(unittest.TestCase):
         self.assertEqual(sorted(result["findings"]), ["t1", "t2", "t4"])
         self.assertEqual(list(result["failures"]), ["t3"])
         self.assertIn("ConnectionError", result["failures"]["t3"]["error"])
+        from team.main import run_record
+        record = run_record({**result, "failures": result["failures"]}, 1.0)
+        self.assertEqual((record["failed_kinds"], record["failed_errors"]), (["cost"], ["ConnectionError"]))
         self.assertEqual((result["outcome"], result["status"]), ("degraded", config.PASSED))
         # The code, not the writer, states what is missing
         self.assertIn("수집하지 못한 자료: 진료비 통계", report)
