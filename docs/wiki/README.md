@@ -13,7 +13,8 @@
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
 | [open-questions.md](open-questions.md) | 미해결 과제와 알려진 불일치 |
-| [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 켜고 끄기 |
+| [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 운영 설정(태그·release), 실험·정기 회귀 평가 |
+| [visit-prep-team.md](visit-prep-team.md) | 멀티에이전트 방문 준비 보고서 팀: 상담 12개 실험(기준선 → 개선), 실패 처리와 장애 주입, 배포 장애 기록 |
 | [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 |
 | [lecture-review.md](lecture-review.md) | Day 46~53 고급 RAG·에이전트 교안 중 적용할 기법 검토 |
 
