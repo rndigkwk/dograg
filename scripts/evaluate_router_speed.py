@@ -3,6 +3,7 @@
     uv run python scripts/evaluate_router_speed.py llm                                    # rules + LLM (default/low/none)
     uv run --with typesafe-sdk==0.7.1 python scripts/evaluate_router_speed.py jev       # Jev on every question
     uv run --project ../openai-decisions-examples-main python scripts/evaluate_router_speed.py decisions
+    uv run python scripts/evaluate_router_speed.py app        # the app's router as it is (rules + Decisions over HTTP)
     uv run python scripts/evaluate_router_speed.py summary
 
 Questions: every routed evaluation question we have (136): the Jev shadow set (40), the place
@@ -65,6 +66,7 @@ class _NeedsModel(Exception):
 def run_llm(repeats: int) -> None:
     sys.path.insert(0, str(PROJECT_DIR))
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ["ROUTER_FALLBACK"] = "llm"  # the chat-model router alone, without the Decisions call before it
     from langchain_openai import ChatOpenAI
 
     from src import resources, settings
@@ -107,6 +109,39 @@ def run_llm(repeats: int) -> None:
     finally:
         resources.load_chat_model = original
     save("llm", rows)
+
+
+def run_app(repeats: int) -> None:
+    """The app's classify_question as configured (ROUTER_FALLBACK), with each fallback's source."""
+    sys.path.insert(0, str(PROJECT_DIR))
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    from src.tools import router
+
+    sources = []
+    original = router.decide_route
+
+    def traced(question, chat_history=None):
+        route = original(question, chat_history)
+        sources.append("decisions" if route else "llm")
+        return route
+
+    router.decide_route = traced
+    router.classify_question("워밍업 질문입니다")
+    rows = []
+    try:
+        for item in questions():
+            row = {**item, "calls": []}
+            for _ in range(repeats):
+                sources.clear()
+                started = time.perf_counter()
+                route = router.classify_question(item["question"])
+                row["calls"].append({"route": route, "seconds": round(time.perf_counter() - started, 3),
+                                     "source": sources[0] if sources else "rules"})
+            rows.append(row)
+    finally:
+        router.decide_route = original
+    save("app", rows)
+    print("fallback sources:", {s: sum(c["source"] == s for r in rows for c in r["calls"]) for s in ("rules", "decisions", "llm")})
 
 
 # --- Jev ------------------------------------------------------------------------------
@@ -217,6 +252,16 @@ def summary() -> None:
         table[f"rules + {name}"] = [describe(mixed_routes, mixed_seconds)]
         table[f"{name} fallback only"] = [describe([(rows[r["id"]]["route"], r["expected"]) for r in fallback],
                                                    [rows[r["id"]]["seconds"] for r in fallback])]
+    if (path := OUT_DIR / "router_app.json").exists():
+        app = json.loads(path.read_text(encoding="utf-8"))
+        fallback_ids = {row["id"] for row in fallback}
+        for repeat in range(len(app[0]["calls"])):
+            calls = [(row["calls"][repeat], row["expected"], row["id"]) for row in app]
+            table.setdefault("app router (rules + Decisions over HTTP)", []).append(
+                describe([(c["route"], e) for c, e, _ in calls], [c["seconds"] for c, _, _ in calls]))
+            table.setdefault("app router, fallback only", []).append(
+                describe([(c["route"], e) for c, e, i in calls if i in fallback_ids],
+                         [c["seconds"] for c, _, i in calls if i in fallback_ids]))
     result = {"questions": len(llm), "rules_decided": len(llm) - len(fallback),
               "rules_correct": sum(r["rules_route"] == r["expected"] for r in llm if r["rules_route"]),
               "table": table}
@@ -226,10 +271,11 @@ def summary() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("llm", "jev", "decisions", "summary"))
+    parser.add_argument("command", choices=("llm", "jev", "decisions", "app", "summary"))
     parser.add_argument("--repeats", type=int, default=2)
     args = parser.parse_args()
-    {"llm": lambda: run_llm(args.repeats), "jev": run_jev, "decisions": run_decisions, "summary": summary}[args.command]()
+    {"llm": lambda: run_llm(args.repeats), "jev": run_jev, "decisions": run_decisions,
+     "app": lambda: run_app(args.repeats), "summary": summary}[args.command]()
     return 0
 
 
