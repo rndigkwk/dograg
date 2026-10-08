@@ -111,6 +111,23 @@ class ConversationPageTests(unittest.TestCase):
         at = self.run_app(browser, at)
         self.assertEqual(at.session_state[CONSULTATION_KEY], "강아지가 구토해요")
 
+    def test_first_answer_button_keeps_its_key_after_the_save_rerun(self):
+        # Without the save-and-rerun, the run that answers is what the browser shows until the
+        # next run. Its button must have the key the next run gives it, or a click is lost.
+        from src.conversation_session import ConversationSession
+
+        browser = FakeBrowser()
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("강아지가 구토해요")
+        with patch.object(ConversationSession, "pending_values", return_value=None):
+            at = self.run_app(browser, at)
+        answering = [b.key for b in at.button if b.label == "이 상담으로 방문 준비 보고서 만들기"]
+        at = self.run_app(browser, at)
+        later = [b.key for b in at.button if b.label == "이 상담으로 방문 준비 보고서 만들기"]
+        self.assertEqual(len(answering), 1)
+        self.assertNotIn("None", answering[0])
+        self.assertEqual(answering, later)
+
     def test_clear_device_removes_everything(self):
         stored = Thread(title="지울 대화", turns=[Turn(question="q", answer="a", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)
