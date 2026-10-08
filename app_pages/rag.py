@@ -421,13 +421,17 @@ def render_page():
                 "trace_id": result.get("trace_id"),
                 "emergency": emergency,
             }
-            # Same key it gets in the history loop once appended below.
-            render_assistant_message(assistant_message, show_notice=False, question=question,
-                                     key=f"{session.current_thread}_{len(st.session_state[CHAT_MESSAGES_STATE_KEY])}")
+            position = len(st.session_state[CHAT_MESSAGES_STATE_KEY])
+            # Record first: a new conversation gets its thread id here, and the widgets below must
+            # carry the key the history loop gives them on the next run. Keyed with the old (None)
+            # thread, a button clicked before the save-and-rerun finished was gone by the time the
+            # click arrived (seen on the deployed app, where the save takes a few seconds).
+            thread = session.record_turn(question, result["answer"], route=result["route"])
             st.session_state[CHAT_MESSAGES_STATE_KEY].append(assistant_message)
             st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
-            session.record_turn(question, result["answer"], route=result["route"])
-            st.session_state[RENDERED_THREAD_STATE_KEY] = session.current_thread
+            st.session_state[RENDERED_THREAD_STATE_KEY] = thread
+            render_assistant_message(assistant_message, show_notice=False, question=question,
+                                     key=f"{thread}_{position}")
             suggest_profile(session, question, result["route"])
 
             st.session_state[HOSPITAL_ROWS_STATE_KEY] = result.get("hospital_rows", [])
