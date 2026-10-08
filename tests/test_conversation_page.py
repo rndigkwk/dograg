@@ -56,6 +56,11 @@ class FakeBrowser:
 
 
 def fake_chatbot(question, **kwargs):
+    if "블랙홀" in question:  # no evidence: the chatbot abstains
+        from src.chat_graph import HEALTH_ABSTAIN
+
+        return {"route": "rag", "answer": HEALTH_ABSTAIN + "\n\n- **찾아본 것:** 9건", "evidence_rows": [],
+                "hospital_rows": [], "safety_notice": None, "abstained": True, "trace_id": f"trace-{len(question)}"}
     return {"route": "rag", "answer": f"답변: {question}", "evidence_rows": [], "hospital_rows": [],
             "safety_notice": None, "abstained": False, "trace_id": f"trace-{len(question)}"}
 
@@ -110,6 +115,22 @@ class ConversationPageTests(unittest.TestCase):
         buttons[0].click()  # the first answer's button, not the latest question
         at = self.run_app(browser, at)
         self.assertEqual(at.session_state[CONSULTATION_KEY], "강아지가 구토해요")
+
+    def test_an_abstained_answer_offers_no_visit_report(self):
+        browser = FakeBrowser()
+        at = self.run_app(browser)
+        for question in ("강아지가 블랙홀 근처에 가면?", "강아지가 구토해요"):
+            at.chat_input[0].set_value(question)
+            at = self.run_app(browser, at)
+        buttons = [button for button in at.button if button.label == "이 상담으로 방문 준비 보고서 만들기"]
+        self.assertEqual(len(buttons), 1)  # only under the answered question
+        # A reopened conversation keeps no "abstained" flag; the abstention text still hides it
+        at = self.run_app(browser)
+        next(button for button in at.sidebar.button if button.label == "강아지가 블랙홀 근처에 가면?").click()
+        at = self.run_app(browser, at)
+        self.assertEqual(len(at.chat_message), 4)
+        buttons = [button for button in at.button if button.label == "이 상담으로 방문 준비 보고서 만들기"]
+        self.assertEqual(len(buttons), 1)
 
     def test_first_answer_button_keeps_its_key_after_the_save_rerun(self):
         # Without the save-and-rerun, the run that answers is what the browser shows until the

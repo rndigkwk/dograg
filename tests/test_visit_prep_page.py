@@ -98,6 +98,22 @@ class VisitPrepPageTests(unittest.TestCase):
         self.assertEqual(at.session_state[visit_prep.RUNS_STATE_KEY], 1)  # answering is not a second run
         self.assertNotIn(visit_prep.PENDING_STATE_KEY, at.session_state)
 
+    def test_an_unanswered_pause_expires_and_gives_the_run_back(self):
+        team = FakeTeam(questions=["언제부터 설사했나요?"])
+        at = self.open_page(team)
+        self.submit(at, "말티즈가 설사를 해요")
+        thread_id = team.thread_ids[0]
+        self.assertIn(thread_id, visit_prep.paused_runs())
+        self.assertEqual(at.session_state[visit_prep.RUNS_STATE_KEY], 1)
+        # 31 minutes later another page view clears it from the server
+        expired = visit_prep.forget_expired_runs(now=visit_prep.paused_runs()[thread_id] + 31 * 60)
+        self.assertEqual(expired, [thread_id])
+        at.run()
+        self.assertIn(visit_prep.EXPIRED_NOTICE, " ".join(item.value for item in at.info))
+        self.assertNotIn(visit_prep.PENDING_STATE_KEY, at.session_state)
+        self.assertEqual(at.session_state[visit_prep.RUNS_STATE_KEY], 0)
+        self.assertNotIn("답하고 보고서 만들기", [button.label for button in at.button])
+
     def test_skipping_the_questions_resumes_with_an_empty_answer(self):
         team = FakeTeam(questions=["언제부터 설사했나요?"])
         at = self.open_page(team)
