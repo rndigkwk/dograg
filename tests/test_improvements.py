@@ -145,7 +145,8 @@ class ReportEvidenceTests(unittest.TestCase):
 
     def test_empty_report_skips_model(self):
         db = SimpleNamespace(similarity_search=lambda *args, **kwargs: [])
-        with patch.object(resources, "load_report_vector_db", return_value=db):
+        no_keywords = SimpleNamespace(search=lambda *args, **kwargs: [])  # the BM25 half of the hybrid search
+        with patch.object(resources, "load_report_vector_db", return_value=db),                 patch.object(resources, "load_report_bm25_index", return_value=no_keywords):
             result = report.analyze_report("반려동물 보고서의 비만 현황")
         self.assertEqual(result["evidence_rows"], [])
         self.assertIn("근거", result["answer"])

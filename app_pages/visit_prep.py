@@ -133,6 +133,7 @@ def prepare_search() -> None:
     resources.load_health_bm25_index()
     resources.load_health_answer_table()
     resources.load_report_vector_db()
+    resources.load_report_bm25_index()
 
 
 def generate(consultation: str, region: str, profile: str, pending: dict | None = None,

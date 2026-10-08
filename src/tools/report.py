@@ -142,11 +142,28 @@ def analyze_report(question: str) -> dict:
         return {"answer": "보고서 검색에는 OPENAI_API_KEY가 필요합니다.", "evidence_rows": []}
     # 목차 항목은 답변 프롬프트에만 씁니다. 검색어에 붙이면 KB 목차 페이지가 근거를 차지했습니다
     # (정답 페이지 적중 상위 6건 7/18 → 질문만으로 12/18, docs/wiki/retrieval-experiments.md).
-    report_docs = report_db.similarity_search(question, k=REPORT_ANALYSIS_TOP_K)
+    report_docs = search_reports_hybrid(question)
     evidence_rows = report_evidence_from_docs(report_docs)
     if not report_docs:
         return {"answer": "검색된 보고서 근거가 부족해 분석할 수 없습니다.", "evidence_rows": []}
     return {"answer": generate_report_answer(question, report_docs), "evidence_rows": evidence_rows}
+
+
+REPORT_CANDIDATE_K = 20
+
+
+def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list:
+    """Day47: Dense + BM25 over the report chunks, merged by RRF. Report questions name exact
+    terms (보고서 이름, 항목, 연도) that a keyword index matches where embeddings drift.
+    18 report questions: gold page in the top 6 12/18 -> 16/18, correct answers 23/36 -> 30/36
+    (docs/wiki/retrieval-experiments.md, experiment 13)."""
+    from src.hybrid_retrieval import retrieve_hybrid
+
+    report_db = resources.load_report_vector_db()
+    if report_db is None:
+        return []
+    return retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k,
+                           candidate_k=REPORT_CANDIDATE_K)
 
 
 def search_reports(question: str, queries: list[str] | None = None) -> list:
@@ -156,7 +173,7 @@ def search_reports(question: str, queries: list[str] | None = None) -> list:
         return []
     found = []
     for query in queries or [question]:
-        found = merge_documents(found, report_db.similarity_search(query, k=REPORT_ANALYSIS_TOP_K))
+        found = merge_documents(found, search_reports_hybrid(query))
     return found
 
 
