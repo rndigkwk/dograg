@@ -124,6 +124,18 @@ def make_health_tokenizer():
 
 
 @st.cache_resource(show_spinner=False)
+def load_report_bm25_index():
+    """BM25 over the report chunks (1,193). Uses the health index's tokenizer, so no second Kiwi
+    (about 290MB) is loaded; tokenizing the chunks takes a few seconds once per process."""
+    from src.hybrid_retrieval import HealthBM25Index
+
+    db = load_report_vector_db()
+    if db is None:
+        return None
+    return HealthBM25Index.from_chroma(db, load_health_bm25_index().tokenize)
+
+
+@st.cache_resource(show_spinner=False)
 def load_report_vector_db():
     embeddings = create_embedding_model()
     if embeddings is None:

@@ -44,11 +44,14 @@ class OpenAIEmbeddingSwitchTests(unittest.TestCase):
     def test_report_search_uses_the_question_without_toc_topics(self):
         db = Mock()
         db.similarity_search.return_value = []
-        with patch.object(resources, "load_report_vector_db", return_value=db):
+        keywords = Mock()  # the BM25 half of the hybrid search gets the same queries
+        keywords.search.return_value = []
+        with patch.object(resources, "load_report_vector_db", return_value=db),                 patch.object(resources, "load_report_bm25_index", return_value=keywords):
             report.analyze_report("반려동물 장묘 서비스 불만 유형")
             report.search_reports("입양비와 생활비 비교", ["입양비", "생활비"])
         queries = [call.args[0] for call in db.similarity_search.call_args_list]
         self.assertEqual(queries, ["반려동물 장묘 서비스 불만 유형", "입양비", "생활비"])
+        self.assertEqual([call.args[0] for call in keywords.search.call_args_list], queries)
 
     def test_report_search_without_key_explains_requirement(self):
         with patch.object(resources, "load_report_vector_db", return_value=None):

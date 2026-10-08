@@ -235,6 +235,7 @@ def _warm_up_health_search():
         resources.load_vector_db()
         resources.load_health_bm25_index()
         resources.load_health_answer_table()
+        resources.load_report_bm25_index()  # report search is hybrid too (needs the API key; None without)
         release_free_memory()  # 로딩 중 잠깐 쓴 메모리를 OS에 돌려줍니다.
     except Exception:  # noqa: BLE001 - warm-up is best effort
         logging.getLogger(__name__).warning("Health search warm-up failed", exc_info=True)

@@ -163,6 +163,77 @@ def has_gold(docs: list, item: dict) -> bool:
     return any((Path(str(doc.metadata.get("source", ""))).name, doc.metadata.get("page")) in gold for doc in docs)
 
 
+# --- variants measured and not adopted (experiment 13) -------------------------------------
+WINDOW_OVERLAP_CHARS = 200
+FUSION_PROMPT = (
+    ("system", """반려동물 보고서(한국 반려동물 보고서, 복지실태, 산업 실태조사, 의료·보험서비스, 장묘서비스)를 검색할 질의를 만듭니다.
+사용자 질문과 같은 정보를 찾되 표현이 다른 검색어 2개를 한 줄에 하나씩 쓰세요. 보고서에 나올 법한 용어(항목명, 통계 이름, 조사 대상)를 쓰고, 설명은 쓰지 마세요."""),
+    ("human", "{question}"),
+)
+
+
+def fusion_queries(question: str) -> list[str]:
+    """Day54 RAG-Fusion: the question plus two rewrites (one low-effort model call)."""
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+
+    from src import resources
+
+    model = resources.load_chat_model()
+    if model is None:
+        return [question]
+    text = (ChatPromptTemplate.from_messages(list(FUSION_PROMPT)) | model.bind(reasoning_effort="low") | StrOutputParser()).invoke({"question": question})
+    rewrites = [line.strip(" -•\t") for line in text.splitlines() if line.strip(" -•\t")]
+    return [question, *rewrites[:2]]
+
+
+def search_reports_fusion(question: str, k: int = 6) -> list:
+    """Dense search for each fusion query, merged by RRF."""
+    from src import resources
+    from src.hybrid_retrieval import reciprocal_rank_fusion
+
+    report_db = resources.load_report_vector_db()
+    if report_db is None:
+        return []
+    queries = fusion_queries(question)
+    return reciprocal_rank_fusion([report_db.similarity_search(query, k=12) for query in queries], top_k=k)
+
+
+def _chunk_order(report_db) -> tuple[list[str], dict[str, int], dict[str, tuple[str, dict]]]:
+    stored = report_db.get(include=["documents", "metadatas"])
+    rows = sorted(zip(stored["ids"], stored["documents"], stored["metadatas"]),
+                  key=lambda row: (row[2].get("source", ""), row[2].get("page", 0), row[2].get("chunk_index", 0)))
+    ids = [row[0] for row in rows]
+    return ids, {chunk_id: position for position, chunk_id in enumerate(ids)}, {row[0]: (row[1], row[2]) for row in rows}
+
+
+def with_neighbors(report_db, docs: list) -> list:
+    """Day46 Sentence Window at chunk level: each retrieved chunk with the chunks right before
+    and after it in the same report (a table cut at a chunk boundary comes back whole). The
+    200-character overlap between neighbours is removed; the hit's metadata is kept."""
+    from langchain_core.documents import Document
+
+    ids, position, chunks = _chunk_order(report_db)
+    out = []
+    for doc in docs:
+        index = position.get(doc.id)
+        if index is None:
+            out.append(doc)
+            continue
+        source = chunks[doc.id][1].get("source")
+        text = ""
+        for neighbour in ids[max(index - 1, 0): index + 2]:
+            body, metadata = chunks[neighbour]
+            if metadata.get("source") != source:
+                continue
+            overlap = next((n for n in range(min(len(text), len(body), WINDOW_OVERLAP_CHARS), 0, -1)
+                            if text.endswith(body[:n])), 0)
+            text += ("" if overlap else "\n") + body[overlap:]
+        out.append(Document(id=doc.id, page_content=text.strip(), metadata=dict(doc.metadata)))
+    return out
+
+
+
 def compare(repeats: int, workers: int, variants: list[str]) -> None:
     from src import resources
     from src.tools import report
@@ -175,12 +246,23 @@ def compare(repeats: int, workers: int, variants: list[str]) -> None:
         resources.CHROMA_DIR = Path(directory) / "chroma_db"
         shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
         db = resources.load_report_vector_db()
-        contexts = {}
+        contexts, search_seconds = {}, {}
         for item in items:
-            chunks12 = db.similarity_search(item["question"], k=12)
+            question = item["question"]
+            chunks12 = db.similarity_search(question, k=12)
             chunks = chunks12[: report.REPORT_ANALYSIS_TOP_K]
-            contexts[item["id"]] = {"chunks": chunks, "pages": as_pages(db, chunks), "compressed": chunks,
-                                    "compressed12": chunks12}
+            contexts[item["id"]] = {"chunks": chunks, "compressed": chunks, "compressed12": chunks12}
+            if "pages" in variants:
+                contexts[item["id"]]["pages"] = as_pages(db, chunks)
+            for variant, search in (("hybrid", report.search_reports_hybrid), ("fusion", search_reports_fusion)):
+                if variant in variants or f"{variant}_window" in variants:
+                    started = time.perf_counter()
+                    contexts[item["id"]][variant] = search(question)
+                    search_seconds[(item["id"], variant)] = time.perf_counter() - started
+            if "window" in variants:
+                contexts[item["id"]]["window"] = with_neighbors(db, chunks)
+            if "hybrid_window" in variants:
+                contexts[item["id"]]["hybrid_window"] = with_neighbors(db, contexts[item["id"]]["hybrid"])
 
         def run(job):
             item, variant, _ = job
@@ -200,6 +282,7 @@ def compare(repeats: int, workers: int, variants: list[str]) -> None:
             return {"id": item["id"], "variant": variant, "verdict": grade.verdict, "reason": grade.reason,
                     "seconds": round(seconds, 1), "compress_seconds": round(compress_seconds, 1),
                     "context_chars": sum(len(d.page_content) for d in docs), "verbatim": verbatim,
+                    "search_seconds": round(search_seconds.get((item["id"], variant.removesuffix("_window")), 0.0), 2),
                     "gold_in_context": has_gold(docs, item)}
 
         jobs = [(item, variant, r) for r in range(repeats) for item in items for variant in variants]
@@ -215,6 +298,7 @@ def compare(repeats: int, workers: int, variants: list[str]) -> None:
             "context_chars_mean": round(statistics.mean(row["context_chars"] for row in mine)),
             "answer_seconds_p50": statistics.median(row["seconds"] for row in mine),
             "gold_in_context": round(sum(row["gold_in_context"] for row in mine) / len(mine), 3),
+            "search_seconds_p50": statistics.median(row["search_seconds"] for row in mine),
         }
         if variant.startswith("compressed"):
             summary[variant]["verbatim_mean"] = round(statistics.mean(row["verbatim"] for row in mine), 3)
@@ -230,7 +314,8 @@ def main() -> int:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--variants", nargs="+", default=["chunks", "pages"],
-                        choices=("chunks", "pages", "compressed", "compressed12"))
+                        choices=("chunks", "pages", "compressed", "compressed12", "hybrid", "fusion", "window",
+                                 "hybrid_window"))
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     references() if args.command == "references" else compare(args.repeats, args.workers, args.variants)
