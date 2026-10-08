@@ -9,6 +9,7 @@ stays only in this session, like the chat (the server keeps no consultation text
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import streamlit as st
@@ -28,8 +29,13 @@ RUNS_STATE_KEY = "visit_prep_runs"
 # switching here ("이 상담으로 방문 준비 보고서 만들기").
 CONSULTATION_KEY = "visit_prep_consultation"
 RESULT_STATE_KEY = "visit_prep_result"
+# A run paused at ask_guardian: {"thread_id", "questions", "consultation", "region", "profile", "steps", "seconds"}
+PENDING_STATE_KEY = "visit_prep_pending"
+ANSWER_KEY = "visit_prep_answer"
 PREPARED = "검색 자료를 준비했습니다"
 STEP_LABELS = {
+    "clarify": None,  # shown as the questions themselves
+    "ask_guardian": "보호자 답변을 상담 내용에 더했습니다",
     "planner": "상담을 조사 작업으로 나눴습니다",
     "researcher": "조사 하나를 마쳤습니다",
     "supervisor": "다음 담당을 정했습니다",
@@ -45,11 +51,27 @@ def team_lock() -> threading.Lock:
     return threading.Lock()
 
 
-def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step):
+@st.cache_resource(show_spinner=False)
+def team_checkpointer():
+    """Where a run paused for the guardian's answer waits (one per server, keyed by thread_id).
+    In memory: a paused run holds the consultation, and the server keeps no consultation text
+    on disk. Each thread is deleted when its run finishes or is replaced."""
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    return InMemorySaver()
+
+
+def forget_paused_run(thread_id: str) -> None:
+    team_checkpointer().delete_thread(thread_id)
+
+
+def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step, *,
+             thread_id: str, resume: str | None = None):
     from team.main import run  # imported on use: the chat pages do not need the agents
 
     session = tracing.session_id(ConversationSession(st.session_state).request)
-    return run(consultation, region, profile, run_dir=run_dir, on_step=on_step, session=session)
+    return run(consultation, region, profile, run_dir=run_dir, on_step=on_step, session=session,
+               ask=True, checkpointer=team_checkpointer(), thread_id=thread_id, resume=resume)
 
 
 def last_question() -> str:
@@ -88,19 +110,27 @@ def prepare_search() -> None:
     resources.load_report_vector_db()
 
 
-def generate(consultation: str, region: str, profile: str) -> dict:
-    """Run the team in a temporary folder and keep only the report text and its status."""
+def generate(consultation: str, region: str, profile: str, pending: dict | None = None,
+             answer: str | None = None) -> dict:
+    """Run the team in a temporary folder and keep only the report text and its status.
+
+    The first call may stop before planning to ask the guardian (day51 interrupt): it returns
+    {"paused": True, ...} with the questions. The second call passes that pending run and the
+    answer ("" to skip), and the same thread resumes from the question."""
     from team.core import config
     from team.core.citations import readable_report
     from team.graph.nodes import run_status as status_of
 
     started = time.perf_counter()
-    with st.status("보고서를 만드는 중입니다. 1~2분 걸립니다.", expanded=True) as status:
+    thread_id = pending["thread_id"] if pending else uuid.uuid4().hex
+    label = "답변을 더해 보고서를 만드는 중입니다. 1~2분 걸립니다." if pending else "보고서를 만드는 중입니다. 1~2분 걸립니다."
+    with st.status(label, expanded=True) as status:
         prepare_search()
-        status.write(f"✓ {PREPARED}")
+        steps = list(pending["steps"]) if pending else [PREPARED]
+        if not pending:
+            status.write(f"✓ {PREPARED}")
         with tempfile.TemporaryDirectory(prefix="ragdog-visit-", ignore_cleanup_errors=True) as directory:
             run_dir = Path(directory)
-            steps = [PREPARED]
 
             def show(node: str, update: dict) -> None:
                 line = step_line(node, update)
@@ -108,16 +138,25 @@ def generate(consultation: str, region: str, profile: str) -> dict:
                     steps.append(line)
                     status.write(f"✓ {line}")
 
-            state = run_team(consultation, region, profile, run_dir, show)
+            state = run_team(consultation, region, profile, run_dir, show, thread_id=thread_id,
+                             resume=answer if pending else None)
+            if state["paused"]:
+                status.update(label="보고서에 필요한 내용을 몇 가지 여쭤볼게요", state="complete", expanded=False)
+                return {"paused": True, "thread_id": thread_id, "questions": state["questions"],
+                        "consultation": consultation, "region": region, "profile": profile, "steps": steps,
+                        "seconds": round(time.perf_counter() - started)}
             # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
             report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
                                      state.get("findings") or {})
+        forget_paused_run(thread_id)
         run_status = status_of(state)
         passed = run_status == config.PASSED
         status.update(label="보고서를 만들었습니다" if passed else run_status,
                       state="complete" if passed else "error", expanded=False)
-    return {"report": report, "passed": passed, "status": run_status, "round": state["round"], "steps": steps,
-            "urgent": bool(detect_urgent_sign(consultation)), "seconds": round(time.perf_counter() - started)}
+    seconds = round(time.perf_counter() - started) + (pending["seconds"] if pending else 0)
+    return {"paused": False, "report": report, "passed": passed, "status": run_status, "round": state["round"],
+            "steps": steps, "urgent": bool(detect_urgent_sign(consultation)), "seconds": seconds,
+            "answered": bool(pending and answer)}
 
 
 def render_urgent_notice() -> None:
@@ -141,7 +180,8 @@ def render_result(result: dict) -> None:
     if result["urgent"]:
         render_urgent_notice()
     if result["passed"]:
-        st.success(f"검수 통과 · 다시 쓰기 {result['round']}회 · {result['seconds']}초")
+        answered = " · 보호자 답변 반영" if result.get("answered") else ""
+        st.success(f"검수 통과 · 다시 쓰기 {result['round']}회 · {result['seconds']}초{answered}")
     else:
         st.warning(UNCHECKED_NOTICES.get(result.get("status"), UNCHECKED_NOTICES[None]))
     with st.expander("진행 과정"):
@@ -150,6 +190,46 @@ def render_result(result: dict) -> None:
         st.markdown(result["report"])
     st.download_button("보고서 내려받기 (.md)", result["report"], file_name="visit_report.md",
                        mime="text/markdown", icon=":material/download:")
+
+
+def start_or_resume(consultation: str, region: str, profile: str, pending: dict | None = None,
+                    answer: str | None = None) -> None:
+    """Run (or resume) under the server-wide team lock and keep the outcome in the session."""
+    if not team_lock().acquire(blocking=False):
+        st.info("다른 사용자의 보고서를 만드는 중입니다. 1~2분 뒤에 다시 눌러 주세요.")
+        return
+    try:
+        outcome = generate(consultation, region, profile, pending, answer)
+    except Exception as exc:  # noqa: BLE001 - any failure is shown to the guardian instead of a traceback
+        st.error(f"보고서를 만들지 못했습니다: {exc}")
+        return
+    finally:
+        team_lock().release()
+    if outcome["paused"]:
+        st.session_state[PENDING_STATE_KEY] = outcome
+        st.session_state.pop(ANSWER_KEY, None)
+    else:
+        st.session_state.pop(PENDING_STATE_KEY, None)
+        st.session_state[RESULT_STATE_KEY] = outcome
+    st.rerun()  # redraw the form with the remaining runs; the result stays in the session
+
+
+def render_questions(pending: dict) -> None:
+    """The paused run's questions. Answering or skipping resumes the same run (no new run counted)."""
+    from team.core.config import MAX_ANSWER_CHARS
+
+    with st.container(border=True):
+        st.markdown("**보고서를 더 정확하게 만들기 위해 몇 가지 여쭤볼게요**")
+        st.markdown("\n".join(f"{number}. {question}" for number, question in enumerate(pending["questions"], start=1)))
+        with st.form("visit_prep_answer_form"):
+            answer = st.text_area("답변 (아는 것만 적어도 됩니다)", key=ANSWER_KEY, max_chars=MAX_ANSWER_CHARS,
+                                  placeholder="예: 어제 저녁부터요. 하루에 세 번 정도 했고 밥은 반만 먹었어요.")
+            left, right = st.columns(2)
+            answered = left.form_submit_button("답하고 보고서 만들기", icon=":material/send:", type="primary")
+            skipped = right.form_submit_button("건너뛰고 바로 만들기", icon=":material/skip_next:")
+    if answered or skipped:
+        start_or_resume(pending["consultation"], pending["region"], pending["profile"], pending,
+                        "" if skipped else answer.strip())
 
 
 def render_page() -> None:
@@ -193,20 +273,16 @@ def render_page() -> None:
             st.info("상담 내용을 적어 주세요.")
         elif not settings.get_openai_api_key():
             st.error("OpenAI API 키가 없어 보고서를 만들 수 없습니다.")
-        elif not team_lock().acquire(blocking=False):
-            st.info("다른 사용자의 보고서를 만드는 중입니다. 1~2분 뒤에 다시 눌러 주세요.")
         else:
-            try:
-                st.session_state[RUNS_STATE_KEY] = runs + 1
-                st.session_state[RESULT_STATE_KEY] = generate(consultation, region.strip(), profile.strip())
-            except Exception as exc:
-                st.error(f"보고서를 만들지 못했습니다: {exc}")
-            else:
-                st.rerun()  # redraw the form with the remaining runs; the result stays in the session
-            finally:
-                team_lock().release()
+            if old := st.session_state.pop(PENDING_STATE_KEY, None):
+                forget_paused_run(old["thread_id"])  # a new consultation replaces an unanswered one
+            st.session_state.pop(RESULT_STATE_KEY, None)
+            st.session_state[RUNS_STATE_KEY] = runs + 1
+            start_or_resume(consultation, region.strip(), profile.strip())
 
-    if result := st.session_state.get(RESULT_STATE_KEY):
+    if pending := st.session_state.get(PENDING_STATE_KEY):
+        render_questions(pending)
+    elif result := st.session_state.get(RESULT_STATE_KEY):
         render_result(result)
 
 

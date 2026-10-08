@@ -31,6 +31,13 @@ class Finding(BaseModel):
     key_points: list[KeyPoint] = Field(description="사실과 그 근거 id")
 
 
+class Clarification(BaseModel):
+    """Before planning: what to ask the guardian, if anything."""
+    questions: list[str] = Field(
+        description="보고서에 꼭 필요한데 상담 내용에 없는 정보를 묻는 짧은 질문. 상담 내용이 충분하면 빈 목록"
+    )
+
+
 class ReworkStep(BaseModel):
     """After a rejection: who works next and what to do."""
     next: Literal["writer", "planner"] = Field(

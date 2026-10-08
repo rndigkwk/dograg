@@ -6,12 +6,14 @@ import json
 from typing import Literal
 
 from langgraph.runtime import Runtime
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 
 from src.faithfulness import build_judge, build_verifier, recheck_unsupported
 from team.agents.workers import create_researcher
 from team.core import config
 from team.core.prompts import (
+    CLARIFY_INPUT,
+    CLARIFY_PROMPT,
     PLANNER_INPUT,
     PLANNER_PROMPT,
     RESEARCHER_INPUT,
@@ -19,7 +21,7 @@ from team.core.prompts import (
     REWORK_PROMPT,
     WRITER_INPUT,
 )
-from team.core.schemas import ReworkStep, VisitPlan
+from team.core.schemas import Clarification, ReworkStep, VisitPlan
 
 WRITE_WITH_WHAT_EXISTS = ("추가 조사는 이미 한 번 했습니다. 지금 조사 결과만으로 보고서를 쓰고, "
                           "자료에 없는 내용은 '자료로 확인할 수 없음'이라고 적은 뒤 request_review를 부르세요.")
@@ -83,6 +85,36 @@ def run_status(state) -> str:
     if review.get("passed"):
         return config.PASSED
     return config.REPEATED_CHECK if review.get("repeated") else config.HUMAN_CHECK
+
+
+# --- clarify and ask_guardian (day51: interrupt before planning) ----------------------
+def clarify(state: State) -> dict:
+    """Decide what to ask the guardian. Skipped in code when asking is off (CLI, experiments)
+    and for urgent consultations: in an emergency the report must not wait on a question."""
+    if not state.get("ask") or state["urgent"]:
+        return {"questions": []}
+    message = CLARIFY_INPUT.format(consultation=state["consultation"], profile=state["profile"] or "없음")
+    result = config.llm().with_structured_output(Clarification).invoke(
+        [("system", CLARIFY_PROMPT.format(max_questions=config.MAX_QUESTIONS)), ("user", message)]
+    )
+    questions = [question.strip() for question in result.questions if question.strip()][: config.MAX_QUESTIONS]
+    print("clarify:", f"질문 {len(questions)}개")
+    return {"questions": questions}
+
+
+def ask_guardian(state: State) -> dict:
+    """Pause the run until the guardian answers (Command(resume=answer) with the same thread_id).
+    On resume this node runs again from the top, so it holds no model call: clarify, a node of
+    its own, already chose the questions. An empty answer means the guardian skipped."""
+    if not state.get("questions"):
+        return {}
+    answer = interrupt({"stage": "clarify", "questions": state["questions"]})
+    answer = " ".join(str(answer or "").split())[: config.MAX_ANSWER_CHARS]
+    print("ask_guardian:", "답변 받음" if answer else "건너뜀")
+    if not answer:
+        return {}
+    # Part of the consultation from here on: the planner reads it and the report may cite it.
+    return {"consultation": f"{state['consultation']}\n(보호자 추가 답변) {answer}"}
 
 
 # --- planner ----------------------------------------------------------------------
