@@ -43,7 +43,8 @@ def evidence_text(state: State) -> str:
     if state["region"]:
         lines.append(f"[지역] 보호자가 입력한 지역: {state['region']}")
     for kind in failed_kinds(state):
-        lines.append(f"[수집 실패] {config.KIND_LABELS[kind]}: 조사 중 오류로 결과를 얻지 못함")
+        note = " (기본 안내로 대신함)" if kind in config.FALLBACK_EVIDENCE else ""
+        lines.append(f"[수집 실패] {config.KIND_LABELS[kind]}: 조사 중 오류로 결과를 얻지 못함{note}")
     for task_id, finding in sorted(state["findings"].items()):
         lines.append(f"[{task_id} 요약] {finding['summary']}")
         lines += [f"[{point['evidence_id']}] {point['fact']}" for point in finding["key_points"]]
@@ -52,6 +53,16 @@ def evidence_text(state: State) -> str:
 
 def failed_kinds(state) -> list[str]:
     return sorted({failure["kind"] for failure in (state.get("failures") or {}).values()})
+
+
+def fallback_kinds(state) -> list[str]:
+    return sorted({finding["kind"] for finding in (state.get("findings") or {}).values() if finding.get("fallback")})
+
+
+def fallback_finding(kind: str) -> dict:
+    """The fixed guide that stands in for a failed or empty optional research task."""
+    return {"summary": config.FALLBACK_SUMMARY.format(label=config.KIND_LABELS[kind]),
+            "key_points": [dict(point) for point in config.FALLBACK_EVIDENCE[kind]], "kind": kind, "fallback": True}
 
 
 def research_outcome(state) -> str:
@@ -150,15 +161,25 @@ def researcher(state: ResearchInput) -> dict:
         # The OpenAI SDK has already retried transient errors (config.MODEL_MAX_RETRIES). Raising
         # here would cancel every researcher of this step and lose their results, so record it.
         print("researcher:", task["task_id"], "실패", type(exc).__name__)
-        error = f"{type(exc).__name__}: {exc}"[:300]
-        return {"failures": {task["task_id"]: {"kind": task["kind"], "error": error}}}
+        return failed(task, f"{type(exc).__name__}: {exc}"[:300])
     finding = result.get("structured_response")
     if finding is None:  # call limit reached before an answer
-        error = "CallLimitReached: 조사 호출 상한에 닿아 결과를 정리하지 못함"
-        return {"failures": {task["task_id"]: {"kind": task["kind"], "error": error}}}
+        return failed(task, "CallLimitReached: 조사 호출 상한에 닿아 결과를 정리하지 못함")
     finding_dict = finding.model_dump()
     finding_dict["kind"] = task["kind"]
+    if not finding_dict["key_points"] and task["kind"] in config.FALLBACK_EVIDENCE:
+        # Nothing found: not an error, but the section would be empty, so use the fixed guide.
+        print("researcher:", task["task_id"], "근거 없음 -> 기본 안내")
+        finding_dict = {**fallback_finding(task["kind"]), "summary": finding_dict["summary"]}
     return {"findings": {task["task_id"]: finding_dict}}
+
+
+def failed(task: dict, error: str) -> dict:
+    """Record a failed task; an optional kind with a fixed guide also gets that guide as its finding."""
+    update = {"failures": {task["task_id"]: {"kind": task["kind"], "error": error}}}
+    if task["kind"] in config.FALLBACK_EVIDENCE:
+        update["findings"] = {task["task_id"]: fallback_finding(task["kind"])}
+    return update
 
 
 # --- supervisor -------------------------------------------------------------------------
@@ -198,7 +219,9 @@ def writer(state: State, runtime: Runtime[Context]) -> Command[Literal["reviewer
     message = WRITER_INPUT.format(
         consultation=state["consultation"], profile=state["profile"] or "없음", urgent=state["urgent"] or "없음",
         findings=dump_json(state["findings"]), feedback=state["feedback"] or "없음",
-        missing=", ".join(config.KIND_LABELS[kind] for kind in failed_kinds(state)) or "없음",
+        missing=", ".join(config.KIND_LABELS[kind] for kind in failed_kinds(state)
+                          if kind not in config.FALLBACK_EVIDENCE) or "없음",
+        fallback=", ".join(config.KIND_LABELS[kind] for kind in fallback_kinds(state)) or "없음",
         instruction=state["instruction"] or "없음",
         previous=report_path.read_text(encoding="utf-8") if report_path.exists() else "없음",
     )
@@ -276,7 +299,9 @@ def publisher(state: State, runtime: Runtime[Context]) -> dict:
     if missing and not held:
         # Stated by code, not left to the writer: the reader must know what is missing.
         with path.open("a", encoding="utf-8") as file:
-            file.write(f"\n\n> 수집하지 못한 자료: {', '.join(missing)} (조사 중 오류). 이 부분은 병원에 직접 확인하세요.\n")
+            notes = [f"{config.KIND_LABELS[kind]}(조사 중 오류" + (", 기본 안내로 대신함)" if kind in config.FALLBACK_EVIDENCE else ")")
+                     for kind in failed_kinds(state)]
+            file.write(f"\n\n> 수집하지 못한 자료: {', '.join(notes)}. 이 부분은 병원에 직접 확인하세요.\n")
     record = {
         "status": status,
         "outcome": state.get("outcome") or "complete",
@@ -287,6 +312,7 @@ def publisher(state: State, runtime: Runtime[Context]) -> dict:
         "plan": state["plan"],
         "findings": state["findings"],
         "failures": state.get("failures") or {},
+        "fallback_kinds": fallback_kinds(state),
     }
     (run_dir / config.RESULT_FILE).write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     print("publisher:", status)
