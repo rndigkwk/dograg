@@ -63,6 +63,7 @@ class ChatState(TypedDict, total=False):
     pet_profile: Any  # src.storage.models.PetProfile or None (design doc phase 4)
     crag: bool  # 건강 상담 CRAG
     crag_reports: bool  # 보고서 CRAG (기본 꺼짐)
+    self_rag: bool  # 건강 답변을 근거와 대조해 근거 없는 문장을 한 번 고침 (CHAT_SELF_RAG, 기본 꺼짐)
     # classify
     route: str
     contextual_question: str
@@ -276,6 +277,18 @@ def build_chat_graph(tools):
             "safety_notice": tools.detect_urgent_sign(state["question"]),
         }
 
+    def health_review(state: ChatState):
+        # A separate node so the first answer's streamed tokens are not mixed with the rewrite.
+        answer, record = tools.review_health_answer(
+            state["question"], state["documents"][: state["top_k"]], state["answer"])
+        entry = {"step": "health_review", **record}
+        return {"answer": answer, "trace": [*state.get("trace", []), entry]}
+
+    def route_after_health_generate(state: ChatState) -> str:
+        # A symptom + place answer starts with the place list, which is not in the health
+        # evidence; the review would take it for unsupported claims.
+        return "health_review" if state.get("self_rag") and not state.get("place_answer") else END
+
     # --- CRAG: 보고서 분석 (질문 분해 + 평가, 재작성 없음) ---
     def report_retrieve(state: ChatState):
         question = state["question"]
@@ -303,7 +316,7 @@ def build_chat_graph(tools):
         "classify": classify, "date_answer": date_answer, "general": general, "hospital": hospital,
         "health_simple": health_simple, "report_simple": report_simple,
         "health_retrieve": health_retrieve, "health_grade": health_grade,
-        "health_rewrite": health_rewrite, "health_generate": health_generate,
+        "health_rewrite": health_rewrite, "health_generate": health_generate, "health_review": health_review,
         "report_retrieve": report_retrieve, "report_grade": report_grade,
         "report_generate": report_generate, "abstain": abstain,
     }.items():
@@ -321,8 +334,9 @@ def build_chat_graph(tools):
     builder.add_edge("report_retrieve", "report_grade")
     builder.add_conditional_edges("report_grade", route_after_report_grade, ["report_generate", "abstain"])
     builder.add_conditional_edges("hospital", route_after_hospital, ["health_retrieve", END])
+    builder.add_conditional_edges("health_generate", route_after_health_generate, ["health_review", END])
     for name in ("date_answer", "general", "health_simple", "report_simple",
-                 "health_generate", "report_generate", "abstain"):
+                 "health_review", "report_generate", "abstain"):
         builder.add_edge(name, END)
     return builder.compile()
 
@@ -377,6 +391,7 @@ def run_chat(
     location: tuple[float, float] | None = None,
     crag: bool = False,
     crag_reports: bool = False,
+    self_rag: bool = False,
     graph=None,
     pet_profile=None,
     on_token: Callable[[str], None] | None = None,
@@ -401,6 +416,7 @@ def run_chat(
                 state = _execute(graph, {
                     "question": question, "top_k": top_k, "chat_history": chat_history or [],
                     "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
+                    "self_rag": self_rag,
                     "trace": [], "rewrite_count": 0,
                 }, on_token, on_step, config={"callbacks": chat_trace.callbacks} if chat_trace.callbacks else None)
         except Exception as exc:

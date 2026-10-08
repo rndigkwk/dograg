@@ -30,6 +30,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
 QUESTIONS = PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"
+SELF_RAG = False
 
 
 def generate(items: list[dict], crag: bool, pet_profile=None) -> list[dict]:
@@ -61,7 +62,8 @@ def generate(items: list[dict], crag: bool, pet_profile=None) -> list[dict]:
             captured.clear()
             started = time.perf_counter()
             try:
-                result, error = app.chatbot(item["question"], crag=crag, crag_reports=False, pet_profile=pet_profile), None
+                result, error = app.chatbot(item["question"], crag=crag, crag_reports=False, pet_profile=pet_profile,
+                                            self_rag=SELF_RAG), None
             except Exception as exc:  # noqa: BLE001 - one failure should not stop the evaluation
                 result, error = {}, type(exc).__name__
             rows.append({
@@ -135,8 +137,11 @@ def main() -> int:
     parser.add_argument("--limit", type=int, help="first N questions only (smoke run)")
     parser.add_argument("--judge-only", type=Path, help="re-judge answers saved by an earlier run")
     parser.add_argument("--groups", help="comma-separated question groups, e.g. health_answerable")
+    parser.add_argument("--self-rag", action="store_true", help="review health answers against their evidence (day53)")
     parser.add_argument("--profile", help="pet profile JSON used for every question (design doc phase 4)")
     args = parser.parse_args()
+    global SELF_RAG
+    SELF_RAG = args.self_rag
     os.environ["HF_HUB_OFFLINE"] = "1"
 
     from src import resources

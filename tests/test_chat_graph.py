@@ -51,6 +51,7 @@ def make_tools(route="rag", **overrides):
         review_evidence=Mock(return_value=review(["b", "a"], True)),
         rewrite_search_query=Mock(return_value="다시 쓴 검색어"),
         generate_health_answer=Mock(return_value="생성 답변"),
+        review_health_answer=Mock(return_value=("고친 답변", {"claims": 3, "unsupported": 1, "revised": True})),
         detect_urgent_sign=lambda question: "응급" if "숨" in question else None,
         decompose_question=Mock(return_value=["입양비", "생활비"]),
         search_reports=Mock(return_value=[doc("r1"), doc("r2")]),
@@ -100,6 +101,28 @@ class CragOffTests(ChatGraphTestCase):
         tools = make_tools(is_date_question=lambda question: True)
         result = self.run_chat(tools, crag=True)
         self.assertEqual((result["route"], result["answer"]), ("none", "오늘"))
+
+
+class SelfRagTests(ChatGraphTestCase):
+    """Day53 Self-RAG review of health answers: measured and off by default (CHAT_SELF_RAG)."""
+
+    def test_off_by_default(self):
+        tools = make_tools()
+        result = self.run_chat(tools)
+        tools.review_health_answer.assert_not_called()
+        self.assertEqual(result["answer"], "생성 답변")
+
+    def test_on_the_answer_is_checked_against_the_same_evidence_and_replaced(self):
+        tools = make_tools()
+        result = run_chat(tools, "강아지가 구토해요", top_k=2, crag=True, self_rag=True)
+        question, docs, answer = tools.review_health_answer.call_args.args
+        self.assertEqual((question, [d.id for d in docs], answer), ("강아지가 구토해요", ["b", "a"], "생성 답변"))
+        self.assertEqual(result["answer"], "고친 답변")
+
+    def test_abstentions_are_not_reviewed(self):
+        tools = make_tools(review_evidence=Mock(return_value=review([], False)))
+        run_chat(tools, "강아지가 구토해요", top_k=2, crag=True, self_rag=True)
+        tools.review_health_answer.assert_not_called()
 
 
 class CompoundQuestionTests(ChatGraphTestCase):
