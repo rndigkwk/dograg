@@ -12,7 +12,7 @@ from langgraph.types import Command, Send
 
 from team.agents import workers
 from team.core import config
-from team.core.schemas import Finding, KeyPoint, ReworkStep, VisitPlan, VisitTask
+from team.core.schemas import Clarification, Finding, KeyPoint, ReworkStep, VisitPlan, VisitTask
 from team.graph import edges, nodes
 from team.graph.builder import build_graph
 from team.graph.state import merge_findings
@@ -22,10 +22,12 @@ from team.tools import handoff
 class FakeLLM:
     """Structured outputs for the planner (VisitPlan) and supervisor (ReworkStep)."""
 
-    def __init__(self, tasks):
-        self.tasks = tasks
+    def __init__(self, tasks, questions=()):
+        self.tasks, self.questions = tasks, list(questions)
 
     def with_structured_output(self, schema):
+        if schema is Clarification:
+            return SimpleNamespace(invoke=lambda messages: Clarification(questions=self.questions))
         if schema is VisitPlan:
             return SimpleNamespace(invoke=lambda messages: VisitPlan(tasks=self.tasks))
         return SimpleNamespace(invoke=lambda messages: ReworkStep(next="writer", instruction="근거 없는 문장을 지우세요"))
@@ -226,10 +228,84 @@ class FailureTests(unittest.TestCase):
                 patch.object(team_main, "create_writer", side_effect=FakeWriter), \
                 patch.object(team_main.tracing, "client", return_value=None):
             state = team_main.run("말티즈가 설사를 해요", run_dir=run_dir, on_step=lambda node, update: steps.append(node))
-        self.assertEqual(steps, ["planner", "researcher", "supervisor", "writer", "reviewer", "publisher"])
+        self.assertEqual(steps, ["clarify", "ask_guardian", "planner", "researcher", "supervisor", "writer", "reviewer",
+                                 "publisher"])
         self.assertEqual(state["run_dir"], run_dir)
         self.assertTrue(state["review"]["passed"])
         self.assertEqual(sorted(path.name for path in run_dir.iterdir()), sorted([config.REPORT_FILE, config.RESULT_FILE]))
+
+
+class AskGuardianTests(unittest.TestCase):
+    """Day51 interrupt: the team stops before planning to ask the guardian, then resumes."""
+
+    def run_app(self, consultation, answer, questions=("언제부터 설사했나요?", "하루에 몇 번인가요?")):
+        from langgraph.checkpoint.memory import InMemorySaver
+
+        from team import main as team_main
+
+        checkpointer, thread_id = InMemorySaver(), "visit-test"
+        tasks = [VisitTask(kind="health", query="설사", angle="a")]
+        llm = FakeLLM(tasks, questions)
+        planned = []
+        original_planner_input = nodes.PLANNER_INPUT
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        runs = []
+        with patch.object(config, "llm", return_value=llm), patch.object(config, "review_llm"),                 patch.object(nodes, "create_researcher", side_effect=FakeResearcher),                 patch.object(nodes, "build_judge", side_effect=judge_with([])),                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0),                 patch.object(nodes, "PLANNER_INPUT", _Recorder(original_planner_input, planned)),                 patch.object(team_main, "create_writer", side_effect=FakeWriter),                 patch.object(team_main.tracing, "client", return_value=None):
+            common = {"checkpointer": checkpointer, "thread_id": thread_id}
+            for number in (1, 2):
+                run_dir = Path(directory.name) / str(number)
+                run_dir.mkdir()
+                if number == 1:
+                    runs.append(team_main.run(consultation, run_dir=run_dir, ask=True, **common))
+                    if not runs[0]["paused"]:
+                        break
+                else:
+                    runs.append(team_main.run(consultation, run_dir=run_dir, resume=answer, **common))
+        return runs, planned
+
+    def test_the_run_pauses_with_questions_and_resumes_with_the_answer(self):
+        runs, planned = self.run_app("말티즈가 설사를 해요", "어제 저녁부터, 하루 세 번")
+        first, second = runs
+        self.assertTrue(first["paused"])
+        self.assertEqual(first["questions"], ["언제부터 설사했나요?", "하루에 몇 번인가요?"])
+        self.assertEqual(first["plan"], [])  # nothing planned or researched before the answer
+        self.assertFalse(second["paused"])
+        self.assertTrue(second["review"]["passed"])
+        # The answer became part of the consultation the planner read and the report may cite
+        self.assertIn("(보호자 추가 답변) 어제 저녁부터, 하루 세 번", second["consultation"])
+        self.assertEqual(len(planned), 1)
+        self.assertIn("어제 저녁부터", planned[0])
+
+    def test_an_empty_answer_skips_and_the_consultation_stays_as_written(self):
+        runs, _ = self.run_app("말티즈가 설사를 해요", "")
+        self.assertEqual(runs[1]["consultation"], "말티즈가 설사를 해요")
+        self.assertTrue(runs[1]["review"]["passed"])
+
+    def test_no_questions_means_no_pause(self):
+        runs, _ = self.run_app("말티즈가 설사를 해요", "무시됨", questions=())
+        self.assertEqual(len(runs), 1)
+        self.assertFalse(runs[0]["paused"])
+
+    def test_urgent_consultations_and_runs_without_asking_never_call_the_model(self):
+        llm = SimpleNamespace(with_structured_output=lambda schema: self.fail("clarify called the model"))
+        with patch.object(config, "llm", return_value=llm):
+            self.assertEqual(nodes.clarify({**initial_state(), "ask": False}), {"questions": []})
+            self.assertEqual(nodes.clarify({**initial_state(), "ask": True, "urgent": "경련"}), {"questions": []})
+
+
+class _Recorder(str):
+    """PLANNER_INPUT stand-in that records each formatted planner message."""
+
+    def __new__(cls, template, sink):
+        value = super().__new__(cls, template)
+        value.sink = sink
+        return value
+
+    def format(self, *args, **kwargs):
+        text = str.format(self, *args, **kwargs)
+        self.sink.append(text)
+        return text
 
 
 class ReworkRuleTests(unittest.TestCase):

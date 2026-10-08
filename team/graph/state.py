@@ -21,6 +21,8 @@ class State(TypedDict):
     region: str                                          # area for the hospital search, "" when not given
     profile: str                                         # pet profile text, "" when not given
     urgent: str                                          # urgent-sign notice from src/health_safety.py, "" when none
+    ask: bool                                            # may the team ask the guardian before planning (app: yes)
+    questions: list[str]                                 # clarify: what to ask the guardian, [] when nothing
     plan: list[dict]                                     # planner: every task so far
     # Parallel researchers write in the same step, so this field needs a reducer
     # (without one LangGraph raises InvalidUpdateError).

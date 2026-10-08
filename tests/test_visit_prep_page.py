@@ -18,20 +18,26 @@ def page_app():
 
 
 class FakeTeam:
-    def __init__(self, passed=True, outcome="complete"):
+    def __init__(self, passed=True, outcome="complete", questions=()):
         self.passed, self.outcome, self.calls, self.run_dirs = passed, outcome, [], []
+        self.questions, self.resumes = list(questions), []
 
-    def __call__(self, consultation, region, profile, run_dir, on_step):
+    def __call__(self, consultation, region, profile, run_dir, on_step, *, thread_id, resume=None):
         self.calls.append((consultation, region, profile))
+        self.thread_ids = [*getattr(self, "thread_ids", []), thread_id]
         getattr(self, "events", []).append("run_team")
         self.run_dirs.append(run_dir)
+        if self.questions and resume is None:  # stops at ask_guardian
+            return {"paused": True, "questions": self.questions, "thread_id": thread_id}
+        if resume is not None:
+            self.resumes.append((thread_id, resume))
         on_step("planner", {"plan": [{"kind": "health"}, {"kind": "place"}]})
         on_step("reviewer", {"review": {"passed": self.passed, "unsupported": [] if self.passed else ["x"]}})
         (run_dir / config.REPORT_FILE).write_text(
             "# 방문 준비 보고서\n\n설사 정리 [상담 내용]\n\n사료를 천천히 바꾼 사례 [qa-5250] [qa-5250]", encoding="utf-8")
         findings = {"t1": {"summary": "설사 사례", "key_points": [{"fact": "사료는 10일에 걸쳐 바꾼다", "evidence_id": "qa-5250"}]}}
         return {"review": {"passed": self.passed}, "round": 0 if self.passed else 2, "findings": findings,
-                "outcome": self.outcome}
+                "outcome": self.outcome, "paused": False}
 
 
 class VisitPrepPageTests(unittest.TestCase):
@@ -72,6 +78,33 @@ class VisitPrepPageTests(unittest.TestCase):
         self.assertIn("바꾼 사례 ②", markdown)
         self.assertNotIn("[qa-5250]", markdown)
         self.assertIn("② 비슷한 건강 상담 사례 (AI Hub qa-5250)", markdown)
+
+    def test_questions_pause_the_run_and_the_answer_resumes_the_same_thread(self):
+        team = FakeTeam(questions=["언제부터 설사했나요?", "하루에 몇 번인가요?"])
+        at = self.open_page(team)
+        self.submit(at, "말티즈가 설사를 해요")
+        markdown = " ".join(item.value for item in at.markdown)
+        self.assertIn("1. 언제부터 설사했나요?", markdown)
+        self.assertNotIn("설사 정리", markdown)  # no report yet
+        at.text_area(key=visit_prep.ANSWER_KEY).set_value("어제 저녁부터 세 번이요")
+        next(button for button in at.button if button.label == "답하고 보고서 만들기").click().run()
+        self.assertEqual(len(team.resumes), 1)
+        thread_id, answer = team.resumes[0]
+        self.assertEqual(answer, "어제 저녁부터 세 번이요")
+        self.assertEqual(thread_id, team.thread_ids[0])  # the paused run, not a new one
+        self.assertEqual(len(team.calls), 2)
+        self.assertIn("설사 정리", " ".join(item.value for item in at.markdown))
+        self.assertIn("보호자 답변 반영", " ".join(item.value for item in at.success))
+        self.assertEqual(at.session_state[visit_prep.RUNS_STATE_KEY], 1)  # answering is not a second run
+        self.assertNotIn(visit_prep.PENDING_STATE_KEY, at.session_state)
+
+    def test_skipping_the_questions_resumes_with_an_empty_answer(self):
+        team = FakeTeam(questions=["언제부터 설사했나요?"])
+        at = self.open_page(team)
+        self.submit(at, "말티즈가 설사를 해요")
+        next(button for button in at.button if button.label == "건너뛰고 바로 만들기").click().run()
+        self.assertEqual([answer for _, answer in team.resumes], [""])
+        self.assertNotIn("보호자 답변 반영", " ".join(item.value for item in at.success))
 
     def test_a_question_carried_from_the_chat_fills_the_box(self):
         from streamlit.testing.v1 import AppTest

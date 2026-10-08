@@ -17,6 +17,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from langgraph.types import Command
+
 from src import tracing
 from src.health_safety import detect_urgent_sign
 from src.run_log import question_fingerprint
@@ -27,41 +29,60 @@ from team.graph.nodes import failed_kinds, run_status
 
 
 def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path | None = None,
-        on_step: Callable[[str, dict], None] | None = None, session: str | None = None) -> dict:
+        on_step: Callable[[str, dict], None] | None = None, session: str | None = None,
+        ask: bool = False, checkpointer=None, thread_id: str | None = None, resume: str | None = None) -> dict:
     """Run the team once. run_dir defaults to a new output/visit_prep/<time>/ folder;
     on_step(node, update) is called as each node finishes (the app shows progress with it).
     With Langfuse on, the run is one `visit-prep` trace (tag `visit-prep`, the app's hashed
-    browser session as its session) whose output is the run record below; text stays masked."""
+    browser session as its session) whose output is the run record below; text stays masked.
+
+    ask=True lets the team stop before planning to ask the guardian (needs a checkpointer and
+    a thread_id). The run then returns with "questions" and "paused": True; call run again with
+    the same checkpointer and thread_id and resume=<the answer> ("" to skip) to finish it."""
     if run_dir is None:
         run_dir = OUTPUT_DIR / datetime.now(UTC).astimezone().strftime("%Y%m%d_%H%M%S")
         run_dir.mkdir(parents=True)
         print("산출물 폴더:", run_dir)
-    state = None
+    if resume is not None:
+        inputs = Command(resume=resume)
+    else:
+        inputs = {
+            "consultation": consultation, "region": region, "profile": profile,
+            "urgent": detect_urgent_sign(consultation) or "", "ask": ask, "questions": [],
+            "plan": [], "findings": {}, "failures": {}, "outcome": "", "round": 0, "draft": "",
+            "review": None, "feedback": "", "instruction": "",
+        }
+    config = {"recursion_limit": 40}
+    if thread_id is not None:
+        config["configurable"] = {"thread_id": thread_id}
+    state, paused = None, False
     started = time.perf_counter()
     with tracing.run_trace("visit-prep", question_fingerprint(consultation), session=session, tags=["visit-prep"],
-                           metadata={"region_given": bool(region), "profile_given": bool(profile)}) as trace:
+                           metadata={"region_given": bool(region), "profile_given": bool(profile),
+                                     "resumed": resume is not None}) as trace:
         try:
-            for mode, chunk in build_graph().stream(
-                {
-                    "consultation": consultation, "region": region, "profile": profile,
-                    "urgent": detect_urgent_sign(consultation) or "",
-                    "plan": [], "findings": {}, "failures": {}, "outcome": "", "round": 0, "draft": "",
-                    "review": None, "feedback": "", "instruction": "",
-                },
+            for mode, chunk in build_graph(checkpointer).stream(
+                inputs,
                 context={"run_dir": run_dir, "writer": create_writer(run_dir)},
-                config={"callbacks": trace.callbacks, "recursion_limit": 40},
+                config={**config, "callbacks": trace.callbacks},
                 stream_mode=["updates", "values"],
             ):
                 if mode == "values":
                     state = chunk
-                elif on_step is not None:
-                    for node, update in chunk.items():
+                    continue
+                for node, update in chunk.items():
+                    if node == "__interrupt__":  # stopped in ask_guardian, waiting for the answer
+                        paused = True
+                    elif on_step is not None:
                         on_step(node, update or {})
         finally:
-            trace.finish(run_record(state, time.perf_counter() - started))
+            trace.finish({"status": "waiting_for_guardian", "questions": len(state.get("questions", []))} if paused
+                         else run_record(state, time.perf_counter() - started))
     tracing.flush()
+    if paused:
+        return {"run_dir": run_dir, **state, "paused": True}
     print("저장한 파일:", sorted(path.name for path in run_dir.iterdir()))
-    return {"run_dir": run_dir, **state}
+    return {"run_dir": run_dir, **state, "paused": False}
 
 
 def run_record(state: dict | None, seconds: float) -> dict:
