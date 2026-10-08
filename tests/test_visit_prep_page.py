@@ -26,8 +26,10 @@ class FakeTeam:
         self.run_dirs.append(run_dir)
         on_step("planner", {"plan": [{"kind": "health"}, {"kind": "place"}]})
         on_step("reviewer", {"review": {"passed": self.passed, "unsupported": [] if self.passed else ["x"]}})
-        (run_dir / config.REPORT_FILE).write_text("# 방문 준비 보고서\n\n설사 정리", encoding="utf-8")
-        return {"review": {"passed": self.passed}, "round": 0 if self.passed else 2}
+        (run_dir / config.REPORT_FILE).write_text(
+            "# 방문 준비 보고서\n\n설사 정리 [상담 내용]\n\n사료를 천천히 바꾼 사례 [qa-5250] [qa-5250]", encoding="utf-8")
+        findings = {"t1": {"summary": "설사 사례", "key_points": [{"fact": "사료는 10일에 걸쳐 바꾼다", "evidence_id": "qa-5250"}]}}
+        return {"review": {"passed": self.passed}, "round": 0 if self.passed else 2, "findings": findings}
 
 
 class VisitPrepPageTests(unittest.TestCase):
@@ -56,6 +58,11 @@ class VisitPrepPageTests(unittest.TestCase):
         self.assertIn("상담을 조사 작업으로 나눴습니다: 증상, 병원", markdown)
         self.assertIn("검수 통과", " ".join(item.value for item in at.success))
         self.assertFalse(Path(team.run_dirs[0]).exists())  # nothing kept on the server
+        # Evidence ids are shown as short numbers with a source list
+        self.assertIn("설사 정리 ①", markdown)
+        self.assertIn("바꾼 사례 ②", markdown)
+        self.assertNotIn("[qa-5250]", markdown)
+        self.assertIn("② 비슷한 건강 상담 사례 (AI Hub qa-5250)", markdown)
 
     def test_unchecked_report_is_marked_for_a_person(self):
         at = self.open_page(FakeTeam(passed=False))

@@ -70,6 +70,7 @@ def step_line(node: str, update: dict) -> str | None:
 def generate(consultation: str, region: str, profile: str) -> dict:
     """Run the team in a temporary folder and keep only the report text and its status."""
     from team.core import config
+    from team.core.citations import readable_report
 
     started = time.perf_counter()
     with st.status("보고서를 만드는 중입니다. 1~2분 걸립니다.", expanded=True) as status:
@@ -84,7 +85,9 @@ def generate(consultation: str, region: str, profile: str) -> dict:
                     status.write(f"✓ {line}")
 
             state = run_team(consultation, region, profile, run_dir, show)
-            report = (run_dir / config.REPORT_FILE).read_text(encoding="utf-8")
+            # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
+            report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
+                                     state.get("findings") or {})
         passed = bool(state.get("review") and state["review"].get("passed"))
         status.update(label="보고서를 만들었습니다" if passed else config.HUMAN_CHECK,
                       state="complete" if passed else "error", expanded=False)
