@@ -31,6 +31,9 @@ MODELS = {
     "mminilm": ("cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", "onnx/model_qint8_avx512_vnni.onnx", "apache-2.0"),
     "jina-v2": ("jinaai/jina-reranker-v2-base-multilingual", "onnx/model_int8.onnx", "cc-by-nc-4.0"),
     "bge-base": ("BAAI/bge-reranker-base", "onnx/model.onnx", "mit"),
+    # day48 lesson model (Qwen/Qwen3-Reranker-0.6B), causal-LM reranker; ONNX by onnx-community
+    "qwen3-q4": ("onnx-community/Qwen3-Reranker-0.6B-ONNX", "onnx/model_q4.onnx", "apache-2.0"),
+    "qwen3-int8": ("onnx-community/Qwen3-Reranker-0.6B-ONNX", "onnx/model_quantized.onnx", "apache-2.0"),
 }
 OUT = PROJECT_DIR / "output" / "reranker_eval.json"
 
@@ -71,7 +74,7 @@ def main() -> int:
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "0")
     import pandas as pd
-    from onnx_reranker import OnnxCrossEncoder
+    from onnx_reranker import OnnxCrossEncoder, OnnxQwenReranker
     from relevance_set import load_items, metrics
 
     items = load_items()[: args.limit] if args.limit else load_items()
@@ -83,7 +86,7 @@ def main() -> int:
         repo, onnx_file, license_ = MODELS[name]
         gc.collect()
         before = rss_mb()
-        model = OnnxCrossEncoder.from_hub(repo, onnx_file)
+        model = (OnnxQwenReranker if name.startswith("qwen3") else OnnxCrossEncoder).from_hub(repo, onnx_file)
         loaded = rss_mb() - before
         for n in args.candidates:
             rankings, seconds = {}, []
