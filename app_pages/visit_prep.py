@@ -1,0 +1,174 @@
+"""Visit-prep report page: runs the multi-agent team (team/) on one consultation.
+
+Limits keep the deployed app safe: a run makes 10-20 model calls and takes one to two
+minutes, so each browser session gets MAX_RUNS_PER_SESSION runs and the server runs one
+team at a time. Files go to a temporary folder that is deleted after the run; the report
+stays only in this session, like the chat (the server keeps no consultation text).
+"""
+
+import tempfile
+import threading
+import time
+from pathlib import Path
+
+import streamlit as st
+from streamlit.errors import StreamlitAPIException
+
+from src import settings
+from src.conversation_session import ConversationSession
+from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
+from src.health_safety import detect_urgent_sign
+from src.tools.profile import profile_summary
+from src.ui import apply_app_theme, render_page_header
+
+MAX_RUNS_PER_SESSION = 2
+MAX_CONSULTATION_CHARS = 500
+RUNS_STATE_KEY = "visit_prep_runs"
+RESULT_STATE_KEY = "visit_prep_result"
+STEP_LABELS = {
+    "planner": "상담을 조사 작업으로 나눴습니다",
+    "researcher": "조사 하나를 마쳤습니다",
+    "supervisor": "다음 담당을 정했습니다",
+    "writer": "보고서를 썼습니다",
+    "reviewer": "문장마다 근거를 대조했습니다",
+    "publisher": "결과를 정리했습니다",
+}
+
+
+@st.cache_resource(show_spinner=False)
+def team_lock() -> threading.Lock:
+    """One team run at a time on the server: each run holds several model calls in flight."""
+    return threading.Lock()
+
+
+def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step):
+    from team.main import run  # imported on use: the chat pages do not need the agents
+
+    return run(consultation, region, profile, run_dir=run_dir, on_step=on_step)
+
+
+def last_question() -> str:
+    for message in reversed(st.session_state.get(CHAT_MESSAGES_STATE_KEY, [])):
+        if message["role"] == "user":
+            return message["content"][:MAX_CONSULTATION_CHARS]
+    return ""
+
+
+def step_line(node: str, update: dict) -> str | None:
+    label = STEP_LABELS.get(node)
+    if node == "planner" and update.get("plan"):
+        kinds = {"health": "증상", "place": "병원", "cost": "비용"}
+        tasks = ", ".join(kinds.get(task["kind"], task["kind"]) for task in update["plan"])
+        return f"{label}: {tasks}"
+    if node == "reviewer" and update.get("review"):
+        review = update["review"]
+        verdict = "통과" if review.get("passed") else f"반려(근거 없는 문장 {len(review.get('unsupported', []))}개)"
+        return f"{label}: {verdict}"
+    return label
+
+
+def generate(consultation: str, region: str, profile: str) -> dict:
+    """Run the team in a temporary folder and keep only the report text and its status."""
+    from team.core import config
+
+    started = time.perf_counter()
+    with st.status("보고서를 만드는 중입니다. 1~2분 걸립니다.", expanded=True) as status:
+        with tempfile.TemporaryDirectory(prefix="ragdog-visit-", ignore_cleanup_errors=True) as directory:
+            run_dir = Path(directory)
+            steps = []
+
+            def show(node: str, update: dict) -> None:
+                line = step_line(node, update)
+                if line:
+                    steps.append(line)
+                    status.write(f"✓ {line}")
+
+            state = run_team(consultation, region, profile, run_dir, show)
+            report = (run_dir / config.REPORT_FILE).read_text(encoding="utf-8")
+        passed = bool(state.get("review") and state["review"].get("passed"))
+        status.update(label="보고서를 만들었습니다" if passed else config.HUMAN_CHECK,
+                      state="complete" if passed else "error", expanded=False)
+    return {"report": report, "passed": passed, "round": state["round"], "steps": steps,
+            "urgent": bool(detect_urgent_sign(consultation)), "seconds": round(time.perf_counter() - started)}
+
+
+def render_urgent_notice() -> None:
+    st.error("응급 징후가 의심됩니다. 보고서를 기다리지 말고 지금 가까운 동물병원에 연락하세요.")
+    try:
+        st.page_link("app_pages/hospital.py", label="시설 찾기에서 가까운 동물병원 찾기", icon=":material/local_hospital:")
+    except (StreamlitAPIException, KeyError):  # 내비게이션 밖(AppTest 등)
+        st.caption("왼쪽 메뉴의 '시설 찾기'에서 가까운 동물병원을 찾을 수 있습니다.")
+
+
+def render_result(result: dict) -> None:
+    if result["urgent"]:
+        render_urgent_notice()
+    if result["passed"]:
+        st.success(f"검수 통과 · 다시 쓰기 {result['round']}회 · {result['seconds']}초")
+    else:
+        st.warning("두 번 고쳐도 근거를 확인하지 못한 문장이 있어, 수의사(사람)의 확인이 필요한 초안으로 표시했습니다.")
+    with st.expander("진행 과정"):
+        st.markdown("\n".join(f"- {line}" for line in result["steps"]))
+    with st.container(border=True):
+        st.markdown(result["report"])
+    st.download_button("보고서 내려받기 (.md)", result["report"], file_name="visit_report.md",
+                       mime="text/markdown", icon=":material/download:")
+
+
+def render_page() -> None:
+    apply_app_theme()
+    render_page_header(
+        "병원 방문 준비 보고서",
+        eyebrow="멀티에이전트 팀",
+        description=(
+            "상담 내용을 증상·병원·비용 조사로 나눠 여러 에이전트가 동시에 조사하고, "
+            "작성자가 쓴 보고서를 검수자가 문장마다 근거와 대조합니다. 진단이 아니라 수의사에게 보여 줄 정리입니다."
+        ),
+        accent="조사 · 작성 · 검수를 나눠 맡아요",
+    )
+    session = ConversationSession(st.session_state)
+    runs = st.session_state.get(RUNS_STATE_KEY, 0)
+    saved_profile = session.profiles.get()
+
+    with st.form("visit_prep_form"):
+        consultation = st.text_area("상담 내용", value=last_question(), max_chars=MAX_CONSULTATION_CHARS,
+                                    placeholder="예: 4살 말티즈가 어제부터 설사를 하고 오늘 아침에 두 번 토했어요. 병원비도 걱정돼요.")
+        left, right = st.columns(2)
+        region = left.text_input("근처 동물병원을 찾을 지역 (선택)", placeholder="예: 강남구")
+        profile = right.text_input("반려견 정보 (선택)", value=profile_summary(saved_profile) if saved_profile else "",
+                                   placeholder="예: 말티즈, 4살, 3.2kg")
+        submitted = st.form_submit_button("방문 준비 보고서 만들기", icon=":material/description:",
+                                          disabled=runs >= MAX_RUNS_PER_SESSION)
+    st.caption(f"한 번에 1\\~2분, 모델 호출 10\\~20회가 들어 세션당 {MAX_RUNS_PER_SESSION}번까지 만들 수 있습니다"
+               f"(남은 횟수 {max(MAX_RUNS_PER_SESSION - runs, 0)}번).")
+
+    if submitted:
+        consultation = consultation.strip()
+        if detect_urgent_sign(consultation):
+            render_urgent_notice()  # before the run: in an emergency the hospital comes first
+        if runs >= MAX_RUNS_PER_SESSION:  # the disabled button already ignores clicks; kept as a guard
+            st.info(f"이 세션에서는 보고서를 {MAX_RUNS_PER_SESSION}번까지 만들 수 있습니다.")
+        elif not consultation:
+            st.info("상담 내용을 적어 주세요.")
+        elif not settings.get_openai_api_key():
+            st.error("OpenAI API 키가 없어 보고서를 만들 수 없습니다.")
+        elif not team_lock().acquire(blocking=False):
+            st.info("다른 사용자의 보고서를 만드는 중입니다. 1~2분 뒤에 다시 눌러 주세요.")
+        else:
+            try:
+                st.session_state[RUNS_STATE_KEY] = runs + 1
+                st.session_state[RESULT_STATE_KEY] = generate(consultation, region.strip(), profile.strip())
+            except Exception as exc:
+                st.error(f"보고서를 만들지 못했습니다: {exc}")
+            else:
+                st.rerun()  # redraw the form with the remaining runs; the result stays in the session
+            finally:
+                team_lock().release()
+
+    if result := st.session_state.get(RESULT_STATE_KEY):
+        render_result(result)
+
+
+# st.Page and AppTest run this file as "__main__"; importing it (tests) renders nothing.
+if __name__ == "__main__":
+    render_page()

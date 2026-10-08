@@ -3,10 +3,13 @@
     uv run python scripts/langfuse_experiments.py upload                     # create/refresh datasets
     uv run python scripts/langfuse_experiments.py run crag --name effort-low  # 60 questions, real model
     uv run python scripts/langfuse_experiments.py run routing --name rules    # 36 questions
+    uv run python scripts/langfuse_experiments.py run visit --name baseline   # 12 consultations, visit-prep team
 
 Datasets (item ids are fixed, so uploading again updates items instead of adding):
 - ragdog-crag-60: tests/data/crag_eval_questions.json. Expected: answer or abstain.
 - ragdog-place-routing-36: tests/data/place_routing_questions.json. Expected: route and kind.
+- ragdog-visit-prep-12: tests/data/visit_prep_consultations.json. Expected: urgent flag, and
+  whether the consultation is about a dog (review should pass) or another species.
 
 Each run becomes an experiment run in Langfuse with item scores (correct_behavior,
 route_correct, kind_correct, gold_page_hit, latency_s) and run scores (accuracy,
@@ -39,6 +42,7 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 DATASETS = {
     "crag": ("ragdog-crag-60", PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"),
     "routing": ("ragdog-place-routing-36", PROJECT_DIR / "tests" / "data" / "place_routing_questions.json"),
+    "visit": ("ragdog-visit-prep-12", PROJECT_DIR / "tests" / "data" / "visit_prep_consultations.json"),
 }
 
 
@@ -51,6 +55,13 @@ def dataset_items(kind: str) -> list[dict]:
             "id": f"{name}-{item['id']}", "input": {"question": item["question"]},
             "expected_output": {"behavior": item["expected"], "gold_pages": item.get("gold_pages", [])},
             "metadata": {"id": item["id"], "group": item["group"]},
+        } for item in items]
+    if kind == "visit":
+        return [{
+            "id": f"{name}-{item['id']}",
+            "input": {key: item[key] for key in ("consultation", "region", "profile")},
+            "expected_output": {"scope": item["scope"], "urgent": item["urgent"]},
+            "metadata": {"id": item["id"]},
         } for item in items]
     return [{
         "id": f"{name}-{item['id']}", "input": {"question": item["question"]},
@@ -171,6 +182,89 @@ def routing_run_evaluators():
     return [summary]
 
 
+# --- visit-prep team set ---------------------------------------------------------
+def visit_task(*, item, **kwargs):
+    from team.core import config
+    from team.main import run as run_team
+
+    started = time.perf_counter()
+    state = run_team(**item.input)
+    seconds = round(time.perf_counter() - started, 1)
+    result = json.loads((state["run_dir"] / config.RESULT_FILE).read_text(encoding="utf-8"))
+    report = (state["run_dir"] / config.REPORT_FILE).read_text(encoding="utf-8")
+    review = result["review"] or {}
+    return {
+        "status": "passed" if result["status"] == config.PASSED else "human_check",
+        "round": result["round"],
+        "latency_s": seconds,
+        "urgent": bool(result["urgent"]),
+        "tasks": [task["kind"] for task in result["plan"]],
+        "hospitals": sum(len(f["key_points"]) for f in result["findings"].values() if f["kind"] == "place"),
+        "supported": review.get("supported", 0),
+        "unsupported": len(review.get("unsupported", [])),
+        "says_no_evidence": any(phrase in report for phrase in NO_EVIDENCE_PHRASES),
+        "run_dir": state["run_dir"].relative_to(PROJECT_DIR).as_posix(),
+    }
+
+
+NO_EVIDENCE_PHRASES = ("찾지 못", "근거가 없", "근거를 찾", "자료가 없", "확인되지 않", "확인할 수 없")
+
+
+def visit_evaluators():
+    from langfuse import Evaluation
+
+    def passed(*, output, **kwargs):
+        return Evaluation(name="passed", value=1.0 if output["status"] == "passed" else 0.0)
+
+    def urgent_correct(*, output, expected_output, **kwargs):
+        ok = output["urgent"] == expected_output["urgent"]
+        return Evaluation(name="urgent_correct", value=1.0 if ok else 0.0,
+                          comment=f"expected {expected_output['urgent']}, got {output['urgent']}")
+
+    def scope_handled(*, output, expected_output, **kwargs):
+        """Dog cases: a checked report. Other species: stopped for a person, or the report
+        says the evidence was not found (never a confident answer from dog material)."""
+        if expected_output["scope"] == "dog":
+            ok = output["status"] == "passed"
+        else:
+            ok = output["status"] == "human_check" or output["says_no_evidence"]
+        return Evaluation(name="scope_handled", value=1.0 if ok else 0.0)
+
+    def hospitals_listed(*, input, output, **kwargs):
+        if not input["region"]:
+            return []
+        return Evaluation(name="hospitals_listed", value=1.0 if output["hospitals"] else 0.0)
+
+    def numbers(*, output, **kwargs):
+        return [Evaluation(name="rounds", value=output["round"]), Evaluation(name="latency_s", value=output["latency_s"])]
+
+    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers]
+
+
+def visit_run_evaluators():
+    from langfuse import Evaluation
+
+    def summary(*, item_results, **kwargs):
+        def mean(name, results=item_results):
+            values = [e.value for r in results for e in r.evaluations if e.name == name]
+            return sum(values) / len(values) if values else 0.0
+
+        dogs = [r for r in item_results if r.item.expected_output["scope"] == "dog"]
+        latencies = sorted(r.output["latency_s"] for r in item_results)
+        return [
+            Evaluation(name="dog_pass_rate", value=mean("passed", dogs)),
+            Evaluation(name="human_check_rate", value=sum(r.output["status"] == "human_check" for r in item_results) / len(item_results)),
+            Evaluation(name="scope_handled_rate", value=mean("scope_handled")),
+            Evaluation(name="urgent_accuracy", value=mean("urgent_correct")),
+            Evaluation(name="hospitals_listed_rate", value=mean("hospitals_listed")),
+            Evaluation(name="mean_rounds", value=mean("rounds")),
+            Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
+            Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
+        ]
+
+    return [summary]
+
+
 def git_commit() -> str:
     try:
         return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=PROJECT_DIR, capture_output=True, text=True, check=True).stdout.strip()
@@ -190,6 +284,8 @@ def run(langfuse, kind: str, run_name: str, description: str | None, concurrency
     }
     if kind == "crag":
         task, evaluators, run_evaluators = crag_task, crag_evaluators(), crag_run_evaluators()
+    elif kind == "visit":
+        task, evaluators, run_evaluators = visit_task, visit_evaluators(), visit_run_evaluators()
     else:
         metadata["router"] = "rules only" if ROUTING_RULES_ONLY else "rules + LLM"
         task, evaluators, run_evaluators = routing_task, routing_evaluators(), routing_run_evaluators()

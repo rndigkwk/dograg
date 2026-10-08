@@ -130,6 +130,55 @@ class TeamGraphTests(unittest.TestCase):
         self.assertEqual(result["review"]["unsupported"], ["근거 없는 진단"])
         self.assertIn(config.HUMAN_CHECK, report.splitlines()[0])  # the draft is marked, not published as checked
 
+    def test_run_reports_each_finished_node_and_returns_the_final_state(self):
+        from team import main as team_main
+
+        tasks = [VisitTask(kind="health", query="설사", angle="a")]
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        run_dir = Path(directory.name)
+        steps = []
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)),                 patch.object(nodes, "create_researcher", side_effect=FakeResearcher),                 patch.object(nodes, "build_judge", side_effect=judge_with([])),                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0),                 patch.object(team_main, "create_writer", side_effect=FakeWriter),                 patch.object(team_main.tracing, "client", return_value=None):
+            state = team_main.run("말티즈가 설사를 해요", run_dir=run_dir, on_step=lambda node, update: steps.append(node))
+        self.assertEqual(steps, ["planner", "researcher", "supervisor", "writer", "reviewer", "publisher"])
+        self.assertEqual(state["run_dir"], run_dir)
+        self.assertTrue(state["review"]["passed"])
+        self.assertEqual(sorted(path.name for path in run_dir.iterdir()), sorted([config.REPORT_FILE, config.RESULT_FILE]))
+
+
+class ReworkRuleTests(unittest.TestCase):
+    def test_a_second_research_request_goes_back_to_the_writer(self):
+        state = {**initial_state(), "review": {"passed": False, "by": "writer"}, "feedback": "영업 여부가 없습니다",
+                 "plan": [{"task_id": "t1", "kind": "health"}, {"task_id": "t2", "kind": "health", "extra": True}]}
+        with patch.object(config, "llm") as llm:
+            step = nodes.supervisor(state)
+        llm.assert_not_called()  # decided in code, no model call
+        self.assertEqual((step.goto, step.update["round"]), ("writer", 1))
+        self.assertEqual(step.update["instruction"], nodes.WRITE_WITH_WHAT_EXISTS)
+
+    def test_the_first_research_request_still_reaches_the_planner(self):
+        state = {**initial_state(), "review": {"passed": False, "by": "writer"}, "feedback": "비용 자료가 없습니다",
+                 "plan": [{"task_id": "t1", "kind": "health"}]}
+        with patch.object(config, "llm", return_value=FakeLLM([])):
+            with patch.object(FakeLLM, "with_structured_output",
+                              return_value=SimpleNamespace(invoke=lambda m: ReworkStep(next="planner", instruction="비용"))):
+                step = nodes.supervisor(state)
+        self.assertEqual(step.goto, "planner")
+
+    def test_planner_adds_no_second_place_task_and_marks_extra_tasks(self):
+        extra = [VisitTask(kind="place", query="강남구 24시", angle="a"), VisitTask(kind="cost", query="비용", angle="b")]
+        state = {**initial_state(), "plan": [{"task_id": "t1", "kind": "place", "query": "강남구"}], "findings": {"t1": {}}}
+        with patch.object(config, "llm", return_value=FakeLLM(extra)):
+            update = nodes.planner(state)
+        added = update["plan"][1:]
+        self.assertEqual([(task["task_id"], task["kind"], task["extra"]) for task in added], [("t2", "cost", True)])
+
+    def test_evidence_includes_the_urgency_decision_and_the_region(self):
+        state = {**initial_state(), "urgent": "응급 징후가 의심됩니다."}
+        text = nodes.evidence_text(state)
+        self.assertIn("[응급 판정]", text)
+        self.assertIn("보호자가 입력한 지역: 강남구", text)
+
 
 if __name__ == "__main__":
     unittest.main()

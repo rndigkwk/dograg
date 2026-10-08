@@ -7,6 +7,10 @@ URGENT_PATTERNS = (
     r"숨을\s*못\s*쉬", r"호흡\s*곤란", r"의식(?:이)?\s*없", r"쓰러졌",
     r"발작", r"경련", r"독성.*(?:먹|삼켰)", r"(?:초콜릿|자일리톨|포도|약물).*(?:먹|삼켰)",
     r"(?:계속|반복).{0,8}헛구역질",
+    # Bluish tongue or gums (lack of oxygen), and a swollen belly with unproductive retching
+    # (gastric dilatation-volvulus): both missed before, found by the visit-prep consultation set.
+    r"(?:혀|잇몸).{0,8}(?:보라|파랗|파래|청색)",
+    r"배가.{0,12}(?:부풀|빵빵|불러).{0,40}(?:헛구역질|토하려.{0,12}(?:안\s*나|아무것도))",
 )
 NEGATION = re.compile(r"^(?:은|는|이|가)?\s*(?:없어요|없습니다|아니에요|아닙니다|안\s*해요|하지\s*않)")
 

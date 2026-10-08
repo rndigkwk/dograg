@@ -54,6 +54,9 @@ class SafetyTests(unittest.TestCase):
         self.assertIsNone(detect_urgent_sign("초콜릿은 안 먹었어요"))
         self.assertIsNotNone(detect_urgent_sign("숨을 못 쉬고 구토는 없어요"))
         self.assertIsNone(detect_urgent_sign("구토했어요"))
+        self.assertIsNotNone(detect_urgent_sign("숨을 헐떡이고 혀가 보라색으로 보여요"))
+        self.assertIsNotNone(detect_urgent_sign("배가 빵빵하게 부풀고 토하려는데 아무것도 안 나와요"))
+        self.assertIsNone(detect_urgent_sign("배가 불러서 그런지 한 번 토했어요"))
         self.assertFalse(has_usable_evidence([], None))
 
     def test_empty_rag_skips_model_and_returns_notice(self):
