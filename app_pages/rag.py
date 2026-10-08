@@ -6,6 +6,7 @@ import sys
 
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
+from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlException
 
 from src import resources
 from src.chat_graph import HEALTH_ABSTAIN
@@ -237,6 +238,10 @@ def _warm_up_health_search():
         resources.load_health_answer_table()
         resources.load_report_bm25_index()  # report search is hybrid too (needs the API key; None without)
         release_free_memory()  # 로딩 중 잠깐 쓴 메모리를 OS에 돌려줍니다.
+    except ScriptControlException:
+        # The script run this thread is attached to was stopped (a rerun). Streamlit's control
+        # exceptions derive from BaseException; stop quietly instead of a thread traceback.
+        logging.getLogger(__name__).info("Health search warm-up stopped by a rerun; the first question loads the rest")
     except Exception:  # noqa: BLE001 - warm-up is best effort
         logging.getLogger(__name__).warning("Health search warm-up failed", exc_info=True)
 
