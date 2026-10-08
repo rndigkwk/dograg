@@ -97,6 +97,20 @@ class ConversationPageTests(unittest.TestCase):
         self.assertEqual(thread["turns"][0]["answer"], "답변: 강아지가 구토해요")
         self.assertIn("강아지가 구토해요", self.sidebar_labels(at))
 
+    def test_health_answers_offer_a_visit_report_for_their_own_question(self):
+        from app_pages.visit_prep import CONSULTATION_KEY
+
+        browser = FakeBrowser()
+        at = self.run_app(browser)
+        for question in ("강아지가 구토해요", "강아지가 밤새 기침해요"):  # lengths differ: the fake trace id uses it
+            at.chat_input[0].set_value(question)
+            at = self.run_app(browser, at)
+        buttons = [button for button in at.button if button.label == "이 상담으로 방문 준비 보고서 만들기"]
+        self.assertEqual(len(buttons), 2)  # one under each health answer
+        buttons[0].click()  # the first answer's button, not the latest question
+        at = self.run_app(browser, at)
+        self.assertEqual(at.session_state[CONSULTATION_KEY], "강아지가 구토해요")
+
     def test_clear_device_removes_everything(self):
         stored = Thread(title="지울 대화", turns=[Turn(question="q", answer="a", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)
