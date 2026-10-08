@@ -44,6 +44,8 @@ def make_tools(route="rag", **overrides):
         ask_rag=Mock(return_value={"answer": "기존 답변", "evidence_rows": [{"qa.output": "x"}], "safety_notice": None}),
         analyze_report=Mock(return_value={"answer": "기존 분석", "evidence_rows": []}),
         run_sql_search=Mock(return_value=("병원 목록", [{"ids": 1}])),
+        is_symptom_and_place_request=lambda question: "토" in question and "병원" in question,
+        symptom_part=lambda question: question.split(" 강남구")[0],
         answer_without_tool=Mock(return_value="안녕하세요"),
         retrieve_health=Mock(return_value=[doc("a"), doc("b"), doc("c")]),
         review_evidence=Mock(return_value=review(["b", "a"], True)),
@@ -98,6 +100,50 @@ class CragOffTests(ChatGraphTestCase):
         tools = make_tools(is_date_question=lambda question: True)
         result = self.run_chat(tools, crag=True)
         self.assertEqual((result["route"], result["answer"]), ("none", "오늘"))
+
+
+class CompoundQuestionTests(ChatGraphTestCase):
+    """Day54 Adaptive: a facility request that also describes a symptom gets both answers."""
+
+    def test_places_first_then_the_health_answer_with_its_evidence(self):
+        tools = make_tools(route="sql")
+        result = self.run_chat(tools, question="토하는데 강남구 동물병원 알려줘")
+        self.assertEqual(result["route"], "sql")
+        self.assertEqual(result["hospital_rows"], [{"ids": 1}])
+        self.assertTrue(result["answer"].startswith("병원 목록"))
+        self.assertIn("**증상에 대해**", result["answer"])
+        self.assertTrue(result["answer"].endswith("생성 답변"))
+        self.assertEqual(len(result["evidence_rows"]), 2)
+        self.assertEqual(tools.generate_health_answer.call_args.args[0], "토하는데")  # only the symptom half
+
+    def test_no_health_evidence_keeps_the_places_and_says_so(self):
+        tools = make_tools(route="sql", review_evidence=Mock(return_value=review([], False)))
+        result = self.run_chat(tools, question="토하는데 강남구 동물병원 알려줘")
+        self.assertTrue(result["answer"].startswith("병원 목록"))
+        self.assertIn(HEALTH_ABSTAIN, result["answer"])  # the health abstention, not the report one
+        self.assertEqual(result["hospital_rows"], [{"ids": 1}])
+
+    def test_the_same_question_routed_to_health_also_gets_the_places(self):
+        # The router sends about half of these to rag; the places must not be lost there.
+        tools = make_tools(route="rag")
+        result = self.run_chat(tools, question="토하는데 강남구 동물병원 알려줘")
+        tools.run_sql_search.assert_called_once()
+        self.assertEqual(result["route"], "rag")
+        self.assertEqual(result["hospital_rows"], [{"ids": 1}])
+        self.assertTrue(result["answer"].startswith("병원 목록"))
+        self.assertTrue(result["answer"].endswith("생성 답변"))
+        plain = make_tools(route="rag")
+        self.assertEqual(self.run_chat(plain, question="강아지가 토해요")["answer"], "생성 답변")
+        plain.run_sql_search.assert_not_called()
+
+    def test_plain_facility_questions_and_crag_off_stay_one_path(self):
+        tools = make_tools(route="sql")
+        result = self.run_chat(tools, question="강남구 동물병원 알려줘")
+        self.assertEqual(result["answer"], "병원 목록")
+        tools.retrieve_health.assert_not_called()
+        result = self.run_chat(tools, question="토하는데 강남구 동물병원 알려줘", crag=False)
+        self.assertEqual(result["answer"], "병원 목록")
+        tools.retrieve_health.assert_not_called()
 
 
 class HealthCragTests(ChatGraphTestCase):

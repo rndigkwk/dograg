@@ -294,6 +294,20 @@ def _with_notice(answer: str, rows: list[dict]) -> str:
 EMERGENCY_NAME_WORDS = ("24시", "24", "응급", "야간")
 
 
+NIGHT_CARE_WORDS = ("24시", "24 시", "야간", "응급", "밤에", "새벽", "늦게까지")
+NIGHT_NOTICE = ("영업시간 정보가 없어, 이름에 24시·응급·야간이 들어간 동물병원만 골랐습니다. "
+                "실제로 지금 진료하는지는 전화로 확인하세요.")
+
+
+def wants_night_care(question: str) -> bool:
+    """"24시간 하는 곳", "밤에 여는 병원": the data has no opening hours, so the names decide."""
+    return any(word.replace(" ", "") in _compact(question) for word in NIGHT_CARE_WORDS)
+
+
+def night_named(rows: list[dict]) -> list[dict]:
+    return [row for row in rows if any(word in row["name"] for word in EMERGENCY_NAME_WORDS)]
+
+
 def emergency_hospitals(location: tuple[float, float], nearest: int = 3, named: int = 2) -> dict[str, list[dict]]:
     """For an urgent question: the nearest hospitals, and the nearest whose name says 24시/응급/야간."""
     rows = execute_place_sql(
@@ -314,12 +328,17 @@ def run_nearest_search(question: str, kind: str, location: tuple[float, float] |
     rows = execute_place_sql(
         f"SELECT {RESULT_COLUMNS} FROM place WHERE kind = ? AND latitude IS NOT NULL", [kind]
     )
+    night = kind == "hospital" and wants_night_care(question)
+    if night:
+        rows = night_named(rows)
     # "가장 가까운" lists several by distance; only "하나만" or "3곳만" shortens the list.
     limit = SINGLE_HOSPITAL_LIMIT if is_single_hospital_query(question) else requested_count(question)
     ranked = nearest_places(rows, *location, limit=limit)
     if not ranked:
         return f"위치 좌표가 유효한 {with_particle(label, '을', '를')} 찾지 못했습니다.", []
     lines = [f"현재 위치 기준 가까운 {label}입니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다."]
+    if night:
+        lines.insert(0, NIGHT_NOTICE)
     for index, row in enumerate(ranked, start=1):
         address = row.get("road_address") or row.get("lot_address") or "주소 없음"
         phone = f", {row['phone']}" if row.get("phone") else ""
@@ -335,6 +354,20 @@ def _from_follow_up(current: str, earlier: list[str], read):
     return None
 
 
+def run_night_search(question: str, location_keywords: list[str]) -> tuple[str, list[dict]]:
+    """Hospitals whose name says 24시/응급/야간, in the asked (or earlier asked) region."""
+    sql, parameters = fallback_sql(question, "hospital", location_keywords)
+    names = " OR ".join("name LIKE ?" for _ in EMERGENCY_NAME_WORDS)
+    sql = sql.replace(" ORDER BY id", f" AND ({names}) ORDER BY id")
+    parameters = parameters + [f"%{word}%" for word in EMERGENCY_NAME_WORDS]
+    rows = execute_place_sql(validate_sql(sql), parameters)
+    region = ", ".join(location_keywords) or "전국"
+    if not rows:
+        return (f"{region}에서 이름에 24시·응급·야간이 들어간 동물병원을 찾지 못했습니다. "
+                "영업시간 정보가 없으니 가까운 동물병원에 전화로 야간 진료 여부를 확인하세요."), []
+    return _with_notice(f"{NIGHT_NOTICE}\n\n{format_sql_result(rows, 'hospital')}", rows), rows
+
+
 def run_sql_search(question: str, location: tuple[float, float] | None = None) -> tuple[str, list[dict]]:
     """지역, 주소, 이름으로 반려동물 시설을 검색합니다.
 
@@ -348,6 +381,9 @@ def run_sql_search(question: str, location: tuple[float, float] | None = None) -
     question = current
     if wants_nearest(question):
         return run_nearest_search(question, kind, location)
+
+    if kind == "hospital" and wants_night_care(question):
+        return run_night_search(question, location_keywords)
 
     # 지역·개수 질문은 정해진 SQL로 처리해 SQL 생성·답변용 LLM 호출을 줄입니다.
     use_fallback = bool(location_keywords) or is_count_query(question)
