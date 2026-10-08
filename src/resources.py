@@ -91,9 +91,12 @@ def load_health_answer_table():
     return load_health_answers(HEALTH_CSV_PATH)
 
 
-@st.cache_resource(
-    show_spinner="건강 Q&A BM25 색인을 준비합니다. 최초 실행은 수 분 걸릴 수 있습니다."
-)
+# No spinner: a cached loader's spinner sends messages through the script run it was called
+# from. Called from a background thread (the warm-up, or a team researcher) that breaks two
+# ways: NoSessionContext with no run attached (#47), and StopException when the attached run is
+# stopped by a rerun mid-load (the warm-up died with it on the deployed app, 2026-10-09).
+# The chat page shows its own progress line, and the token cache makes the build quick.
+@st.cache_resource(show_spinner=False)
 def load_health_bm25_index():
     from src.hybrid_retrieval import HealthBM25Index
 

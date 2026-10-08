@@ -112,6 +112,29 @@ class WarmupDecisionTests(unittest.TestCase):
         self.assertFalse(rag.warmup_wanted({"DOGRAG_WARMUP": "0"}, {}, runtime_exists=True))
         self.assertTrue(rag.warmup_wanted({"DOGRAG_WARMUP": "1"}, {}, runtime_exists=False))
 
+    def test_a_rerun_stopping_the_warmup_ends_it_quietly(self):
+        # Streamlit's StopException is a BaseException: `except Exception` let it kill the
+        # warm-up thread with a traceback on the deployed app (2026-10-09).
+        from unittest.mock import patch
+
+        from streamlit.runtime.scriptrunner_utils.exceptions import StopException
+
+        from app_pages import rag
+
+        with patch.object(rag.resources, "load_vector_db", side_effect=StopException()), \
+                self.assertLogs("app_pages.rag", level="INFO") as logs:
+            rag._warm_up_health_search()
+        self.assertIn("stopped by a rerun", logs.output[0])
+
+    def test_loaders_called_from_background_threads_show_no_spinner(self):
+        # A spinner sends messages through the attached script run: NoSessionContext without one
+        # (#47), StopException when that run is stopped. Neither can happen without a spinner.
+        from src import resources
+
+        for loader in (resources.load_vector_db, resources.load_health_bm25_index, resources.load_health_answer_table,
+                       resources.load_report_vector_db, resources.load_report_bm25_index):
+            self.assertFalse(loader._info.show_spinner, loader.__name__)
+
 
 if __name__ == "__main__":
     unittest.main()
