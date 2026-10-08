@@ -68,9 +68,10 @@ class EvaluatorTests(unittest.TestCase):
                          {"route_correct": 0.0})
 
     def test_visit_scores(self):
-        passed, urgent, scope, hospitals, numbers = experiments.visit_evaluators()
+        passed, urgent, scope, hospitals, numbers, repeat = experiments.visit_evaluators()
         output = {"status": "human_check", "urgent": True, "says_no_evidence": False, "hospitals": 0,
-                  "round": 2, "latency_s": 53.0}
+                  "round": 2, "latency_s": 53.0, "visits": {"planner": 1, "writer": 3, "reviewer": 3},
+                  "repeated_nodes": ["reviewer", "writer"]}
         self.assertEqual(scores(passed, output=output), {"passed": 0.0})
         self.assertEqual(scores(urgent, output=output, expected_output={"urgent": False}), {"urgent_correct": 0.0})
         self.assertEqual(scores(scope, output=output, expected_output={"scope": "dog"}), {"scope_handled": 0.0})
@@ -79,7 +80,9 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(scope, output=passed_report, expected_output={"scope": "other_species"}), {"scope_handled": 1.0})
         self.assertEqual(scores(hospitals, input={"region": ""}, output=output), {})
         self.assertEqual(scores(hospitals, input={"region": "강남구"}, output=output), {"hospitals_listed": 0.0})
-        self.assertEqual(scores(numbers, output=output), {"rounds": 2, "latency_s": 53.0})
+        self.assertEqual(scores(numbers, output=output), {"rounds": 2, "latency_s": 53.0, "node_visits": 7})
+        self.assertEqual(scores(repeat, output=output), {"repeat_suspect": 1.0})
+        self.assertEqual(scores(repeat, output={**output, "repeated_nodes": []}), {"repeat_suspect": 0.0})
 
     def test_visit_run_scores_count_dog_cases_for_the_pass_rate(self):
         [summary] = experiments.visit_run_evaluators()

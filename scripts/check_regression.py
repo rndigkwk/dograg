@@ -1,6 +1,6 @@
 """Compare saved experiment results (output/experiments/<set>_<run>.json) with fixed limits.
 
-    uv run python scripts/check_regression.py crag ci-2026-10-12 routing ci-2026-10-12
+    uv run python scripts/check_regression.py crag ci-2026-10-12 routing ci-2026-10-12 visit ci-2026-10-12
 
 Prints a Markdown table (appended to $GITHUB_STEP_SUMMARY when set) and exits 1 when any
 score crosses its limit. Limits sit a little below the merged results (docs/wiki/observability.md)
@@ -28,6 +28,17 @@ LIMITS = {
     "routing": [
         ("route_accuracy", "min", 0.94, 1.0),
         ("kind_accuracy", "min", 1.0, 1.0),
+    ],
+    # Visit-prep team (12 consultations). repeat_suspect_rate is the share of runs where a worker
+    # ran more often than a normal run needs (team/core/config.py VISIT_LIMITS): loops show up
+    # here before they reach the hard stops.
+    "visit": [
+        ("dog_pass_rate", "min", 0.8, 1.0),
+        ("scope_handled_rate", "min", 0.83, 1.0),
+        ("urgent_accuracy", "min", 1.0, 1.0),
+        ("hospitals_listed_rate", "min", 0.88, 1.0),
+        ("repeat_suspect_rate", "max", 0.34, 0.167),
+        ("latency_p90_s", "max", 120.0, 65.5),
     ],
 }
 

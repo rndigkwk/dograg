@@ -11,6 +11,7 @@ set, the run is traced with the chatbot's masking.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import time
 from collections.abc import Callable
@@ -21,6 +22,7 @@ from src import tracing
 from src.health_safety import detect_urgent_sign
 from src.run_log import question_fingerprint
 from team.agents.workers import create_writer
+from team.core import config
 from team.core.config import OUTPUT_DIR
 from team.graph.builder import build_graph
 from team.graph.nodes import failed_kinds, fallback_kinds, run_status
@@ -37,6 +39,7 @@ def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path
         run_dir.mkdir(parents=True)
         print("산출물 폴더:", run_dir)
     state = None
+    visits: dict[str, int] = {}
     started = time.perf_counter()
     with tracing.run_trace("visit-prep", question_fingerprint(consultation), session=session, tags=["visit-prep"],
                            metadata={"region_given": bool(region), "profile_given": bool(profile)}) as trace:
@@ -54,22 +57,46 @@ def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path
             ):
                 if mode == "values":
                     state = chunk
-                elif on_step is not None:
-                    for node, update in chunk.items():
+                    continue
+                for node, update in chunk.items():
+                    # One "updates" event per finished top-level node (each parallel researcher
+                    # counts once), so these are the node visits of the run.
+                    visits[node] = visits.get(node, 0) + 1
+                    if on_step is not None:
                         on_step(node, update or {})
         finally:
-            trace.finish(run_record(state, time.perf_counter() - started))
+            trace.finish(run_record(state, time.perf_counter() - started, visits))
     tracing.flush()
+    save_visits(run_dir, visits)
     print("저장한 파일:", sorted(path.name for path in run_dir.iterdir()))
-    return {"run_dir": run_dir, **state}
+    return {"run_dir": run_dir, **state, "visits": visits}
 
 
-def run_record(state: dict | None, seconds: float) -> dict:
-    """What the trace keeps of a run: status, rounds and task kinds, no text."""
+def repeated_nodes(visits: dict[str, int]) -> list[str]:
+    """Workers that ran more often than a normal run needs (config.VISIT_LIMITS). The supervisor
+    is left out: it runs after every worker, so its count only follows theirs."""
+    return sorted(node for node, limit in config.VISIT_LIMITS.items() if visits.get(node, 0) > limit)
+
+
+def save_visits(run_dir: Path, visits: dict[str, int]) -> None:
+    """Add the visit counts to result.json: the publisher writes it before the run ends."""
+    path = run_dir / config.RESULT_FILE
+    if not path.exists():
+        return
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update(visits=visits, repeated_nodes=repeated_nodes(visits))
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def run_record(state: dict | None, seconds: float, visits: dict[str, int] | None = None) -> dict:
+    """What the trace keeps of a run: status, rounds, task kinds and node visits, no text."""
+    visits = visits or {}
     if state is None:
-        return {"error": "team run did not finish", "seconds": round(seconds, 1)}
+        return {"error": "team run did not finish", "seconds": round(seconds, 1), "visits": visits}
     review = state.get("review") or {}
     return {
+        "visits": visits,
+        "repeated_nodes": repeated_nodes(visits),
         "status": run_status(state),
         "outcome": state.get("outcome") or "complete",
         "round": state.get("round", 0),

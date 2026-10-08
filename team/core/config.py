@@ -45,6 +45,15 @@ FALLBACK_SUMMARY = "{label}를 찾지 못해 기본 안내로 대신함 (실제 
 # (SDK 3 x node 2 = 6); after the SDK gives up, the node records the failure instead.
 MODEL_MAX_RETRIES = 2
 PASSED = "검수 통과"
+# Node visits a normal run stays within (Day 56: count top-level visits to spot loops). Above
+# these the run is a "repeat suspect": a second research round, a second rewrite, or more
+# researchers than the plan allows. The hard stops (MAX_ROUNDS, the ping-pong check) sit higher.
+VISIT_LIMITS = {
+    "planner": 2,                                # first plan + one extra research round
+    "researcher": MAX_TASKS + MAX_EXTRA_TASKS,   # one per task
+    "writer": 2,                                 # first draft + one rewrite
+    "reviewer": 2,
+}
 
 
 @lru_cache(maxsize=1)
