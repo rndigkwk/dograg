@@ -12,49 +12,73 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from src import tracing
 from src.health_safety import detect_urgent_sign
+from src.run_log import question_fingerprint
 from team.agents.workers import create_writer
 from team.core.config import OUTPUT_DIR
 from team.graph.builder import build_graph
+from team.graph.nodes import failed_kinds, run_status
 
 
 def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path | None = None,
-        on_step: Callable[[str, dict], None] | None = None) -> dict:
+        on_step: Callable[[str, dict], None] | None = None, session: str | None = None) -> dict:
     """Run the team once. run_dir defaults to a new output/visit_prep/<time>/ folder;
-    on_step(node, update) is called as each node finishes (the app shows progress with it)."""
+    on_step(node, update) is called as each node finishes (the app shows progress with it).
+    With Langfuse on, the run is one `visit-prep` trace (tag `visit-prep`, the app's hashed
+    browser session as its session) whose output is the run record below; text stays masked."""
     if run_dir is None:
         run_dir = OUTPUT_DIR / datetime.now(UTC).astimezone().strftime("%Y%m%d_%H%M%S")
         run_dir.mkdir(parents=True)
         print("산출물 폴더:", run_dir)
-    callbacks = []
-    if tracing.client() is not None:
-        from langfuse.langchain import CallbackHandler
-
-        callbacks.append(CallbackHandler())
     state = None
-    for mode, chunk in build_graph().stream(
-        {
-            "consultation": consultation, "region": region, "profile": profile,
-            "urgent": detect_urgent_sign(consultation) or "",
-            "plan": [], "findings": {}, "round": 0, "draft": "", "review": None, "feedback": "", "instruction": "",
-        },
-        context={"run_dir": run_dir, "writer": create_writer(run_dir)},
-        config={"callbacks": callbacks, "recursion_limit": 40},
-        stream_mode=["updates", "values"],
-    ):
-        if mode == "values":
-            state = chunk
-        elif on_step is not None:
-            for node, update in chunk.items():
-                on_step(node, update or {})
+    started = time.perf_counter()
+    with tracing.run_trace("visit-prep", question_fingerprint(consultation), session=session, tags=["visit-prep"],
+                           metadata={"region_given": bool(region), "profile_given": bool(profile)}) as trace:
+        try:
+            for mode, chunk in build_graph().stream(
+                {
+                    "consultation": consultation, "region": region, "profile": profile,
+                    "urgent": detect_urgent_sign(consultation) or "",
+                    "plan": [], "findings": {}, "failures": {}, "outcome": "", "round": 0, "draft": "",
+                    "review": None, "feedback": "", "instruction": "",
+                },
+                context={"run_dir": run_dir, "writer": create_writer(run_dir)},
+                config={"callbacks": trace.callbacks, "recursion_limit": 40},
+                stream_mode=["updates", "values"],
+            ):
+                if mode == "values":
+                    state = chunk
+                elif on_step is not None:
+                    for node, update in chunk.items():
+                        on_step(node, update or {})
+        finally:
+            trace.finish(run_record(state, time.perf_counter() - started))
     tracing.flush()
     print("저장한 파일:", sorted(path.name for path in run_dir.iterdir()))
     return {"run_dir": run_dir, **state}
+
+
+def run_record(state: dict | None, seconds: float) -> dict:
+    """What the trace keeps of a run: status, rounds and task kinds, no text."""
+    if state is None:
+        return {"error": "team run did not finish", "seconds": round(seconds, 1)}
+    review = state.get("review") or {}
+    return {
+        "status": run_status(state),
+        "outcome": state.get("outcome") or "complete",
+        "round": state.get("round", 0),
+        "kind": [task["kind"] for task in state.get("plan", [])],
+        "failed_kinds": failed_kinds(state),
+        "supported_claims": review.get("supported", 0),
+        "unsupported_claims": len(review.get("unsupported", [])),
+        "seconds": round(seconds, 1),
+    }
 
 
 def main() -> int:

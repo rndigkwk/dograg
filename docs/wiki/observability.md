@@ -117,6 +117,23 @@
 - 질문별 단계 시간 측정(`deployment-resources.md`)과 결론이 같다.
 - 두 실행을 같은 데이터셋에서 비교하므로 다음 변경(예: h06 과잉 보류 수정)도 같은 방식으로 잰다.
 
+## 운영 설정: 트레이스 구분과 배포 버전 (2026-10-08)
+
+멀티에이전트 실행은 일반 답변보다 기록이 훨씬 많다. 무엇을 어떻게 구분해 남길지 정했다(day56 교안 01의 운영 설정 표 기준).
+
+| 설정 | 값 | 어디서 |
+| --- | --- | --- |
+| trace 이름·태그 | 챗봇 `chat` / 태그 `chat`, 방문 준비 팀 `visit-prep` / 태그 `visit-prep` | `src/tracing.py`의 `run_trace` |
+| 세션 | 브라우저 세션 id를 한 번 더 해시한 값. 같은 사람의 챗봇 답변과 방문 보고서가 한 세션으로 묶인다 | `tracing.session_id` |
+| release | 배포된 커밋(`.git`에서 읽음, 예 `2d7c606`). `LANGFUSE_RELEASE`로 덮어쓸 수 있다 | `tracing.release()` |
+| sample_rate | 1.0(모두 남김). `LANGFUSE_SAMPLE_RATE`로 조절. 빠진 실행은 나중에 볼 수 없어서 사용량이 문제 될 때만 낮춘다 | `tracing.sample_rate()` |
+| environment | 배포 앱 `production`, 로컬 `development`, 정기 평가 `ci`, 실험 `sdk-experiment` | 기존 |
+| mask | 모든 문자열을 길이로 바꿈(앱이 정한 값만 예외) | 기존 |
+
+- 방문 준비 팀 trace의 출력은 실행 기록이다: 상태, 조사 결과(`complete`/`degraded`/`held`), 반복 횟수, 조사 종류, 실패한 조사 종류, 근거 있는/없는 주장 수, 시간. 오류 메시지는 요청 문장을 인용할 수 있어 마스킹된다.
+- **확인:** 실제 실행 1건으로 Langfuse API에서 `traceTags = visit-prep`과 `release = 2d7c606` 필터가 그 실행을 찾는 것, 상담 문장·전화번호가 어떤 span에도 없는 것을 확인했다(테스트 `tests/test_tracing.py`도 같은 내용을 메모리 내 exporter로 검사).
+- **쓰임새:** 화면 위 검색에 `traceTags:visit-prep`으로 팀 실행만 보고, release로 배포 전후의 지연·오류율을 비교한다.
+
 ## 정기 회귀 평가 (2026-10-07)
 
 평가 실험을 사람이 손으로 돌리지 않고 GitHub Actions가 매주 돌린다(`.github/workflows/regression-eval.yml`).

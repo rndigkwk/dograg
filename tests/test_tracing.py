@@ -126,6 +126,42 @@ class TraceExportTests(unittest.TestCase):
         self.assertEqual(output["trace"][0]["kept_ids"], ["12"])
         self.assertEqual(output["question_chars"], len(QUESTION))
         self.assertEqual(root.attributes["session.id"], tracing.session_id("browser-session"))
+        self.assertEqual(root.attributes["langfuse.trace.tags"], ("chat",))
+
+    def test_a_visit_prep_team_run_is_its_own_tagged_trace_without_text(self):
+        import tempfile
+        from pathlib import Path
+
+        from team import main as team_main
+        from team.core import config
+        from team.core.schemas import VisitTask
+        from team.graph import nodes
+        from tests.test_visit_team import (
+            FakeLLM,
+            FakeResearcher,
+            FakeWriter,
+            judge_with,
+        )
+
+        consultation = "우리 초코가 어제부터 설사를 해요 010-1234-5678"
+        tasks = [VisitTask(kind="health", query="설사", angle="a")]
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(config, "llm", return_value=FakeLLM(tasks)), patch.object(config, "review_llm"), \
+                patch.object(nodes, "create_researcher", side_effect=FakeResearcher), \
+                patch.object(nodes, "build_judge", side_effect=judge_with([])), \
+                patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0), \
+                patch.object(team_main, "create_writer", side_effect=FakeWriter):
+            team_main.run(consultation, run_dir=Path(directory), session=tracing.session_id("browser-session"))
+        spans = self.exported()
+        [root] = [span for span in spans if span.name == "visit-prep"]
+        self.assertEqual(root.attributes["langfuse.trace.tags"], ("visit-prep",))
+        self.assertEqual(root.attributes["session.id"], tracing.session_id("browser-session"))
+        record = json.loads(root.attributes["langfuse.observation.output"])
+        self.assertEqual((record["status"], record["outcome"], record["kind"]), (config.PASSED, "complete", ["health"]))
+        sent = json.dumps([dict(span.attributes) for span in spans], ensure_ascii=False)
+        for secret in ("초코", "설사를", "010-1234-5678"):
+            self.assertNotIn(secret, sent)
+
 
     def test_a_failing_run_is_still_recorded(self):
         tools = health_tools()
@@ -134,6 +170,54 @@ class TraceExportTests(unittest.TestCase):
             run_chat(tools, QUESTION, top_k=1, crag=True)
         [root] = [span for span in self.exported() if span.name == "chat"]
         self.assertEqual(json.loads(root.attributes["langfuse.observation.output"])["error"], "RuntimeError")
+
+
+class ReleaseTests(unittest.TestCase):
+    def git_dir(self, head: str, refs: dict[str, str] | None = None, packed: str | None = None):
+        import tempfile
+        from pathlib import Path
+
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        git = Path(directory.name) / ".git"
+        git.mkdir()
+        (git / "HEAD").write_text(head, encoding="utf-8")
+        for ref, sha in (refs or {}).items():
+            (git / ref).parent.mkdir(parents=True, exist_ok=True)
+            (git / ref).write_text(sha + "\n", encoding="utf-8")
+        if packed:
+            (git / "packed-refs").write_text(packed, encoding="utf-8")
+        patcher = patch.object(tracing.settings, "PROJECT_DIR", Path(directory.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def release(self, configured=None):
+        with patch.object(tracing.settings, "get_setting",
+                          side_effect=lambda name: configured if name == "LANGFUSE_RELEASE" else None):
+            return tracing.release()
+
+    def test_release_is_the_checked_out_commit(self):
+        self.git_dir("ref: refs/heads/main\n", {"refs/heads/main": "2d7c606b1234"})
+        self.assertEqual(self.release(), "2d7c606")
+        self.assertEqual(self.release("2026-10-08"), "2026-10-08")  # LANGFUSE_RELEASE wins
+
+    def test_release_from_packed_refs_or_a_detached_head(self):
+        self.git_dir("ref: refs/heads/main\n", packed="# pack-refs\nabcdef1234 refs/heads/main\n")
+        self.assertEqual(self.release(), "abcdef1")
+        self.git_dir("0123456789abcdef\n")
+        self.assertEqual(self.release(), "0123456")
+
+    def test_no_git_folder_means_no_release(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(tracing.settings, "PROJECT_DIR", Path(directory)):
+            self.assertIsNone(self.release())
+
+    def test_sample_rate_defaults_to_all_and_is_clamped(self):
+        for configured, expected in ((None, 1.0), ("0.2", 0.2), ("5", 1.0), ("-1", 0.0), ("many", 1.0)):
+            with patch.object(tracing.settings, "get_setting", return_value=configured):
+                self.assertEqual(tracing.sample_rate(), expected)
 
 
 if __name__ == "__main__":

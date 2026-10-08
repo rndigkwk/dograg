@@ -21,7 +21,7 @@ import hashlib
 import logging
 import sys
 from collections.abc import Iterator
-from contextlib import ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -38,6 +38,9 @@ SAFE_KEYS = frozenset({
     "ls_provider", "ls_model_name", "ls_model_type", "model", "model_name", "finish_reason",
     # experiment outputs (scripts/langfuse_experiments.py): evaluation labels, not user text
     "outcome", "behavior", "group", "evidence_pages",
+    # visit-prep team run records: the status word and the kinds of research that failed
+    # (error messages stay masked: they can quote the request)
+    "status", "failed_kinds",
 })
 
 
@@ -60,6 +63,38 @@ def _mask(data: Any, *, safe: bool) -> Any:
     if data is None or isinstance(data, (bool, int, float)):
         return data
     return _masked(str(data))  # documents, messages and other objects: as text, masked
+
+
+def release() -> str | None:
+    """The deployed version on every trace, so runs before and after a merge can be compared:
+    LANGFUSE_RELEASE when set, else the checked-out commit (read from .git, no subprocess)."""
+    configured = settings.get_setting("LANGFUSE_RELEASE")
+    if configured:
+        return configured
+    git = settings.PROJECT_DIR / ".git"
+    try:
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if not head.startswith("ref: "):
+            return head[:7]  # detached HEAD: the commit itself
+        ref = head[5:]
+        ref_file = git / ref
+        if ref_file.exists():
+            return ref_file.read_text(encoding="utf-8").strip()[:7]
+        for line in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
+            if line.endswith(" " + ref):
+                return line.split(" ", 1)[0][:7]
+    except OSError:
+        pass
+    return None
+
+
+def sample_rate() -> float:
+    """Share of runs to keep (LANGFUSE_SAMPLE_RATE, default 1.0 = all). A dropped run sends
+    nothing, so keep 1.0 until traffic makes the volume a problem."""
+    try:
+        return min(max(float(settings.get_setting("LANGFUSE_SAMPLE_RATE") or 1.0), 0.0), 1.0)
+    except ValueError:
+        return 1.0
 
 
 def environment() -> str:
@@ -97,6 +132,8 @@ def client():
             secret_key=settings.get_setting("LANGFUSE_SECRET_KEY"),
             base_url=settings.get_setting("LANGFUSE_BASE_URL") or settings.get_setting("LANGFUSE_HOST"),
             environment=environment(),
+            release=release(),
+            sample_rate=sample_rate(),
             mask=mask_text,
         )
     except Exception:
@@ -128,8 +165,10 @@ class ChatTrace:
 
 
 @contextmanager
-def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None) -> Iterator[ChatTrace]:
-    """One Langfuse trace around a chat run; a no-op ChatTrace when tracing is off."""
+def run_trace(name: str, fingerprint: dict, *, metadata: dict, session: str | None = None,
+              tags: list[str] | None = None) -> Iterator[ChatTrace]:
+    """One Langfuse trace around a run (chat answer, visit-prep team); a no-op when tracing is off.
+    Tags separate the kinds of run in the trace list (search `traceTags:visit-prep`)."""
     langfuse = client()
     if langfuse is None:
         yield ChatTrace()
@@ -140,10 +179,10 @@ def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None)
             from langfuse.langchain import CallbackHandler
 
             span = stack.enter_context(langfuse.start_as_current_observation(
-                as_type="span", name="chat", input=fingerprint, metadata=metadata,
+                as_type="span", name=name, input=fingerprint, metadata=metadata,
             ))
             stack.enter_context(propagate_attributes(
-                session_id=session, trace_name="chat",
+                session_id=session, trace_name=name, tags=tags or [name],
                 metadata={key: str(value) for key, value in metadata.items()},
             ))
             trace = ChatTrace(span, CallbackHandler())
@@ -151,6 +190,10 @@ def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None)
             logger.warning("Langfuse trace start failed", exc_info=True)
             trace = ChatTrace()
         yield trace
+
+
+def chat_trace(fingerprint: dict, *, metadata: dict, session: str | None = None) -> AbstractContextManager[ChatTrace]:
+    return run_trace("chat", fingerprint, metadata=metadata, session=session, tags=["chat"])
 
 
 FEEDBACK_SCORE = "user_feedback"

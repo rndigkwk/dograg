@@ -17,6 +17,7 @@ FIXED_SOURCES = {
     "응급 판정": "응급 징후 자동 판정 (상담 내용의 표현 기준)",
     "반려견 정보": "보호자가 입력한 반려견 정보",
     "지역": "보호자가 입력한 지역",
+    "수집 실패": "조사 중 오류로 이번에 모으지 못한 자료",
 }
 # One or more [id] in a row; a markdown link ([text](url)) is not a citation.
 CITATION_RUN = re.compile(r"(?:[ \t]*\[[^\[\]\n]{1,160}\](?!\())+")
