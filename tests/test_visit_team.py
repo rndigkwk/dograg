@@ -12,7 +12,14 @@ from langgraph.types import Command, Send
 
 from team.agents import workers
 from team.core import config
-from team.core.schemas import Clarification, Finding, KeyPoint, ReworkStep, VisitPlan, VisitTask
+from team.core.schemas import (
+    Clarification,
+    Finding,
+    KeyPoint,
+    ReworkStep,
+    VisitPlan,
+    VisitTask,
+)
 from team.graph import edges, nodes
 from team.graph.builder import build_graph
 from team.graph.state import merge_findings
@@ -230,6 +237,12 @@ class FailureTests(unittest.TestCase):
             state = team_main.run("말티즈가 설사를 해요", run_dir=run_dir, on_step=lambda node, update: steps.append(node))
         self.assertEqual(steps, ["clarify", "ask_guardian", "planner", "researcher", "supervisor", "writer", "reviewer",
                                  "publisher"])
+        # Node visits are counted from the same events and kept in result.json
+        visits = {"clarify": 1, "ask_guardian": 1, "planner": 1, "researcher": 1, "supervisor": 1, "writer": 1,
+                  "reviewer": 1, "publisher": 1}
+        self.assertEqual(state["visits"], visits)
+        result = json.loads((run_dir / config.RESULT_FILE).read_text(encoding="utf-8"))
+        self.assertEqual((result["visits"], result["repeated_nodes"]), (visits, []))
         self.assertEqual(state["run_dir"], run_dir)
         self.assertTrue(state["review"]["passed"])
         self.assertEqual(sorted(path.name for path in run_dir.iterdir()), sorted([config.REPORT_FILE, config.RESULT_FILE]))
@@ -306,6 +319,18 @@ class _Recorder(str):
         text = str.format(self, *args, **kwargs)
         self.sink.append(text)
         return text
+
+
+class VisitCountTests(unittest.TestCase):
+    def test_workers_above_their_limit_are_repeat_suspects_but_the_supervisor_is_not(self):
+        from team.main import repeated_nodes, run_record
+
+        visits = {"planner": 1, "researcher": 4, "supervisor": 6, "writer": 3, "reviewer": 3, "publisher": 1}
+        self.assertEqual(repeated_nodes(visits), ["reviewer", "writer"])
+        self.assertEqual(repeated_nodes({**visits, "writer": 2, "reviewer": 2}), [])
+        record = run_record({"plan": [], "review": None}, 1.0, visits)
+        self.assertEqual((record["visits"], record["repeated_nodes"]), (visits, ["reviewer", "writer"]))
+        self.assertEqual(run_record(None, 1.0, {"planner": 1})["visits"], {"planner": 1})
 
 
 class ReworkRuleTests(unittest.TestCase):

@@ -203,6 +203,8 @@ def visit_task(*, item, **kwargs):
         "supported": review.get("supported", 0),
         "unsupported": len(review.get("unsupported", [])),
         "says_no_evidence": any(phrase in report for phrase in NO_EVIDENCE_PHRASES),
+        "visits": state["visits"],
+        "repeated_nodes": result.get("repeated_nodes", []),
         "run_dir": state["run_dir"].relative_to(PROJECT_DIR).as_posix(),
     }
 
@@ -236,9 +238,16 @@ def visit_evaluators():
         return Evaluation(name="hospitals_listed", value=1.0 if output["hospitals"] else 0.0)
 
     def numbers(*, output, **kwargs):
-        return [Evaluation(name="rounds", value=output["round"]), Evaluation(name="latency_s", value=output["latency_s"])]
+        return [Evaluation(name="rounds", value=output["round"]), Evaluation(name="latency_s", value=output["latency_s"]),
+                Evaluation(name="node_visits", value=sum(output["visits"].values()),
+                           comment=", ".join(f"{node} {count}" for node, count in output["visits"].items()))]
 
-    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers]
+    def repeat_suspect(*, output, **kwargs):
+        """A worker ran more often than a normal run needs (team/core/config.py VISIT_LIMITS)."""
+        return Evaluation(name="repeat_suspect", value=1.0 if output["repeated_nodes"] else 0.0,
+                          comment=", ".join(output["repeated_nodes"]) or None)
+
+    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect]
 
 
 def visit_run_evaluators():
@@ -258,6 +267,8 @@ def visit_run_evaluators():
             Evaluation(name="urgent_accuracy", value=mean("urgent_correct")),
             Evaluation(name="hospitals_listed_rate", value=mean("hospitals_listed")),
             Evaluation(name="mean_rounds", value=mean("rounds")),
+            Evaluation(name="repeat_suspect_rate", value=mean("repeat_suspect")),
+            Evaluation(name="mean_node_visits", value=mean("node_visits")),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
         ]
