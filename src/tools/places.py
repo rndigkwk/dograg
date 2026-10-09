@@ -183,6 +183,24 @@ def force_sql_limit_one(sql: str) -> str:
     return force_sql_limit(sql, SINGLE_HOSPITAL_LIMIT)
 
 
+# Words for the stored categories (src/places_data.py). Without them the fixed SQL listed every
+# pet-friendly place for "춘천 반려견 동반 카페" (6 of 10 were 여행지).
+CATEGORY_WORDS = {
+    "pet_friendly": (
+        ("카페", ("카페", "커피")), ("펜션", ("펜션",)), ("호텔", ("호텔",)),
+        ("식당", ("식당", "음식점", "레스토랑", "맛집")), ("박물관", ("박물관",)),
+        ("미술관", ("미술관",)), ("문예회관", ("문예회관", "공연장")), ("여행지", ("여행지", "관광지")),
+    ),
+    "grooming": (("출장(자동차) 미용", ("출장",)),),
+}
+
+
+def place_categories(question: str, kind: str) -> list[str]:
+    compact = _compact(question)
+    return [category for category, words in CATEGORY_WORDS.get(kind, ())
+            if any(word in compact for word in words)]
+
+
 def fallback_sql(question: str, kind: str = "hospital", location_keywords: list[str] | None = None) -> tuple[str, list[str]]:
     """Fixed SQL for region and count questions (and when no LLM key is set)."""
     if location_keywords is None:
@@ -191,6 +209,9 @@ def fallback_sql(question: str, kind: str = "hospital", location_keywords: list[
     where = "kind = ?"
     if location_keywords:
         where += f" AND ({build_location_conditions(location_keywords)})"
+    if categories := place_categories(question, kind):
+        where += f" AND category IN ({', '.join('?' for _ in categories)})"
+        parameters += categories
     if is_count_query(question):
         return f"SELECT COUNT(*) AS count FROM place WHERE {where}", parameters
     limit = get_hospital_result_limit(question)
@@ -235,6 +256,47 @@ def known_region_words(db_path: str) -> frozenset[str]:
     )
 
 
+# These stay with the model. "광주" is both 경기도 광주시 and the former 광주광역시 (now districts of
+# 전남광주통합특별시 in the addresses); "공주" is also what many guardians call their dog
+# ("우리 공주 설사해요"). Short forms of one syllable (중구 -> 중) are never used.
+AMBIGUOUS_SHORT_REGIONS = frozenset({"광주", "공주"})
+# What may follow a short region name: "부산에서", "포항 쪽", "강남 근처". Anything else Hangul
+# means another word: 고양이 (not 고양시), 공주가 (a pet, not 공주시), 남양주 (not 양주시).
+SHORT_REGION_PARTICLES = ("에서", "에", "의", "쪽", "지역", "근처", "인근", "주변", "시내")
+
+
+@lru_cache(maxsize=4)
+def short_region_names(db_path: str) -> dict[str, tuple[str, ...]]:
+    """"수원" -> ("수원시",), "부산" -> ("부산광역시",), "강남" -> ("강남구",): the way people name a
+    region, mapped to the address words. Built from the stored addresses and the province list."""
+    names: dict[str, set[str]] = {}
+    for word in known_region_words(db_path):
+        if word.endswith(("시", "군", "구")) and not word.endswith(("특별시", "광역시", "특별자치시")):
+            if len(word) >= 3:
+                names.setdefault(word[:-1], set()).add(word)
+    for alias, full in SIDO_ALIASES.items():
+        if not alias.endswith(("시", "도")):
+            names.setdefault(alias, set()).add(full)
+    return {short: tuple(sorted(full)) for short, full in names.items() if short not in AMBIGUOUS_SHORT_REGIONS}
+
+
+@lru_cache(maxsize=4)
+def _short_region_pattern(db_path: str) -> re.Pattern:
+    shorts = sorted(short_region_names(db_path), key=len, reverse=True)
+    particles = "|".join(SHORT_REGION_PARTICLES)
+    return re.compile(rf"(?<![가-힣])({'|'.join(shorts)})(?=$|[^가-힣]|(?:{particles})(?![가-힣]))")
+
+
+def short_region_mentions(question: str) -> list[tuple[str, tuple[str, ...]]]:
+    """(as written, address words) for each short region name in the question."""
+    try:
+        db_path = resources.DB_PATH.as_posix()
+        pattern, names = _short_region_pattern(db_path), short_region_names(db_path)
+    except sqlite3.Error:
+        return []
+    return [(match.group(1), names[match.group(1)]) for match in pattern.finditer(question)]
+
+
 def extract_search_parameters(question: str) -> list[str]:
     candidates = [LOCATION_ALIASES.get(word, word) for word in REGION_WORD.findall(question)]
     try:
@@ -242,6 +304,8 @@ def extract_search_parameters(question: str) -> list[str]:
     except sqlite3.Error:
         known = None
     locations = [word for word in candidates if known is None or word in known]
+    # "수원 동물병원": without these the model wrote the SQL (4-9 s) and missed 3 of 14 regions.
+    locations += [full for _, words in short_region_mentions(question) for full in words]
     if len(locations) > 1:
         specific_locations = [
             location

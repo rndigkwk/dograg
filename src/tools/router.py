@@ -148,7 +148,8 @@ def symptom_part(question: str) -> str:
     """The symptom half of a symptom + place request, cut before the region or place words:
     "설사가 이틀째인데 마포구 동물병원 어디 있어?" -> "설사가 이틀째인데". The health answer gets
     this, so it does not also answer the place request from health cases."""
-    cuts = [question.find(word) for word in (*places.extract_search_parameters(question), *PLACE_CUT_WORDS)]
+    regions = (*places.extract_search_parameters(question), *(short for short, _ in places.short_region_mentions(question)))
+    cuts = [question.find(word) for word in (*regions, *PLACE_CUT_WORDS)]
     cut = min((index for index in cuts if index > 0), default=len(question))
     part = question[:cut].strip(" ,.")
     words = part.split()
