@@ -16,6 +16,7 @@ from src.health_retrieval import rerank_candidates, summarize_retrieval
 from src.health_safety import detect_urgent_sign, has_usable_evidence
 from src.location_component import parse_location_result
 from src.places_data import SCHEMA, nearest_places
+from src.private_data import needs_private_data
 from src.report_evidence import render_pdf_page, report_evidence_from_docs
 from src.tools import health, places, report
 
@@ -59,6 +60,7 @@ class SafetyTests(unittest.TestCase):
         self.assertIsNone(detect_urgent_sign("배가 불러서 그런지 한 번 토했어요"))
         self.assertFalse(has_usable_evidence([], None))
 
+    @needs_private_data
     def test_empty_rag_skips_model_and_returns_notice(self):
         db = SimpleNamespace(similarity_search=lambda *args, **kwargs: [])
         index = SimpleNamespace(search=lambda *args, **kwargs: [])

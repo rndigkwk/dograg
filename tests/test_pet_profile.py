@@ -10,6 +10,7 @@ from langchain_core.runnables import RunnableLambda
 
 from src import resources
 from src.chat_graph import run_chat
+from src.private_data import needs_private_data
 from src.storage.models import PetProfile
 from src.tools import health
 from src.tools import profile as pet_profile
@@ -71,6 +72,7 @@ class ProfileInRetrievalTests(unittest.TestCase):
             self.assertEqual(health.infer_rag_filters("5개월인데 기침을 해요", profile=senior)["life_cycle"], "자견")
             self.assertNotIn("life_cycle", health.infer_rag_filters("기침을 해요"))
 
+    @needs_private_data
     def test_twenty_health_questions_without_an_age_get_the_profile_stage(self):
         """Design doc phase 4 criterion: age-less health questions follow the profile."""
         items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"]

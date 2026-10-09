@@ -4,6 +4,7 @@
 
 - **배포 앱:** <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag>
 - **상세 문서:** [`docs/details.md`](docs/details.md)(기능·데이터·결정 전체), [`docs/wiki/`](docs/wiki/README.md)(실험 수치, 채택·기각 이유)
+- **데이터:** [데이터 명세서](docs/data-sources.md)(출처, 이용 조건, 가공). 건강 상담은 AI Hub(aihub.or.kr)의 「반려견 성장 및 질병관련 말뭉치 데이터」(과학기술정보통신부·한국지능정보사회진흥원 사업 결과)를 활용했습니다.
 - 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5> · 발표 당시 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag>
 
 > 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 이후(2026-09~10) 오현탁이 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
@@ -233,6 +234,8 @@ flowchart LR
 ## 실행 방법
 
 Python 3.12 이상과 [uv](https://docs.astral.sh/uv/)가 필요합니다. `.streamlit/secrets.toml`(또는 `.env`)에 `OPENAI_API_KEY`를 넣습니다(Git에 올리지 않음).
+
+AI Hub 데이터는 재배포할 수 없어 이 저장소에 없습니다. 앱은 비공개 데이터셋에서 `HF_TOKEN`으로 내려받습니다(`src/private_data.py`). 직접 실행하려면 AI Hub에서 데이터를 신청해 `data/`에 두어야 합니다. 데이터 없이도 단위 테스트는 돌고, 데이터가 필요한 12개는 건너뜁니다.
 
 ```bash
 uv sync

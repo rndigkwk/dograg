@@ -3,8 +3,9 @@ name: Weekly regression evaluation
 # Runs the CRAG answer/abstain set (60), the place routing set (36) and the visit-prep team set
 # (12 consultations, with node visit counts) as Langfuse experiments with real model calls, then
 # fails when a score crosses its limit (scripts/check_regression.py).
-# Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and
-# LANGFUSE_BASE_URL. One run costs about 60 chatbot answers and 12 team runs (~200 model calls).
+# Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY,
+# LANGFUSE_BASE_URL and HF_TOKEN (read access to the private data, src/private_data.py).
+# One run costs about 60 chatbot answers and 12 team runs (~200 model calls).
 on:
   schedule:
     - cron: "23 0 * * 1"  # Monday 09:23 KST
@@ -26,20 +27,19 @@ jobs:
       LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
       LANGFUSE_TRACING_ENVIRONMENT: ci
       HF_HUB_OFFLINE: "0"  # the runner downloads the ONNX embedding model once
     steps:
       - name: Check secrets
         run: |
-          if [ -z "$OPENAI_API_KEY" ] || [ -z "$LANGFUSE_PUBLIC_KEY" ] || [ -z "$LANGFUSE_SECRET_KEY" ]; then
-            echo "::error::Set OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY (and LANGFUSE_BASE_URL) as repository secrets."
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$LANGFUSE_PUBLIC_KEY" ] || [ -z "$LANGFUSE_SECRET_KEY" ] || [ -z "$HF_TOKEN" ]; then
+            echo "::error::Set OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, HF_TOKEN (and LANGFUSE_BASE_URL) as repository secrets."
             exit 1
           fi
 
-      - name: Check out repository (with the LFS vector database)
+      - name: Check out repository
         uses: actions/checkout@v7.0.1
-        with:
-          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v7.0.0
@@ -54,6 +54,9 @@ jobs:
 
       - name: Install locked dependencies
         run: uv sync --locked --no-install-project
+
+      - name: Download the private data
+        run: .venv/bin/python -m src.private_data
 
       - name: Name this run
         run: echo "RUN_NAME=ci-$(date -u +%Y-%m-%d)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"

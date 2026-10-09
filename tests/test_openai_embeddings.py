@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 
 from src import resources, settings
 from src.hybrid_retrieval import retrieve_hybrid
+from src.private_data import needs_private_data
 from src.report_evidence import (
     DEFAULT_REPORT_SOURCE,
     report_evidence_from_docs,
@@ -81,6 +82,7 @@ class MultiReportEvidenceTests(unittest.TestCase):
         self.assertIsNone(resolve_report_pdf(root, "../outside.pdf"))
         self.assertEqual(resolve_report_pdf(root, None), root / DEFAULT_REPORT_SOURCE)
 
+    @needs_private_data
     def test_default_report_pdf_exists(self):
         self.assertTrue((Path(settings.PROJECT_DIR) / DEFAULT_REPORT_SOURCE).is_file())
 

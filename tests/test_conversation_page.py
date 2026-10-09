@@ -15,9 +15,10 @@ from streamlit.testing.v1 import AppTest
 
 from app_pages import rag as chat_page
 from src import conversation_ui
-from src.tools import urgency
+from src.private_data import needs_private_data
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
+from src.tools import urgency
 
 MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
@@ -244,6 +245,7 @@ class ConversationPageTests(unittest.TestCase):
         chatbot.assert_not_called()
         self.assertNotIn(chat_page.IN_FLIGHT_STATE_KEY, at.session_state)
 
+    @needs_private_data
     def test_history_shows_on_the_home_page_and_opens_the_chat(self):
         stored = Thread(title="홈에서 연 대화", turns=[Turn(question="기침해요", answer="진료받으세요", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)
@@ -254,6 +256,7 @@ class ConversationPageTests(unittest.TestCase):
         at = self.run_app(browser, at)  # st.switch_page to the chat page
         self.assertEqual([m.markdown[0].value for m in at.chat_message], ["기침해요", "진료받으세요"])
 
+    @needs_private_data
     def test_notice_is_saved_on_the_home_page_too(self):
         browser = FakeBrowser()
         at = self.run_app(browser, home=True)
@@ -261,6 +264,7 @@ class ConversationPageTests(unittest.TestCase):
         self.assertEqual(len(at.sidebar.info), 1)
         self.assertEqual(browser.values[NOTICE_KEY], "1")
 
+    @needs_private_data
     def test_history_comes_before_the_brand_card(self):
         at = self.run_app(FakeBrowser(notice=True), home=True)
         sidebar = [getattr(node, "label", None) or getattr(node, "value", "") for node in at.sidebar]

@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 
 from src import resources
 from src.health_answers import attach_health_answers, load_health_answers
+from src.private_data import needs_private_data
 from src.tools import health
 
 
@@ -52,6 +53,7 @@ class HealthAnswerLookupTests(unittest.TestCase):
             resources.load_health_answer_table.clear()
         self.assertEqual(result["evidence_rows"][0]["qa.output"], "수분을 보충해 주세요.")
 
+    @needs_private_data
     def test_project_csv_covers_every_indexed_row(self):
         answers = load_health_answers(resources.HEALTH_CSV_PATH)
         self.assertEqual(len(answers), 19206)

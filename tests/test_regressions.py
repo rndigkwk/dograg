@@ -14,10 +14,12 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
 from src import resources, settings
+from src.private_data import needs_private_data
 from src.tools import health, router
 
 
 class HomeFallbackTest(unittest.TestCase):
+    @needs_private_data
     def test_home_renders_when_remote_images_are_unavailable(self):
         import streamlit as st
 
