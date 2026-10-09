@@ -10,6 +10,8 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 
 import langfuse_experiments as experiments
 
+from src.private_data import needs_private_data
+
 
 def scores(evaluator, **kwargs):
     result = evaluator(**kwargs)
@@ -17,6 +19,7 @@ def scores(evaluator, **kwargs):
 
 
 class DatasetItemTests(unittest.TestCase):
+    @needs_private_data
     def test_items_have_fixed_ids_and_expected_outputs(self):
         crag = experiments.dataset_items("crag")
         routing = experiments.dataset_items("routing")

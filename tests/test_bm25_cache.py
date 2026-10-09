@@ -11,6 +11,7 @@ from src.hybrid_retrieval import (
     load_token_cache,
     write_token_cache,
 )
+from src.private_data import needs_private_data
 
 
 def fake_db(ids, texts):
@@ -90,6 +91,7 @@ class BM25TokenCacheTests(unittest.TestCase):
 
 
 class ProjectCacheTests(unittest.TestCase):
+    @needs_private_data
     def test_committed_cache_matches_the_health_collection_size(self):
         from src import resources
 

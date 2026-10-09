@@ -26,6 +26,7 @@ from src.places_data import (
     normalize_address,
     province_of,
 )
+from src.private_data import needs_private_data
 from src.tools import places, router
 
 CAFE_INFO = json.dumps({"hours": "매일 10:00~22:00", "size": "소형", "restrictions": "목줄", "extra_fee": "5,000원"}, ensure_ascii=False)
@@ -330,6 +331,7 @@ class PlacePageTests(unittest.TestCase):
             self.assertEqual(len(app.selectbox), 1)  # funeral: province only
             self.assertEqual([e.message for e in app.exception], [])
 
+    @needs_private_data
     def test_data_page_shows_the_cleaning_steps(self):
         with TemporaryDirectory() as directory, patch.object(resources, "DB_PATH", make_db(directory)):
             app = AppTest.from_file(str(PROJECT_DIR / "app_pages" / "data.py"), default_timeout=30).run()

@@ -8,6 +8,7 @@ block_torch_imports()  # the chatbot embeds with ONNX Runtime, not torch
 
 import streamlit as st
 
+from src import private_data
 from src.conversation_ui import (
     render_conversation_sidebar,
     render_profile_sidebar,
@@ -24,6 +25,19 @@ CHAT_PAGE = "app_pages/rag.py"
 
 st.set_page_config(page_title="라그도그", page_icon=":material/pets:", layout="wide")
 apply_app_theme()
+
+
+@st.cache_resource(show_spinner="상담 데이터를 내려받고 있습니다(서버 시작 후 한 번)…")
+def download_private_data() -> tuple[str, ...]:
+    # AI Hub data may not be redistributed, so it is not in the public repository (src/private_data.py).
+    return tuple(private_data.ensure())
+
+
+if still_missing := download_private_data():
+    download_private_data.clear()  # try again on the next visit (e.g. after HF_TOKEN is added)
+    st.error("상담 데이터를 불러오지 못했습니다. 관리자가 `HF_TOKEN` 설정을 확인해야 합니다. "
+             f"(없는 파일: {', '.join(still_missing)})")
+    st.stop()
 
 pages = {
     item["path"]: st.Page(

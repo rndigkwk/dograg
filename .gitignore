@@ -66,3 +66,16 @@ drafts/
 notebooks/chroma_db/
 notebooks/data/
 .streamlit/secrets.toml
+
+# ──────────────────────────────────────────────────────────────
+#  비공개 데이터 — 공개 저장소에 두지 않습니다 (src/private_data.py)
+#  AI Hub 말뭉치와 그 파생 파일, 보고서 PDF. HF_TOKEN으로 내려받습니다.
+# ──────────────────────────────────────────────────────────────
+data/df.csv
+data/df_val.csv
+data/bm25_health_tokens.json.gz
+data/chroma_db/
+data/source/*.pdf
+data/finetune/
+tests/data/crag_eval_questions.json
+notebooks/outputs/rag_answer_similarity_eval_results.csv

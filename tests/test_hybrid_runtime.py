@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch
 
 from langchain_core.documents import Document
 
+from src.private_data import needs_private_data
+
 
 class HybridRuntimeTests(unittest.TestCase):
     @classmethod
@@ -109,6 +111,7 @@ class HybridRuntimeTests(unittest.TestCase):
         self.assertEqual(scorer.tokens, ["구토", "치료"])
         self.assertEqual([document.id for document in found], ["more"])
 
+    @needs_private_data
     def test_health_rag_uses_hybrid_candidates_without_inferred_filters(self):
         from src import resources
         from src.tools import health
