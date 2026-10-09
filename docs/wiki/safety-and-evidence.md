@@ -1,6 +1,6 @@
 # 안전성·근거 표시 관련 결정
 
-출처: [설계 문서 (2026-09-27)](../superpowers/specs/2026-09-27-dograg-quality-safety-location-citations-design.md), 커밋 `1d85ef76`
+출처: 2026-09-27 설계, 커밋 `1d85ef76`
 
 ## 건강 답변
 
