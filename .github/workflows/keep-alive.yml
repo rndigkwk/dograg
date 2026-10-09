@@ -1,11 +1,16 @@
-name: Keep deployed app awake
+name: Keep deployed app awake and working
 
 # Streamlit Community Cloud puts an app to sleep after a stretch without visitors; waking it
 # then takes about 100s. A headless browser visit every 8 hours keeps it awake, and clicks
-# the wake button if it already sleeps (scripts/wake_app.py).
+# the wake button if it already sleeps (scripts/wake_app.py). The same visit then opens every
+# page and asks the chatbot a date question (scripts/check_deployed_app.py), so an app that is
+# awake but broken fails the run. After a push to main it also runs once the redeploy is done:
+# on 2026-10-09 a redeploy without a reboot left the chat page on an ImportError.
 on:
   schedule:
     - cron: "17 */8 * * *"
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +19,7 @@ permissions:
 jobs:
   wake:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
@@ -25,12 +30,19 @@ jobs:
       - name: Install headless Chromium
         run: uvx --with playwright playwright install --with-deps chromium
 
-      - name: Visit the app
-        run: uvx --with playwright python scripts/wake_app.py
+      - name: Wait for the redeploy
+        if: github.event_name == 'push'
+        run: sleep 300
+
+      - name: Wake the app and check every page and the chatbot
+        run: uvx --with playwright python scripts/check_deployed_app.py
 
       - name: Keep the failure screenshot
         if: failure()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: wake-app-failure
-          path: wake_app_failure.png
+          name: check-app-failure
+          path: |
+            wake_app_failure.png
+            check_app_failure.png
+          if-no-files-found: ignore

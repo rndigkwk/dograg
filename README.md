@@ -38,7 +38,7 @@
 4. **보고서 답변의 병목은 답변이 아니라 검색이었다.** 페이지 전체로 답하기(Parent-Child)와 필요한 문장만 뽑기(컨텍스트 압축)는 정답을 늘리지 못했습니다. 두 실험 모두 정답 페이지가 아예 검색되지 않는 질문(6/18)에서 막혔습니다. 보고서 검색을 하이브리드로 바꾸자 정답 페이지 12 → 16/18, 정답 답변 23 → 30/36(p=0.016). 같은 평가로 RAG-Fusion과 앞뒤 조각 붙이기도 재서 뺐습니다. [실험 10·12·13](docs/wiki/retrieval-experiments.md)
 5. **라우터가 고르는 한 경로가 답의 절반을 지웠다.** "증상 + 병원 찾기" 질문 8개를 실제로 돌려 보니 4개는 증상 안내가, 4개는 병원 목록이 빠졌습니다. 이런 질문은 두 경로를 함께 실행하게 했고(병원 8/8, 증상 8/8), 건강 답변에는 질문의 증상 부분만 넘겨 "자료에 병원 정보가 없다"는 엉뚱한 답을 없앴습니다. [라우터 기록](docs/wiki/router.md)
 
-**운영:** Langfuse 트레이싱(질문·답변은 보내기 전에 마스킹, 배포 버전·세션·태그로 구분), 매주 자동 회귀 평가(GitHub Actions: 챗봇 60문항·라우팅 36문항·방문 팀 12개, 노드 반복 감시 포함), 8시간마다 잠자기 방지, PR마다 테스트 307개.
+**운영:** Langfuse 트레이싱(질문·답변은 보내기 전에 마스킹, 배포 버전·세션·태그로 구분), 매주 자동 회귀 평가(GitHub Actions: 챗봇 60문항·라우팅 36문항·방문 팀 12개, 노드 반복 감시 포함), 8시간마다와 main 병합 직후 배포 앱 점검(잠자기 방지 + 모든 페이지 오류 확인 + 챗봇 응답 확인), PR마다 테스트 315개.
 
 **기술:** LangGraph · LangChain · Chroma · `jhgan/ko-sroberta-multitask` · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`) · SQLite · Langfuse · Streamlit Community Cloud · GitHub Actions
 
@@ -369,7 +369,7 @@ uv run python -m team.main "4살 말티즈가 어제부터 설사를 하고 오�
 │   └── main.py             #   실행, 노드 방문 횟수 기록
 ├── scripts/                # 평가(검색·CRAG·충실도·라우터·보고서·복합 질문·긴 대화), Langfuse 실험, 회귀 판정, 메모리 측정
 ├── tests/                  # 단위·회귀 테스트, 평가 문항(tests/data/)
-├── .github/workflows/      # CI 테스트, 매주 회귀 평가, 잠자기 방지
+├── .github/workflows/      # CI 테스트, 매주 회귀 평가, 배포 앱 점검(잠자기 방지 포함)
 ├── docs/                   # 아키텍처 그림, wiki/(실험 수치·설계 결정·교안 정리)
 └── data/                   # CSV, SQLite, PDF, Chroma
 ```
