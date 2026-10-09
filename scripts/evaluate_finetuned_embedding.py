@@ -1,6 +1,6 @@
 """Compare the base health embedding model with the fine-tuned ones on the app's hybrid path.
 
-    uv run python scripts/evaluate_finetuned_embedding.py        # needs HF_TOKEN (private models)
+    uv run --group tools python scripts/evaluate_finetuned_embedding.py   # needs HF_TOKEN (private models)
 
 Models: `jhgan/ko-sroberta-multitask` (base) and blanden77/ko-sroberta-dograg-a / -b, trained in
 notebooks/finetune_embedding_colab.ipynb on synthetic guardian queries (scripts/finetune_queries.py).

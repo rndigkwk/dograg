@@ -26,12 +26,19 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "onnxruntime>=1.20",
     "langfuse>=4.17.0",
-    # Not imported by the app (it embeds with onnxruntime), but the evaluation and
-    # fine-tuning scripts use it.
-    "sentence-transformers>=3.0",
+    # Question embeddings run on onnxruntime with these two (src/onnx_embeddings.py).
+    "huggingface-hub>=1.0",
+    "tokenizers>=0.21",
+    "httpx>=0.27",
 ]
 
 [dependency-groups]
+# PyTorch models for the embedding fine-tuning, evaluation and memory scripts
+# (`uv run --group tools python scripts/...`). The app never imports torch, so the
+# deployment does not install it.
+tools = [
+    "sentence-transformers>=3.0",
+]
 # Opening the notebooks locally (`uv sync --group notebook`); not installed for the app.
 notebook = [
     "ipykernel>=7.3.0",
