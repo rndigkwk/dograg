@@ -1,47 +1,39 @@
 [project]
-name = "enkoa-practice-llm-agent"
+name = "dograg"
 version = "0.1.0"
-description = "엔코아 AI캠퍼스 LLM·에이전트 실습자료"
+description = "라그도그: 반려견 건강 상담·반려동물 시설 검색·보고서 분석 RAG 챗봇"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "ipykernel>=7.3.0",
-    "jupyterlab>=4.6.2",
     "numpy>=2.3,<2.5",
     "openai>=1.0",
     "pandas>=2.3,<3",
     "pydantic>=2.0",
     "python-dotenv>=1.0",
-    # day15 — 벡터 검색·벡터 DB
-    "scikit-learn>=1.5",
-    "sentence-transformers>=3.0",
     "chromadb>=1.0",
-    "qdrant-client>=1.12",
-    # day16 — 문서 파싱·RAG 파이프라인
-    "pymupdf4llm>=1.28.0",
     "pymupdf>=1.28.0",
     "requests>=2.32",
-    # day17 — 데이터베이스·SQL (Supabase·pgvector)
-    "supabase>=2.15",
-    # day18 — LangChain 기본 구조(모델·프롬프트·파서·LCEL·Runnable·Memory)
-    #   장기 기억 절은 day15 의 chromadb·sentence-transformers 를 그대로 재사용한다.
     "langchain>=1.0",
     "langchain-openai>=1.0",
-    "pyyaml>=6.0",
-    # day19 — LangChain 에이전트·툴(RAG 를 LangChain 부품으로·Text-to-SQL)
-    #   Text-to-SQL 은 sqlite(표준 라이브러리)라 새 의존성이 없다.
     "langchain-chroma>=0.2",
-    "langchain-huggingface>=0.3",
     "langchain-text-splitters>=1.0",
     "streamlit>=1.61.1",
-    "fil>=1.6.0",
     "pyproj>=3.7.2",
     "pillow>=12.3.0",
     "matplotlib>=3.11.1",
     "plotly>=6.9.0",
-    "seaborn>=0.13.2",
     "kiwipiepy>=0.22.2",
     "rank-bm25>=0.2.2",
     "onnxruntime>=1.20",
     "langfuse>=4.17.0",
+    # Not imported by the app (it embeds with onnxruntime), but the evaluation and
+    # fine-tuning scripts use it.
+    "sentence-transformers>=3.0",
+]
+
+[dependency-groups]
+# Opening the notebooks locally (`uv sync --group notebook`); not installed for the app.
+notebook = [
+    "ipykernel>=7.3.0",
+    "jupyterlab>=4.6.2",
 ]
