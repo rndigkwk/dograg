@@ -21,7 +21,8 @@
 
 | | 이전 | 이후 |
 | --- | ---: | ---: |
-| 건강 검색: 쓸모 있는 문서가 상위 3건에 있는 질문 (100문항) | 0.46 | **0.72** |
+| 건강 검색: 쓸모 있는 문서가 상위 3건에 있는 질문 (100문항) | 0.46 | **0.84** |
+| 건강 검색, 짧은 질문("강아지 오줌 색이 달라졌어요"): 같은 기준 (120문항) | 0.600 | **0.783** |
 | 보고서 답변: 기준 답과 맞는 답 (18문항 × 2회) | 23/36 | **30/36** |
 | 근거 없는 질문 보류 / 답할 질문을 잘못 보류 (60문항) | 0/20 / – | **16/20 / 1/38** |
 | 응급 신호 감지, 만들기 전에 써 둔 평가셋 (응급 20 / 비응급 20) | 1/20 / 오탐 0 | **19/20 / 오탐 0** |
@@ -33,9 +34,10 @@
 2. **보고서 답변의 병목은 검색이었다.** Parent-Child·컨텍스트 압축은 효과가 없었고, 하이브리드 검색으로 바꾸자 정답 23 → 30/36(p=0.016). [실험 10·12·13](docs/wiki/retrieval-experiments.md)
 3. **에이전트 팀이 얻을 수 없는 정보를 계속 요청했다.** 재조사를 한 번으로 제한해 검수 통과율 0.70 → 1.00. [팀 기록](docs/wiki/visit-prep-team.md)
 4. **응급 판단의 오탐을 실제 질문 분포로 쟀다.** "응급/아님" 2택은 보호자 질문의 32.5%에 경고했고, "지금 응급/곧 진료/아님" 3택으로 9%가 됐습니다. [기록](docs/wiki/safety-and-evidence.md)
-5. **배포 장애를 자동 점검으로 막았다.** 병합 뒤 리부트를 빠뜨려 챗봇 페이지가 멈춘 일 뒤로, 모든 페이지와 챗봇 응답을 병합 직후와 8시간마다 점검합니다. [기록](docs/wiki/deployment-resources.md)
+5. **짧은 질문에 약한 임베딩을 미세조정했다.** 상담 글은 길고 사용자 질문은 짧았습니다. 상담마다 보호자 말투 질의 2개를 LLM으로 만들어($3.37) Colab 무료 T4에서 4.6분 학습했고, 앱 경로에서 짧은 질문 0.600 → 0.783(p=0.0001), 긴 질문 0.72 → 0.84(p=0.023). [기록](docs/wiki/embedding-finetune.md)
+6. **배포 장애를 자동 점검으로 막았다.** 병합 뒤 리부트를 빠뜨려 챗봇 페이지가 멈춘 일 뒤로, 모든 페이지와 챗봇 응답을 병합 직후와 8시간마다 점검합니다. [기록](docs/wiki/deployment-resources.md)
 
-**기술:** LangGraph · LangChain · Chroma · `jhgan/ko-sroberta-multitask`(ONNX int8) · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`, Decisions) · SQLite · Langfuse · Streamlit Community Cloud · GitHub Actions(테스트 322개, 주간 회귀 평가, 배포 점검)
+**기술:** LangGraph · LangChain · Chroma · ko-sroberta 미세조정(합성 질의, Colab T4, ONNX int8) · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`, Decisions) · SQLite · Langfuse · Streamlit Community Cloud · GitHub Actions(테스트 322개, 주간 회귀 평가, 배포 점검)
 
 ## 데모
 

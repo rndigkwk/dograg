@@ -1,8 +1,8 @@
 """ko-sroberta query embeddings with ONNX Runtime instead of PyTorch.
 
 sentence-transformers needs torch, which costs several hundred MB of RAM on
-Streamlit Community Cloud. The model repo publishes ONNX exports of the same
-weights, so the app runs those with onnxruntime + tokenizers and reproduces the
+Streamlit Community Cloud. The model repo holds an ONNX export of the same
+weights, so the app runs it with onnxruntime + tokenizers and reproduces the
 sentence-transformers pipeline: tokenizer (max 128 tokens) -> transformer ->
 mean pooling over the attention mask -> L2 normalization.
 """
@@ -44,6 +44,7 @@ class OnnxSentenceEmbeddings(Embeddings):
         *,
         threads: int = 2,
         normalize: bool = True,
+        token: str | None = None,
     ) -> OnnxSentenceEmbeddings:
         import onnxruntime as ort
         from huggingface_hub import hf_hub_download
@@ -53,10 +54,10 @@ class OnnxSentenceEmbeddings(Embeddings):
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1
         session = ort.InferenceSession(
-            hf_hub_download(repo_id, onnx_file), options, providers=["CPUExecutionProvider"]
+            hf_hub_download(repo_id, onnx_file, token=token), options, providers=["CPUExecutionProvider"]
         )
         # tokenizer.json already truncates to 128 tokens and pads to the batch's longest.
-        tokenizer = Tokenizer.from_file(hf_hub_download(repo_id, "tokenizer.json"))
+        tokenizer = Tokenizer.from_file(hf_hub_download(repo_id, "tokenizer.json", token=token))
         return cls(session, tokenizer, normalize=normalize)
 
     def _embed(self, texts: Sequence[str]) -> np.ndarray:
