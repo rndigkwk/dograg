@@ -16,6 +16,12 @@ on:
 permissions:
   contents: read
 
+# Several merges in a row started one check each (three at once on 2026-10-09). A newer run
+# replaces the one still waiting: only the check after the last redeploy matters.
+concurrency:
+  group: deployed-app-check
+  cancel-in-progress: true
+
 jobs:
   wake:
     runs-on: ubuntu-latest
