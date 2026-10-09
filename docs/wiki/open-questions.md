@@ -39,7 +39,7 @@
 - ~~Streamlit Cloud(HTTPS)에서 위치 권한 동작을 확인하지 않았다.~~ 2026-10-02 부분 확인([safety-and-evidence.md](safety-and-evidence.md)). 남은 것은 실제 기기 권한 팝업에서 허용, 거부, 시간 초과를 사람이 직접 확인하는 일이다.
 - 배포가 두 곳이다. `dograg-n4gxibufynkgiuixfrkx2v.streamlit.app`(`rndigkwk/dograg` main, 최신)과 `mle-01-p1-team2-…streamlit.app`(`encore-ai-campus/mle-01-p1-team2`, 2026-09-18 README 최종본에서 멈춤). 발표 자료나 노션에 옛 주소가 남아 있으면 혼동될 수 있다.
 - ~~로컬 `pyproject.toml`에 `typesafe-sdk`(Jev 섀도 실험 전용)가 앱 의존성으로 추가돼 있었다.~~ 2026-10-02 커밋하지 않고 되돌렸다. 섀도 스크립트는 `uv run --with typesafe-sdk==0.7.1`로 실행한다.
-- 응급 신호 문구와 규칙을 수의사가 검토하지 않았다. 평가셋(2026-10-09)으로 재 보면 처음 보는 표현의 응급 질문은 절반쯤 놓친다(holdout 9/20, [기록](safety-and-evidence.md)).
+- 응급 신호 문구와 규칙을 수의사가 검토하지 않았다. 규칙만으로는 처음 보는 표현의 응급 질문을 절반쯤 놓쳐(holdout 9/20) Decisions 두 번째 판단을 붙였다(19/20). 평가셋 라벨도 수의사 검토 없이 매겼다([기록](safety-and-evidence.md)).
 
 ## 코드 구조
 
