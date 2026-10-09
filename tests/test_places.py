@@ -209,6 +209,40 @@ class SearchTests(unittest.TestCase):
         self.assertIn("입장 가능 크기: 소형", answer)
         self.assertIn("추가 요금: 5,000원", answer)
 
+    def add_places(self, *rows):
+        with closing(sqlite3.connect(resources.DB_PATH)) as connection:
+            connection.executemany(
+                "INSERT INTO place (id, kind, name, road_address, category) VALUES (?, ?, ?, ?, ?)", rows)
+            connection.commit()
+
+    def test_short_region_names_use_the_fixed_sql(self):
+        model = Mock(side_effect=AssertionError("the model must not write this SQL"))
+        with patch.object(resources, "load_chat_model", model):
+            for question, name in (("강남 동물병원 알려줘", "강남동물병원"), ("마포에 있는 동물병원", "마포동물병원"),
+                                   ("김포 장례식장 찾아줘", "하늘장례식장"), ("서울 동물약국", "강남약국")):
+                with self.subTest(question):
+                    _, rows = places.run_sql_search(question)
+                    self.assertEqual([row["name"] for row in rows], [name])
+
+    def test_words_that_only_look_like_regions(self):
+        self.add_places(("hospital-g", "hospital", "고양동물병원", "경기도 고양시 덕양구 1", None),
+                        ("hospital-k", "hospital", "공주동물병원", "충청남도 공주시 1", None),
+                        ("hospital-n", "hospital", "남양주동물병원", "경기도 남양주시 1", None))
+        for cache in (places.known_region_words, places.short_region_names, places._short_region_pattern):
+            cache.cache_clear()
+        self.assertEqual(places.extract_search_parameters("고양 동물병원"), ["고양시"])
+        self.assertEqual(places.extract_search_parameters("고양이 진료 잘하는 동물병원"), [])
+        self.assertEqual(places.extract_search_parameters("우리 공주 다니던 동물병원"), [])  # a pet, not 공주시
+        self.assertEqual(places.extract_search_parameters("남양주 동물병원"), ["남양주시"])
+        self.assertEqual(router.symptom_part("설사하는데 강남 동물병원 알려줘"), "설사하는데")
+
+    def test_pet_friendly_category_is_kept(self):
+        self.add_places(("pet_friendly-2", "pet_friendly", "멍멍공원", "서울특별시 강남구 공원로 1", "여행지"))
+        _, rows = self.search("강남구 애견동반 카페 알려줘")
+        self.assertEqual([row["name"] for row in rows], ["멍멍카페"])
+        _, rows = self.search("강남구 반려견 동반 가능한 곳 알려줘")
+        self.assertEqual({row["name"] for row in rows}, {"멍멍카페", "멍멍공원"})
+
     def test_count_per_kind(self):
         answer, _ = self.search("서울특별시 동물병원 몇 곳이야?")
         self.assertEqual(answer, "조건에 맞는 동물병원은 2곳입니다.")
@@ -327,7 +361,8 @@ class NightCareTests(unittest.TestCase):
         patcher = patch.object(resources, "DB_PATH", db_path)
         patcher.start()
         self.addCleanup(patcher.stop)
-        places.known_region_words.cache_clear()
+        for cache in (places.known_region_words, places.short_region_names, places._short_region_pattern):
+            cache.cache_clear()
 
     def test_a_follow_up_keeps_the_region_and_shows_only_night_named_hospitals(self):
         with patch.object(resources, "load_chat_model", return_value=None):

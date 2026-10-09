@@ -1,0 +1,21 @@
+{
+ "description": "Facility questions that name a region the short way (\"수원\", \"부산\", \"강남\") instead of the address form (\"수원시\", \"부산광역시\", \"강남구\"), 2026-10-09. expected: an address word every listed place must contain; null for the negatives, where a word only looks like a region (고양이 -> 고양시, 우리 공주 -> 공주시) and must not become a search condition. kind: expected place kind.",
+ "items": [
+  {"id": "r01", "kind": "hospital", "expected": "수원시", "question": "수원 동물병원 목록 보여줘"},
+  {"id": "r02", "kind": "hospital", "expected": "부산광역시", "question": "부산 동물병원 알려줘"},
+  {"id": "r03", "kind": "hospital", "expected": "제주특별자치도", "question": "제주 동물병원 어디 있어?"},
+  {"id": "r04", "kind": "hospital", "expected": "전주시", "question": "전주에 있는 동물병원 찾아줘"},
+  {"id": "r05", "kind": "pharmacy", "expected": "성남시", "question": "성남 동물약국 알려줘"},
+  {"id": "r06", "kind": "hospital", "expected": "청주시", "question": "청주 동물병원 추천해줘"},
+  {"id": "r07", "kind": "grooming", "expected": "창원시", "question": "창원 애견미용실 알려줘"},
+  {"id": "r08", "kind": "hospital", "expected": "강릉시", "question": "강릉에서 갈 만한 동물병원 있어?"},
+  {"id": "r09", "kind": "funeral", "expected": "경기도", "question": "경기 반려동물 장례식장 알려줘"},
+  {"id": "r10", "kind": "hospital", "expected": "천안시", "question": "천안 동물병원 3곳만 알려줘"},
+  {"id": "r11", "kind": "hospital", "expected": "강남구", "question": "강남 동물병원 알려줘"},
+  {"id": "r12", "kind": "hospital", "expected": "해운대구", "question": "해운대 동물병원 어디 있어?"},
+  {"id": "r13", "kind": "pet_friendly", "expected": "춘천시", "question": "춘천 반려견 동반 카페 알려줘"},
+  {"id": "r14", "kind": "hospital", "expected": "포항시", "question": "포항 쪽 동물병원 찾아줘"},
+  {"id": "n01", "kind": "hospital", "expected": null, "question": "고양이 진료 잘하는 동물병원 강남구에서 찾아줘", "also_in": "강남구"},
+  {"id": "n02", "kind": "hospital", "expected": null, "question": "우리 공주 다니던 마포구 동물병원 알려줘", "also_in": "마포구"}
+ ]
+}
