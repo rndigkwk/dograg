@@ -1,11 +1,17 @@
 """Emergency-sign detection: how many urgent questions get the warning, how many others do.
 
     uv run python scripts/evaluate_emergency.py [--label NAME]
+    uv run python scripts/evaluate_emergency.py --second-check --label decisions   # OpenAI calls
 
 tests/data/emergency_signs.json holds 40 urgent and 40 non-urgent questions, half `dev` (may
 be used to change the rules in src/health_safety.py) and half `holdout` (only measured). The
 rules run in code, so this needs no model and no API key. Also reports how often the warning
 fires on the 19,206 real guardian questions of the health corpus (data/df.csv, unlabeled).
+
+--second-check adds the Decisions call (src/tools/urgency.py) for the questions the rules leave
+unflagged, records its time, and asks it about a fixed sample of 200 corpus questions the rules
+leave unflagged, to estimate how many more real questions would get the warning. The
+`holdout2` split was written before the second check was built.
 Results: output/experiments/emergency_<label>.json.
 """
 
@@ -14,7 +20,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import random
+import statistics
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -41,28 +50,59 @@ def score(items: list[dict]) -> dict:
     }
 
 
-def corpus_rate() -> dict:
+def corpus_questions() -> list[str]:
     csv.field_size_limit(10**8)
     with open(CORPUS, encoding="utf-8", newline="") as file:
-        questions = [row["qa.input"] for row in csv.DictReader(file)]
+        return [row["qa.input"] for row in csv.DictReader(file)]
+
+
+def corpus_rate(questions: list[str]) -> dict:
     flagged = sum(bool(detect_urgent_sign(question)) for question in questions)
     return {"questions": len(questions), "flagged": flagged, "rate": round(flagged / len(questions), 4)}
+
+
+def corpus_second_check(questions: list[str], decide, size: int = 200) -> dict:
+    unflagged = [question for question in questions if not detect_urgent_sign(question)]
+    sample = random.Random(7).sample(unflagged, size)
+    flagged = [question for question in sample if decide(question)]
+    return {"sample": size, "model_flagged": len(flagged), "rate": round(len(flagged) / size, 3),
+            "examples": [question[:200] for question in flagged]}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--label", default="current")
+    parser.add_argument("--second-check", action="store_true")
     args = parser.parse_args()
     items = json.loads(DATA.read_text(encoding="utf-8"))["items"]
+    decide, seconds = None, []
+    if args.second_check:
+        from src.tools.urgency import decide_urgent
+
+        def decide(question):
+            started = time.perf_counter()
+            verdict = decide_urgent(question)
+            seconds.append(time.perf_counter() - started)
+            return verdict
+
     for item in items:
-        item["flagged"] = bool(detect_urgent_sign(item["question"]))
-    summary = {split: score([item for item in items if item["split"] == split]) for split in ("dev", "holdout")}
+        item["rule"] = bool(detect_urgent_sign(item["question"]))
+        item["model"] = None if item["rule"] or decide is None else decide(item["question"])
+        item["flagged"] = item["rule"] or bool(item["model"])
+    splits = sorted({item["split"] for item in items}, key=["dev", "holdout", "holdout2"].index)
+    summary = {split: score([item for item in items if item["split"] == split]) for split in splits}
     summary["all"] = score(items)
     missed = Counter(item["category"] for item in items if item["urgent"] and not item["flagged"])
     alarms = Counter(item["category"] for item in items if not item["urgent"] and item["flagged"])
     summary["missed_by_category"] = dict(missed.most_common())
     summary["false_alarms_by_category"] = dict(alarms.most_common())
-    summary["corpus"] = corpus_rate()
+    questions = corpus_questions()
+    summary["corpus"] = corpus_rate(questions)
+    if decide is not None:
+        summary["corpus_second_check"] = corpus_second_check(questions, decide)
+        summary["second_check_seconds"] = {"calls": len(seconds), "p50": round(statistics.median(seconds), 2),
+                                           "max": round(max(seconds), 2)}
+        summary["second_check_no_answer"] = sum(item["model"] is None and not item["rule"] for item in items)
     print(json.dumps(summary, ensure_ascii=False, indent=1))
     for item in items:
         if item["flagged"] != item["urgent"]:

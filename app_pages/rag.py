@@ -17,7 +17,7 @@ from src.conversation_ui import (
     HOSPITAL_ROWS_STATE_KEY,
     RENDERED_THREAD_STATE_KEY,
 )
-from src.health_safety import detect_urgent_sign
+from src.tools.urgency import urgent_notice as find_urgent_notice
 from src.location_component import render_location_control
 from src.memory_limits import release_free_memory
 from src.report_evidence import render_pdf_page, resolve_report_pdf
@@ -408,7 +408,8 @@ def render_page():
         "question": question, "chat_history": chat_history, "thread": session.current_thread,
     }
     with st.chat_message("assistant"):
-        urgent_notice = detect_urgent_sign(question)
+        # The rules, then one Decisions call (~0.3 s) for what they miss (src/tools/urgency.py).
+        urgent_notice = find_urgent_notice(question)
         emergency = None
         if urgent_notice:
             # Shown before the answer is generated: in an emergency the hospital comes first.

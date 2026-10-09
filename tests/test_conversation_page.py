@@ -15,6 +15,7 @@ from streamlit.testing.v1 import AppTest
 
 from app_pages import rag as chat_page
 from src import conversation_ui
+from src.tools import urgency
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
 
@@ -70,7 +71,7 @@ class ConversationPageTests(unittest.TestCase):
         self.detect = Mock(return_value=detected)
         with patch.object(conversation_ui, "sync_local_store", browser), \
                 patch.object(chat_page, "chatbot", side_effect=fake_chatbot), \
-                patch.object(chat_page, "detect_profile", self.detect):
+                patch.object(chat_page, "detect_profile", self.detect),                 patch.object(urgency, "decide_urgent", return_value=None):  # no Decisions call in tests
             if at is None:
                 at = AppTest.from_file(MAIN, default_timeout=30) if home else AppTest.from_function(chat_app, default_timeout=30)
             return at.run()
