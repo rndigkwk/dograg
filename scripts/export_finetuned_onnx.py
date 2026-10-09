@@ -1,7 +1,7 @@
 """Export the fine-tuned health embedding model to ONNX (int8) for the app, and check it.
 
-    uv run python scripts/export_finetuned_onnx.py            # export + parity check
-    uv run python scripts/export_finetuned_onnx.py --upload   # also push onnx/ to the model repo
+    uv run --group tools --with onnx python scripts/export_finetuned_onnx.py            # export + parity check
+    uv run --group tools --with onnx python scripts/export_finetuned_onnx.py --upload   # also push onnx/
 
 The app embeds questions with onnxruntime, not PyTorch (src/onnx_embeddings.py), from an ONNX file
 with inputs input_ids / attention_mask and output last_hidden_state, like the base model's

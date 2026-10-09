@@ -135,11 +135,11 @@ uv run python scripts/build_finetune_notebook.py
 ```
 
 ```bash
-uv run python scripts/evaluate_finetuned_embedding.py
+uv run --group tools python scripts/evaluate_finetuned_embedding.py
 ```
 
 ```bash
-uv run --with onnx python scripts/export_finetuned_onnx.py
+uv run --group tools --with onnx python scripts/export_finetuned_onnx.py
 ```
 
 ```bash

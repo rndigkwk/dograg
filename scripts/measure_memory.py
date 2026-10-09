@@ -6,8 +6,8 @@ cached resources the app loads (via src.resources) one stage at a time on a
 disposable Chroma copy, then optionally a reranker on top of the full stack.
 
     uv run python scripts/measure_memory.py
-    uv run python scripts/measure_memory.py --reranker qwen3      # + Qwen3-Reranker-0.6B
-    uv run python scripts/measure_memory.py --reranker bge-dense  # rescore with the loaded bge-m3
+    uv run --group tools python scripts/measure_memory.py --reranker qwen3      # + Qwen3-Reranker-0.6B
+    uv run --group tools python scripts/measure_memory.py --reranker bge-dense  # rescore with the loaded bge-m3
 
 Like main.py, threads are capped and transformers/torch are kept out of the process
 (the app embeds with ONNX Runtime); the reranker options load torch on purpose.
