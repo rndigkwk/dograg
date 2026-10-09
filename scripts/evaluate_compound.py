@@ -42,23 +42,38 @@ NIGHT = [
 def main() -> int:
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from src.chatbot import chatbot
+    from app_pages.rag import places_first
     from src.tools import places, router
 
     rows = []
     for question in COMPOUND:
         for variant in ("before", "now"):
             started = time.perf_counter()
+            shown: dict[str, float] = {}
+
+            def on_step(node, update, shown=shown, started=started):
+                if "places" not in shown and places_first(node, update):
+                    shown["places"] = round(time.perf_counter() - started, 2)
+
+            def on_token(text, shown=shown, started=started):
+                shown.setdefault("token", round(time.perf_counter() - started, 2))
+
             if variant == "before":
                 with patch.object(router, "describes_symptom", return_value=False):
                     result = chatbot(question, crag=True)
             else:
-                result = chatbot(question, crag=True)
+                result = chatbot(question, crag=True, on_step=on_step, on_token=on_token)
             seconds = round(time.perf_counter() - started, 1)
             answer = result["answer"]
             rows.append({"question": question, "variant": variant, "route": result["route"],
                          "places": len(result.get("hospital_rows") or []), "health_part": "**증상에 대해**" in answer,
                          "health_abstained": result.get("abstained", False), "health_evidence": len(result.get("evidence_rows") or []),
                          "seconds": seconds, "answer": answer})
+            if variant == "now":
+                # When the app can put the place list on screen (app_pages/rag.py places_first);
+                # before that change it appeared with the finished answer, at `seconds`.
+                rows[-1]["places_shown_s"] = shown.get("places")
+                rows[-1]["first_token_s"] = shown.get("token")
             print(variant, result["route"], rows[-1]["places"], rows[-1]["health_part"], rows[-1]["health_abstained"],
                   f"{seconds}s", question, flush=True)
     night_rows = []
@@ -79,6 +94,10 @@ def main() -> int:
                             "with_health_part": sum(r["health_part"] for r in mine),
                             "health_abstained": sum(r["health_part"] and r["health_abstained"] for r in mine),
                             "seconds_p50": statistics.median(r["seconds"] for r in mine)}
+    now = [row for row in rows if row["variant"] == "now" and row.get("places_shown_s") is not None]
+    summary["now"]["places_shown_p50"] = statistics.median(r["places_shown_s"] for r in now) if now else None
+    summary["now"]["places_shown_max"] = max((r["places_shown_s"] for r in now), default=None)
+    summary["now"]["first_token_p50"] = statistics.median(r["first_token_s"] for r in now if r["first_token_s"]) if now else None
     summary["night"] = {"questions": len(night_rows), "with_places": sum(r["places"] > 0 for r in night_rows),
                         "only_night_named": sum(r["places"] > 0 and r["all_night_named"] for r in night_rows)}
     print(json.dumps(summary, ensure_ascii=False, indent=1))
