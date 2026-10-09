@@ -283,4 +283,3 @@ AI Hub 말뭉치와 그 파생 파일(CSV, Chroma, BM25 캐시), 보고서 PDF�
 - 멀티에이전트 방문 준비 보고서 팀과 실패 처리
 - 검색 필터 문제 발견(적중률 0.141 → 0.264)
 
-자세한 변경 내역은 [`changes-from-backup.md`](changes-from-backup.md)에 있습니다.

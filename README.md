@@ -5,7 +5,7 @@
 - **배포 앱:** <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag>
 - **상세 문서:** [`docs/details.md`](docs/details.md)(기능·데이터·결정 전체), [`docs/wiki/`](docs/wiki/README.md)(실험 수치, 채택·기각 이유)
 - **데이터:** [데이터 명세서](docs/data-sources.md)(출처, 이용 조건, 가공). 건강 상담은 AI Hub(aihub.or.kr)의 「반려견 성장 및 질병관련 말뭉치 데이터」(과학기술정보통신부·한국지능정보사회진흥원 사업 결과)를 활용했습니다.
-- 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5> · 발표 당시 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag>
+- 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5> · 발표 당시 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag> · 발표 자료: [PDF](docs/presentation/RAG-DOG_발표.pdf)
 
 > 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 이후(2026-09~10) 오현탁이 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
 
@@ -295,4 +295,4 @@ uv run python -m unittest discover -s tests
 - 봉기람: 데이터 수집·전처리·EDA
 - 차성종: Streamlit UI·시각화·배포
 
-**발표 이후 개선 (2026-09~10, 오현탁):** 이 저장소(`rndigkwk/dograg`)의 작업입니다. 위의 지표와 결정이 모두 여기에 해당합니다. [개선 목록](docs/details.md#발표-이후-개선-목록), [변경 내역](docs/changes-from-backup.md)
+**발표 이후 개선 (2026-09~10, 오현탁):** 이 저장소(`rndigkwk/dograg`)의 작업입니다. 위의 지표와 결정이 모두 여기에 해당합니다. [개선 목록](docs/details.md#발표-이후-개선-목록)

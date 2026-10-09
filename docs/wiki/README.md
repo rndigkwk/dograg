@@ -28,6 +28,5 @@
 
 ## 원천 자료
 
-- 설계 문서: [docs/superpowers/specs/](../superpowers/specs/), [docs/superpowers/plans/](../superpowers/plans/)
 - 답변 유사도 평가: [notebooks/docs/rag_answer_similarity_evaluation.md](../../notebooks/docs/rag_answer_similarity_evaluation.md), `notebooks/outputs/*.csv`
 - 재생성 가능한 실험 결과(로컬 전용): `output/*.json` — 각 페이지에 생성 명령을 적어 둠
