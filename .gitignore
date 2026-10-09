@@ -77,5 +77,6 @@ data/bm25_health_tokens.json.gz
 data/chroma_db/
 data/source/*.pdf
 data/finetune/
+data/.private_data_revision
 tests/data/crag_eval_questions.json
 notebooks/outputs/rag_answer_similarity_eval_results.csv

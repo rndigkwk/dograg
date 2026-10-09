@@ -35,9 +35,13 @@ HEALTH_TOKENIZER_VERSION = "kiwi-nouns-sl-sn-v2"
 # Health Q&A stays on local ko-sroberta: OpenAI embeddings lowered hybrid hit@3
 # from 0.2674 to 0.2353 (docs/wiki/retrieval-experiments.md, experiment 5).
 HEALTH_COLLECTION_NAME = "pet_care"
-HEALTH_EMBEDDING_MODEL_NAME = "jhgan/ko-sroberta-multitask"
-# 같은 가중치의 ONNX 내보내기(모델 저장소 제공). torch 없이 onnxruntime으로 질문을 임베딩합니다.
-HEALTH_ONNX_FILE = "onnx/model_qint8_avx512_vnni.onnx"
+# ko-sroberta fine-tuned on synthetic guardian questions (docs/wiki/embedding-finetune.md):
+# short questions get a directly useful case in the top 3 for 0.625 -> 0.800 of them. Private model
+# repo (trained on AI Hub data), so it is downloaded with HF_TOKEN. The Chroma health collection
+# holds this model's vectors (scripts/rebuild_health_collection.py); the two change together.
+HEALTH_EMBEDDING_MODEL_NAME = "blanden77/ko-sroberta-dograg-b"
+# int8 ONNX export (scripts/export_finetuned_onnx.py); questions are embedded with onnxruntime, not torch.
+HEALTH_ONNX_FILE = "onnx/model_qint8.onnx"
 # Reports use OpenAI text-embedding-3-small (built by scripts/ingest_openai_chroma.py);
 # the hash suffix pins the exact source PDFs the vectors were built from.
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
@@ -81,7 +85,8 @@ def create_embedding_model():
 def load_vector_db():
     return Chroma(
         collection_name=HEALTH_COLLECTION_NAME,
-        embedding_function=OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE),
+        embedding_function=OnnxSentenceEmbeddings.from_hub(
+            HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN")),
         persist_directory=str(chroma_dir()),
     )
 

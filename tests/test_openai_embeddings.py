@@ -19,7 +19,7 @@ from src.tools import report
 class OpenAIEmbeddingSwitchTests(unittest.TestCase):
     def test_health_local_and_report_openai_collections(self):
         self.assertEqual(resources.HEALTH_COLLECTION_NAME, "pet_care")
-        self.assertEqual(resources.HEALTH_EMBEDDING_MODEL_NAME, "jhgan/ko-sroberta-multitask")
+        self.assertEqual(resources.HEALTH_EMBEDDING_MODEL_NAME, "blanden77/ko-sroberta-dograg-b")
         self.assertTrue(resources.REPORT_COLLECTION_NAME.startswith("pet_reports_openai3small_1536_"))
         self.assertEqual(resources.EMBEDDING_MODEL_NAME, "text-embedding-3-small")
 

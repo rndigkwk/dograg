@@ -26,7 +26,7 @@
 | 규모 | 학습 `df.csv` 19,206건, 검증 `df_val.csv` 561건(학습과 겹치는 질문 0건) |
 | 품질 메모 | 질병 라벨 중 `기타`가 76.9%(14,774건). 라벨이 질문 본문과 연령 34%, 진료과 59%만 일치해 검색 필터로 쓰지 않음([실험 8](wiki/retrieval-experiments.md)). 원본 라벨은 바꾸지 않음(`scripts/audit_health_data.py`) |
 | 앱에서 | 질문은 Chroma 건강 컬렉션(ko-sroberta 768차원)과 BM25 색인(`data/bm25_health_tokens.json.gz`)으로 검색하고, 답변은 CSV에서 문서 ID로 붙여 근거로 보여 줌 |
-| 파생 데이터 | `data/finetune/queries.jsonl`: 상담마다 LLM이 쓴 보호자 말투 질의 2개(임베딩 미세조정용, 2026-10-09). 미세조정 모델은 Hugging Face 비공개 저장소 |
+| 파생 데이터 | `data/finetune/queries.jsonl`: 상담마다 LLM이 쓴 보호자 말투 질의 2개(임베딩 미세조정용, 2026-10-09). 미세조정 모델 `blanden77/ko-sroberta-dograg-b`(비공개)는 2026-10-10부터 앱의 건강 검색에 쓰임([기록](wiki/embedding-finetune.md)) |
 | 이용 조건 | 내국인만 신청 가능. AI Hub 이용정책: 학습 목적 이용, 사업 결과임을 밝힐 것(2차 저작물 포함), **승인 없이 제3자에게 열람·제공·양도·대여·판매 금지**. AI Hub FAQ: 학습해 만든 모델·서비스는 데이터셋 정식 명칭과 출처(aihub.or.kr)를 밝히면 영리·비영리로 배포 가능, **원본이나 단순 가공본(csv 등)의 공유·재배포는 불가** ([이용정책](https://aihub.or.kr/intrcn/guid/usagepolicy.do), [FAQ](https://aihub.or.kr/aihubnews/faq/list.do)) |
 | 출처 표기 | "이 프로젝트는 AI Hub(aihub.or.kr)의 「반려견 성장 및 질병관련 말뭉치 데이터」를 활용했습니다. 이 데이터는 과학기술정보통신부와 한국지능정보사회진흥원의 사업 결과입니다." |
 
