@@ -9,7 +9,7 @@ from streamlit.errors import StreamlitAPIException
 from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlException
 
 from src import resources
-from src.chat_graph import HEALTH_ABSTAIN
+from src.chat_graph import HEALTH_ABSTAIN, HEALTH_PART_HEADING
 from src.chatbot import chatbot
 from src.conversation_session import ConversationSession
 from src.conversation_ui import (
@@ -64,12 +64,24 @@ def progress_message(node: str, update: dict) -> str | None:
     """그래프 노드가 끝날 때마다 다음 단계를 사용자에게 알려 줄 문구를 고릅니다."""
     if node == "classify":
         return ROUTE_PROGRESS.get(update.get("route"))
+    if node == "hospital" and update.get("also_health"):
+        return "증상에 대한 상담 자료를 찾고 있습니다…"
     if node in {"health_retrieve", "report_retrieve"}:
         return "찾은 근거가 질문에 맞는지 확인하고 있습니다…"
     if node in {"health_grade", "report_grade"}:
         if update.get("documents"):
             return "근거를 바탕으로 답변을 작성하고 있습니다…"
         return "맞는 근거가 없어 검색어를 바꿔 다시 찾고 있습니다…" if node == "health_grade" else None
+    return None
+
+
+def places_first(node: str, update: dict) -> str | None:
+    """A symptom + place request: the place list, to show while the symptom answer is written.
+
+    The places are ready in well under a second (fixed SQL) and the health path takes 4-8 s
+    more; before this the list the user asked for appeared only with the finished answer."""
+    if node == "hospital" and update.get("place_answer"):
+        return update["place_answer"] + HEALTH_PART_HEADING
     return None
 
 
@@ -405,6 +417,7 @@ def render_page():
             render_emergency(emergency)
         try:
             # 답변 문장은 모델이 쓰는 대로 보여 주고, 그 전까지는 지금 단계를 알려 줍니다.
+            places_box = st.empty()
             status = st.empty()
             status.caption("⏳ 질문을 확인하고 있습니다…")
             stream_box = st.empty()
@@ -417,6 +430,8 @@ def render_page():
                 stream_box.markdown("".join(streamed) + " ▌")
 
             def show_step(node: str, update: dict) -> None:
+                if places := places_first(node, update):
+                    places_box.markdown(places)
                 message = None if streamed else progress_message(node, update)
                 if message:
                     status.caption(f"⏳ {message}")
@@ -433,6 +448,7 @@ def render_page():
                     session_id=session.request,
                 )
             finally:
+                places_box.empty()
                 status.empty()
                 stream_box.empty()
 

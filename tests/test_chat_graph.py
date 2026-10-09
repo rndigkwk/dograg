@@ -159,6 +159,24 @@ class CompoundQuestionTests(ChatGraphTestCase):
         self.assertEqual(self.run_chat(plain, question="강아지가 토해요")["answer"], "생성 답변")
         plain.run_sql_search.assert_not_called()
 
+    def test_the_place_list_can_be_shown_before_the_health_path_runs(self):
+        tools = make_tools(route="sql")
+        steps = []
+        result = run_chat(tools, "토하는데 강남구 동물병원 알려줘", top_k=2, crag=True,
+                          on_step=lambda node, update: steps.append((node, update)))
+        early = [(i, rag.places_first(node, update)) for i, (node, update) in enumerate(steps)
+                 if rag.places_first(node, update)]
+        self.assertEqual(len(early), 1)
+        index, places = early[0]
+        self.assertEqual(steps[index][0], "hospital")
+        self.assertTrue(all(node.startswith("health_") for node, _ in steps[index + 1:]))
+        self.assertTrue(result["answer"].startswith(places))  # the final answer only adds below it
+        self.assertIn("상담 자료", rag.progress_message(*steps[index]))
+        plain = []
+        run_chat(make_tools(route="sql"), "강남구 동물병원 알려줘", top_k=2, crag=True,
+                 on_step=lambda node, update: plain.append(rag.places_first(node, update)))
+        self.assertEqual(plain, [None, None])  # a plain list is the whole answer: nothing early
+
     def test_plain_facility_questions_and_crag_off_stay_one_path(self):
         tools = make_tools(route="sql")
         result = self.run_chat(tools, question="강남구 동물병원 알려줘")

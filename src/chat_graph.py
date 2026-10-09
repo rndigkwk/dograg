@@ -51,6 +51,8 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 # 사용자에게 보일 답변을 만드는 노드. 라우터·근거 평가·재작성의 모델 출력은 스트리밍하지 않습니다.
+# The heading between the place list and the symptom answer of a symptom + place request.
+HEALTH_PART_HEADING = "\n\n---\n\n**증상에 대해**\n\n"
 ANSWER_NODES = frozenset({"health_simple", "report_simple", "health_generate", "report_generate", "general"})
 
 
@@ -173,7 +175,7 @@ def build_chat_graph(tools):
     def with_places(answer: str, state: ChatState) -> str:
         if not state.get("place_answer"):
             return answer
-        return f"{state['place_answer']}\n\n---\n\n**증상에 대해**\n\n{answer}"
+        return f"{state['place_answer']}{HEALTH_PART_HEADING}{answer}"
 
     def general(state: ChatState):
         return {
