@@ -20,7 +20,7 @@ from src.conversation_session import ConversationSession
 from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
 from src.health_safety import detect_urgent_sign
 from src.tools.profile import profile_summary
-from src.ui import apply_app_theme, render_page_header
+from src.ui import apply_app_theme, plain_tildes, render_page_header
 
 MAX_RUNS_PER_SESSION = 2
 MAX_CONSULTATION_CHARS = 500
@@ -214,7 +214,7 @@ def render_result(result: dict) -> None:
     with st.expander("진행 과정"):
         st.markdown("\n".join(f"- {line}" for line in result["steps"]))
     with st.container(border=True):
-        st.markdown(result["report"])
+        st.markdown(plain_tildes(result["report"]))
     st.download_button("보고서 내려받기 (.md)", result["report"], file_name="visit_report.md",
                        mime="text/markdown", icon=":material/download:")
 

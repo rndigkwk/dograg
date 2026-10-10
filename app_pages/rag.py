@@ -28,7 +28,7 @@ from src.tools.history import history_with_summary, summary_due
 from src.tools.places import emergency_hospitals
 from src.tools.profile import detect_profile, profile_summary
 from src.tracing import record_feedback
-from src.ui import apply_app_theme, render_page_header
+from src.ui import apply_app_theme, plain_tildes, render_page_header
 
 SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
 RAG_TOP_K_SLIDER_KEY = "rag_top_k"
@@ -171,7 +171,7 @@ def render_report_evidence(evidence_rows: list[dict], key: str) -> None:
             st.caption(excerpt_preview(row.get("excerpt", "")))
             if not st.toggle("자세히 보기", key=f"report_evidence_{key}_{index}"):
                 continue
-            st.write(row.get("excerpt", ""))
+            st.write(plain_tildes(row.get("excerpt", "")))
             pdf_path = resolve_report_pdf(PROJECT_DIR, row.get("source"))
             png = render_pdf_page(pdf_path, page) if page and pdf_path else None
             if png:
@@ -198,7 +198,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True, key: st
         st.warning(message["safety_notice"])
     if show_notice and message.get("emergency") is not None:
         render_emergency(message["emergency"])
-    st.write(message["content"])
+    st.write(plain_tildes(message["content"]))
     render_feedback(message)
     # Not under an abstention: there was no evidence, so a report would spend 10-20 model calls
     # on the same empty search. Stored turns keep no "abstained" flag, so the text is checked too.
@@ -220,7 +220,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True, key: st
         for index, row in enumerate(evidence_rows):
             evidence = format_evidence_row(row, index)
             with st.expander(evidence["title"]):
-                st.markdown(evidence["body"])
+                st.markdown(plain_tildes(evidence["body"]))
 
 
 def warmup_wanted(env: dict | None = None, modules: dict | None = None, runtime_exists=None) -> bool:
@@ -367,7 +367,7 @@ def render_page():
                 render_assistant_message(message, key=f"{session.current_thread}_{position}",
                                          question=asked["content"] if asked and asked["role"] == "user" else None)
             else:
-                st.write(message["content"])
+                st.write(plain_tildes(message["content"]))
 
     render_profile_suggestion(session)
 
@@ -429,11 +429,11 @@ def render_page():
                 if not streamed:
                     status.empty()
                 streamed.append(text)
-                stream_box.markdown("".join(streamed) + " ▌")
+                stream_box.markdown(plain_tildes("".join(streamed)) + " ▌")
 
             def show_step(node: str, update: dict) -> None:
                 if places := places_first(node, update):
-                    places_box.markdown(places)
+                    places_box.markdown(plain_tildes(places))
                 message = None if streamed else progress_message(node, update)
                 if message:
                     status.caption(f"⏳ {message}")
