@@ -274,6 +274,9 @@ def short_region_names(db_path: str) -> dict[str, tuple[str, ...]]:
         if word.endswith(("시", "군", "구")) and not word.endswith(("특별시", "광역시", "특별자치시")):
             if len(word) >= 3:
                 names.setdefault(word[:-1], set()).add(word)
+            # "일산" -> 일산동구, 일산서구: a city's gus named by direction go by their shared name.
+            if word.endswith(("동구", "서구", "남구", "북구")) and len(word) >= 4:
+                names.setdefault(word[:-2], set()).add(word)
     for alias, full in SIDO_ALIASES.items():
         if not alias.endswith(("시", "도")):
             names.setdefault(alias, set()).add(full)
