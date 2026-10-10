@@ -213,6 +213,45 @@ class FailureTests(unittest.TestCase):
         self.assertEqual(finding["summary"], "근거를 찾지 못했다")
         self.assertNotIn("failures", update)  # nothing failed, so the outcome stays complete
 
+    def test_a_researcher_that_stops_without_an_answer_is_asked_once_more(self):
+        # The API ended a cost run "incomplete" (max_messages) after long reasoning: no Finding,
+        # calls left. It used to be recorded as the call limit and replaced by the fixed guide.
+        incomplete = SimpleNamespace(type="ai", response_metadata={"status": "incomplete", "incomplete_details": {"reason": "max_messages"}})
+        fact = KeyPoint(fact="강남구 초진 진찰료 중간 11,000원", evidence_id="fee-서울특별시-강남구-초진-진찰료-(체중-5kg)")
+        answers = [{"messages": [incomplete]}, {"structured_response": Finding(summary="s", key_points=[fact]), "messages": []}]
+        calls = []
+
+        def invoke(inputs):
+            calls.append(inputs["messages"])
+            return answers[len(calls) - 1]
+
+        task = {"task_id": "t5", "kind": "cost", "query": "진료비", "angle": "a"}
+        with patch.object(nodes, "create_researcher", return_value=SimpleNamespace(invoke=invoke)):
+            update = nodes.researcher({"task": task, "consultation": "x", "urgent": False})
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1][-1], ("user", config.ANSWER_NUDGE))  # the first run's messages, then the nudge
+        self.assertNotIn("failures", update)
+        self.assertEqual(update["findings"]["t5"]["key_points"][0]["evidence_id"], fact.evidence_id)
+
+        # Still no answer: recorded with the reason, not as the call limit; never a third call.
+        calls.clear()
+        answers[1] = {"messages": [incomplete]}
+        with patch.object(nodes, "create_researcher", return_value=SimpleNamespace(invoke=invoke)):
+            update = nodes.researcher({"task": task, "consultation": "x", "urgent": False})
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(update["failures"]["t5"]["error"], "NoAnswer: 다시 물어도 조사 결과를 정리하지 못함 (incomplete: max_messages)")
+        self.assertTrue(update["findings"]["t5"]["fallback"])
+
+    def test_a_researcher_at_its_call_limit_is_not_asked_again(self):
+        used_up = {"messages": [SimpleNamespace(type="ai", response_metadata={})] * config.AGENT_CALL_LIMIT}
+        calls = []
+        agent = SimpleNamespace(invoke=lambda inputs: calls.append(1) or used_up)
+        with patch.object(nodes, "create_researcher", return_value=agent):
+            update = nodes.researcher({"task": {"task_id": "t5", "kind": "cost", "query": "q", "angle": "a"},
+                                       "consultation": "x", "urgent": False})
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(update["failures"]["t5"]["error"].startswith("CallLimitReached"))
+
     def test_the_writer_is_told_which_section_uses_the_guide(self):
         state = {**initial_state(), "failures": {"t3": {"kind": "cost", "error": "x"}},
                  "findings": {"t3": nodes.fallback_finding("cost")}}
