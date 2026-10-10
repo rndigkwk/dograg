@@ -709,6 +709,15 @@ html body textarea[data-testid="stChatInputTextArea"] {
 """
 
 
+def plain_tildes(text: str) -> str:
+    """Model and table text for st.markdown/st.write with "~" shown as written.
+
+    Streamlit's Markdown reads a single "~" pair as strikethrough, so a range written twice in one
+    paragraph ("15,000~110,000원 ... 5,000~50,000원") lost both tildes and struck out the text
+    between them (visit report on the deployed app, 2026-10-10)."""
+    return str(text).replace("~", "\\~")
+
+
 def _resolve_streamlit(st_module: Any | None) -> Any:
     return st if st_module is None else st_module
 
