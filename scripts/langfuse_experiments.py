@@ -302,13 +302,25 @@ def visit_evaluators():
         row (a fee- citation) and every quoted amount matches the survey."""
         if not input["region"] or not any(word in input["consultation"] for word in COST_WORDS):
             return []
-        cited = bool(output.get("fee_ids"))
+        cited = any(fee_id_in_region(i, input["region"]) and not i.startswith("fee-전국-") for i in output.get("fee_ids", []))
         exact = cited and output["fee_amounts"] > 0 and not output["fee_amounts_wrong"]
         return [Evaluation(name="regional_fee_cited", value=1.0 if cited else 0.0, comment=", ".join(output.get("fee_ids", [])) or None),
                 Evaluation(name="fee_amounts_exact", value=1.0 if exact else 0.0,
                            comment=f"{output.get('fee_amounts', 0)} amounts, wrong: {output.get('fee_amounts_wrong') or 'none'}")]
 
-    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees]
+    def fee_region(*, input, output, **kwargs):
+        """Every fee statistic a report cites is the guardian's region or the nation (a 해운대구
+        consultation once cited 대구광역시 rows)."""
+        if not input["region"] or not output.get("fee_ids"):
+            return []
+        wrong = [i for i in output["fee_ids"] if not fee_id_in_region(i, input["region"])]
+        return Evaluation(name="fee_region_ok", value=0.0 if wrong else 1.0, comment=", ".join(wrong) or None)
+
+    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees, fee_region]
+
+
+def fee_id_in_region(evidence_id: str, region: str) -> bool:
+    return evidence_id.startswith("fee-전국-") or f"-{region}-" in evidence_id
 
 
 COST_WORDS = ("병원비", "진료비", "검사비", "비용", "얼마")
@@ -335,6 +347,7 @@ def visit_run_evaluators():
             Evaluation(name="mean_node_visits", value=mean("node_visits")),
             Evaluation(name="regional_fee_cited_rate", value=mean("regional_fee_cited")),
             Evaluation(name="fee_amounts_exact_rate", value=mean("fee_amounts_exact")),
+            Evaluation(name="fee_region_ok_rate", value=mean("fee_region_ok")),
             Evaluation(name="mean_unsupported", value=statistics.mean(r.output["unsupported"] for r in item_results)),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
