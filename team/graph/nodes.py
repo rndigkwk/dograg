@@ -160,7 +160,7 @@ def researcher(state: ResearchInput) -> dict:
         result = agent.invoke({"messages": message})
         if result.get("structured_response") is None and not limit_reached(result):
             # The model stopped without an answer although calls were left: an "incomplete" response
-            # (reason max_messages) after long reasoning, about 1 in 12 cost runs (2026-10-10). Ask
+            # (reason max_messages) after long reasoning: 4 of 19 runs of one cost task (2026-10-10). Ask
             # once more for the answer from the results it already has.
             print("researcher:", task["task_id"], "답 없이 끝남", stop_reason(result), "-> 한 번 더")
             result = agent.invoke({"messages": [*result["messages"], ("user", config.ANSWER_NUDGE)]})
