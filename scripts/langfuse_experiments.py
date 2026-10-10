@@ -207,6 +207,8 @@ def visit_task(*, item, **kwargs):
         "says_no_evidence": any(phrase in report for phrase in NO_EVIDENCE_PHRASES),
         "visits": state["visits"],
         "repeated_nodes": result.get("repeated_nodes", []),
+        "reasks": len(result.get("reasks") or {}),
+        "no_answer": sum(failure["error"].startswith("NoAnswer") for failure in result["failures"].values()),
         "run_dir": state["run_dir"].relative_to(PROJECT_DIR).as_posix(),
         **fee_citations(report),
     }
@@ -316,7 +318,13 @@ def visit_evaluators():
         wrong = [i for i in output["fee_ids"] if not fee_id_in_region(i, input["region"])]
         return Evaluation(name="fee_region_ok", value=0.0 if wrong else 1.0, comment=", ".join(wrong) or None)
 
-    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees, fee_region]
+    def no_answer(*, output, **kwargs):
+        """Researchers that stopped without an answer: asked again (reasks), still nothing (no_answer)."""
+        return [Evaluation(name="reasked", value=1.0 if output.get("reasks") else 0.0),
+                Evaluation(name="no_answer", value=1.0 if output.get("no_answer") else 0.0)]
+
+    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees, fee_region,
+            no_answer]
 
 
 def fee_id_in_region(evidence_id: str, region: str) -> bool:
@@ -348,6 +356,8 @@ def visit_run_evaluators():
             Evaluation(name="regional_fee_cited_rate", value=mean("regional_fee_cited")),
             Evaluation(name="fee_amounts_exact_rate", value=mean("fee_amounts_exact")),
             Evaluation(name="fee_region_ok_rate", value=mean("fee_region_ok")),
+            Evaluation(name="reask_rate", value=mean("reasked")),
+            Evaluation(name="no_answer_rate", value=mean("no_answer")),
             Evaluation(name="mean_unsupported", value=statistics.mean(r.output.get("unsupported", 0) for r in item_results)),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),

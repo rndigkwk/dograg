@@ -39,6 +39,11 @@ LIMITS = {
         ("hospitals_listed_rate", "min", 0.88, 1.0),
         ("repeat_suspect_rate", "max", 0.34, 0.167),
         ("latency_p90_s", "max", 120.0, 65.5),
+        # Researchers that ended without an answer (API "incomplete" responses, 2026-10-10): asked
+        # once more (reask) and, if still nothing, recorded as NoAnswer and replaced by the guide.
+        # 0 in the merged runs; a model or API change that makes it common fails here first.
+        ("reask_rate", "max", 0.25, 0.0),
+        ("no_answer_rate", "max", 0.09, 0.0),
     ],
 }
 

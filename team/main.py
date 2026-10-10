@@ -51,7 +51,7 @@ def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path
         inputs = {
             "consultation": consultation, "region": region, "profile": profile,
             "urgent": detect_urgent_sign(consultation) or "", "ask": ask, "questions": [],
-            "plan": [], "findings": {}, "failures": {}, "outcome": "", "round": 0, "draft": "",
+            "plan": [], "findings": {}, "failures": {}, "reasks": {}, "outcome": "", "round": 0, "draft": "",
             "review": None, "feedback": "", "instruction": "",
         }
     run_config = {"recursion_limit": 40}
@@ -127,6 +127,8 @@ def run_record(state: dict | None, seconds: float, visits: dict[str, int] | None
         # Exception class names only (the messages can quote the request): enough to tell an
         # API outage from a code error when a production run is held.
         "failed_errors": sorted({failure["error"].split(":", 1)[0] for failure in (state.get("failures") or {}).values()}),
+        # Researchers that stopped without an answer and were asked once more (nodes.researcher).
+        "reasks": len(state.get("reasks") or {}),
         "supported_claims": review.get("supported", 0),
         "unsupported_claims": len(review.get("unsupported", [])),
         "seconds": round(seconds, 1),

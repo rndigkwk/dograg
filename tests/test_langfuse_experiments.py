@@ -72,7 +72,7 @@ class EvaluatorTests(unittest.TestCase):
                          {"route_correct": 0.0})
 
     def test_visit_scores(self):
-        passed, urgent, scope, hospitals, numbers, repeat, _, _ = experiments.visit_evaluators()
+        passed, urgent, scope, hospitals, numbers, repeat, _, _, no_answer = experiments.visit_evaluators()
         output = {"status": "human_check", "urgent": True, "says_no_evidence": False, "hospitals": 0,
                   "round": 2, "latency_s": 53.0, "visits": {"planner": 1, "writer": 3, "reviewer": 3},
                   "repeated_nodes": ["reviewer", "writer"]}
@@ -87,6 +87,8 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(numbers, output=output), {"rounds": 2, "latency_s": 53.0, "node_visits": 7})
         self.assertEqual(scores(repeat, output=output), {"repeat_suspect": 1.0})
         self.assertEqual(scores(repeat, output={**output, "repeated_nodes": []}), {"repeat_suspect": 0.0})
+        self.assertEqual(scores(no_answer, output={**output, "reasks": 1, "no_answer": 0}), {"reasked": 1.0, "no_answer": 0.0})
+        self.assertEqual(scores(no_answer, output=output), {"reasked": 0.0, "no_answer": 0.0})  # results before the field
 
     def test_fee_citations_are_checked_against_the_survey_and_the_region(self):
         rows = [{"level": "sigungu", "sido": "서울특별시", "sigungu": "강남구", "item": "엑스선 촬영비와 판독료",
@@ -99,7 +101,7 @@ class EvaluatorTests(unittest.TestCase):
         with patch.object(experiments, "_fee_rows", return_value=rows):
             self.assertEqual(experiments.fee_citations(report), {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []})
             self.assertEqual(experiments.fee_citations(report.replace("51,099원", "52,000원"))["fee_amounts_wrong"], ["52,000"])
-        *_, regional, region = experiments.visit_evaluators()
+        *_, regional, region, _ = experiments.visit_evaluators()
         asked = {"region": "강남구", "consultation": "엑스레이 비용이 걱정돼요"}
         output = {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []}
         self.assertEqual(scores(regional, input=asked, output=output), {"regional_fee_cited": 1.0, "fee_amounts_exact": 1.0})
