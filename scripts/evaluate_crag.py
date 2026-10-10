@@ -50,6 +50,12 @@ def gold_page_hit(item: dict, result: dict) -> bool | None:
     return bool(gold & found)
 
 
+def questions_label(path: Path) -> str:
+    """The question file as recorded in the report: relative to the project when inside it."""
+    path = path.resolve()
+    return path.relative_to(PROJECT_DIR).as_posix() if path.is_relative_to(PROJECT_DIR) else path.as_posix()
+
+
 def summarize(rows: list[dict]) -> dict:
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
@@ -125,7 +131,7 @@ def main() -> int:
                 "answer_head": result.get("answer", "")[:300],
             })
             print(f"[{index}/{len(items)}] {item['id']} {rows[-1]['route']} {row_outcome}", flush=True)
-    report = {"crag": args.crag, "candidate_k": args.candidate_k or crag.HEALTH_CANDIDATE_K, "questions": args.questions.resolve().relative_to(PROJECT_DIR).as_posix(),
+    report = {"crag": args.crag, "candidate_k": args.candidate_k or crag.HEALTH_CANDIDATE_K, "questions": questions_label(args.questions),
               "summary": summarize(rows), "rows": rows}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
