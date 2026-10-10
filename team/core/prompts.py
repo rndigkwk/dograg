@@ -37,7 +37,9 @@ RESEARCHER_ROLES = {"health": "건강 상담 근거", "place": "동물병원 위
 
 RESEARCHER_INPUT = """[작업] {query}
 [알아낼 것] {angle}
-[상담 내용] {consultation}"""
+[상담 내용] {consultation}
+[지역] {region}
+[반려견 정보] {profile}"""
 
 WRITER_PROMPT = """당신은 동물병원 방문 준비 보고서를 쓰는 작성자입니다.
 조사 결과(findings)에 있는 사실만 쓰고, 문장 끝에 근거 id를 [qa-123]처럼 붙이세요. 조사 결과에 없는 진단·약·용량·원인은 쓰지 마세요.

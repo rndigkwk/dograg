@@ -99,7 +99,7 @@ def initial_state(region="강남구"):
 class ToolPermissionTests(unittest.TestCase):
     def test_each_role_gets_only_its_tools(self):
         names = {kind: [tool.name for tool in workers.researcher_tools(kind)] for kind in ("health", "place", "cost")}
-        self.assertEqual(names, {"health": ["search_health_qa"], "place": ["find_hospitals"], "cost": ["search_report_stats"]})
+        self.assertEqual(names, {"health": ["search_health_qa"], "place": ["find_hospitals"], "cost": ["regional_fee_stats", "search_report_stats"]})
         writer = [tool.name for tool in workers.writer_tools(Path("."))]
         self.assertEqual(writer, ["write_report", "request_review", "request_research"])
         searches = {name for tools in names.values() for name in tools}

@@ -120,6 +120,9 @@ def build_chat_graph(tools):
         question, history = state["question"], state.get("chat_history")
         if tools.is_date_question(question):
             return {"route": "date"}
+        if tools.is_fee_question(question):
+            # Clinic fees come from the government survey table, not a model (src/tools/fees.py).
+            return {"route": "fee"}
         route = tools.classify_question(question, chat_history=history)
         # Health questions in a long conversation carry a condition from the summary (day52);
         # other routes and short conversations keep the plain query (no extra call).
@@ -130,6 +133,8 @@ def build_chat_graph(tools):
         route, crag = state["route"], state.get("crag", False)
         if route == "date":
             return "date_answer"
+        if route == "fee":
+            return "fee_answer"
         if route == "rag" and not (crag and tools.is_symptom_and_place_request(state["question"])):
             return "health_retrieve" if crag else "health_simple"
         if route == "analysis":
@@ -142,6 +147,9 @@ def build_chat_graph(tools):
     # --- 기존 경로 (CRAG 꺼짐) ---
     def date_answer(state: ChatState):
         return {"route": "none", "answer": tools.current_date_answer()}
+
+    def fee_answer(state: ChatState):
+        return {"answer": tools.fee_answer(state["question"], profile=state.get("pet_profile")), "hospital_rows": []}
 
     def health_simple(state: ChatState):
         result = tools.ask_rag(
@@ -315,7 +323,8 @@ def build_chat_graph(tools):
 
     builder = StateGraph(ChatState)
     for name, node in {
-        "classify": classify, "date_answer": date_answer, "general": general, "hospital": hospital,
+        "classify": classify, "date_answer": date_answer, "fee_answer": fee_answer, "general": general,
+        "hospital": hospital,
         "health_simple": health_simple, "report_simple": report_simple,
         "health_retrieve": health_retrieve, "health_grade": health_grade,
         "health_rewrite": health_rewrite, "health_generate": health_generate, "health_review": health_review,
@@ -325,7 +334,7 @@ def build_chat_graph(tools):
         builder.add_node(name, node)
     builder.add_edge(START, "classify")
     builder.add_conditional_edges("classify", route_after_classify, [
-        "date_answer", "health_simple", "health_retrieve", "report_simple",
+        "date_answer", "fee_answer", "health_simple", "health_retrieve", "report_simple",
         "report_retrieve", "hospital", "general",
     ])
     builder.add_edge("health_retrieve", "health_grade")
@@ -337,7 +346,7 @@ def build_chat_graph(tools):
     builder.add_conditional_edges("report_grade", route_after_report_grade, ["report_generate", "abstain"])
     builder.add_conditional_edges("hospital", route_after_hospital, ["health_retrieve", END])
     builder.add_conditional_edges("health_generate", route_after_health_generate, ["health_review", END])
-    for name in ("date_answer", "general", "health_simple", "report_simple",
+    for name in ("date_answer", "fee_answer", "general", "health_simple", "report_simple",
                  "health_review", "report_generate", "abstain"):
         builder.add_edge(name, END)
     return builder.compile()

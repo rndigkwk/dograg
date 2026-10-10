@@ -73,7 +73,7 @@ def health_tools():
         return chain.invoke({"question": question, "context": DOCUMENT})
 
     return SimpleNamespace(
-        is_date_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
+        is_date_question=lambda q: False, is_fee_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
         build_rag_search_query=lambda q, h=None: q, memory_search_query=lambda q, h=None: q,
         is_symptom_and_place_request=lambda q: False,
         infer_rag_filters=Mock(return_value={}),

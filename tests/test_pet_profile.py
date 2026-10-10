@@ -97,7 +97,7 @@ class ProfileInRetrievalTests(unittest.TestCase):
     def test_graph_passes_the_profile_to_filters_and_generation(self):
         profile = PetProfile(name="초코")
         tools = SimpleNamespace(
-            is_date_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
+            is_date_question=lambda q: False, is_fee_question=lambda q: False, classify_question=lambda q, chat_history=None: "rag",
             build_rag_search_query=lambda q, h=None: q, memory_search_query=lambda q, h=None: q,
             is_symptom_and_place_request=lambda q: False,
             infer_rag_filters=Mock(return_value={}),

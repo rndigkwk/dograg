@@ -14,5 +14,7 @@ def dispatch(state: State) -> list[Send] | str:
     todo = [task for task in state["plan"] if task["task_id"] not in done]
     if not todo:
         return "supervisor"
-    payload = {"consultation": state["consultation"], "urgent": bool(state["urgent"])}
+    # The cost researcher's fee tool needs the area and the dog's weight.
+    payload = {"consultation": state["consultation"], "urgent": bool(state["urgent"]),
+               "region": state.get("region", ""), "profile": state.get("profile", "")}
     return [Send("researcher", {"task": task, **payload}) for task in todo]
