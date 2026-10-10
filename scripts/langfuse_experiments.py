@@ -348,7 +348,7 @@ def visit_run_evaluators():
             Evaluation(name="regional_fee_cited_rate", value=mean("regional_fee_cited")),
             Evaluation(name="fee_amounts_exact_rate", value=mean("fee_amounts_exact")),
             Evaluation(name="fee_region_ok_rate", value=mean("fee_region_ok")),
-            Evaluation(name="mean_unsupported", value=statistics.mean(r.output["unsupported"] for r in item_results)),
+            Evaluation(name="mean_unsupported", value=statistics.mean(r.output.get("unsupported", 0) for r in item_results)),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
         ]
