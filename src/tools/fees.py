@@ -134,6 +134,11 @@ def resolve_regions(question: str) -> list[tuple[str, str]]:
     # The region extractor keeps only the most specific words ("부산 중구" -> 중구), so read the
     # si/do from the question itself; it decides which 중구 is meant.
     compact = _compact(question)
+    for keyword in keywords:
+        # "해운대구" holds "대구": read the si/do only outside the si/gun/gu names found
+        # (a 해운대구 consultation cited 대구광역시 fees in the visit report, 2026-10-10).
+        if keyword not in sidos:
+            compact = compact.replace(keyword, " ")
     named_sidos = sorted({full for alias, full in places.SIDO_ALIASES.items() if alias in compact}
                          | {sido for sido in sidos if sido in compact})
     found = []

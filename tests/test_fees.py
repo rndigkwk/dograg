@@ -101,6 +101,17 @@ class FeeTests(unittest.TestCase):
         self.assertIn("서울특별시 중구", both)
         self.assertIn("시·도를 함께 말씀하시면", both)
 
+    def test_a_gu_name_holding_another_si_do_name(self):
+        rows = (*ROWS, row("sigungu", "부산광역시", "해운대구", "초진 진찰료", "체중 5kg", 12000),
+                row("sido", "대구광역시", "", "초진 진찰료", "체중 5kg", 9500))
+        with (patch.object(fees, "load_fee_rows", return_value=rows),
+              patch.object(fees.places, "extract_search_parameters", return_value=["해운대구"])):
+            self.assertEqual(fees.resolve_regions("해운대구 초진 얼마야"), [("부산광역시", "해운대구")])
+        # A si/do the extractor returns stays readable ("경기도 진료비 평균": 경기도, not nothing).
+        with (patch.object(fees, "load_fee_rows", return_value=(*rows, row("sido", "경기도", "", "초진 진찰료", "체중 5kg", 9000))),
+              patch.object(fees.places, "extract_search_parameters", return_value=["경기도"])):
+            self.assertEqual(fees.resolve_regions("경기도 동물병원 진료비 평균 얼마야"), [("경기도", "")])
+
     def test_no_region_shows_the_nation_and_asks_for_one(self):
         answer = fees.fee_answer("초진 진찰료 얼마야?")
         self.assertIn("전국: 중간 10,000원", answer)
