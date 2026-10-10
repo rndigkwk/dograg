@@ -24,8 +24,10 @@ questions), not user conversations. Traces still go through the app's masking
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -206,7 +208,55 @@ def visit_task(*, item, **kwargs):
         "visits": state["visits"],
         "repeated_nodes": result.get("repeated_nodes", []),
         "run_dir": state["run_dir"].relative_to(PROJECT_DIR).as_posix(),
+        **fee_citations(report),
     }
+
+
+FEE_CSV = PROJECT_DIR / "data" / "vet_fees" / "vet_fees.csv"
+NUMBER = r"\d{1,3}(?:,\d{3})+|\d+"
+WON = re.compile(rf"({NUMBER})(?:\s*~\s*({NUMBER}))?\s*원")  # "50,000원", and both ends of "15,000~110,000원"
+
+
+def _fee_rows() -> list[dict]:
+    if not FEE_CSV.exists():
+        return []
+    with FEE_CSV.open(encoding="utf-8-sig") as file:
+        return list(csv.DictReader(file))
+
+
+def _rows_for(evidence_id: str, rows: list[dict]) -> list[dict]:
+    """Survey rows an evidence id (team/tools/research.py regional_fee_stats) can stand for."""
+    text = evidence_id.removeprefix("fee-")
+    found = []
+    for row in rows:
+        if "-".join(row["item"].split()) not in text:
+            continue
+        if row["level"] == "national":
+            if text.startswith("전국"):
+                found.append(row)
+        elif row["sido"] in text and (row["level"] == "sido" or row["sigungu"] in text):
+            found.append(row)
+    return found
+
+
+def fee_citations(report: str) -> dict:
+    """Regional fee statistics in a report: how many distinct fee- ids it cites, and whether every
+    amount on a line citing one is a value of a cited row (median, mean, min or max), i.e. copied
+    from the survey rather than made up or mixed up."""
+    rows = _fee_rows()
+    cited, amounts, wrong = set(), 0, []
+    for line in report.splitlines():
+        ids = re.findall(r"\[(fee-[^\]]+)\]", line)
+        if not ids:
+            continue
+        cited.update(ids)
+        values = {int(row[key]) for evidence_id in ids for row in _rows_for(evidence_id, rows)
+                  for key in ("median", "mean", "min", "max")}
+        for amount in (number for match in WON.findall(line) for number in match if number):
+            amounts += 1
+            if int(amount.replace(",", "")) not in values:
+                wrong.append(amount)
+    return {"fee_ids": sorted(cited), "fee_amounts": amounts, "fee_amounts_wrong": wrong}
 
 
 NO_EVIDENCE_PHRASES = ("찾지 못", "근거가 없", "근거를 찾", "자료가 없", "확인되지 않", "확인할 수 없")
@@ -247,7 +297,33 @@ def visit_evaluators():
         return Evaluation(name="repeat_suspect", value=1.0 if output["repeated_nodes"] else 0.0,
                           comment=", ".join(output["repeated_nodes"]) or None)
 
-    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect]
+    def regional_fees(*, input, output, **kwargs):
+        """Consultations that ask about cost and give a region: the report quotes that region's survey
+        row (a fee- citation) and every quoted amount matches the survey."""
+        if not input["region"] or not any(word in input["consultation"] for word in COST_WORDS):
+            return []
+        cited = any(fee_id_in_region(i, input["region"]) and not i.startswith("fee-전국-") for i in output.get("fee_ids", []))
+        exact = cited and output["fee_amounts"] > 0 and not output["fee_amounts_wrong"]
+        return [Evaluation(name="regional_fee_cited", value=1.0 if cited else 0.0, comment=", ".join(output.get("fee_ids", [])) or None),
+                Evaluation(name="fee_amounts_exact", value=1.0 if exact else 0.0,
+                           comment=f"{output.get('fee_amounts', 0)} amounts, wrong: {output.get('fee_amounts_wrong') or 'none'}")]
+
+    def fee_region(*, input, output, **kwargs):
+        """Every fee statistic a report cites is the guardian's region or the nation (a 해운대구
+        consultation once cited 대구광역시 rows)."""
+        if not input["region"] or not output.get("fee_ids"):
+            return []
+        wrong = [i for i in output["fee_ids"] if not fee_id_in_region(i, input["region"])]
+        return Evaluation(name="fee_region_ok", value=0.0 if wrong else 1.0, comment=", ".join(wrong) or None)
+
+    return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees, fee_region]
+
+
+def fee_id_in_region(evidence_id: str, region: str) -> bool:
+    return evidence_id.startswith("fee-전국-") or f"-{region}-" in evidence_id
+
+
+COST_WORDS = ("병원비", "진료비", "검사비", "비용", "얼마")
 
 
 def visit_run_evaluators():
@@ -269,6 +345,10 @@ def visit_run_evaluators():
             Evaluation(name="mean_rounds", value=mean("rounds")),
             Evaluation(name="repeat_suspect_rate", value=mean("repeat_suspect")),
             Evaluation(name="mean_node_visits", value=mean("node_visits")),
+            Evaluation(name="regional_fee_cited_rate", value=mean("regional_fee_cited")),
+            Evaluation(name="fee_amounts_exact_rate", value=mean("fee_amounts_exact")),
+            Evaluation(name="fee_region_ok_rate", value=mean("fee_region_ok")),
+            Evaluation(name="mean_unsupported", value=statistics.mean(r.output.get("unsupported", 0) for r in item_results)),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
         ]

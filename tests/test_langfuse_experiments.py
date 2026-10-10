@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR / "scripts"))
@@ -71,7 +72,7 @@ class EvaluatorTests(unittest.TestCase):
                          {"route_correct": 0.0})
 
     def test_visit_scores(self):
-        passed, urgent, scope, hospitals, numbers, repeat = experiments.visit_evaluators()
+        passed, urgent, scope, hospitals, numbers, repeat, _, _ = experiments.visit_evaluators()
         output = {"status": "human_check", "urgent": True, "says_no_evidence": False, "hospitals": 0,
                   "round": 2, "latency_s": 53.0, "visits": {"planner": 1, "writer": 3, "reviewer": 3},
                   "repeated_nodes": ["reviewer", "writer"]}
@@ -86,6 +87,25 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(numbers, output=output), {"rounds": 2, "latency_s": 53.0, "node_visits": 7})
         self.assertEqual(scores(repeat, output=output), {"repeat_suspect": 1.0})
         self.assertEqual(scores(repeat, output={**output, "repeated_nodes": []}), {"repeat_suspect": 0.0})
+
+    def test_fee_citations_are_checked_against_the_survey_and_the_region(self):
+        rows = [{"level": "sigungu", "sido": "서울특별시", "sigungu": "강남구", "item": "엑스선 촬영비와 판독료",
+                 "median": "50000", "mean": "51099", "min": "15000", "max": "110000"},
+                {"level": "sido", "sido": "대구광역시", "sigungu": "", "item": "엑스선 촬영비와 판독료",
+                 "median": "40000", "mean": "42000", "min": "10000", "max": "90000"}]
+        gangnam, daegu = "fee-서울특별시-강남구-엑스선-촬영비와-판독료-(체중-5kg)", "fee-대구광역시-엑스선-촬영비와-판독료-(체중-5kg)"
+        report = (f"중간 50,000원, 평균 51,099원, 범위 15,000~110,000원입니다. [{gangnam}]\n"
+                  "비용이 걱정되면 미리 전화하세요. [상담 내용]")
+        with patch.object(experiments, "_fee_rows", return_value=rows):
+            self.assertEqual(experiments.fee_citations(report), {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []})
+            self.assertEqual(experiments.fee_citations(report.replace("51,099원", "52,000원"))["fee_amounts_wrong"], ["52,000"])
+        *_, regional, region = experiments.visit_evaluators()
+        asked = {"region": "강남구", "consultation": "엑스레이 비용이 걱정돼요"}
+        output = {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []}
+        self.assertEqual(scores(regional, input=asked, output=output), {"regional_fee_cited": 1.0, "fee_amounts_exact": 1.0})
+        self.assertEqual(scores(regional, input={**asked, "consultation": "다리를 절어요"}, output=output), {})
+        self.assertEqual(scores(region, input={"region": "해운대구"}, output={"fee_ids": [daegu]}), {"fee_region_ok": 0.0})
+        self.assertEqual(scores(region, input={"region": "강남구"}, output=output), {"fee_region_ok": 1.0})
 
     def test_visit_run_scores_count_dog_cases_for_the_pass_rate(self):
         [summary] = experiments.visit_run_evaluators()

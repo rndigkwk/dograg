@@ -21,6 +21,8 @@ MAX_EXTRA_TASKS = 2    # tasks added when the supervisor sends the team back to 
 MAX_ROUNDS = 2         # times the supervisor sends work back after a rejection; then a person decides
 TOOL_CALL_LIMIT = 3    # tool calls per researcher run
 AGENT_CALL_LIMIT = 6   # model calls per researcher or writer run
+# Sent once when a researcher stops without an answer (team/graph/nodes.py researcher).
+ANSWER_NUDGE = "도구를 더 부르지 말고, 지금까지의 도구 결과만으로 조사 결과를 정리해 답하세요."
 MAX_QUESTIONS = 3      # questions to the guardian before planning (app only)
 MAX_ANSWER_CHARS = 300 # the guardian's answer, added to the consultation
 HUMAN_CHECK = "반복 상한 도달: 수의사(사람) 확인 필요"
