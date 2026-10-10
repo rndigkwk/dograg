@@ -2,11 +2,16 @@
 
     uv run python scripts/evaluate_crag.py              # CRAG on
     uv run python scripts/evaluate_crag.py --crag off   # same questions, CRAG off
+    uv run python scripts/evaluate_crag.py --questions tests/data/basic_care_questions.json
 
 Groups (tests/data/crag_eval_questions.json):
 - health_answerable: validation questions; abstaining here is over-abstention.
 - health_unanswerable: other species, humans, fictional/impossible; answering here is a miss.
 - report_answerable / report_unanswerable: fixed gold pages from the report embedding study.
+- care_basic (tests/data/basic_care_questions.json, --questions): everyday care questions
+  (how often, at what age); abstaining here is over-abstention too. Many answers here say the
+  material lacks the specific fact while still answering; the outcome does not tell those apart,
+  so read answer_head (docs/wiki/retrieval-experiments.md grades them by hand).
 
 Runs on a disposable Chroma copy and writes per-run logs to a separate JSONL.
 Retrieved Q&A and report excerpts are sent to the OpenAI API.
@@ -71,19 +76,26 @@ def main() -> int:
     parser.add_argument("--crag", choices=["on", "off"], default="on")
     parser.add_argument("--crag-reports", choices=["on", "off"], default="off",
                         help="also run report questions through CRAG (off in the app)")
+    parser.add_argument("--questions", type=Path, default=QUESTIONS)
+    parser.add_argument("--candidate-k", type=int, help="health candidates CRAG grades (src/crag.py HEALTH_CANDIDATE_K)")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, help="first N questions only (smoke run)")
     args = parser.parse_args()
-    output = args.output or PROJECT_DIR / "output" / f"crag_eval_{args.crag}.json"
+    suffix = f"_k{args.candidate_k}" if args.candidate_k else ""
+    output = args.output or PROJECT_DIR / "output" / (
+        f"crag_eval_{args.crag}{suffix}.json" if args.questions == QUESTIONS else f"{args.questions.stem}_{args.crag}{suffix}.json")
     run_log = output.with_suffix(".runs.jsonl")
     run_log.unlink(missing_ok=True)
     os.environ["CHAT_RUN_LOG"] = str(run_log)
     os.environ["HF_HUB_OFFLINE"] = "1"
 
+    from src import chat_graph, crag, resources
     from src import chatbot as app
-    from src import resources
 
-    items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"][: args.limit]
+    if args.candidate_k:
+        crag.HEALTH_CANDIDATE_K = chat_graph.HEALTH_CANDIDATE_K = args.candidate_k
+
+    items = json.loads(args.questions.read_text(encoding="utf-8"))["items"][: args.limit]
     rows = []
     with tempfile.TemporaryDirectory(prefix="dograg-crag-eval-", ignore_cleanup_errors=True) as directory:
         resources.CHROMA_DIR = Path(directory) / "chroma_db"
@@ -113,7 +125,7 @@ def main() -> int:
                 "answer_head": result.get("answer", "")[:300],
             })
             print(f"[{index}/{len(items)}] {item['id']} {rows[-1]['route']} {row_outcome}", flush=True)
-    report = {"crag": args.crag, "questions": str(QUESTIONS.relative_to(PROJECT_DIR)),
+    report = {"crag": args.crag, "candidate_k": args.candidate_k or crag.HEALTH_CANDIDATE_K, "questions": args.questions.resolve().relative_to(PROJECT_DIR).as_posix(),
               "summary": summarize(rows), "rows": rows}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
