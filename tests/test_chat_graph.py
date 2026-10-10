@@ -99,6 +99,19 @@ class CragOffTests(ChatGraphTestCase):
                 tools.review_evidence.assert_not_called()
                 self.assertEqual((result["route"], result["answer"]), (route, answer))
 
+    def test_every_route_the_graph_returns_can_be_saved_as_a_turn(self):
+        # The fee route reached the deployed app before the stored-turn model accepted it, and
+        # saving the conversation failed (2026-10-10).
+        from src.storage.models import Turn
+
+        cases = [make_tools(route) for route in ("rag", "analysis", "sql", "none")]
+        cases += [make_tools(is_date_question=lambda question: True), make_tools(is_fee_question=lambda question: True)]
+        for tools in cases:
+            for crag in (False, True):
+                result = self.run_chat(tools, crag=crag)
+                with self.subTest(route=result["route"], crag=crag):
+                    Turn(question="질문", answer=result["answer"], route=result["route"])
+
     def test_date_question_is_answered_without_tools(self):
         tools = make_tools(is_date_question=lambda question: True)
         result = self.run_chat(tools, crag=True)

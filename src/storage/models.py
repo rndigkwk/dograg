@@ -22,7 +22,8 @@ MAX_EVIDENCE_IDS = 12
 MAX_PROFILE_TEXT = 30
 MAX_PROFILE_ITEMS = 10
 DEFAULT_TITLE = "새 대화"
-Route = Literal["rag", "sql", "analysis", "none", "date"]
+# Every route the chat graph can return (src/chat_graph.py); a missing one fails when the turn is saved.
+Route = Literal["rag", "sql", "analysis", "none", "date", "fee"]
 
 _WHITESPACE = re.compile(r"\s+")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
