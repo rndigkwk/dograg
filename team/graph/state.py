@@ -30,6 +30,8 @@ class State(TypedDict):
     # Research that failed ({task_id: {"kind", "error"}}): recorded instead of raised, so one
     # failed researcher does not cancel the others running in the same step.
     failures: Annotated[dict[str, dict], merge_findings]
+    # Researchers asked once more after stopping without an answer: task id -> why it stopped.
+    reasks: Annotated[dict[str, str], merge_findings]
     outcome: str                                         # supervisor: "complete", "degraded" or "held"
     round: int                                           # supervisor: times work was sent back after a rejection
     draft: str                                           # writer: report file name

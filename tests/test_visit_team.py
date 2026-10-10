@@ -133,7 +133,7 @@ class FanOutTests(unittest.TestCase):
 
 
 class TeamGraphTests(unittest.TestCase):
-    def run_team(self, unsupported=(), *, judge=None, broken_kinds=()):
+    def run_team(self, unsupported=(), *, judge=None, broken_kinds=(), researcher=None):
         tasks = [VisitTask(kind="health", query="설사", angle="a"), VisitTask(kind="health", query="구토", angle="b"),
                  VisitTask(kind="cost", query="진료비", angle="c")]
         directory = tempfile.TemporaryDirectory()
@@ -142,7 +142,7 @@ class TeamGraphTests(unittest.TestCase):
         writer = FakeWriter(run_dir)
         # review_llm is replaced too: building a real ChatOpenAI needs an API key, which CI does not have.
         with patch.object(config, "llm", return_value=FakeLLM(tasks)), patch.object(config, "review_llm"), \
-                patch.object(nodes, "create_researcher", side_effect=lambda kind: BrokenResearcher(kind, broken_kinds)), \
+                patch.object(nodes, "create_researcher", side_effect=researcher or (lambda kind: BrokenResearcher(kind, broken_kinds))), \
                 patch.object(nodes, "build_judge", side_effect=judge or judge_with(list(unsupported))), \
                 patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0):
             state = build_graph().invoke(initial_state(), context={"run_dir": run_dir, "writer": writer})
@@ -196,6 +196,26 @@ class FailureTests(unittest.TestCase):
         # The code, not the writer, states what is missing
         self.assertIn("수집하지 못한 자료: 진료비 통계(조사 중 오류, 기본 안내로 대신함)", report)
 
+    def test_a_researcher_asked_again_is_recorded_for_the_weekly_evaluation(self):
+        incomplete = SimpleNamespace(type="ai", response_metadata={"status": "incomplete", "incomplete_details": {"reason": "max_messages"}})
+
+        class StopsOnceResearcher(FakeResearcher):
+            def __init__(self, kind):
+                super().__init__(kind)
+                self.calls = 0
+
+            def invoke(self, inputs):
+                self.calls += 1
+                if self.kind == "cost" and self.calls == 1:
+                    return {"messages": [incomplete]}
+                return super().invoke(inputs)
+
+        _, result, _, _ = self.run_team(researcher=StopsOnceResearcher)
+        self.assertEqual(result["reasks"], {"t3": "incomplete: max_messages"})
+        self.assertEqual(result["failures"], {})  # the second answer was used
+        from team.main import run_record
+        self.assertEqual(run_record(result, 1.0)["reasks"], 1)
+
     def test_a_failed_place_task_has_no_fallback(self):
         _, result, report, _ = self.run_team(broken_kinds=("place",))
         self.assertNotIn("t4", result["findings"])
@@ -231,6 +251,7 @@ class FailureTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[1][-1], ("user", config.ANSWER_NUDGE))  # the first run's messages, then the nudge
         self.assertNotIn("failures", update)
+        self.assertEqual(update["reasks"], {"t5": "incomplete: max_messages"})  # kept for the weekly evaluation
         self.assertEqual(update["findings"]["t5"]["key_points"][0]["evidence_id"], fact.evidence_id)
 
         # Still no answer: recorded with the reason, not as the call limit; never a third call.
@@ -240,6 +261,7 @@ class FailureTests(unittest.TestCase):
             update = nodes.researcher({"task": task, "consultation": "x", "urgent": False})
         self.assertEqual(len(calls), 2)
         self.assertEqual(update["failures"]["t5"]["error"], "NoAnswer: 다시 물어도 조사 결과를 정리하지 못함 (incomplete: max_messages)")
+        self.assertEqual(update["reasks"], {"t5": "incomplete: max_messages"})
         self.assertTrue(update["findings"]["t5"]["fallback"])
 
     def test_a_researcher_at_its_call_limit_is_not_asked_again(self):

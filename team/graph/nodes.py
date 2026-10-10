@@ -156,6 +156,7 @@ def researcher(state: ResearchInput) -> dict:
             message += "\n[응급] 예. find_hospitals를 emergency=True로 한 번 부르세요."
         else:
             message += "\n[응급] 아니요. find_hospitals를 emergency=False로 한 번 부르세요."
+    reask = {}
     try:
         result = agent.invoke({"messages": message})
         if result.get("structured_response") is None and not limit_reached(result):
@@ -163,24 +164,25 @@ def researcher(state: ResearchInput) -> dict:
             # (reason max_messages) after long reasoning: 4 of 19 runs of one cost task (2026-10-10). Ask
             # once more for the answer from the results it already has.
             print("researcher:", task["task_id"], "답 없이 끝남", stop_reason(result), "-> 한 번 더")
+            reask = {"reasks": {task["task_id"]: stop_reason(result)}}  # counted by the weekly evaluation
             result = agent.invoke({"messages": [*result["messages"], ("user", config.ANSWER_NUDGE)]})
     except Exception as exc:  # noqa: BLE001 - any error of one task must not cancel the others
         # The OpenAI SDK has already retried transient errors (config.MODEL_MAX_RETRIES). Raising
         # here would cancel every researcher of this step and lose their results, so record it.
         print("researcher:", task["task_id"], "실패", type(exc).__name__)
-        return failed(task, f"{type(exc).__name__}: {exc}"[:300])
+        return {**failed(task, f"{type(exc).__name__}: {exc}"[:300]), **reask}
     finding = result.get("structured_response")
     if finding is None:
         if limit_reached(result):
-            return failed(task, "CallLimitReached: 조사 호출 상한에 닿아 결과를 정리하지 못함")
-        return failed(task, f"NoAnswer: 다시 물어도 조사 결과를 정리하지 못함 ({stop_reason(result)})")
+            return {**failed(task, "CallLimitReached: 조사 호출 상한에 닿아 결과를 정리하지 못함"), **reask}
+        return {**failed(task, f"NoAnswer: 다시 물어도 조사 결과를 정리하지 못함 ({stop_reason(result)})"), **reask}
     finding_dict = finding.model_dump()
     finding_dict["kind"] = task["kind"]
     if not finding_dict["key_points"] and task["kind"] in config.FALLBACK_EVIDENCE:
         # Nothing found: not an error, but the section would be empty, so use the fixed guide.
         print("researcher:", task["task_id"], "근거 없음 -> 기본 안내")
         finding_dict = {**fallback_finding(task["kind"]), "summary": finding_dict["summary"]}
-    return {"findings": {task["task_id"]: finding_dict}}
+    return {"findings": {task["task_id"]: finding_dict}, **reask}
 
 
 def limit_reached(result: dict) -> bool:
@@ -333,6 +335,7 @@ def publisher(state: State, runtime: Runtime[Context]) -> dict:
         "plan": state["plan"],
         "findings": state["findings"],
         "failures": state.get("failures") or {},
+        "reasks": state.get("reasks") or {},
         "fallback_kinds": fallback_kinds(state),
     }
     (run_dir / config.RESULT_FILE).write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
