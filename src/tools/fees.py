@@ -24,9 +24,17 @@ SOURCE = "농림축산식품부 동물병원 진료비 현황 조사(2025, anima
 NOTICE = (f"출처: {SOURCE}. 지역별 조사 통계이며 개별 병원의 가격이 아닙니다. "
           "병원마다 다르니 방문 전에 전화로 확인하세요.")
 
-COST_WORDS = ("진료비", "병원비", "비용", "얼마", "가격", "요금", "값이", "값은", "금액", "드나요", "들어요",
+COST_WORDS = ("진료비", "병원비", "비용", "가격", "요금", "값", "금액", "드나요", "들어요", "몇만원", "비싸",
               "검사비", "촬영비", "접종비", "입원비", "진찰료", "상담료", "예방비", "구충비", "판독료")
+# "얼마" asks for money when the question ends there or goes on to a price ("얼마예요", "얼마나 나와요",
+# "얼마 정도 해요"); "얼마나 자주", "얼마나 걸려요", "얼마 동안", "얼마 뒤에" ask how often or how long
+# (holdout, 2026-10-10: 4 of 20 non-fee questions took the fee path this way). Matched on the
+# question without spaces.
+MONEY_EOLMA = re.compile(r"얼마(?:나|정도|쯤)?(?:$|[?!.,~()]|예|에|야|요|인|일|이|를|정도|쯤|해|하|나와|나오|나올|들|드|돼|되|받|씩|면|라|든|짜리|줘|주|만원)")
 GENERAL_FEE_WORDS = ("진료비", "병원비")
+# "진료비" alone is a topic, not a price question ("진료비 카드 할부 되나요?", "진료비가 많이 나왔는데
+# 어디에 신고해요?"): without a surveyed item, the question must also ask for an amount.
+AMOUNT_ASKS = ("평균", "가격", "시세", "수준", "대충", "보통", "몇만원")
 # Spending, insurance and survey questions belong to the report path (KB report etc.).
 NOT_FEE_WORDS = ("보험", "보고서", "통계", "양육비", "지출", "연간", "월평균", "한 달", "평균적으로 얼마나 써",
                  "수술")  # surgery is not in the survey ("슬개골 수술비", "수술 비용이 부담돼 깁스를")
@@ -38,7 +46,8 @@ VACCINE_ITEMS = ("광견병백신 접종비", "켄넬코프백신 접종비", "�
 ITEM_WORDS = (
     ("초진", "초진 진찰료"), ("재진", "재진 진찰료"), ("상담료", "진찰에 대한 상담료"), ("상담비", "진찰에 대한 상담료"),
     ("진찰료", "초진 진찰료"), ("입원", "입원비"),
-    ("종합백신", "종합백신 접종비"), ("종합 백신", "종합백신 접종비"), ("예방접종", "종합백신 접종비"),
+    ("종합백신", "종합백신 접종비"), ("종합 백신", "종합백신 접종비"), ("종합접종", "종합백신 접종비"),
+    ("예방접종", "종합백신 접종비"), ("백신", "종합백신 접종비"),
     ("광견병", "광견병백신 접종비"), ("켄넬코프", "켄넬코프백신 접종비"), ("코로나", "코로나바이러스백신 접종비"),
     ("인플루엔자", "인플루엔자백신 접종비"), ("독감", "인플루엔자백신 접종비"),
     ("혈액화학", "혈액화학 검사비와 판독료"), ("생화학", "혈액화학 검사비와 판독료"),
@@ -77,7 +86,8 @@ def requested_items(question: str) -> list[str]:
         hit = re.search(rf"(?<![a-z]){word}(?![a-z])", compact) if word.isascii() else word in compact
         if hit and item not in found:
             found.append(item)
-    # "독감 예방접종": the named vaccine, not the combination vaccine "예방접종" stands for by default.
+    # "독감 예방접종", "광견병 백신": the named vaccine, not the combination vaccine "예방접종" and
+    # "백신" stand for by default.
     if "종합백신 접종비" in found and any(item in found for item in VACCINE_ITEMS) and "종합" not in compact:
         found.remove("종합백신 접종비")
     return found
@@ -89,14 +99,18 @@ def is_fee_question(question: str) -> bool:
         return False
     if any(_compact(word) in compact for word in NOT_FEE_WORDS):
         return False
-    if not any(word in compact for word in COST_WORDS):
+    money_eolma = bool(MONEY_EOLMA.search(compact))
+    if not money_eolma and not any(word in compact for word in COST_WORDS):
         return False
-    return bool(requested_items(question)) or any(word in compact for word in GENERAL_FEE_WORDS)
+    if requested_items(question):
+        return True
+    return (any(word in compact for word in GENERAL_FEE_WORDS)
+            and (money_eolma or any(word in compact for word in AMOUNT_ASKS)))
 
 
 def requested_weight(question: str, profile=None) -> int | None:
     """5, 10 or 20 kg (the survey's reference weights) from "7kg" in the question or the saved profile."""
-    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:kg|킬로)", question.lower())
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:kg|킬로|키로)", question.lower())
     weight = float(match.group(1)) if match else getattr(profile, "weight_kg", None)
     if not weight:
         return None
@@ -120,6 +134,11 @@ def resolve_regions(question: str) -> list[tuple[str, str]]:
     # The region extractor keeps only the most specific words ("부산 중구" -> 중구), so read the
     # si/do from the question itself; it decides which 중구 is meant.
     compact = _compact(question)
+    for keyword in keywords:
+        # "해운대구" holds "대구": read the si/do only outside the si/gun/gu names found
+        # (a 해운대구 consultation cited 대구광역시 fees in the visit report, 2026-10-10).
+        if keyword not in sidos:
+            compact = compact.replace(keyword, " ")
     named_sidos = sorted({full for alias, full in places.SIDO_ALIASES.items() if alias in compact}
                          | {sido for sido in sidos if sido in compact})
     found = []

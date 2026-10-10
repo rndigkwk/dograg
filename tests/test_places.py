@@ -237,6 +237,15 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(places.extract_search_parameters("남양주 동물병원"), ["남양주시"])
         self.assertEqual(router.symptom_part("설사하는데 강남 동물병원 알려줘"), "설사하는데")
 
+    def test_a_city_split_into_gus_by_direction_goes_by_its_shared_name(self):
+        self.add_places(("hospital-e", "hospital", "일산동물병원", "경기도 고양시 일산동구 1", None),
+                        ("hospital-w", "hospital", "호수동물병원", "경기도 고양시 일산서구 1", None),
+                        ("hospital-d", "hospital", "강동동물병원", "서울특별시 강동구 1", None))
+        for cache in (places.known_region_words, places.short_region_names, places._short_region_pattern):
+            cache.cache_clear()
+        self.assertEqual(places.extract_search_parameters("일산 동물병원"), ["일산동구", "일산서구"])
+        self.assertEqual(places.extract_search_parameters("강동 동물병원"), ["강동구"])  # not "강" from 강동구
+
     def test_pet_friendly_category_is_kept(self):
         self.add_places(("pet_friendly-2", "pet_friendly", "멍멍공원", "서울특별시 강남구 공원로 1", "여행지"))
         _, rows = self.search("강남구 애견동반 카페 알려줘")
