@@ -13,7 +13,7 @@ import threading
 from langchain.tools import tool
 
 from src.crag import HEALTH_CANDIDATE_K, evidence_id, grade_documents
-from src.tools import health, places, report
+from src.tools import fees, health, places, report
 from src.tools.review import review_evidence
 
 # Researchers run in parallel threads (Send). The search indexes (Kiwi tokenizer, BM25,
@@ -91,8 +91,35 @@ def search_report_stats(query: str) -> str:
     } for doc in docs[:4]])
 
 
+@tool
+def regional_fee_stats(region: str, item: str, weight_kg: float = 0) -> str:
+    """동물병원 진료비 현황(농림축산식품부 2025 조사)에서 지역·진료 항목의 진료비 통계(중간·평균·최저·최고)를 찾습니다.
+    region: 시·군·구나 시·도 이름(모르면 빈 문자열이면 전국만). item: 초진 진찰료, 재진, 입원비, 종합백신, 광견병,
+    혈액검사, 엑스레이, 초음파, CT, MRI, 심장사상충, 외부기생충, 구충 중 하나. weight_kg: 반려견 체중(모르면 0).
+    지역별 조사 통계이며 개별 병원의 가격이 아닙니다."""
+    question = f"{region} {item} 진료비" + (f" {weight_kg}kg" if weight_kg else "")
+    if not fees.requested_items(question):
+        return _dumps([{"note": f"'{item}'은 진료비 조사 항목이 아닙니다(중성화·수술비 등은 조사하지 않음)."}])
+    found = []
+    for entry in fees.fee_lookup(question):
+        label = fees._label(entry["item"], entry["detail"])
+        places_and_rows = [(r["name"], r["row"] or r["sido_row"]) for r in entry["regions"]]
+        places_and_rows.append(("전국", entry["national"]))
+        for name, row in places_and_rows:
+            if not row:
+                continue
+            found.append({
+                "evidence_id": "fee-" + "-".join(f"{name} {label}".split()),
+                "region": name if row["level"] != "sido" or name == row["sido"] else f"{row['sido']} 전체({name} 값 없음)",
+                "item": label,
+                "median": int(row["median"]), "mean": int(row["mean"]), "min": int(row["min"]), "max": int(row["max"]),
+                "note": "2025 조사의 지역 통계, 개별 병원 가격 아님",
+            })
+    return _dumps(found or [{"note": "진료비 조사 자료에서 찾지 못했습니다."}])
+
+
 RESEARCH_TOOLS = {
     "health": [search_health_qa],
     "place": [find_hospitals],
-    "cost": [search_report_stats],
+    "cost": [regional_fee_stats, search_report_stats],
 }

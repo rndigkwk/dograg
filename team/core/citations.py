@@ -52,6 +52,8 @@ def source_labels(findings: dict) -> dict[str, str]:
                 labels[evidence_id] = f"비슷한 건강 상담 사례 (AI Hub {evidence_id}): {fact}"
             elif evidence_id.startswith("hospital-"):
                 labels[evidence_id] = f"동물병원 공공데이터: {fact}"
+            elif evidence_id.startswith("fee-"):
+                labels[evidence_id] = f"동물병원 진료비 현황 (농림축산식품부 2025 조사, 지역 통계): {fact}"
             elif evidence_id.startswith("guide-"):
                 labels[evidence_id] = f"기본 안내 (조사로 통계를 찾지 못했을 때 쓰는 고정 문구): {fact}"
             else:

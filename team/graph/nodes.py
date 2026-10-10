@@ -148,7 +148,8 @@ def researcher(state: ResearchInput) -> dict:
     task = state["task"]
     print("researcher:", task["task_id"], task["kind"], task["query"])
     agent = create_researcher(task["kind"])
-    message = RESEARCHER_INPUT.format(query=task["query"], angle=task["angle"], consultation=state["consultation"])
+    message = RESEARCHER_INPUT.format(query=task["query"], angle=task["angle"], consultation=state["consultation"],
+                                      region=state.get("region") or "없음", profile=state.get("profile") or "없음")
     if task["kind"] == "place":
         # Decided here, not by the model: an urgent consultation lists 24h/emergency names first.
         if state["urgent"]:

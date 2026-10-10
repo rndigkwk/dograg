@@ -36,6 +36,8 @@ def review(useful_ids, sufficient, feedback="확인함"):
 def make_tools(route="rag", **overrides):
     tools = SimpleNamespace(
         is_date_question=lambda question: False,
+        is_fee_question=lambda question: False,
+        fee_answer=Mock(return_value="진료비 표"),
         current_date_answer=lambda: "오늘",
         classify_question=lambda question, chat_history=None: route,
         build_rag_search_query=lambda question, history=None: question,
@@ -101,6 +103,14 @@ class CragOffTests(ChatGraphTestCase):
         tools = make_tools(is_date_question=lambda question: True)
         result = self.run_chat(tools, crag=True)
         self.assertEqual((result["route"], result["answer"]), ("none", "오늘"))
+
+    def test_fee_question_is_answered_from_the_table_without_a_model(self):
+        tools = make_tools(is_fee_question=lambda question: True)
+        tools.classify_question = Mock(side_effect=AssertionError("no router call for fee questions"))
+        result = self.run_chat(tools, question="강남구 초진 진찰료 얼마야?", crag=True)
+        self.assertEqual((result["route"], result["answer"]), ("fee", "진료비 표"))
+        tools.retrieve_health.assert_not_called()
+        tools.run_sql_search.assert_not_called()
 
 
 class SelfRagTests(ChatGraphTestCase):

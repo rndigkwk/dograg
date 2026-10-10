@@ -9,6 +9,7 @@
 | --- | --- |
 | [data.md](data.md) | 데이터 출처, 규모, 품질 감사 결과, 라벨 문제 |
 | [places-data.md](places-data.md) | 반려동물 시설 DB: 공공데이터 6종 정제, 출처 간 중복 판단, 종류 판별 규칙 |
+| [vet-fees.md](vet-fees.md) | 지역별 진료비: 정부 조사 통계 수집·검증, 챗봇 진료비 경로, 방문 보고서 진료비 근거 |
 | [retrieval-experiments.md](retrieval-experiments.md) | 건강 RAG 검색 실험: Dense → 재정렬(기각) → Dense+BM25 RRF(채택), 답변 유사도 평가 |
 | [embedding-finetune.md](embedding-finetune.md) | 건강 검색 임베딩 미세조정: 합성 질의 생성, Colab T4 학습, 짧은 질문 `useful@3` 0.625 → 0.800 |
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
