@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_deployed_app import error_in  # noqa: E402
+from check_deployed_app import error_in, summary_line  # noqa: E402
 
 # The chat page on 2026-10-09, redeployed without a reboot (Streamlit Cloud redacts the message).
 DEPLOYED_IMPORT_ERROR = (
@@ -27,6 +27,15 @@ class ErrorDetectionTests(unittest.TestCase):
 
     def test_a_working_page_has_no_error(self):
         self.assertIsNone(error_in(["라그도그\n질병 문의\n오늘은 2026년 10월 9일입니다."]))
+
+
+class SummaryTests(unittest.TestCase):
+    def test_a_working_deployment_shows_its_times(self):
+        self.assertEqual(summary_line("https://x.run.app", 12.4, 1.2, []), "| https://x.run.app | 12s | 1s | ok |")
+
+    def test_a_failed_deployment_shows_the_problem(self):
+        self.assertEqual(summary_line("https://x", None, None, ["did not become ready"]),
+                         "| https://x | - | - | did not become ready |")
 
 
 if __name__ == "__main__":

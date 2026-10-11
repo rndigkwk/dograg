@@ -2,6 +2,10 @@
 
     uvx --with playwright python scripts/check_deployed_app.py [URL]   # after `playwright install chromium`
 
+Two deployments are checked (keep-alive.yml): Streamlit Community Cloud (default URL) and
+Cloud Run (CLOUD_RUN_URL). Cloud Run scales to zero after idle minutes, so on the scheduled runs
+"ready after" is its cold start; each run adds one line per deployment to the job summary.
+
 Wakes the app (scripts/wake_app.py), opens every page and fails when one shows Streamlit's
 error box, then asks the chatbot a date question (answered in code: no model call, no cost)
 and waits for the answer. Run by .github/workflows/keep-alive.yml every 8 hours and a few
@@ -15,9 +19,12 @@ visit, which only waited for the home page, reported success.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 
+STREAMLIT_CLOUD_URL = "https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app"
+CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 PAGES = ("", "data", "rag", "hospital", "visit_prep")
 # Streamlit's uncaught-exception box, and the text it shows when the message is redacted.
 ERROR_SELECTOR = '[data-testid="stException"]'
@@ -96,11 +103,12 @@ def check_pages(page, url: str) -> list[str]:
     return problems
 
 
-def check_chat(page, url: str) -> str | None:
+def check_chat(page, url: str) -> tuple[str | None, float | None]:
+    """(problem or None, seconds until the answer)."""
     page.goto(f"{url.rstrip('/')}/rag", wait_until="domcontentloaded")
     frame = _app_frame(page, CHAT_INPUT, PAGE_TIMEOUT_S)
     if frame is None:
-        return _page_error(page) or f"chat input missing after {PAGE_TIMEOUT_S}s"
+        return _page_error(page) or f"chat input missing after {PAGE_TIMEOUT_S}s", None
     before = frame.locator(CHAT_MESSAGE).count()
     box = frame.locator(CHAT_INPUT)
     box.fill(DATE_QUESTION)
@@ -110,11 +118,26 @@ def check_chat(page, url: str) -> str | None:
         page.wait_for_timeout(1000)
         messages = frame.locator(CHAT_MESSAGE)
         if messages.count() >= before + 2 and DATE_ANSWER in messages.nth(messages.count() - 1).inner_text():
-            print(f"chat: answered in {time.perf_counter() - started:.1f}s")
-            return None
+            seconds = time.perf_counter() - started
+            print(f"chat: answered in {seconds:.1f}s")
+            return None, seconds
         if error := _page_error(page):
-            return error
-    return f"no chat answer in {ANSWER_TIMEOUT_S}s"
+            return error, None
+    return f"no chat answer in {ANSWER_TIMEOUT_S}s", None
+
+
+def summary_line(url: str, ready_s: float | None, chat_s: float | None, problems: list[str]) -> str:
+    """One Markdown table row per deployment for the job summary."""
+    shown = (lambda value: "-" if value is None else f"{value:.0f}s")
+    return f"| {url} | {shown(ready_s)} | {shown(chat_s)} | {'ok' if not problems else '; '.join(problems)[:200]} |"
+
+
+def write_summary(line: str) -> None:
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as file:
+        file.write("| 배포 | 첫 화면까지 | 챗봇 답변 | 결과 |\n| --- | ---: | ---: | --- |\n" + line + "\n")
 
 
 def check(url: str) -> int:
@@ -123,25 +146,30 @@ def check(url: str) -> int:
 
     from wake_app import wake
 
+    started = time.perf_counter()
     if wake(url):
+        write_summary(summary_line(url, None, None, ["did not become ready"]))
         return 1
+    ready_s = time.perf_counter() - started  # Cloud Run at zero instances: its cold start
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page()
         problems = check_pages(page, url)
-        if chat_problem := check_chat(page, url):
+        chat_problem, chat_s = check_chat(page, url)
+        if chat_problem:
             problems.append(f"chat: {chat_problem}")
         if problems:
             page.screenshot(path="check_app_failure.png", full_page=True)
         browser.close()
     for problem in problems:
         print(f"PROBLEM {problem}")
-    if problems:
+    write_summary(summary_line(url, ready_s, chat_s, problems))
+    if problems and url == STREAMLIT_CLOUD_URL:
         print("If the code on main is fine, the app may need a reboot (Manage app -> Reboot app).")
     return 1 if problems else 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("url", nargs="?", default="https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app")
+    parser.add_argument("url", nargs="?", default=STREAMLIT_CLOUD_URL)
     sys.exit(check(parser.parse_args().url))
