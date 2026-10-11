@@ -2,7 +2,7 @@
 
 > 반려견 건강 상담, 반려동물 시설 검색(동물병원·약국·동반 시설 등 38,529곳), 반려동물 보고서 분석을 하나의 챗봇으로 제공하는 RAG 서비스입니다. 근거가 없으면 지어내지 않고 답변을 보류합니다.
 
-- **배포 앱:** <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag>
+- **배포 앱:** Google Cloud Run <https://ragdog-892238791473.asia-northeast3.run.app/rag> (주 배포, main 병합 시 GitHub Actions로 자동 배포) · Streamlit Community Cloud <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag> (예비). [Cloud Run 기록](docs/wiki/cloud-run.md)
 - **상세 문서:** [`docs/details.md`](docs/details.md)(기능·데이터·결정 전체), [`docs/wiki/`](docs/wiki/README.md)(실험 수치, 채택·기각 이유)
 - **데이터:** [데이터 명세서](docs/data-sources.md)(출처, 이용 조건, 가공). 건강 상담은 AI Hub(aihub.or.kr)의 「반려견 성장 및 질병관련 말뭉치 데이터」(과학기술정보통신부·한국지능정보사회진흥원 사업 결과)를 활용했습니다.
 - 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5> · 발표 당시 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag> · 발표 자료: [PDF](docs/presentation/RAG-DOG_발표.pdf)
@@ -253,7 +253,7 @@ uv run streamlit run main.py
 uv run python -m unittest discover -s tests
 ```
 
-단위 테스트는 외부 API를 부르지 않습니다. 평가 스크립트(`scripts/evaluate_*.py`)는 실제 모델을 불러 비용이 듭니다. GitHub Actions가 PR마다 테스트를, 매주 회귀 평가를, 8시간마다와 병합 직후 배포 앱 점검을 돌립니다. Streamlit Community Cloud는 `main` 변경을 감지해 다시 배포합니다.
+단위 테스트는 외부 API를 부르지 않습니다. 평가 스크립트(`scripts/evaluate_*.py`)는 실제 모델을 불러 비용이 듭니다. GitHub Actions가 PR마다 테스트를, 매주 회귀 평가를, 8시간마다와 병합 직후 두 배포의 점검을 돌립니다. `main`에 병합되면 GitHub Actions가 컨테이너 이미지를 만들어 Cloud Run에 배포하고(키 파일 없는 Workload Identity 인증), Streamlit Community Cloud는 스스로 변경을 감지해 다시 배포합니다.
 
 <details>
 <summary>프로젝트 구조</summary>
@@ -275,7 +275,7 @@ uv run python -m unittest discover -s tests
 ├── team/                   # 멀티에이전트 팀: core → tools → agents → graph → main
 ├── scripts/                # 평가, Langfuse 실험, 회귀 판정, 배포 점검, 메모리 측정
 ├── tests/                  # 단위·회귀 테스트, 평가 문항(tests/data/)
-├── .github/workflows/      # CI 테스트, 매주 회귀 평가, 배포 앱 점검
+├── .github/workflows/      # CI 테스트, 매주 회귀 평가, 배포 앱 점검, Cloud Run 배포
 ├── docs/                   # 아키텍처 그림, details.md, wiki/
 └── data/                   # CSV, SQLite, PDF, Chroma
 ```
