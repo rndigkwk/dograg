@@ -61,13 +61,15 @@ jobs:
         # At most 2 instances: the cost cap, and the visit report's paused runs live in one
         # server's memory, so session affinity keeps a browser on the same instance.
         # Streamlit keeps a websocket open per tab: the timeout is the longest a tab stays connected.
+        # Settings mirror the Streamlit Cloud secrets (ENABLE_CRAG, Langfuse); HF_TOKEN is not needed
+        # at run time because the data and the model are in the image.
         run: |
           gcloud run deploy "$SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
             --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
             --min-instances=0 --max-instances=2 --session-affinity --timeout=3600 \
             --allow-unauthenticated \
             --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest" \
-            --set-env-vars="LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
+            --set-env-vars="ENABLE_CRAG=true,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
 
       - name: Check the deployed service
         run: |
