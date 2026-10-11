@@ -44,9 +44,37 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
 - **메모리:** 2GiB면 여유가 있다. Cloud Run 인스턴스는 2GiB로 시작한다.
 - **방문 보고서에서 본 것:** 진료비 조사원이 `incomplete: max_messages`로 답 없이 끝났다. 다시 물었는데도 또 답이 없어, `NoAnswer`로 기록되고 기본 안내로 대신했다. #86의 재질문이 한 번으로는 부족한 경우가 있다는 뜻이다. 컨테이너와는 관계없는 API 응답 문제이고 따로 다룬다.
 
+## 2단계: GitHub Actions로 빌드와 배포
+
+**준비 (한 번만):**
+1. Cloud Shell에서 `scripts/gcp/setup_cloud_run.sh`를 실행한다. 다시 실행해도 이미 만든 것은 그대로 둔다. 만드는 것:
+   - 비공개 Artifact Registry 저장소(`ragdog`, 서울). 최신 이미지 3개만 남긴다.
+   - 서비스 계정 두 개
+     - `ragdog-runtime`: 앱이 실행되는 계정. 비밀 값 읽기만 한다.
+     - `github-deployer`: 이미지를 올리고 배포하는 계정.
+   - Workload Identity 풀과 공급자. **이 저장소(`rndigkwk/dograg`)의 Actions만** 쓸 수 있다.
+   - Secret Manager 비밀 값 3개: `OPENAI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. 값은 화면에 보이지 않게 입력받는다.
+2. 스크립트가 마지막에 출력한 `WORKLOAD_IDENTITY_PROVIDER` 값을 GitHub 저장소 변수 `GCP_WORKLOAD_IDENTITY_PROVIDER`에 넣는다. 비밀 값이 아닌 식별자다.
+
+**배포** (`.github/workflows/deploy-cloud-run.yml`)
+- main에 병합될 때마다 다음 순서로 돈다.
+  1. 이미지를 빌드한다. HF 토큰은 저장소 비밀 값을 빌드에만 쓴다.
+  2. `IMAGE:<커밋>`으로 이미지를 올린다.
+  3. `gcloud run deploy`로 배포한다.
+  4. `/_stcore/health`가 200을 줄 때까지 확인한다.
+- 저장소 변수가 없으면 이 작업은 실패하지 않고 건너뛴다.
+
+**Cloud Run 설정과 이유**
+
+| 설정 | 값 | 이유 |
+| --- | --- | --- |
+| 메모리 / CPU | 2GiB / 1 | 측정 최고 1.06GiB |
+| 최소 / 최대 인스턴스 | 0 / 2 | 쓰지 않을 때 요금 없음. 최대 2개가 비용 상한 |
+| session affinity | 켬 | 방문 보고서의 되묻기 단계는 멈춘 실행을 서버 메모리에 둔다. 같은 브라우저는 같은 인스턴스로 보내야 한다 |
+| 요청 시간 제한 | 3600초 | Streamlit은 탭마다 웹소켓을 열어 둔다 |
+| CPU boost | 켬 | 새로 켜질 때 모델·색인 로딩을 빠르게 |
+| Langfuse 환경 | `cloudrun` | Streamlit Cloud(`production`)와 트레이스를 나눠 본다 |
+
 ## 다음 단계
-1. Cloud Run 첫 배포
-   - 설정: 서울 리전, 2GiB, 최대 인스턴스 2, session affinity, Secret Manager
-   - Streamlit Cloud와 시작 시간·응답 시간을 비교한다.
-2. main 병합 시 GitHub Actions로 빌드와 배포. 인증은 키 파일 없이 Workload Identity Federation으로 한다.
-3. 배포 점검을 두 주소로 늘리고, README에 두 배포의 역할과 비용을 적는다.
+- 첫 배포 뒤 Streamlit Cloud와 시작 시간·응답 시간을 비교한다.
+- 배포 점검 워크플로를 두 주소로 늘리고, README에 두 배포의 역할과 비용을 적는다.
