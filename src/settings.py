@@ -14,8 +14,9 @@ load_dotenv(PROJECT_DIR / ".env")
 
 
 def deployed() -> bool:
-    """Streamlit Community Cloud checks the repository out under /mount/src/."""
-    return str(PROJECT_DIR).startswith("/mount/src/")
+    """Streamlit Community Cloud checks the repository out under /mount/src/; the container image
+    (Dockerfile, Cloud Run) sets RAGDOG_CONTAINER=1."""
+    return str(PROJECT_DIR).startswith("/mount/src/") or os.getenv("RAGDOG_CONTAINER") == "1"
 
 
 def _secrets() -> dict:
