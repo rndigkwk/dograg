@@ -1,0 +1,86 @@
+name: Deploy to Cloud Run
+
+# Builds the container image (Dockerfile: private data and model baked in, HF_TOKEN as a build
+# secret), pushes it to the private Artifact Registry repository and deploys it to Cloud Run.
+# Streamlit Community Cloud keeps deploying from the repository on its own; this is the second
+# deployment (docs/wiki/cloud-run.md).
+#
+# One-time setup: scripts/gcp/setup_cloud_run.sh in Cloud Shell, then the repository variable
+# GCP_WORKLOAD_IDENTITY_PROVIDER (Settings > Secrets and variables > Actions > Variables).
+# Authentication is keyless (Workload Identity Federation): no service account key is stored.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # the OIDC token Workload Identity Federation exchanges
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ragdog-511311
+  REGION: asia-northeast3
+  SERVICE: ragdog
+  IMAGE: asia-northeast3-docker.pkg.dev/ragdog-511311/ragdog/app
+  DEPLOYER: github-deployer@ragdog-511311.iam.gserviceaccount.com
+  RUNTIME: ragdog-runtime@ragdog-511311.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    # Skipped (not failed) until the one-time setup has been done.
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3.0.1
+
+      - name: Build and push the image
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build --secret id=hf_token,env=HF_TOKEN -t "$IMAGE:$GITHUB_SHA" .
+          docker push "$IMAGE:$GITHUB_SHA"
+
+      - name: Deploy
+        # 2 GiB: 1.06 GiB peak measured with a visit report (docs/wiki/cloud-run.md).
+        # At most 2 instances: the cost cap, and the visit report's paused runs live in one
+        # server's memory, so session affinity keeps a browser on the same instance.
+        # Streamlit keeps a websocket open per tab: the timeout is the longest a tab stays connected.
+        # Settings mirror the Streamlit Cloud secrets (ENABLE_CRAG, Langfuse); HF_TOKEN is not needed
+        # at run time because the data and the model are in the image.
+        run: |
+          gcloud run deploy "$SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
+            --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
+            --min-instances=0 --max-instances=2 --session-affinity --timeout=3600 \
+            --allow-unauthenticated \
+            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest" \
+            --set-env-vars="ENABLE_CRAG=true,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
+
+      - name: Check the deployed service
+        run: |
+          url="$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')"
+          for attempt in $(seq 1 30); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "$url/_stcore/health" || true)"
+            if [ "$code" = 200 ]; then
+              echo "### Cloud Run: $url (health 200, attempt $attempt)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url/_stcore/health did not answer 200 (last: $code)"
+          exit 1
