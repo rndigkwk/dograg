@@ -1,0 +1,33 @@
+# Secrets: passed to the container at run time (Secret Manager / --env-file), never baked in.
+.env
+.env.*
+.streamlit/secrets.toml
+*.key
+*.pem
+
+# Local environments and outputs
+.venv/
+.uv-cache/
+**/__pycache__/
+output/
+.playwright-mcp/
+.omc/
+.claude/
+.git/
+.github/
+.ruff_cache/
+.cache/
+
+# Private data is downloaded inside the build at a pinned revision (scripts/prefetch_image_assets.py),
+# not copied from this machine; the public places database is the only data file taken from here.
+data/*
+!data/places.db
+
+# Not needed to run the app
+docs/
+notebooks/
+eval/
+tests/
+내작업/
+*.md
+PET_TRAVEL_*
