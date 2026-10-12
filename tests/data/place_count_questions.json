@@ -1,0 +1,23 @@
+{
+ "description": "How many places a facility question asks for (2026-10-12), written before fixing src/tools/places.py requested_count. 'expected' is the number of rows the answer should list (10 = the default when no count is asked). Found on the Cloud Run container: '마포구 동물병원 3곳 알려줘' listed 10.",
+ "items": [
+  {"id": "k01", "question": "마포구 동물병원 3곳 알려줘", "expected": 3},
+  {"id": "k02", "question": "강남구 동물병원 5곳만 알려줘", "expected": 5},
+  {"id": "k03", "question": "해운대구 동물병원 세 곳 추천해줘", "expected": 3},
+  {"id": "k04", "question": "송파구 동물약국 2개만", "expected": 2},
+  {"id": "k05", "question": "수원 애견미용 두 군데 알려줘", "expected": 2},
+  {"id": "k06", "question": "강동구 동물병원 4개 찾아줘", "expected": 4},
+  {"id": "k07", "question": "성남시 애견호텔 다섯 곳 보여줘", "expected": 5},
+  {"id": "k08", "question": "마포구 동물병원 7군데 목록", "expected": 7},
+  {"id": "k09", "question": "관악구 동물병원 3곳 정도 알려줄래?", "expected": 3},
+  {"id": "k10", "question": "부산 동물병원 20곳 알려줘", "expected": 10},
+  {"id": "k11", "question": "용산구 동물병원 하나만 알려줘", "expected": 1},
+  {"id": "k12", "question": "서초구 동물병원 알려줘", "expected": 10},
+  {"id": "k13", "question": "3개월 된 강아지 데려갈 마포구 동물병원 알려줘", "expected": 10},
+  {"id": "k14", "question": "24시 동물병원 강남구 알려줘", "expected": 10},
+  {"id": "k15", "question": "2층에 있는 강남구 동물병원 알려줘", "expected": 10},
+  {"id": "k16", "question": "강아지 두 마리 데려갈 수 있는 송파구 동물병원 알려줘", "expected": 10},
+  {"id": "k17", "question": "마포구 동물병원 몇 곳 있어?", "expected": "count"},
+  {"id": "k18", "question": "1살 강아지 강남구 동물병원 알려줘", "expected": 10}
+ ]
+}
