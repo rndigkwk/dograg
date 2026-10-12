@@ -37,8 +37,9 @@
 4. **응급 판단의 오탐을 실제 질문 분포로 쟀다.** "응급/아님" 2택은 보호자 질문의 32.5%에 경고했고, "지금 응급/곧 진료/아님" 3택으로 9%가 됐습니다. [기록](docs/wiki/safety-and-evidence.md)
 5. **짧은 질문에 약한 임베딩을 미세조정했다.** 상담 글은 길고 사용자 질문은 짧았습니다. 상담마다 보호자 말투 질의 2개를 LLM으로 만들어($3.37) Colab 무료 T4에서 4.6분 학습했고, 앱 경로에서 짧은 질문 0.600 → 0.783(p=0.0001), 긴 질문 0.72 → 0.84(p=0.023). [기록](docs/wiki/embedding-finetune.md)
 6. **배포 장애를 자동 점검으로 막았다.** 병합 뒤 리부트를 빠뜨려 챗봇 페이지가 멈춘 일 뒤로, 모든 페이지와 챗봇 응답을 병합 직후와 8시간마다 점검합니다. [기록](docs/wiki/deployment-resources.md)
+7. **무료 호스팅의 잠자기와 리소스 한계를 Cloud Run 이원화로 풀었다.** 비공개 데이터와 모델을 이미지에 미리 넣고(HF 토큰은 빌드 비밀 값으로만 사용), 키 파일 없는 Workload Identity로 GitHub Actions가 병합 때마다 약 3분에 배포합니다. 최고 메모리 1.06GiB/2GiB, 꺼진 상태에서 첫 화면 23초. [설계](docs/docker-deployment.md)
 
-**기술:** LangGraph · LangChain · Chroma · ko-sroberta 미세조정(합성 질의, Colab T4, ONNX int8) · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`, Decisions) · SQLite · Langfuse · Streamlit Community Cloud · GitHub Actions(테스트 322개, 주간 회귀 평가, 배포 점검)
+**기술:** LangGraph · LangChain · Chroma · ko-sroberta 미세조정(합성 질의, Colab T4, ONNX int8) · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`, Decisions) · SQLite · Langfuse · Docker · Google Cloud Run(Artifact Registry, Secret Manager, Workload Identity) · Streamlit Community Cloud · GitHub Actions(테스트 349개, 주간 회귀 평가, 두 배포 점검, Cloud Run 자동 배포)
 
 ## 데모
 
@@ -234,6 +235,7 @@ flowchart LR
 | CRAG로 근거 평가·보류, 보고서에는 끔 | 보류 0 → 16/20, 보고서에 켜면 정답 페이지 12 → 10 | [결정 3](docs/details.md#3-crag-지어내는-대신-근거를-평가하고-보류한다) |
 | 라우터: 규칙 + 분류 API | 오분류 4 → 0/60, 폴백 1.4초 → 0.36초 | [결정 4](docs/details.md#4-라우터-확실한-건-규칙으로-애매한-건-llm으로) |
 | 무료 배포 환경에 맞추기(토큰 캐시, ONNX int8) | 메모리 1,587 → 985MB, 첫 답변 165 → 8초 | [결정 5](docs/details.md#5-무료-배포-환경최대-2코어-메모리-보장-690mb에-맞추기) |
+| Cloud Run 이원화: 데이터·모델을 이미지에 넣고 키 없는 인증으로 자동 배포 | 최고 메모리 1.06GiB/2GiB, 꺼진 상태 첫 화면 23초, 배포 약 3분 | [Docker·배포 설계](docs/docker-deployment.md) |
 
 ## 실행 방법
 
@@ -253,6 +255,16 @@ uv run streamlit run main.py
 uv run python -m unittest discover -s tests
 ```
 
+컨테이너로 실행하려면 Docker와 비공개 데이터용 `HF_TOKEN`이 필요합니다. 빌드할 때 데이터와 모델을 이미지에 넣고, 토큰은 빌드 비밀 값으로만 씁니다. 실행할 때는 `OPENAI_API_KEY` 등을 담은 파일을 넘깁니다. 이미지에는 재배포할 수 없는 데이터가 들어 있으니 공개 저장소에 올리지 마세요. [Docker·배포 설계](docs/docker-deployment.md)
+
+```bash
+docker build --secret id=hf_token,env=HF_TOKEN -t ragdog .
+```
+
+```bash
+docker run --rm -p 8080:8080 --memory=2g --env-file app.env ragdog
+```
+
 단위 테스트는 외부 API를 부르지 않습니다. 평가 스크립트(`scripts/evaluate_*.py`)는 실제 모델을 불러 비용이 듭니다. GitHub Actions가 PR마다 테스트를, 매주 회귀 평가를, 8시간마다와 병합 직후 두 배포의 점검을 돌립니다. `main`에 병합되면 GitHub Actions가 컨테이너 이미지를 만들어 Cloud Run에 배포하고(키 파일 없는 Workload Identity 인증), Streamlit Community Cloud는 스스로 변경을 감지해 다시 배포합니다.
 
 <details>
@@ -261,6 +273,7 @@ uv run python -m unittest discover -s tests
 ```text
 .
 ├── main.py                 # Streamlit 진입점, 스레드·메모리 제한, 페이지 목록
+├── Dockerfile              # Cloud Run 이미지 (데이터·모델 포함, 비공개 저장소 전용)
 ├── app_pages/              # 화면: rag(챗봇), hospital(시설 찾기), visit_prep(방문 보고서), data, home
 ├── src/
 │   ├── chat_graph.py       # LangGraph 그래프: 라우팅, CRAG, 복합 질문, 보류
@@ -273,7 +286,7 @@ uv run python -m unittest discover -s tests
 │   ├── tracing.py          # Langfuse 트레이싱(마스킹)
 │   └── storage/            # 브라우저에 저장하는 대화·반려견 정보
 ├── team/                   # 멀티에이전트 팀: core → tools → agents → graph → main
-├── scripts/                # 평가, Langfuse 실험, 회귀 판정, 배포 점검, 메모리 측정
+├── scripts/                # 평가, Langfuse 실험, 회귀 판정, 배포 점검, 메모리 측정, gcp/(Cloud Run 한 번 설정)
 ├── tests/                  # 단위·회귀 테스트, 평가 문항(tests/data/)
 ├── .github/workflows/      # CI 테스트, 매주 회귀 평가, 배포 앱 점검, Cloud Run 배포
 ├── docs/                   # 아키텍처 그림, details.md, wiki/
