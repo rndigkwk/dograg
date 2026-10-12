@@ -212,7 +212,7 @@ def generate_health_answer(question, retrieved_docs, filters=None, chat_history=
 def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None, profile=None):
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
-    search_query = history.build_rag_search_query(question, chat_history)
+    search_query = history.build_rag_search_query(question, chat_history, health=True)
     retrieved_docs = retrieve_health(search_query, k=k, filters=filters)
     safety_notice = detect_urgent_sign(question)
     if not retrieved_docs:

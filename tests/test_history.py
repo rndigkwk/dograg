@@ -1,6 +1,7 @@
 """src/tools/history.py: recent turns word for word, older turns folded into a running summary."""
 
 import unittest
+from unittest.mock import patch
 
 from src.tools import history
 
@@ -61,17 +62,67 @@ class HistorySummaryTests(unittest.TestCase):
         self.assertEqual(history.build_rag_search_query("사료는요?", shown), "간식은 뭘 줘도 되나요?\n사료는요?")
 
 
+class SearchQueryRuleTests(unittest.TestCase):
+    """build_rag_search_query: the rule-built query (no model call)."""
+
+    def turns(self, *questions):
+        return [m for q in questions for m in ({"role": "user", "content": q}, {"role": "assistant", "content": "답"})]
+
+    def test_a_new_health_topic_is_searched_alone(self):
+        self.assertEqual(history.build_rag_search_query("강아지 귀에서 냄새가 나요", self.turns("강아지가 설사를 해요"), health=True),
+                         "강아지 귀에서 냄새가 나요")
+
+    def test_a_follow_up_gets_the_last_earlier_health_question_only(self):
+        past = self.turns("강아지가 기침을 해요", "강아지가 설사를 해요", "마포구 동물병원 알려줘")
+        self.assertEqual(history.build_rag_search_query("그럼 사료는요?", past, health=True),
+                         "강아지가 설사를 해요\n그럼 사료는요?")
+
+    def test_a_facility_question_with_its_own_region_drops_the_earlier_region(self):
+        from src.tools import places
+
+        with patch.object(places, "extract_search_parameters", side_effect=lambda q: [w for w in ("강남구", "마포구") if w in q]):
+            self.assertEqual(history.build_rag_search_query("마포구 동물병원 알려줘", self.turns("강남구 동물병원 알려줘")),
+                             "마포구 동물병원 알려줘")
+            # "그 중에 24시는?" names no region: the last question that named one comes along.
+            self.assertEqual(history.build_rag_search_query("그 중에 24시는?", self.turns("강남구 동물병원 알려줘", "강아지가 기침해요")),
+                             "강남구 동물병원 알려줘\n그 중에 24시는?")
+
+
 class MemorySearchQueryTests(unittest.TestCase):
     """Day52: in a long conversation the summary's condition reaches the health search query."""
 
-    def test_without_a_summary_the_usual_query_is_kept_and_no_model_is_called(self):
+    def test_without_an_earlier_health_question_no_model_is_called(self):
         from unittest.mock import patch
 
         from src import resources
 
-        recent = [{"role": "user", "content": "간식은 뭘 줘도 되나요?"}]
+        # A facility question before is not context for a health search (the deployed app searched
+        # "일산 동물병원 알려줘 / 심장사상충 약 …" and found nothing).
+        earlier = [{"role": "user", "content": "일산 동물병원 알려줘"}, {"role": "assistant", "content": "목록"}]
         with patch.object(resources, "load_chat_model", side_effect=AssertionError("no model call")):
-            self.assertEqual(history.memory_search_query("사료는요?", recent), "간식은 뭘 줘도 되나요?\n사료는요?")
+            self.assertEqual(history.memory_search_query("심장사상충 약 얼마나 자주 먹여야 돼요?", earlier),
+                             "심장사상충 약 얼마나 자주 먹여야 돼요?")
+            self.assertEqual(history.memory_search_query("사료는요?", []), "사료는요?")
+
+    def test_earlier_health_questions_go_to_a_standalone_rewrite(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+
+        from src import resources
+
+        model = Mock()
+        model.bind.return_value.invoke.return_value = SimpleNamespace(content=" 설사하는 강아지  사료 ")
+        earlier = [{"role": "user", "content": "강아지가 이틀째 설사를 해요"}, {"role": "assistant", "content": "답"},
+                   {"role": "user", "content": "강남구 엑스레이 얼마야?"}, {"role": "assistant", "content": "표"}]
+        with patch.object(resources, "load_chat_model", return_value=model):
+            self.assertEqual(history.memory_search_query("그럼 사료는요?", earlier), "설사하는 강아지 사료")
+        system, prompt = (text for _, text in model.bind.return_value.invoke.call_args.args[0])
+        self.assertEqual(system, history.TOPIC_QUERY_PROMPT)
+        self.assertIn("강아지가 이틀째 설사를 해요", prompt)
+        self.assertNotIn("엑스레이", prompt)  # the fee question is not shown to the rewrite
+        model.bind.return_value.invoke.side_effect = RuntimeError("API down")
+        with patch.object(resources, "load_chat_model", return_value=model):  # the rule-built query instead
+            self.assertEqual(history.memory_search_query("그럼 사료는요?", earlier), "강아지가 이틀째 설사를 해요\n그럼 사료는요?")
 
     def test_with_a_summary_the_model_rewrites_the_query(self):
         from types import SimpleNamespace
