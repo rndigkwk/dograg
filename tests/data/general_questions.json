@@ -1,0 +1,149 @@
+{
+ "description": "Questions the router sends to the small-talk route (none), 2026-10-12, written before changing it. Today a model answers them as a general assistant: it said it was ChatGPT and offered coding and translation. kind: greeting, thanks, capability (what the service does / who it is), scope (outside the service). A good reply introduces this service (dog health, facilities, fees, statistics) without claiming other abilities, and does not do out-of-scope tasks. dev was looked at while writing the replies; holdout was written at the same time and kept for checking.",
+ "items": [
+  {
+   "id": "g-d1",
+   "split": "dev",
+   "kind": "greeting",
+   "question": "안녕하세요"
+  },
+  {
+   "id": "g-d2",
+   "split": "dev",
+   "kind": "greeting",
+   "question": "처음 사용해 봐요"
+  },
+  {
+   "id": "g-d3",
+   "split": "dev",
+   "kind": "greeting",
+   "question": "반가워요"
+  },
+  {
+   "id": "t-d1",
+   "split": "dev",
+   "kind": "thanks",
+   "question": "고마워"
+  },
+  {
+   "id": "t-d2",
+   "split": "dev",
+   "kind": "thanks",
+   "question": "감사합니다"
+  },
+  {
+   "id": "t-d3",
+   "split": "dev",
+   "kind": "thanks",
+   "question": "도움 됐어요 고마워요"
+  },
+  {
+   "id": "c-d1",
+   "split": "dev",
+   "kind": "capability",
+   "question": "이 서비스에서는 어떤 기능을 사용할 수 있나요?"
+  },
+  {
+   "id": "c-d2",
+   "split": "dev",
+   "kind": "capability",
+   "question": "너는 어떤 일을 할 수 있어?"
+  },
+  {
+   "id": "c-d3",
+   "split": "dev",
+   "kind": "capability",
+   "question": "너 이름이 뭐야?"
+  },
+  {
+   "id": "s-d1",
+   "split": "dev",
+   "kind": "scope",
+   "question": "오늘 서울 날씨 어때?"
+  },
+  {
+   "id": "s-d2",
+   "split": "dev",
+   "kind": "scope",
+   "question": "원달러 환율이 지금 얼마야?"
+  },
+  {
+   "id": "s-d3",
+   "split": "dev",
+   "kind": "scope",
+   "question": "파이썬 리스트 정렬 방법 알려줘"
+  },
+  {
+   "id": "g-h1",
+   "split": "holdout",
+   "kind": "greeting",
+   "question": "하이"
+  },
+  {
+   "id": "g-h2",
+   "split": "holdout",
+   "kind": "greeting",
+   "question": "안녕! 뭐부터 하면 돼?"
+  },
+  {
+   "id": "g-h3",
+   "split": "holdout",
+   "kind": "greeting",
+   "question": "hello"
+  },
+  {
+   "id": "t-h1",
+   "split": "holdout",
+   "kind": "thanks",
+   "question": "땡큐"
+  },
+  {
+   "id": "t-h2",
+   "split": "holdout",
+   "kind": "thanks",
+   "question": "정말 감사해요"
+  },
+  {
+   "id": "t-h3",
+   "split": "holdout",
+   "kind": "thanks",
+   "question": "덕분에 살았어요"
+  },
+  {
+   "id": "c-h1",
+   "split": "holdout",
+   "kind": "capability",
+   "question": "뭘 물어볼 수 있어?"
+  },
+  {
+   "id": "c-h2",
+   "split": "holdout",
+   "kind": "capability",
+   "question": "넌 누구야?"
+  },
+  {
+   "id": "c-h3",
+   "split": "holdout",
+   "kind": "capability",
+   "question": "사용법 알려줘"
+  },
+  {
+   "id": "s-h1",
+   "split": "holdout",
+   "kind": "scope",
+   "question": "영화 추천해줘"
+  },
+  {
+   "id": "s-h2",
+   "split": "holdout",
+   "kind": "scope",
+   "question": "수학 숙제 좀 풀어줘: 2x+3=7"
+  },
+  {
+   "id": "s-h3",
+   "split": "holdout",
+   "kind": "scope",
+   "question": "오늘 저녁 메뉴 추천해줘"
+  }
+ ]
+}
