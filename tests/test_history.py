@@ -104,6 +104,22 @@ class MemorySearchQueryTests(unittest.TestCase):
                              "심장사상충 약 얼마나 자주 먹여야 돼요?")
             self.assertEqual(history.memory_search_query("사료는요?", []), "사료는요?")
 
+    def test_a_facility_follow_up_without_a_facility_word_is_not_health_context(self):
+        from unittest.mock import patch
+
+        from src import resources
+
+        # "24시 하는 곳은?" names no facility; the route the app recorded for its answer says it
+        # was a facility search (tests/data/place_follow_up_questions.json).
+        earlier = [{"role": "user", "content": "일산 동물병원 알려줘"}, {"role": "assistant", "content": "목록", "route": "sql"},
+                   {"role": "user", "content": "24시 하는 곳은?"}, {"role": "assistant", "content": "목록", "route": "sql"}]
+        self.assertEqual(history.earlier_health_questions("강아지가 쓰러졌어요", earlier), [])
+        with patch.object(resources, "load_chat_model", side_effect=AssertionError("no model call")):
+            self.assertEqual(history.memory_search_query("강아지가 쓰러졌어요", earlier), "강아지가 쓰러졌어요")
+        health = [{"role": "user", "content": "강아지가 설사를 해요"}, {"role": "assistant", "content": "답", "route": "rag"}, *earlier]
+        self.assertEqual(history.earlier_health_questions("사료는요?", health), ["강아지가 설사를 해요"])
+        self.assertEqual(history.build_rag_search_query("사료는요?", health, health=True), "강아지가 설사를 해요\n사료는요?")
+
     def test_earlier_health_questions_go_to_a_standalone_rewrite(self):
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
