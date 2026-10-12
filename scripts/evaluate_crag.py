@@ -12,6 +12,8 @@ Groups (tests/data/crag_eval_questions.json):
   (how often, at what age); abstaining here is over-abstention too. Many answers here say the
   material lacks the specific fact while still answering; the outcome does not tell those apart,
   so read answer_head (docs/wiki/retrieval-experiments.md grades them by hand).
+leads_with_missing: answers whose first sentence says the material lacks something; the
+summary counts them per group (docs/wiki/safety-and-evidence.md "아는 것을 먼저").
 
 Runs on a disposable Chroma copy and writes per-run logs to a separate JSONL.
 Retrieved Q&A and report excerpts are sent to the OpenAI API.
@@ -22,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -40,6 +43,22 @@ def outcome(result: dict, decision: str | None) -> str:
     if result.get("abstained"):
         return "abstain"
     return "partial" if decision == "ambiguous" else "answer"
+
+
+FIRST_SENTENCE = re.compile(r"(?<=[.!?])\s|\n")
+MATERIAL_WORDS = re.compile(r"자료|데이터")
+MISSING_WORDS = re.compile(r"없|않습니다|않아|않았|누락")  # not "않게", "않도록", "않은": advice, not a gap
+
+
+def leads_with_missing(answer: str) -> bool:
+    """The answer opens by saying what the material lacks ("검색된 자료에는 … 없습니다").
+
+    Right for a question the material cannot answer; for one it can (in part), the guardian reads
+    a refusal first and the useful part after it. The app's own abstain message is not counted.
+    Only the part before "…지만" counts: "자료에서는 2~4주마다 짜라고 안내하지만, 모든 강아지에게
+    필요하지는 않습니다" answers first."""
+    first = FIRST_SENTENCE.split(answer.strip(), maxsplit=1)[0].split("지만", 1)[0]
+    return bool(MATERIAL_WORDS.search(first) and MISSING_WORDS.search(first))
 
 
 def gold_page_hit(item: dict, result: dict) -> bool | None:
@@ -66,6 +85,7 @@ def summarize(rows: list[dict]) -> dict:
         by_outcome = {key: sum(r["outcome"] == key for r in items) for key in ("answer", "partial", "abstain", "error")}
         entry = {"count": count, **by_outcome,
                  "routes": dict(sorted({r["route"]: sum(x["route"] == r["route"] for x in items) for r in items}.items()))}
+        entry["leads_with_missing"] = sum(bool(r.get("leads_with_missing")) for r in items)
         hits = [r["gold_page_hit"] for r in items if r["gold_page_hit"] is not None]
         if hits:
             entry["gold_page_hit"] = f"{sum(hits)}/{len(hits)}"
@@ -129,6 +149,7 @@ def main() -> int:
                 "total_tokens": sum(v.get("total_tokens", 0) for v in usage.values()),
                 "latency_ms": round((time.perf_counter() - started) * 1000),
                 "answer_head": result.get("answer", "")[:300],
+                "leads_with_missing": row_outcome in ("answer", "partial") and leads_with_missing(result.get("answer", "")),
             })
             print(f"[{index}/{len(items)}] {item['id']} {rows[-1]['route']} {row_outcome}", flush=True)
     report = {"crag": args.crag, "candidate_k": args.candidate_k or crag.HEALTH_CANDIDATE_K, "questions": questions_label(args.questions),
