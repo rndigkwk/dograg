@@ -71,3 +71,18 @@ class DecisionsRouterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DateQuestionTests(unittest.TestCase):
+    """The date answer runs before every route; "며칠 전부터" in a health question got today's date."""
+
+    def test_date_question_set(self):
+        import json
+        from pathlib import Path
+
+        from src.tools import router
+
+        items = json.loads((Path(__file__).parent / "data" / "date_questions.json").read_text(encoding="utf-8"))["items"]
+        wrong = [item["id"] for item in items if router.is_date_question(item["question"]) != item["date"]]
+        self.assertEqual(wrong, [])
+        self.assertTrue(router.is_date_question("오늘 날짜 알려줘"))  # the deployed-app check asks this

@@ -103,9 +103,27 @@ HOSPITAL_LOOKUP_KEYWORDS = (
 )
 
 
+DATE_WORDS = ("날짜", "며칠", "몇일")
+TODAY_WORDS = ("오늘", "지금", "현재", "today")
+# Days as a length or a schedule, not today's date: "며칠 전부터 설사", "며칠째", "며칠 간격으로".
+DURATION_WORDS = ("전부터", "째", "동안", "간격", "지나", "지났", "후", "뒤", "에한번", "전에", "됐", "됩")
+SHORT_DATE_QUESTION_CHARS = 10
+# Asking for the date is short; a long story with "현재" and "며칠" is a consultation (31 of them).
+MAX_DATE_QUESTION_CHARS = 20
+
+
 def is_date_question(question: str) -> bool:
+    """"오늘 며칠이야?", "날짜 좀 알려줄래": answered in code before any route.
+
+    A day word alone sent questions like "며칠 전부터 생리를 시작하면서 …" (CRAG 60 h08) to the
+    date answer; 886 of the 19,206 consultation questions had one (4.6%). Now the day word needs
+    "오늘·지금·현재" or a short question, no length/schedule word, and at most 20 characters
+    (tests/data/date_questions.json)."""
     normalized = "".join(question.lower().split())
-    return "날짜" in normalized or "며칠" in normalized or "몇일" in normalized
+    if (len(normalized) > MAX_DATE_QUESTION_CHARS or not any(word in normalized for word in DATE_WORDS)
+            or any(word in normalized for word in DURATION_WORDS)):
+        return False
+    return any(word in normalized for word in TODAY_WORDS) or len(normalized) <= SHORT_DATE_QUESTION_CHARS
 
 
 def current_date_answer() -> str:
