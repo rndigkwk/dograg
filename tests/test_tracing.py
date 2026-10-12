@@ -47,6 +47,26 @@ class MaskTests(unittest.TestCase):
         with patch.object(tracing.settings, "get_setting", return_value=None):
             self.assertFalse(tracing.enabled())
 
+    def test_off_in_local_evaluation_scripts_unless_asked(self):
+        values = {"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk", "LANGFUSE_TRACING_ENABLED": None}
+        with patch.object(tracing.settings, "get_setting", side_effect=values.get),                 patch.object(tracing, "_running_tests", return_value=False):
+            with patch.object(tracing.sys, "argv", ["scripts/evaluate_crag.py"]):
+                self.assertFalse(tracing.enabled())
+                values["LANGFUSE_TRACING_ENABLED"] = "true"
+                self.assertTrue(tracing.enabled())
+                values["LANGFUSE_TRACING_ENABLED"] = None
+            with patch.object(tracing.sys, "argv", ["scripts/langfuse_experiments.py", "run", "crag"]):
+                self.assertTrue(tracing.enabled())  # the experiments are what Langfuse is for
+            with patch.object(tracing.sys, "argv", ["/app/.venv/bin/streamlit", "run", "main.py"]):
+                self.assertTrue(tracing.enabled())
+
+    def test_noise_spans(self):
+        for name in ("ChatPromptTemplate", "StrOutputParser", "RunnableLambda", "route_after_classify",
+                     "ModelCallLimitMiddleware.before_model", "ToolCallLimitMiddleware[search_health_qa].after_model"):
+            self.assertTrue(tracing.is_noise_span(name), name)
+        for name in ("chat", "classify", "health_generate", "ChatOpenAI", "RunnableSequence", "model", None):
+            self.assertFalse(tracing.is_noise_span(name), name)
+
     def test_feedback_score_overwrites_by_trace(self):
         langfuse = Mock()
         with patch.object(tracing, "client", return_value=langfuse):
@@ -93,6 +113,7 @@ class TraceExportTests(unittest.TestCase):
         cls.client = Langfuse(
             public_key="pk-lf-test", secret_key="sk-lf-test", base_url="http://localhost:9",
             mask=tracing.mask_text, span_exporter=cls.exporter, flush_at=1,
+            should_export_span=tracing.should_export_span,
         )
 
     @classmethod
@@ -116,6 +137,12 @@ class TraceExportTests(unittest.TestCase):
         names = {span.name for span in spans}
         self.assertIn("chat", names)
         self.assertTrue(any("health" in name for name in names), names)  # graph nodes from the callback
+        # LangChain wrappers and edge functions are not sent; nothing kept loses its parent.
+        self.assertFalse({"ChatPromptTemplate", "StrOutputParser"} & names, names)
+        self.assertFalse([name for name in names if name.startswith("route_after_")], names)
+        self.assertIn("health_generate", names)
+        sent_ids = {span.context.span_id for span in spans}
+        self.assertTrue(all(span.parent is None or span.parent.span_id in sent_ids for span in spans))
 
         sent = json.dumps([dict(span.attributes) for span in spans], ensure_ascii=False)
         for secret in ("초코", "설사", "010-1234-5678", "수분을", "탈수"):

@@ -110,13 +110,44 @@ def _running_tests() -> bool:
     return "unittest" in program or "pytest" in program or Path(program).parent.name == "tests"
 
 
+def _evaluation_script() -> bool:
+    """A local evaluation script (scripts/*.py) other than the Langfuse experiments.
+
+    They ask the app hundreds of questions per run; traced, one week of them was a third of the
+    free plan's 50,000 events (2026-10-12). Opt in with LANGFUSE_TRACING_ENABLED=true."""
+    program = Path(sys.argv[0]) if sys.argv and sys.argv[0] else Path()
+    return program.parent.name == "scripts" and program.name != "langfuse_experiments.py"
+
+
 def enabled() -> bool:
+    switch = str(settings.get_setting("LANGFUSE_TRACING_ENABLED") or "").lower()
     return bool(
         not _running_tests()
         and settings.get_setting("LANGFUSE_PUBLIC_KEY")
         and settings.get_setting("LANGFUSE_SECRET_KEY")
-        and str(settings.get_setting("LANGFUSE_TRACING_ENABLED") or "true").lower() != "false"
+        and switch != "false"
+        and (switch == "true" or not _evaluation_script())
     )
+
+
+# LangChain steps that only wrap a model call or pick the next graph node. They have no children,
+# so dropping them leaves the trace tree whole; the graph nodes, model calls (tokens, cost) and the
+# root `chat` span stay. They were 35% of observations (28% experiments, 36-40% app; 2026-10-12).
+NOISE_SPAN_NAMES = frozenset({"ChatPromptTemplate", "StrOutputParser", "RunnableLambda"})
+NOISE_SPAN_PREFIXES = ("route_after_",)
+NOISE_SPAN_SUFFIXES = (".before_model", ".after_model")  # agent middleware hooks
+
+
+def is_noise_span(name: str | None) -> bool:
+    name = name or ""
+    return name in NOISE_SPAN_NAMES or name.startswith(NOISE_SPAN_PREFIXES) or name.endswith(NOISE_SPAN_SUFFIXES)
+
+
+def should_export_span(span) -> bool:
+    """The SDK's default filter, minus the LangChain noise above."""
+    from langfuse.span_filter import is_default_export_span
+
+    return is_default_export_span(span) and not is_noise_span(getattr(span, "name", None))
 
 
 @lru_cache(maxsize=1)
@@ -135,6 +166,7 @@ def client():
             release=release(),
             sample_rate=sample_rate(),
             mask=mask_text,
+            should_export_span=should_export_span,
         )
     except Exception:
         logger.warning("Langfuse tracing is off: client setup failed", exc_info=True)
