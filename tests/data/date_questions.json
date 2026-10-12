@@ -1,0 +1,137 @@
+{
+ "description": "Date questions vs. questions that only mention days (2026-10-12), written before changing anything. The date check runs before every route: a health question with '며칠 전부터' (CRAG 60 h08) got '오늘은 2026년 10월 12일입니다'. date: whether the app should answer with today's date. dev was looked at while choosing the rule; holdout was written at the same time and kept for checking it.",
+ "items": [
+  {
+   "id": "d01",
+   "split": "dev",
+   "question": "오늘 날짜 알려줘",
+   "date": true
+  },
+  {
+   "id": "d02",
+   "split": "dev",
+   "question": "오늘 며칠이야?",
+   "date": true
+  },
+  {
+   "id": "d03",
+   "split": "dev",
+   "question": "오늘이 몇일이지?",
+   "date": true
+  },
+  {
+   "id": "d04",
+   "split": "dev",
+   "question": "지금 몇 월 며칠이에요?",
+   "date": true
+  },
+  {
+   "id": "d05",
+   "split": "dev",
+   "question": "날짜 좀 알려줄래",
+   "date": true
+  },
+  {
+   "id": "n01",
+   "split": "dev",
+   "question": "강아지가 며칠 전부터 설사를 해요",
+   "date": false
+  },
+  {
+   "id": "n02",
+   "split": "dev",
+   "question": "강아지가 며칠째 밥을 안 먹어요",
+   "date": false
+  },
+  {
+   "id": "n03",
+   "split": "dev",
+   "question": "중성화 수술 후 며칠 지나야 목욕시켜도 돼요?",
+   "date": false
+  },
+  {
+   "id": "n04",
+   "split": "dev",
+   "question": "구충제는 며칠 간격으로 먹여요?",
+   "date": false
+  },
+  {
+   "id": "n05",
+   "split": "dev",
+   "question": "예방접종 날짜는 언제로 잡으면 돼요?",
+   "date": false
+  },
+  {
+   "id": "n06",
+   "split": "dev",
+   "question": "급히 문의드립니다. 제가 얼마 전 1.8킬로그램 정도 되는 암컷 말티즈를 입양하였습니다. 이 애완견에 대해 들은 바에 의하면 제왕절개를 통해 출산한 경험이 있으며, 그 과정에서 생긴 흉터라고 알려주셨습니다. 그런데 며칠 전부터 생리를 시작하면서 그 부위가 더욱 부풀어 오른 것을 발견하였고, 만져보니 배안에 어떤 물체가 느껴지는 상황입니다. 제왕절개 후에 이러한 흉터가 남는 것이 일반적인지, 그리고 이 상황이 무엇을 나타내는 것인지에 대해 궁금합니다. 이 문제가 심각한 것인지에 대한 걱정이 커져서 이렇게 말씀드리게 되었습니다.",
+   "date": false
+  },
+  {
+   "id": "d06",
+   "split": "holdout",
+   "question": "며칠이야 오늘",
+   "date": true
+  },
+  {
+   "id": "d07",
+   "split": "holdout",
+   "question": "오늘 날짜가 어떻게 돼?",
+   "date": true
+  },
+  {
+   "id": "d08",
+   "split": "holdout",
+   "question": "오늘 몇일인지 알려줘",
+   "date": true
+  },
+  {
+   "id": "d09",
+   "split": "holdout",
+   "question": "현재 날짜는?",
+   "date": true
+  },
+  {
+   "id": "d10",
+   "split": "holdout",
+   "question": "며칠이지?",
+   "date": true
+  },
+  {
+   "id": "n07",
+   "split": "holdout",
+   "question": "생리는 보통 며칠 동안 해요?",
+   "date": false
+  },
+  {
+   "id": "n08",
+   "split": "holdout",
+   "question": "며칠에 한 번 산책시키면 돼요?",
+   "date": false
+  },
+  {
+   "id": "n09",
+   "split": "holdout",
+   "question": "분양받은 날짜로부터 2주 지났는데 목욕해도 돼요?",
+   "date": false
+  },
+  {
+   "id": "n10",
+   "split": "holdout",
+   "question": "몇일 전에 먹은 초콜릿도 문제가 될까요?",
+   "date": false
+  },
+  {
+   "id": "n11",
+   "split": "holdout",
+   "question": "강아지가 토한 지 며칠 됐는데 병원 가야 할까요?",
+   "date": false
+  },
+  {
+   "id": "n12",
+   "split": "holdout",
+   "question": "다음 접종 날짜를 잊어버렸어요. 보통 몇 주 뒤에 맞히나요?",
+   "date": false
+  }
+ ]
+}
