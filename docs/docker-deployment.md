@@ -131,7 +131,7 @@ python:3.12-slim
 | --- | --- | --- |
 | `wsl --install`이 `REGDB_E_CLASSNOTREG`로 실패 | 학원 PC의 WSL 설치가 손상됨 | Windows 기능을 켜고 WSL 설치 파일(MSI)을 직접 설치 |
 | 배포 작업이 두 번 "건너뜀" | 공급자 값을 저장소 **Secrets**에 넣음. 작업 조건(`if`)은 Secrets를 읽을 수 없다 | **Variables**로 옮김 |
-| 컨테이너에서 방문 보고서의 진료비 조사가 기본 안내로 대체됨 | 컨테이너가 아니라 API의 `incomplete` 응답 문제 | 따로 조사 |
+| 컨테이너에서 방문 보고서의 진료비 조사가 기본 안내로 대체됨 | 컨테이너가 아니라 API 문제. 조사원 응답이 추론 조각 101개에서 잘림(`incomplete: max_messages`) | 도구 결과만 넣어 새로 묻도록 수정. 재질문 성공 6/13 → 15/15 ([기록](wiki/visit-prep-team.md)) |
 
 ## 9. 한계와 다음 단계
 
