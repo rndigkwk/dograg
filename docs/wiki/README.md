@@ -19,6 +19,7 @@
 | [visit-prep-team.md](visit-prep-team.md) | 멀티에이전트 방문 준비 보고서 팀: 상담 12개 실험(기준선 → 개선), 실패 처리와 장애 주입, 배포 장애 기록 |
 | [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 |
 | [lecture-review.md](lecture-review.md) | Day 46~56 교안 기법별 적용·테스트·미적용 정리 (어떻게, 결과, 이유) |
+| [../curriculum-fit.md](../curriculum-fit.md) | Day 58~79 수업 중 이 프로젝트에 쓸 만한 것, 가드레일 경량 대안과 현재 상태, 일반 대화 기능 검토 |
 
 ## 작성 규칙
 
