@@ -42,7 +42,7 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
 | 방문 보고서 | 90초, 검수 통과 |
 
 - **메모리:** 2GiB면 여유가 있다. Cloud Run 인스턴스는 2GiB로 시작한다.
-- **방문 보고서에서 본 것:** 진료비 조사원이 `incomplete: max_messages`로 답 없이 끝났다. 다시 물었는데도 또 답이 없어, `NoAnswer`로 기록되고 기본 안내로 대신했다. #86의 재질문이 한 번으로는 부족한 경우가 있다는 뜻이다. 컨테이너와는 관계없는 API 응답 문제이고 따로 다룬다.
+- **방문 보고서에서 본 것:** 진료비 조사원이 `incomplete: max_messages`로 답 없이 끝났다. 다시 물었는데도 또 답이 없어, `NoAnswer`로 기록되고 기본 안내로 대신했다. #86의 재질문이 한 번으로는 부족한 경우가 있다는 뜻이다. 컨테이너와는 관계없는 API 응답 문제였다. 원인과 수정은 [visit-prep-team.md](visit-prep-team.md) "답 없이 끝나는 조사원"에 있다.
 
 ## 2단계: GitHub Actions로 빌드와 배포
 

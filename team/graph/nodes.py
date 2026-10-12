@@ -9,7 +9,7 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
 from src.faithfulness import build_judge, build_verifier, recheck_unsupported
-from team.agents.workers import create_researcher
+from team.agents.workers import create_researcher, researcher_tools
 from team.core import config
 from team.core.prompts import (
     CLARIFY_INPUT,
@@ -17,11 +17,13 @@ from team.core.prompts import (
     PLANNER_INPUT,
     PLANNER_PROMPT,
     RESEARCHER_INPUT,
+    RESEARCHER_PROMPT,
+    RESEARCHER_ROLES,
     REWORK_INPUT,
     REWORK_PROMPT,
     WRITER_INPUT,
 )
-from team.core.schemas import Clarification, ReworkStep, VisitPlan
+from team.core.schemas import Clarification, Finding, ReworkStep, VisitPlan
 
 WRITE_WITH_WHAT_EXISTS = ("추가 조사는 이미 한 번 했습니다. 지금 조사 결과만으로 보고서를 쓰고, "
                           "자료에 없는 내용은 '자료로 확인할 수 없음'이라고 적은 뒤 request_review를 부르세요.")
@@ -165,7 +167,7 @@ def researcher(state: ResearchInput) -> dict:
             # once more for the answer from the results it already has.
             print("researcher:", task["task_id"], "답 없이 끝남", stop_reason(result), "-> 한 번 더")
             reask = {"reasks": {task["task_id"]: stop_reason(result)}}  # counted by the weekly evaluation
-            result = agent.invoke({"messages": [*result["messages"], ("user", config.ANSWER_NUDGE)]})
+            result = {**result, "structured_response": answer_from_results(task, message, result)}
     except Exception as exc:  # noqa: BLE001 - any error of one task must not cancel the others
         # The OpenAI SDK has already retried transient errors (config.MODEL_MAX_RETRIES). Raising
         # here would cancel every researcher of this step and lose their results, so record it.
@@ -183,6 +185,19 @@ def researcher(state: ResearchInput) -> dict:
         print("researcher:", task["task_id"], "근거 없음 -> 기본 안내")
         finding_dict = {**fallback_finding(task["kind"]), "summary": finding_dict["summary"]}
     return {"findings": {task["task_id"]: finding_dict}, **reask}
+
+
+def answer_from_results(task: dict, message: str, result: dict):
+    """A Finding from the tool results of an answerless run, asked in a fresh request.
+
+    Continuing the run's conversation (its reasoning items and tool calls) looped in reasoning
+    again in 7 of 13 runs; this request carries only the task and the tool results as text, so the
+    answer can only cite evidence ids the tools returned (config.REASK_REASONING_EFFORT)."""
+    names = {tool.name for tool in researcher_tools(task["kind"])}
+    results = [str(m.content) for m in result["messages"] if m.type == "tool" and getattr(m, "name", None) in names]
+    prompt = f"{message}\n\n[도구 결과]\n" + ("\n".join(results) or "없음") + f"\n\n{config.ANSWER_NUDGE}"
+    system = RESEARCHER_PROMPT.format(role=RESEARCHER_ROLES[task["kind"]], limit=config.TOOL_CALL_LIMIT)
+    return config.reask_llm().with_structured_output(Finding).invoke([("system", system), ("user", prompt)])
 
 
 def limit_reached(result: dict) -> bool:
