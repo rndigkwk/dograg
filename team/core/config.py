@@ -68,6 +68,20 @@ def llm() -> ChatOpenAI:
                       max_retries=MODEL_MAX_RETRIES)
 
 
+# The re-ask after an answerless researcher run (team/graph/nodes.py answer_from_results). The
+# answerless runs were 101 reasoning items and no answer: the API stops a response at about 100
+# output items ("incomplete: max_messages") and the model can loop in short reasoning items until
+# it does. Continuing that conversation looped again in 7 of 13 runs, even at low effort; a fresh
+# request with only the tool results answered 15 of 15 (2026-10-12, docs/wiki/visit-prep-team.md).
+REASK_REASONING_EFFORT = "low"
+
+
+@lru_cache(maxsize=1)
+def reask_llm() -> ChatOpenAI:
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=settings.get_openai_api_key(), use_responses_api=True, timeout=120,
+                      max_retries=MODEL_MAX_RETRIES, reasoning_effort=REASK_REASONING_EFFORT)
+
+
 # The reviewer lists every claim of a 20-sentence report and checks each one: the slowest step
 # (median 23s at the default effort over 12 consultations). Low effort; see README for the comparison.
 REVIEW_REASONING_EFFORT = "low"

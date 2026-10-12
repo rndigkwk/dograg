@@ -49,6 +49,17 @@ class FakeResearcher:
         return {"structured_response": Finding(summary=f"{self.kind} 요약", key_points=[fact])}
 
 
+class FakeReaskModel:
+    """config.reask_llm(): records the structured-output request and returns `answer`."""
+
+    def __init__(self, answer):
+        self.answer, self.schema, self.requests = answer, None, []
+
+    def with_structured_output(self, schema):
+        self.schema = schema
+        return SimpleNamespace(invoke=lambda messages: self.requests.append(messages) or self.answer)
+
+
 class FakeWriter:
     def __init__(self, run_dir):
         self.run_dir, self.calls = run_dir, 0
@@ -200,19 +211,19 @@ class FailureTests(unittest.TestCase):
         incomplete = SimpleNamespace(type="ai", response_metadata={"status": "incomplete", "incomplete_details": {"reason": "max_messages"}})
 
         class StopsOnceResearcher(FakeResearcher):
-            def __init__(self, kind):
-                super().__init__(kind)
-                self.calls = 0
+            """The cost run ends without an answer; the other researchers answer."""
 
             def invoke(self, inputs):
-                self.calls += 1
-                if self.kind == "cost" and self.calls == 1:
+                if self.kind == "cost":
                     return {"messages": [incomplete]}
                 return super().invoke(inputs)
 
-        _, result, _, _ = self.run_team(researcher=StopsOnceResearcher)
+        fact = KeyPoint(fact="진료비 사실", evidence_id="fee-1")
+        with patch.object(config, "reask_llm", return_value=FakeReaskModel(Finding(summary="s", key_points=[fact]))):
+            _, result, _, _ = self.run_team(researcher=StopsOnceResearcher)
         self.assertEqual(result["reasks"], {"t3": "incomplete: max_messages"})
-        self.assertEqual(result["failures"], {})  # the second answer was used
+        self.assertEqual(result["failures"], {})  # the re-ask's answer was used
+        self.assertEqual(result["findings"]["t3"]["key_points"][0]["evidence_id"], "fee-1")
         from team.main import run_record
         self.assertEqual(run_record(result, 1.0)["reasks"], 1)
 
@@ -234,32 +245,36 @@ class FailureTests(unittest.TestCase):
         self.assertNotIn("failures", update)  # nothing failed, so the outcome stays complete
 
     def test_a_researcher_that_stops_without_an_answer_is_asked_once_more(self):
-        # The API ended a cost run "incomplete" (max_messages) after long reasoning: no Finding,
-        # calls left. It used to be recorded as the call limit and replaced by the fixed guide.
-        incomplete = SimpleNamespace(type="ai", response_metadata={"status": "incomplete", "incomplete_details": {"reason": "max_messages"}})
-        fact = KeyPoint(fact="강남구 초진 진찰료 중간 11,000원", evidence_id="fee-서울특별시-강남구-초진-진찰료-(체중-5kg)")
-        answers = [{"messages": [incomplete]}, {"structured_response": Finding(summary="s", key_points=[fact]), "messages": []}]
+        # The API ended a cost run "incomplete" (max_messages) after 101 reasoning items: no Finding,
+        # calls left. Continuing that conversation looped again, so the re-ask is a fresh request
+        # with only the tool results.
+        tool_result = SimpleNamespace(type="tool", name="regional_fee_stats",
+                                      content='[{"evidence_id": "fee-서울특별시-강남구-초진-진찰료-(체중-5kg)", "median": 11000}]')
+        reasoning = SimpleNamespace(type="ai", name=None, content="REASONING ITEMS",
+                                    response_metadata={"status": "incomplete", "incomplete_details": {"reason": "max_messages"}})
         calls = []
-
-        def invoke(inputs):
-            calls.append(inputs["messages"])
-            return answers[len(calls) - 1]
-
+        agent = SimpleNamespace(invoke=lambda inputs: calls.append(1) or {"messages": [tool_result, reasoning]})
+        fact = KeyPoint(fact="강남구 초진 진찰료 중간 11,000원", evidence_id="fee-서울특별시-강남구-초진-진찰료-(체중-5kg)")
+        reask = FakeReaskModel(Finding(summary="s", key_points=[fact]))
         task = {"task_id": "t5", "kind": "cost", "query": "진료비", "angle": "a"}
-        with patch.object(nodes, "create_researcher", return_value=SimpleNamespace(invoke=invoke)):
+        with patch.object(nodes, "create_researcher", return_value=agent), patch.object(config, "reask_llm", return_value=reask):
             update = nodes.researcher({"task": task, "consultation": "x", "urgent": False})
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(calls[1][-1], ("user", config.ANSWER_NUDGE))  # the first run's messages, then the nudge
+        self.assertEqual(len(calls), 1)  # the agent is not run again
+        [request] = reask.requests
+        prompt = request[-1][1]
+        self.assertIn(tool_result.content, prompt)  # the tool results, as text
+        self.assertNotIn("REASONING ITEMS", prompt)  # not the looping conversation
+        self.assertTrue(prompt.endswith(config.ANSWER_NUDGE))
+        self.assertIs(reask.schema, Finding)
         self.assertNotIn("failures", update)
         self.assertEqual(update["reasks"], {"t5": "incomplete: max_messages"})  # kept for the weekly evaluation
         self.assertEqual(update["findings"]["t5"]["key_points"][0]["evidence_id"], fact.evidence_id)
 
-        # Still no answer: recorded with the reason, not as the call limit; never a third call.
-        calls.clear()
-        answers[1] = {"messages": [incomplete]}
-        with patch.object(nodes, "create_researcher", return_value=SimpleNamespace(invoke=invoke)):
+        # Still no answer: recorded with the reason, not as the call limit; nothing more is asked.
+        empty = FakeReaskModel(None)
+        with patch.object(nodes, "create_researcher", return_value=agent), patch.object(config, "reask_llm", return_value=empty):
             update = nodes.researcher({"task": task, "consultation": "x", "urgent": False})
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(empty.requests), 1)
         self.assertEqual(update["failures"]["t5"]["error"], "NoAnswer: 다시 물어도 조사 결과를 정리하지 못함 (incomplete: max_messages)")
         self.assertEqual(update["reasks"], {"t5": "incomplete: max_messages"})
         self.assertTrue(update["findings"]["t5"]["fallback"])
