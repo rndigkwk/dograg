@@ -1,0 +1,300 @@
+{
+ "description": "Evidence cases taken for the guardian's own story (2026-10-12), written before changing anything. The deployed app answered '강아지가 갑자기 쓰러졌다가 일어났어요' (after two facility questions) with '앞서 반복된 경련으로 입원해 MRI를 기다리고 있다고 하셨으니'; that came from evidence case 9135, another guardian's first-person question. Almost every evidence question is first person ('저희 강아지는 …'). case items: a generic symptom question, asked with no history, after facility turns and after an unrelated health turn; the answer must not present an evidence case's history (diagnosis, hospital stay, surgery, medicine, planned test, age, breed) as the guardian's. control items: the guardian did state a condition; the answer must still mention it (rule 9). evidence_ids: the app's top 3 (retrieve_health) for the question when the set was written, fixed so only the answer step varies. Added before measuring the fix: the a items (3 evidence cases each) gave 0/108 with the old prompt; the deployed answer had one kept case (CRAG kept only 9135). s items: one first-person case with a heavy history (hospital stay, diagnosis, medicine, planned MRI) and a symptom question it would be found for.",
+ "histories": {
+  "none": [],
+  "place": [
+   [
+    "일산 동물병원 알려줘",
+    "sql"
+   ],
+   [
+    "24시 하는 곳은?",
+    "sql"
+   ]
+  ],
+  "health": [
+   [
+    "강아지가 귀를 자꾸 긁어요",
+    "rag"
+   ]
+  ]
+ },
+ "items": [
+  {
+   "id": "a01",
+   "kind": "case",
+   "question": "강아지가 갑자기 쓰러졌다가 일어났어요",
+   "evidence_ids": [
+    "8256",
+    "9135",
+    "2492"
+   ]
+  },
+  {
+   "id": "a02",
+   "kind": "case",
+   "question": "강아지가 밥을 안 먹어요",
+   "evidence_ids": [
+    "5458",
+    "1694",
+    "1867"
+   ]
+  },
+  {
+   "id": "a03",
+   "kind": "case",
+   "question": "강아지가 기침을 계속해요",
+   "evidence_ids": [
+    "1799",
+    "846",
+    "1814"
+   ]
+  },
+  {
+   "id": "a04",
+   "kind": "case",
+   "question": "강아지가 물을 많이 마셔요",
+   "evidence_ids": [
+    "3138",
+    "6015",
+    "2586"
+   ]
+  },
+  {
+   "id": "a05",
+   "kind": "case",
+   "question": "강아지가 다리를 절뚝거려요",
+   "evidence_ids": [
+    "11088",
+    "11840",
+    "11052"
+   ]
+  },
+  {
+   "id": "a06",
+   "kind": "case",
+   "question": "강아지가 노란 토를 했어요",
+   "evidence_ids": [
+    "3269",
+    "9076",
+    "3758"
+   ]
+  },
+  {
+   "id": "a07",
+   "kind": "case",
+   "question": "강아지가 숨을 헐떡여요",
+   "evidence_ids": [
+    "2689",
+    "816",
+    "2084"
+   ]
+  },
+  {
+   "id": "a08",
+   "kind": "case",
+   "question": "강아지 배가 빵빵하게 부풀었어요",
+   "evidence_ids": [
+    "5577",
+    "397",
+    "18389"
+   ]
+  },
+  {
+   "id": "a09",
+   "kind": "case",
+   "question": "강아지가 경련을 했어요",
+   "evidence_ids": [
+    "2700",
+    "793",
+    "6939"
+   ]
+  },
+  {
+   "id": "a10",
+   "kind": "case",
+   "question": "노견이 하루 종일 잠만 자요",
+   "evidence_ids": [
+    "2626",
+    "6818",
+    "2768"
+   ]
+  },
+  {
+   "id": "a11",
+   "kind": "case",
+   "question": "강아지 잇몸이 하얗게 창백해요",
+   "evidence_ids": [
+    "1146",
+    "18010",
+    "16371"
+   ]
+  },
+  {
+   "id": "a12",
+   "kind": "case",
+   "question": "강아지가 이틀째 설사를 해요",
+   "evidence_ids": [
+    "896",
+    "2156",
+    "3836"
+   ]
+  },
+  {
+   "id": "c01",
+   "kind": "control",
+   "question": "간식으로 뭘 주면 좋을까요?",
+   "history": [
+    [
+     "우리 강아지가 작년에 췌장염으로 입원했었어요",
+     "rag"
+    ]
+   ],
+   "evidence_ids": [
+    "3293",
+    "3886",
+    "10008"
+   ],
+   "must_mention": [
+    "췌장염"
+   ]
+  },
+  {
+   "id": "c02",
+   "kind": "control",
+   "question": "산책은 얼마나 해도 돼요?",
+   "history": [
+    [
+     "우리 강아지가 심장병 약을 먹고 있어요",
+     "rag"
+    ]
+   ],
+   "evidence_ids": [
+    "5597",
+    "4417",
+    "4760"
+   ],
+   "must_mention": [
+    "심장"
+   ]
+  },
+  {
+   "id": "c03",
+   "kind": "control",
+   "question": "계단 오르내려도 되나요?",
+   "history": [
+    [
+     "우리 강아지가 2주 전에 슬개골 수술을 했어요",
+     "rag"
+    ]
+   ],
+   "evidence_ids": [
+    "11128",
+    "13718",
+    "15599"
+   ],
+   "must_mention": [
+    "수술"
+   ]
+  },
+  {
+   "id": "c04",
+   "kind": "control",
+   "question": "사료를 바꿔도 될까요?",
+   "history": [
+    [
+     "우리 강아지가 얼마 전에 당뇨 진단을 받았어요",
+     "rag"
+    ]
+   ],
+   "evidence_ids": [
+    "5250",
+    "1199",
+    "2669"
+   ],
+   "must_mention": [
+    "당뇨"
+   ]
+  },
+  {
+   "id": "s01",
+   "kind": "case",
+   "question": "강아지가 갑자기 쓰러졌다가 일어났어요",
+   "evidence_ids": [
+    "9135"
+   ]
+  },
+  {
+   "id": "s02",
+   "kind": "case",
+   "question": "강아지가 물을 많이 마시고 밥을 잘 안 먹어요",
+   "evidence_ids": [
+    "465"
+   ]
+  },
+  {
+   "id": "s03",
+   "kind": "case",
+   "question": "노견이 아무것도 안 먹고 물만 마셔요",
+   "evidence_ids": [
+    "300"
+   ]
+  },
+  {
+   "id": "s04",
+   "kind": "case",
+   "question": "강아지가 배를 만지면 아파하고 변이 딱딱해요",
+   "evidence_ids": [
+    "55"
+   ]
+  },
+  {
+   "id": "s05",
+   "kind": "case",
+   "question": "강아지가 기침하고 헥헥거려요",
+   "evidence_ids": [
+    "398"
+   ]
+  },
+  {
+   "id": "s06",
+   "kind": "case",
+   "question": "강아지가 물을 많이 마시고 오줌을 많이 싸요",
+   "evidence_ids": [
+    "16"
+   ]
+  },
+  {
+   "id": "s07",
+   "kind": "case",
+   "question": "강아지가 발작을 했어요",
+   "evidence_ids": [
+    "692"
+   ]
+  },
+  {
+   "id": "s08",
+   "kind": "case",
+   "question": "강아지가 계속 토하고 잇몸이 노래요",
+   "evidence_ids": [
+    "107"
+   ]
+  },
+  {
+   "id": "s09",
+   "kind": "case",
+   "question": "강아지가 머리를 한쪽으로 기울이고 비틀거려요",
+   "evidence_ids": [
+    "709"
+   ]
+  },
+  {
+   "id": "s10",
+   "kind": "case",
+   "question": "강아지가 일어서지도 못하고 밥을 안 먹어요",
+   "evidence_ids": [
+    "185"
+   ]
+  }
+ ]
+}

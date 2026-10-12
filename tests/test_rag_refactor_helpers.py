@@ -28,10 +28,10 @@ class RagRefactorHelpersTest(unittest.TestCase):
 
         self.assertEqual(
             health.format_rag_context(docs),
-            "질문: 강아지가 계속 구토해요.\n"
-            "답변: 반복 구토는 진료가 필요할 수 있습니다.\n\n"
-            "질문: 식욕이 없어요.\n"
-            "답변: 식욕 저하는 관찰이 필요합니다.",
+            "[사례 1] 다른 보호자의 질문: 강아지가 계속 구토해요.\n"
+            "수의사 답변: 반복 구토는 진료가 필요할 수 있습니다.\n\n"
+            "[사례 2] 다른 보호자의 질문: 식욕이 없어요.\n"
+            "수의사 답변: 식욕 저하는 관찰이 필요합니다.",
         )
 
     def test_formats_report_documents_with_page_metadata(self):
