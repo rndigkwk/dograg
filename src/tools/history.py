@@ -103,11 +103,26 @@ TOPIC_QUERY_PROMPT = """반려견 건강 상담 사례를 검색할 검색어 �
 TOPIC_QUERY_QUESTIONS = 3
 
 
+def _health_turn(messages: list, index: int) -> bool:
+    """Was the user question at messages[index] a health question?
+
+    The app records the route of each answer; a question answered by another route (facilities,
+    fees, reports, date, small talk) is not health context. That catches facility follow-ups with
+    no facility word ("24시 하는 곳은?" after "일산 동물병원 알려줘"), which the word check below
+    took for health questions (tests/data/place_follow_up_questions.json). A question without a
+    recorded route falls back to the word check."""
+    answer = messages[index + 1] if index + 1 < len(messages) else {}
+    if answer.get("role") == "assistant" and answer.get("route"):
+        return answer["route"] == "rag"
+    return not _other_topic(messages[index].get("content", ""))
+
+
 def earlier_health_questions(question, chat_history=None) -> list[str]:
-    """The guardian's recent questions before this one, without fee, facility and date questions."""
-    return [message.get("content", "") for message in get_recent_chat_history(chat_history)
+    """The guardian's recent health questions before this one."""
+    messages = get_recent_chat_history(chat_history)
+    return [message.get("content", "") for index, message in enumerate(messages)
             if message.get("role") == "user" and message.get("content")
-            and message.get("content") != question and not _other_topic(message.get("content", ""))]
+            and message.get("content") != question and _health_turn(messages, index)]
 
 
 def memory_search_query(question, chat_history=None):
@@ -190,7 +205,7 @@ def build_rag_search_query(question, chat_history=None, health=False):
     if health:
         if not leans_on_earlier(question):
             return question
-        earlier = next((text for text in reversed(previous_questions) if not _other_topic(text)), None)
+        earlier = next(iter(earlier_health_questions(question, chat_history)[-1:]), None)
     else:
         from src.tools import places
 

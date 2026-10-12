@@ -1,0 +1,33 @@
+{
+ "description": "Facility follow-ups without a facility word (2026-10-12), written before measuring or changing anything. Left over from #96: '24시 하는 곳은?' after '일산 동물병원 알려줘' has no facility word, so the history filter took it for a health question and the rewrite once put '24시 동물병원' into the next health query (holdout hs10). history: earlier turns as [question, route the app gave it]. route items: the route the question should get. query items: a health question after such a follow-up; its search query must not contain the forbidden words, and earlier_health is the list of earlier questions that may feed the health search. q09 first used '중성화 수술 비용 얼마야' as a fee turn; the app does not route that to fees (no such survey item), so it was replaced before any change was made.",
+ "items": [
+  {"id": "p01", "part": "route", "history": [["일산 동물병원 알려줘", "sql"]], "question": "24시 하는 곳은?", "expected": "sql"},
+  {"id": "p02", "part": "route", "history": [["강남구 동물병원 찾아줘", "sql"]], "question": "그 중에 야간 진료하는 데 있어?", "expected": "sql"},
+  {"id": "p03", "part": "route", "history": [["마포구 애견미용실 추천해줘", "sql"]], "question": "주차 되는 곳도 있어?", "expected": "sql"},
+  {"id": "p04", "part": "route", "history": [["수원 동물약국 어디 있어?", "sql"]], "question": "일요일에 여는 데는?", "expected": "sql"},
+  {"id": "p05", "part": "route", "history": [["해운대구 애견동반 카페 알려줘", "sql"]], "question": "대형견도 들어갈 수 있는 곳은?", "expected": "sql"},
+  {"id": "p06", "part": "route", "history": [["분당 동물병원 알려줘", "sql"]], "question": "제일 가까운 데는 어디야?", "expected": "sql"},
+  {"id": "p07", "part": "route", "history": [["송파구 애견호텔 알려줘", "sql"]], "question": "거기 전화번호 알려줘", "expected": "sql"},
+  {"id": "p08", "part": "route", "history": [["강서구 동물병원 목록 보여줘", "sql"]], "question": "몇 개나 있어?", "expected": "sql"},
+  {"id": "p09", "part": "route", "history": [["인천 반려동물 장례식장 알려줘", "sql"]], "question": "부평구에 있는 건?", "expected": "sql"},
+  {"id": "p10", "part": "route", "history": [["일산 동물병원 알려줘", "sql"]], "question": "24시간 하는 데만 다시 보여줘", "expected": "sql"},
+  {"id": "p11", "part": "route", "history": [["성북구 동물병원 알려줘", "sql"]], "question": "응급실 있는 곳 있나요?", "expected": "sql"},
+  {"id": "p12", "part": "route", "history": [["강아지가 다리를 절어요", "rag"], ["근처 동물병원 알려줘", "sql"]], "question": "밤에도 하는 데 있어?", "expected": "sql"},
+  {"id": "r01", "part": "route", "history": [["일산 동물병원 알려줘", "sql"]], "question": "강아지가 갑자기 쓰러졌다가 일어났어요", "expected": "rag"},
+  {"id": "r02", "part": "route", "history": [["강남구 동물병원 찾아줘", "sql"]], "question": "밤새 구토를 했어요", "expected": "rag"},
+  {"id": "r03", "part": "route", "history": [["마포구 애견미용실 추천해줘", "sql"]], "question": "미용하고 나서 피부가 빨개졌어요", "expected": "rag"},
+  {"id": "r04", "part": "route", "history": [["일산 동물병원 알려줘", "sql"], ["24시 하는 곳은?", "sql"]], "question": "열이 나는 것 같은데 밤에 데려가야 할까요?", "expected": "rag"},
+  {"id": "r05", "part": "route", "history": [["송파구 동물병원 알려줘", "sql"]], "question": "그럼 예방접종은 언제 맞혀요?", "expected": "rag"},
+  {"id": "r06", "part": "route", "history": [["강서구 동물병원 목록 보여줘", "sql"]], "question": "고마워", "expected": "none"},
+  {"id": "q01", "part": "query", "history": [["일산 동물병원 알려줘", "sql"], ["24시 하는 곳은?", "sql"]], "question": "강아지가 갑자기 쓰러졌다가 일어났어요", "forbidden": ["24시", "일산", "병원"], "earlier_health": []},
+  {"id": "q02", "part": "query", "history": [["강아지가 다리를 절어요", "rag"], ["근처 동물병원 알려줘", "sql"], ["야간 진료하는 데 있어?", "sql"]], "question": "산책은 쉬어야 하나요?", "forbidden": ["야간", "병원"], "earlier_health": ["강아지가 다리를 절어요"]},
+  {"id": "q03", "part": "query", "history": [["강남구 애견미용실 알려줘", "sql"], ["주차 되는 곳도 있어?", "sql"]], "question": "목욕은 얼마나 자주 시켜요?", "forbidden": ["주차", "미용실", "강남"], "earlier_health": []},
+  {"id": "q04", "part": "query", "history": [["강아지가 기침을 해요", "rag"], ["수원 동물약국 어디 있어?", "sql"], ["일요일에 여는 데는?", "sql"]], "question": "기침약은 사람 것 먹여도 돼요?", "forbidden": ["일요일", "약국", "수원"], "earlier_health": ["강아지가 기침을 해요"]},
+  {"id": "q05", "part": "query", "history": [["해운대구 애견동반 카페 알려줘", "sql"], ["대형견도 들어갈 수 있는 곳은?", "sql"]], "question": "관절 관리는 어떻게 해요?", "forbidden": ["카페", "들어갈", "해운대"], "earlier_health": []},
+  {"id": "q06", "part": "query", "history": [["송파구 애견호텔 알려줘", "sql"], ["거기 전화번호 알려줘", "sql"]], "question": "분리불안이 심한데 어떡하죠?", "forbidden": ["전화번호", "호텔", "송파"], "earlier_health": []},
+  {"id": "q07", "part": "query", "history": [["강서구 동물병원 목록 보여줘", "sql"], ["몇 개나 있어?", "sql"], ["강아지가 귀를 긁어요", "rag"]], "question": "그럼 귀 청소는 얼마나 자주 해요?", "forbidden": ["몇 개", "병원", "강서"], "earlier_health": ["강아지가 귀를 긁어요"]},
+  {"id": "q08", "part": "query", "history": [["인천 반려동물 장례식장 알려줘", "sql"], ["부평구에 있는 건?", "sql"]], "question": "노견이 밥을 안 먹어요", "forbidden": ["부평", "장례", "인천"], "earlier_health": []},
+  {"id": "q09", "part": "query", "history": [["강남구 엑스레이 가격 얼마예요?", "fee"], ["서초구는?", "sql"]], "question": "검사 전에 굶겨야 하나요?", "forbidden": ["서초", "강남", "가격"], "earlier_health": []},
+  {"id": "q10", "part": "query", "history": [["강아지가 설사를 해요", "rag"], ["24시 하는 곳은?", "sql"]], "question": "사료를 바꿔야 할까요?", "forbidden": ["24시"], "earlier_health": ["강아지가 설사를 해요"]}
+ ]
+}
