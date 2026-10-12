@@ -235,6 +235,37 @@ class ConversationPageTests(unittest.TestCase):
         at = self.run_app(browser, at)
         self.assertEqual(len(at.chat_message), 2)  # answered once, not again on later runs
 
+    def test_the_input_is_closed_while_a_question_is_answered(self):
+        # A question sent mid-answer stopped the running answer and left the first one unanswered
+        # (deployed app, 2026-10-12; scripts/evaluate_chat_input_lock.py).
+        import streamlit
+
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        disabled: list[bool] = []
+        while_answering: list[bool] = []
+        real_input = streamlit.chat_input
+
+        def chat_input(*args, **kwargs):
+            disabled.append(bool(kwargs.get("disabled")))
+            return real_input(*args, **kwargs)
+
+        def chatbot(question, **kwargs):
+            while_answering.append(disabled[-1])
+            return fake_chatbot(question)
+
+        at.chat_input[0].set_value("강아지가 구토해요")
+        with patch.object(chat_page.st, "chat_input", side_effect=chat_input):
+            with patch.object(conversation_ui, "sync_local_store", browser), \
+                    patch.object(chat_page, "chatbot", side_effect=chatbot), \
+                    patch.object(chat_page, "detect_profile", Mock(return_value=None)), \
+                    patch.object(urgency, "decide_urgent", return_value=None):
+                at.run()
+        self.assertEqual(while_answering, [True])  # answered once, with the input closed
+        self.assertFalse(disabled[-1])  # open again afterwards
+        self.assertEqual([m.markdown[0].value for m in at.chat_message], ["강아지가 구토해요", "답변: 강아지가 구토해요"])
+        self.assertNotIn(chat_page.IN_FLIGHT_STATE_KEY, at.session_state)
+
     def test_an_interrupted_answer_is_dropped_after_switching_conversations(self):
         stored = Thread(title="다른 대화", turns=[Turn(question="q", answer="a", route="rag")])
         browser = FakeBrowser(threads=[stored], notice=True)

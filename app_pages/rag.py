@@ -35,6 +35,8 @@ RAG_TOP_K_SLIDER_KEY = "rag_top_k"
 # The question being answered. A rerun mid-answer (a widget changed, or the browser location
 # arrived) stops the run that holds it; the next run finds it here and answers it then.
 IN_FLIGHT_STATE_KEY = "answer_in_flight"
+# An error from the last answer, shown once after the rerun that opens the input again
+CHAT_ERROR_STATE_KEY = "chat_error"
 PROFILE_SUGGESTION_KEY = "profile_suggestion"
 # {thread id: {"upto", "summary"}}: the running summary of each conversation's older turns
 HISTORY_SUMMARY_STATE_KEY = "history_summaries"
@@ -370,9 +372,16 @@ def render_page():
                 st.write(plain_tildes(message["content"]))
 
     render_profile_suggestion(session)
+    if error := st.session_state.pop(CHAT_ERROR_STATE_KEY, None):
+        st.error(error)
 
+    messages = st.session_state[CHAT_MESSAGES_STATE_KEY]
+    in_flight = interrupted_question(session, messages)
+    # Closed while a question is being answered: a question sent then stopped the running answer
+    # and left the first one unanswered (tests/test_conversation_page.py, scripts/evaluate_chat_input_lock.py).
     question = st.chat_input(
-        "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요."
+        "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요.",
+        disabled=in_flight is not None,
     )
     st.markdown(
         """
@@ -391,23 +400,22 @@ def render_page():
         """,
         unsafe_allow_html=True,
     )
-    messages = st.session_state[CHAT_MESSAGES_STATE_KEY]
     if question:
+        # Record the question as in flight and draw the page again, now with the input closed;
+        # that run answers it (below). A rerun from another widget mid-answer resumes it the same way.
         chat_history = conversation_history(session, messages)
         messages.append({"role": "user", "content": question})
-        with st.chat_message("user"):
-            st.write(question)
-    elif interrupted := interrupted_question(session, messages):
-        # Its question is already on screen (drawn from the messages above); answer it now.
-        question, chat_history = interrupted["question"], interrupted["chat_history"]
-    else:
+        st.session_state[IN_FLIGHT_STATE_KEY] = {
+            "question": question, "chat_history": chat_history, "thread": session.current_thread,
+        }
+        st.rerun()
+    if in_flight is None:
         render_hospital_links(st.session_state.get(HOSPITAL_ROWS_STATE_KEY, []))
         if session.pending_values() is not None:
             st.rerun()  # e.g. the storage notice was just shown: save "seen" now, not on the next click
         return
-    st.session_state[IN_FLIGHT_STATE_KEY] = {
-        "question": question, "chat_history": chat_history, "thread": session.current_thread,
-    }
+    # Its question is already on screen (drawn from the messages above); answer it now.
+    question, chat_history = in_flight["question"], in_flight["chat_history"]
     with st.chat_message("assistant"):
         # The rules, then one Decisions call (~0.3 s) for what they miss (src/tools/urgency.py).
         urgent_notice = find_urgent_notice(question)
@@ -481,9 +489,9 @@ def render_page():
             # Only errors end the attempt here; a rerun stops the run with Streamlit's
             # StopException (not an Exception), which leaves the question in flight.
             st.session_state.pop(IN_FLIGHT_STATE_KEY, None)
-            st.error(f"실행 중 오류가 발생했습니다: {exc}")
-    if session.pending_values() is not None:
-        st.rerun()  # the browser bridge runs at the top of the page; rerun so it saves this turn now
+            st.session_state[CHAT_ERROR_STATE_KEY] = f"실행 중 오류가 발생했습니다: {exc}"
+    # Draw again with the input open; the browser bridge at the top of the page also saves this turn then.
+    st.rerun()
 
 
 # st.Page and AppTest run this file as "__main__"; importing it (tests) renders nothing.
