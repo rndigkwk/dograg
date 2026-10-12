@@ -180,6 +180,19 @@ class KindTests(unittest.TestCase):
         self.assertEqual(places.get_hospital_result_limit("종로구 동물약국 3곳만 알려줘"), 3)
         self.assertEqual(places.get_hospital_result_limit("종로구 동물약국 50곳만"), 10)
 
+    def test_a_count_without_man_and_in_korean_number_words(self):
+        # "마포구 동물병원 3곳 알려줘" listed 10 places (2026-10-12): the count needed "만".
+        for question, count in (("마포구 동물병원 3곳 알려줘", 3), ("해운대구 동물병원 세 곳 추천해줘", 3),
+                                ("수원 애견미용 두 군데 알려줘", 2), ("강동구 동물병원 4개 찾아줘", 4),
+                                ("성남시 애견호텔 다섯 곳 보여줘", 5), ("마포구 동물병원 7군데 목록", 7)):
+            with self.subTest(question):
+                self.assertEqual(places.get_hospital_result_limit(question), count)
+        for question in ("3개월 된 강아지 데려갈 마포구 동물병원 알려줘", "24시 동물병원 강남구 알려줘",
+                         "2층에 있는 강남구 동물병원 알려줘", "강아지 두 마리 데려갈 수 있는 송파구 동물병원 알려줘",
+                         "1살 강아지 강남구 동물병원 알려줘", "서초구 동물병원 알려줘"):
+            with self.subTest(question):
+                self.assertEqual(places.get_hospital_result_limit(question), 10)
+
 
 class SearchTests(unittest.TestCase):
     def setUp(self):

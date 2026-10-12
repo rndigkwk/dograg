@@ -84,7 +84,13 @@ KIND_KEYWORDS = (
 AMBIGUOUS_KIND_WORDS = (("pharmacy", "약국"), ("grooming", "미용"), ("pet_friendly", "카페"), ("pet_friendly", "펜션"))
 PLACE_SEARCH_WORDS = ("근처", "가까운", "어디", "찾아", "목록", "주소", "위치", "몇곳", "몇군데", "몇개", "추천")
 LOCATION_ALIASES = {alias: name for alias, name in SIDO_ALIASES.items() if alias.endswith(("시", "도"))}
-REQUESTED_COUNT = re.compile(r"(\d+)\s*(?:곳|개|군데)\s*만")
+# "3곳", "3곳만", "세 곳", "두 군데", "4개": the number of places asked for. "만" is not required
+# ("마포구 동물병원 3곳 알려줘" listed 10, 2026-10-12). "개월", "마리", "층", "시" are not place counts,
+# and a number glued to a word ("24시", "1층") is not one either.
+NATIVE_NUMBERS = {"한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10}
+REQUESTED_COUNT = re.compile(
+    rf"(?<![\d가-힣])(\d+|{'|'.join(sorted(NATIVE_NUMBERS, key=len, reverse=True))})\s*(?:곳|군데|개(?!월))"
+)
 
 
 def with_particle(word: str, after_consonant: str, after_vowel: str) -> str:
@@ -167,9 +173,11 @@ def get_hospital_result_limit(question: str) -> int:
 
 
 def requested_count(question: str) -> int:
-    """'3곳만' -> 3, at most DEFAULT_HOSPITAL_LIMIT; otherwise the default."""
+    """'3곳', '세 곳만' -> 3, at most DEFAULT_HOSPITAL_LIMIT; otherwise the default."""
     if match := REQUESTED_COUNT.search(question):
-        return min(max(int(match.group(1)), 1), DEFAULT_HOSPITAL_LIMIT)
+        number = match.group(1)
+        count = int(number) if number.isdigit() else NATIVE_NUMBERS[number]
+        return min(max(count, 1), DEFAULT_HOSPITAL_LIMIT)
     return DEFAULT_HOSPITAL_LIMIT
 
 
