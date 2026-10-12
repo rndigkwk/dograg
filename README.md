@@ -39,6 +39,8 @@
 6. **배포 장애를 자동 점검으로 막았다.** 병합 뒤 리부트를 빠뜨려 챗봇 페이지가 멈춘 일 뒤로, 모든 페이지와 챗봇 응답을 병합 직후와 8시간마다 점검합니다. [기록](docs/wiki/deployment-resources.md)
 7. **무료 호스팅의 잠자기와 리소스 한계를 Cloud Run 이원화로 풀었다.** 비공개 데이터와 모델을 이미지에 미리 넣고(HF 토큰은 빌드 비밀 값으로만 사용), 키 파일 없는 Workload Identity로 GitHub Actions가 병합 때마다 약 3분에 배포합니다. 최고 메모리 1.06GiB/2GiB, 꺼진 상태에서 첫 화면 23초. [설계](docs/docker-deployment.md)
 
+**더 읽을 문서:** [개선 기록](docs/improvement-log.md)(PR 96개 중 측정 → 수정 → 검증 사례와 넣지 않은 실험) · [기능별 설계와 이유](docs/design.md) · [Docker·배포 설계](docs/docker-deployment.md) · [데이터 명세](docs/data-sources.md)
+
 **기술:** LangGraph · LangChain · Chroma · ko-sroberta 미세조정(합성 질의, Colab T4, ONNX int8) · Kiwi + BM25 · OpenAI (`gpt-6-luna`, `text-embedding-3-small`, Decisions) · SQLite · Langfuse · Docker · Google Cloud Run(Artifact Registry, Secret Manager, Workload Identity) · Streamlit Community Cloud · GitHub Actions(테스트 349개, 주간 회귀 평가, 두 배포 점검, Cloud Run 자동 배포)
 
 ## 데모
