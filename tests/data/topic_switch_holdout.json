@@ -1,0 +1,31 @@
+{
+ "description": "Holdout for the history rule (2026-10-12): written after looking at topic_switch_questions.json and before implementing the rule, to measure it on phrasing it was not shaped on. Same fields. Several switches have no pet word ('심장사상충 약 …') and several follow-ups do ('강아지가 …'), the cases a subject-word rule can get wrong. place items: expected = the regions the facility search should use.",
+ "items": [
+  {"id": "hs01", "kind": "switch", "history": ["송파구 동물병원 알려줘"], "question": "광견병 주사 맞고 기운이 없어요", "gold": "광견병 주사 맞고 기운이 없어요"},
+  {"id": "hs02", "kind": "switch", "history": ["강아지가 설사를 해요", "사료를 바꿨어요"], "question": "목욕은 얼마나 자주 시켜요?", "gold": "목욕은 얼마나 자주 시켜요?"},
+  {"id": "hs03", "kind": "switch", "history": ["엑스레이 가격 얼마야 강남구"], "question": "눈이 빨갛게 충혈됐어요", "gold": "눈이 빨갛게 충혈됐어요"},
+  {"id": "hs04", "kind": "switch", "history": ["강아지가 기침을 해요"], "question": "포도를 몇 알 먹었는데 괜찮을까요?", "gold": "포도를 몇 알 먹었는데 괜찮을까요?"},
+  {"id": "hs05", "kind": "switch", "history": ["반려견 보험 가입률 알려줘"], "question": "발바닥을 계속 핥아요", "gold": "발바닥을 계속 핥아요"},
+  {"id": "hs06", "kind": "switch", "history": ["노견이 물을 많이 마셔요"], "question": "아기 강아지 예방접종 순서 알려줘", "gold": "아기 강아지 예방접종 순서 알려줘"},
+  {"id": "hs07", "kind": "switch", "history": ["푸들이 귀를 긁어요"], "question": "변에 하얀 벌레 같은 게 보여요", "gold": "변에 하얀 벌레 같은 게 보여요"},
+  {"id": "hs08", "kind": "switch", "history": ["오늘 며칠이야?"], "question": "중성화 후 실밥은 언제 풀어요?", "gold": "중성화 후 실밥은 언제 풀어요?"},
+  {"id": "hs09", "kind": "switch", "history": ["강아지가 산책 중에 절뚝거려요"], "question": "입 냄새가 너무 심해요", "gold": "입 냄새가 너무 심해요"},
+  {"id": "hs10", "kind": "switch", "history": ["일산 동물병원 알려줘", "24시 하는 곳은?"], "question": "강아지가 갑자기 쓰러졌다가 일어났어요", "gold": "강아지가 갑자기 쓰러졌다가 일어났어요"},
+  {"id": "hf01", "kind": "follow", "history": ["강아지가 포도를 먹었어요"], "question": "강아지가 지금은 멀쩡해 보이는데 기다려도 돼요?", "gold": "강아지가 포도를 먹었는데 지금은 멀쩡해 보이면 기다려도 돼요?"},
+  {"id": "hf02", "kind": "follow", "history": ["강아지 변에 하얀 벌레가 보여요"], "question": "구충제 먹이면 되나요?", "gold": "변에 하얀 벌레가 보이면 구충제 먹이면 되나요?"},
+  {"id": "hf03", "kind": "follow", "history": ["중성화 수술을 했어요"], "question": "넥카라는 언제까지 해야 해요?", "gold": "중성화 수술 후 넥카라는 언제까지 해야 해요?"},
+  {"id": "hf04", "kind": "follow", "history": ["강아지 입 냄새가 심해요"], "question": "스케일링 받으면 나아질까요?", "gold": "강아지 입 냄새 스케일링 받으면 나아질까요?"},
+  {"id": "hf05", "kind": "follow", "history": ["발바닥을 계속 핥아요"], "question": "빨갛게 됐어요", "gold": "강아지가 발바닥을 계속 핥아서 빨갛게 됐어요"},
+  {"id": "hf06", "kind": "follow", "history": ["강아지가 쓰러졌다가 일어났어요"], "question": "지금은 괜찮은데 병원 가야 해요?", "gold": "강아지가 쓰러졌다가 일어났는데 지금은 괜찮으면 병원 가야 해요?"},
+  {"id": "hf07", "kind": "follow", "history": ["눈이 빨갛게 충혈됐어요"], "question": "강아지가 눈을 못 뜨기도 해요", "gold": "눈이 충혈되고 강아지가 눈을 못 뜨기도 해요"},
+  {"id": "hf08", "kind": "follow", "history": ["광견병 주사 맞고 기운이 없어요"], "question": "열도 나는 것 같아요", "gold": "광견병 주사 맞고 기운이 없고 열도 나는 것 같아요"},
+  {"id": "hf09", "kind": "follow", "history": ["노견이 물을 많이 마셔요"], "question": "소변도 많이 봐요", "gold": "노견이 물을 많이 마시고 소변도 많이 봐요"},
+  {"id": "hf10", "kind": "follow", "history": ["강아지가 산책 중에 절뚝거려요"], "question": "얼음찜질 해줘도 돼요?", "gold": "절뚝거리는 강아지 얼음찜질 해줘도 돼요?"},
+  {"id": "p01", "kind": "place", "history": ["강남구 동물병원 알려줘"], "question": "마포구 동물병원 알려줘", "expected_regions": ["마포구"]},
+  {"id": "p02", "kind": "place", "history": ["강남구 동물병원 알려줘"], "question": "그 중에 24시는?", "expected_regions": ["강남구"]},
+  {"id": "p03", "kind": "place", "history": ["수원 애견미용 알려줘"], "question": "부산 애견미용도 알려줘", "expected_regions": ["부산광역시"]},
+  {"id": "p04", "kind": "place", "history": ["송파구 동물약국 알려줘"], "question": "거기 동물병원은?", "expected_regions": ["송파구"]},
+  {"id": "p05", "kind": "place", "history": ["강아지가 설사해요"], "question": "마포구 동물병원 알려줘", "expected_regions": ["마포구"]},
+  {"id": "p06", "kind": "place", "history": ["해운대구 동물병원 알려줘", "강아지가 기침해요"], "question": "근처 동물약국은?", "expected_regions": ["해운대구"]}
+ ]
+}

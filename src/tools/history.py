@@ -8,6 +8,7 @@ from the guardian's recent questions only, so the summary never changes what is 
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 SHORT_TERM_MEMORY_TURNS = 6
@@ -94,38 +95,107 @@ MEMORY_QUERY_PROMPT = """반려견 건강 상담 사례를 검색할 검색어 �
 관련 없는 지난 이야기는 넣지 마세요. 검색어만 쓰고 설명은 쓰지 마세요."""
 
 
+TOPIC_QUERY_PROMPT = """반려견 건강 상담 사례를 검색할 검색어 한 문장을 만듭니다.
+[현재 질문]이 [이전 질문]의 이야기를 이어서 묻는 것이면(그 증상·상황에 대한 추가 질문, 생략된 주어나 대상), 이전 질문의 증상·상황을 넣어 혼자 읽어도 뜻이 통하는 질문으로 쓰세요.
+[현재 질문]이 새로운 증상이나 주제를 묻는 것이면 [현재 질문]을 그대로 쓰세요. 이전 질문의 내용을 섞지 마세요.
+검색어만 쓰고 설명은 쓰지 마세요."""
+# Earlier health questions shown to the rewrite (the last few; older ones are in the summary).
+TOPIC_QUERY_QUESTIONS = 3
+
+
+def earlier_health_questions(question, chat_history=None) -> list[str]:
+    """The guardian's recent questions before this one, without fee, facility and date questions."""
+    return [message.get("content", "") for message in get_recent_chat_history(chat_history)
+            if message.get("role") == "user" and message.get("content")
+            and message.get("content") != question and not _other_topic(message.get("content", ""))]
+
+
 def memory_search_query(question, chat_history=None):
-    """The health search query. Without a summary of older turns it is the usual query (recent
-    questions + this one). With one (a long conversation, day52), one low-effort model call
-    rewrites it as a standalone query that carries a condition from the summary, so the search
-    finds cases about that condition, not only the generic question."""
-    query = build_rag_search_query(question, chat_history)
+    """The health search query, from this question and the conversation so far.
+
+    - No earlier health question: the question itself, no model call.
+    - Earlier health questions: one low-effort call writes a standalone query, carrying the earlier
+      symptom only when this question continues it (TOPIC_QUERY_PROMPT). Prepending every recent
+      question searched new topics with old ones; on questions asked after others (holdout,
+      tests/data/topic_switch_holdout.json) a new topic found 0.38 of its own documents, 0.90
+      with the rewrite (median 1.8 s, docs/wiki/retrieval-experiments.md).
+    - A long conversation with a summary of older turns (day52): the rewrite also carries a
+      condition from the summary (MEMORY_QUERY_PROMPT).
+    A failed or unavailable model keeps the rule-built query (build_rag_search_query)."""
+    query = build_rag_search_query(question, chat_history, health=True)
     summary = next((message.get("content", "") for message in chat_history or []
                     if message.get("role") == SUMMARY_ROLE), "")
-    if not summary:
+    earlier = earlier_health_questions(question, chat_history)
+    if not summary and not earlier:
         return query
-    # Imported here: the chat model is only needed once a conversation gets long.
+    # Imported here: the chat model is only needed once there is a conversation.
     from src import resources
 
     model = resources.load_chat_model()
     if model is None:
         return query
+    if summary:
+        messages = [("system", MEMORY_QUERY_PROMPT),
+                    ("user", f"[이전 대화 요약]\n{summary}\n\n[최근 질문들]\n{query}\n\n[현재 질문]\n{question}")]
+    else:
+        messages = [("system", TOPIC_QUERY_PROMPT),
+                    ("user", "[이전 질문]\n" + "\n".join(earlier[-TOPIC_QUERY_QUESTIONS:]) + f"\n\n[현재 질문]\n{question}")]
     try:
-        reply = model.bind(reasoning_effort="low").invoke([
-            ("system", MEMORY_QUERY_PROMPT),
-            ("user", f"[이전 대화 요약]\n{summary}\n\n[최근 질문들]\n{query}\n\n[현재 질문]\n{question}"),
-        ])
-    except Exception:  # noqa: BLE001 - a failed rewrite keeps the usual query
+        reply = model.bind(reasoning_effort="low").invoke(messages)
+    except Exception:  # noqa: BLE001 - a failed rewrite keeps the rule-built query
         return query
     rewritten = " ".join(str(reply.content).split())
     return rewritten[:200] or query
 
 
-def build_rag_search_query(question, chat_history=None):
-    """현재 질문과 이전 사용자 질문을 합쳐 후속 질문 검색을 보강합니다."""
+# A health question that names the pet or starts from an earlier answer. Without either, a short
+# question ("수술해야 하나요?", "그럼 사료는요?") leans on the one before it.
+PET_WORDS = re.compile(r"강아지|반려견|노견|노령견|자견|퍼피|개가|개는|개를|말티즈|푸들|포메|비숑|시츄|치와와|닥스|리트리버|진돗개|믹스|고양이|냥")
+FOLLOW_UP_WORDS = ("그럼", "그러면", "그거", "그건", "그게", "그렇", "계속", "이거", "이건", "저거", "아까", "그때", "그래도", "그것")
+
+
+def leans_on_earlier(question: str) -> bool:
+    """A health question that needs the one before it to be searched."""
+    text = question.strip()
+    if any(text.startswith(word) or f" {word}" in text for word in FOLLOW_UP_WORDS):
+        return True
+    return not PET_WORDS.search(text)
+
+
+def _other_topic(question: str) -> bool:
+    """A fee, facility or date question: never context for a health search."""
+    from src.tools import fees, places, router
+
+    return fees.is_fee_question(question) or router.is_date_question(question) or places.is_place_question(question)
+
+
+def build_rag_search_query(question, chat_history=None, health=False):
+    """The search query: this question, plus the one earlier question it leans on.
+
+    All recent questions used to be prepended, so a new topic was searched with the old ones
+    ("심장사상충 약 얼마나 자주" after a fee and a place question found nothing; a facility search
+    after "강남구 …" searched 강남구 and 마포구 together). Now (tests/data/topic_switch_*.json):
+    - health=True (health search): only a question that leans on the earlier one gets the last
+      earlier health question; fee, facility and date questions are never carried over.
+    - otherwise (facilities, reports): a question that names its own region stands alone; one
+      that does not ("그 중에 24시는?") gets the last earlier question that named a region, or
+      the last earlier question."""
     previous_questions = [
         message.get("content", "")
         for message in get_recent_chat_history(chat_history)
-        if message.get("role") == "user" and message.get("content")
+        if message.get("role") == "user" and message.get("content") and message.get("content") != question
     ]
-    return "\n".join(dict.fromkeys(previous_questions + [question]))
+    if not previous_questions:
+        return question
+    if health:
+        if not leans_on_earlier(question):
+            return question
+        earlier = next((text for text in reversed(previous_questions) if not _other_topic(text)), None)
+    else:
+        from src.tools import places
+
+        if places.extract_search_parameters(question):
+            return question
+        earlier = next((text for text in reversed(previous_questions) if places.extract_search_parameters(text)),
+                       previous_questions[-1])
+    return f"{earlier}\n{question}" if earlier else question
