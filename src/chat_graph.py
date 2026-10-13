@@ -29,6 +29,7 @@ from src.crag import (
     merge_documents,
     needs_decomposition,
 )
+from src.pii import mask_history, mask_pii
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
 
 HEALTH_ABSTAIN = (
@@ -414,6 +415,8 @@ def run_chat(
     session_id groups a browser session's runs in Langfuse (src/tracing.py)."""
     if not question or not question.strip():
         raise ValueError("질문을 입력해 주세요.")
+    # Phone numbers, addresses and the like never reach a model API (src/pii.py); the chat shows them as typed.
+    question, chat_history = mask_pii(question), mask_history(chat_history)
     graph = graph or build_chat_graph(tools)
     started = time.perf_counter()
     error = None
