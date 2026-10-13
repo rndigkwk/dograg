@@ -18,7 +18,7 @@ RUNTIME_SA="ragdog-runtime"
 DEPLOYER_SA="github-deployer"
 POOL="github"
 PROVIDER="dograg"
-SECRETS=(OPENAI_API_KEY LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY)
+SECRETS=(OPENAI_API_KEY LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY SUPABASE_DB_URL)
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
