@@ -118,4 +118,5 @@ ADR-0004가 거절되어 "앱 안에서 돌 것" 제약을 뺐다. Supabase 프�
 **다시 검토할 조건 (갱신):**
 - **문서가 10배가 되면:** 앱 안 벡터만 약 560MB가 되어 메모리 제약을 넘는다. 그때는 pgvector(서울, HNSW + 반복 탐색)가 1순위 후보다.
 - **두 배포가 같은 데이터를 공유해야 하거나, 이미지·데이터 다운로드를 줄이고 싶으면:** pgvector로 옮기는 것이 네 축 밖의 이득이 된다. 예: 데이터 갱신 때 재배포가 필요 없다.
+- **Supabase 지역은 주 배포에 맞춘다.** Cloud Run은 서울(asia-northeast3)이다. Streamlit Community Cloud는 공개된 나가는 IP 18개가 모두 GCP `us-west1`(오리건)이라 오리건으로 추정한다. 공식 문서에는 지역이 없다. 지금 주 배포는 Cloud Run이라 서울을 쓴다. Streamlit Cloud가 주 배포가 되면 Supabase West US (Oregon)를 다시 잰다.
 - **지연 주의:** Streamlit Cloud 서버는 서울이 아니다. 서울 Supabase까지 왕복이 늘어난다. 뭄바이 측정(왕복 165ms)이 그 규모를 보여 준다. pgvector로 옮기면 Cloud Run(서울)과 Streamlit Cloud의 지연이 크게 달라진다.
