@@ -90,3 +90,32 @@
 - **pgvector를 다시 볼 때:** 서울 지역(ap-northeast-2) 프로젝트로 잰다. 뭄바이 수치는 네트워크가 대부분이다. HNSW 필터는 반복 탐색(`hnsw.iterative_scan`) 설정을 함께 잰다.
 
 **기록:** [wiki/retrieval-experiments.md](../wiki/retrieval-experiments.md) "벡터 저장소 비교", 결과 파일 `output/experiments/vector_stores.json`(비공개)
+
+## 재측정: 외부 DB 제약 없이, Supabase 서울 리전 (2026-10-13)
+ADR-0004가 거절되어 "앱 안에서 돌 것" 제약을 뺐다. Supabase 프로젝트를 서울(ap-northeast-2)로 옮겨 pgvector를 다시 쟀다(`scripts/compare_vector_stores.py --stores pgvector`). 다른 저장소의 수치는 위 표 그대로다.
+
+| pgvector (Supabase 0.8.2) | 뭄바이 | 서울 |
+| --- | ---: | ---: |
+| 왕복 한 번 (`select 1`) | 165ms | **6.8ms** |
+| 전수 검색 p50 / p95 | 242 / 260ms | 92 / 103ms (서버 처리 87ms) |
+| HNSW p50 / p95 | 139 / 158ms | 19 / 54ms (서버 처리 1.1ms) |
+| HNSW 필터 재현율 | 0.938 | 0.938 |
+| HNSW + 반복 탐색(`hnsw.iterative_scan = relaxed_order`) 필터 재현율 | – | **0.987** (p50 9.9ms) |
+| 앱 쪽 메모리 증가 (Postgres 연결) | | 약 20MB |
+
+- 전수 검색이 느린 이유는 무료 플랜 DB 서버가 19,206건을 직접 훑기 때문이다(서버 처리 87ms). HNSW의 서버 처리는 1ms 남짓이고, 나머지는 네트워크와 질문 벡터 전달이다.
+- 반복 탐색을 켜면 필터 재현율 문제가 풀린다.
+
+**다시 계산한 선정:**
+- **제약:** 재현율 ≥ 0.98, 필터 재현율 ≥ 0.95, p95 ≤ 300ms
+  - 빠지는 것: pgvector HNSW(반복 탐색 없음)뿐이다.
+  - pgvector 전수 검색과 HNSW+반복 탐색은 통과한다.
+- **지배:** Chroma만 지배당한다(메모리 안 전수 검색에게). pgvector 두 후보는 파레토 후보다. 앱 메모리와 저장 공간이 작기 때문이다.
+- **점수**(같은 기준과 가중치): 메모리 안 전수 0.976, FAISS HNSW 0.959, pgvector HNSW+반복 0.955, pgvector 전수 0.951
+- **민감도:** ±20% 8가지 조합 모두 메모리 안 전수 검색이 1위다. 격차는 0.015~0.018이다.
+- **결정은 그대로다.** 이 규모에서는 앱 안 전수 검색이 정확도·지연에서 앞서고, 메모리 차이(82MB 대 20MB)가 그 차이를 뒤집지 못한다.
+
+**다시 검토할 조건 (갱신):**
+- **문서가 10배가 되면:** 앱 안 벡터만 약 560MB가 되어 메모리 제약을 넘는다. 그때는 pgvector(서울, HNSW + 반복 탐색)가 1순위 후보다.
+- **두 배포가 같은 데이터를 공유해야 하거나, 이미지·데이터 다운로드를 줄이고 싶으면:** pgvector로 옮기는 것이 네 축 밖의 이득이 된다. 예: 데이터 갱신 때 재배포가 필요 없다.
+- **지연 주의:** Streamlit Cloud 서버는 서울이 아니다. 서울 Supabase까지 왕복이 늘어난다. 뭄바이 측정(왕복 165ms)이 그 규모를 보여 준다. pgvector로 옮기면 Cloud Run(서울)과 Streamlit Cloud의 지연이 크게 달라진다.

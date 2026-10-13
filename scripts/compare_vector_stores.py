@@ -1,6 +1,6 @@
 """Compare vector stores for the health search the way Day 58 does (accuracy, latency, cost, storage).
 
-    uv run --with faiss-cpu --with "psycopg[binary]" --with psutil python scripts/compare_vector_stores.py [--keep]
+    uv run --with faiss-cpu --with "psycopg[binary]" --with psutil python scripts/compare_vector_stores.py [--keep] [--stores pgvector]
 
 The same 19,206 document vectors (fine-tuned ko-sroberta, normalized, ADR-0001) go into each
 store; queries are the 561 validation questions embedded the way the app does (ONNX int8).
@@ -80,6 +80,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--keep", action="store_true", help="keep the Supabase table")
     parser.add_argument("--probe")
+    parser.add_argument("--stores", choices=["all", "pgvector"], default="all",
+                        help="pgvector: only the Supabase measurements (e.g. after moving the project to another region)")
     args = parser.parse_args()
     if args.probe:
         memory_probe(args.probe)
@@ -123,33 +125,35 @@ def main() -> int:
             seconds.append(time.perf_counter() - started)
         return found, seconds
 
+    local = args.stores == "all"
     # Chroma, as the app has it
-    found, seconds = timed(lambda q: collection.query(query_embeddings=[q.tolist()], n_results=K)["ids"][0], queries)
-    found_f, _ = timed(lambda q: collection.query(query_embeddings=[q.tolist()], n_results=K,
-                                                  where={FILTER_KEY: FILTER_VALUE})["ids"][0], queries)
-    size = sum(p.stat().st_size for p in resources.chroma_dir().rglob("*") if p.is_file())
-    results["chroma_hnsw"] = {"recall@12": recall(found, reference), "recall@12_filter": recall(found_f, reference_filtered),
-                              "p50_ms": percentile(seconds, 50), "p95_ms": percentile(seconds, 95),
-                              "storage_mb": round(size / 2**20, 1), "storage_note": "whole Chroma dir (health + report collections, FTS, metadata)"}
+    if local:
+        found, seconds = timed(lambda q: collection.query(query_embeddings=[q.tolist()], n_results=K)["ids"][0], queries)
+        found_f, _ = timed(lambda q: collection.query(query_embeddings=[q.tolist()], n_results=K,
+                                                      where={FILTER_KEY: FILTER_VALUE})["ids"][0], queries)
+        size = sum(p.stat().st_size for p in resources.chroma_dir().rglob("*") if p.is_file())
+        results["chroma_hnsw"] = {"recall@12": recall(found, reference), "recall@12_filter": recall(found_f, reference_filtered),
+                                  "p50_ms": percentile(seconds, 50), "p95_ms": percentile(seconds, 95),
+                                  "storage_mb": round(size / 2**20, 1), "storage_note": "whole Chroma dir (health + report collections, FTS, metadata)"}
 
-    # FAISS exact and HNSW (in-process); the filter goes through an id selector
-    for name, index in (("faiss_flat", faiss.IndexFlatIP(vectors.shape[1])),
-                        ("faiss_hnsw", faiss.IndexHNSWFlat(vectors.shape[1], HNSW_M, faiss.METRIC_INNER_PRODUCT))):
-        if name == "faiss_hnsw":
-            index.hnsw.efConstruction = HNSW_EF_CONSTRUCTION
-        started = time.perf_counter()
-        index.add(vectors)
-        build_s = time.perf_counter() - started
-        if name == "faiss_hnsw":
-            index.hnsw.efSearch = HNSW_EF_SEARCH
-        found, seconds = timed(lambda q: [ids[i] for i in index.search(q[None, :], K)[1][0] if i >= 0], queries)
-        selector = faiss.IDSelectorBatch(np.flatnonzero(filtered).astype("int64"))
-        params = faiss.SearchParametersHNSW(sel=selector, efSearch=HNSW_EF_SEARCH) if name == "faiss_hnsw" \
-            else faiss.SearchParameters(sel=selector)
-        found_f, _ = timed(lambda q: [ids[i] for i in index.search(q[None, :], K, params=params)[1][0] if i >= 0], queries)
-        results[name] = {"recall@12": recall(found, reference), "recall@12_filter": recall(found_f, reference_filtered),
-                         "p50_ms": percentile(seconds, 50), "p95_ms": percentile(seconds, 95),
-                         "build_s": round(build_s, 2), "storage_mb": round(faiss.serialize_index(index).nbytes / 2**20, 1)}
+        # FAISS exact and HNSW (in-process); the filter goes through an id selector
+        for name, index in (("faiss_flat", faiss.IndexFlatIP(vectors.shape[1])),
+                            ("faiss_hnsw", faiss.IndexHNSWFlat(vectors.shape[1], HNSW_M, faiss.METRIC_INNER_PRODUCT))):
+            if name == "faiss_hnsw":
+                index.hnsw.efConstruction = HNSW_EF_CONSTRUCTION
+            started = time.perf_counter()
+            index.add(vectors)
+            build_s = time.perf_counter() - started
+            if name == "faiss_hnsw":
+                index.hnsw.efSearch = HNSW_EF_SEARCH
+            found, seconds = timed(lambda q: [ids[i] for i in index.search(q[None, :], K)[1][0] if i >= 0], queries)
+            selector = faiss.IDSelectorBatch(np.flatnonzero(filtered).astype("int64"))
+            params = faiss.SearchParametersHNSW(sel=selector, efSearch=HNSW_EF_SEARCH) if name == "faiss_hnsw" \
+                else faiss.SearchParameters(sel=selector)
+            found_f, _ = timed(lambda q: [ids[i] for i in index.search(q[None, :], K, params=params)[1][0] if i >= 0], queries)
+            results[name] = {"recall@12": recall(found, reference), "recall@12_filter": recall(found_f, reference_filtered),
+                             "p50_ms": percentile(seconds, 50), "p95_ms": percentile(seconds, 95),
+                             "build_s": round(build_s, 2), "storage_mb": round(faiss.serialize_index(index).nbytes / 2**20, 1)}
 
     # pgvector on Supabase
     import psycopg
@@ -184,6 +188,29 @@ def main() -> int:
             results[name] = {"recall@12": recall(found, reference), "recall@12_filter": recall(found_f, reference_filtered),
                              "p50_ms": percentile(seconds, 50), "p95_ms": percentile(seconds, 95),
                              "build_s": round(build_s, 2), "upload_s": round(upload_s, 1), "storage_mb": round(size / 2**20, 1)}
+        # Server-side time without the network: EXPLAIN ANALYZE on 50 queries.
+        def server_ms(where=""):
+            times = []
+            for q in queries[:50]:
+                plan = conn.execute("explain (analyze, format json) " + sql.format(where=where),
+                                    ("[" + ",".join(f"{x:.6f}" for x in q) + "]",)).fetchone()[0][0]
+                times.append(plan["Execution Time"] / 1000)
+            return percentile(times, 50)
+
+        results["pgvector_hnsw"]["server_p50_ms"] = server_ms()
+        # pgvector 0.8+: keep scanning the HNSW graph until the filter leaves enough rows
+        version = conn.execute("select extversion from pg_extension where extname = 'vector'").fetchone()[0]
+        results["pgvector_version"] = version
+        try:
+            conn.execute("set hnsw.iterative_scan = relaxed_order")
+            found_f, seconds_f = timed(lambda q: pg_search(q, f"where life_cycle = '{FILTER_VALUE}'"), queries)
+            results["pgvector_hnsw_iterative"] = {"recall@12_filter": recall(found_f, reference_filtered),
+                                                  "p50_ms": percentile(seconds_f, 50), "p95_ms": percentile(seconds_f, 95)}
+            conn.execute("set hnsw.iterative_scan = off")
+        except Exception as exc:  # noqa: BLE001 - older pgvector has no iterative scan
+            results["pgvector_hnsw_iterative"] = {"error": type(exc).__name__}
+        conn.execute(f"drop index if exists {TABLE}_embedding_idx")
+        results["pgvector_exact"]["server_p50_ms"] = server_ms()
         round_trip = []
         for _ in range(30):
             started = time.perf_counter()
@@ -192,6 +219,12 @@ def main() -> int:
         results["pgvector_round_trip_ms"] = percentile(round_trip, 50)
         if not args.keep:
             conn.execute(f"drop table if exists {TABLE}")
+
+    if not local:
+        print(json.dumps(results, ensure_ascii=False, indent=1))
+        (PROJECT_DIR / "output" / "experiments" / "vector_stores_pgvector.json").write_text(
+            json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
+        return 0
 
     # memory, each in a fresh process
     probe = PROJECT_DIR / "output" / "experiments" / "vector_store_probe.npz"
