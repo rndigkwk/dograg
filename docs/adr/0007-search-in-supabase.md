@@ -65,6 +65,20 @@
 - 한 번 넘어가면 로컬 저장소가 메모리에 남는다. DB가 돌아와도 재시작 전까지는 메모리가 지금 앱 수준이다.
 - 검색 한 번이 DB 왕복 1번이 되도록 HNSW 설정을 연결마다 한 번만 보낸다. 처음에는 검색마다 5번 왕복해 질문당 약 0.9초가 걸렸다.
 
+**3. 회귀 (2026-10-13, halfvec 변환 뒤, 같은 시각에 두 모드를 나란히)**
+
+| | 로컬 (지금) | Supabase |
+| --- | ---: | ---: |
+| CRAG: 답할 수 있는 건강 질문에서 거절 (20) | 0 | 0 |
+| CRAG: 답할 수 없는 건강 질문 거절 (20) | 16 | 17 |
+| CRAG: 보고서 정답 페이지 (18) | 16/18 | 15/18 |
+| CRAG: 오류 (60) | 0 | 0 |
+| 보고서 답 정답 (18문항 × 2회) | 29/36 (틀림 3) | **30/36 (틀림 0)** |
+| 건강 질문 평균 응답 시간 | 10.5초 | 10.7초 |
+
+- 나빠진 항목이 없다. 보고서 정답 페이지 1문항 차이는 #114와 같은 결과이고, 답의 정답 수는 오히려 같거나 많다.
+- 실행: `SEARCH_BACKEND=local|supabase uv run --group tools python scripts/evaluate_crag.py --output …`, `scripts/evaluate_report_pages.py compare --variants hybrid --repeats 2`
+
 ## 결과 (채택하면)
 - **얻는 것:**
   - 앱 최고 메모리가 절반 이하로 줄어 보장값 690MB 안에 들어간다.
@@ -79,7 +93,7 @@
 - **채택 전에 할 것:**
   - ~~DB 연결 실패 때의 동작을 정한다~~ → 로컬 검색으로 넘어가기 (위 2)
   - ~~앱 로더를 바꾼다~~ → `SEARCH_BACKEND` 설정으로 전환 (기본은 로컬)
-  - Supabase 표를 halfvec으로 바꾼다: `uv run --with "psycopg[binary]" python scripts/export_supabase_store.py --to-halfvec`
-  - Supabase 모드로 회귀를 확인한다: CRAG 60, 보고서 30/36 세트
+  - ~~Supabase 표를 halfvec으로 바꾼다~~ → 2026-10-13 변환, DB 448 → 350MB
+  - ~~Supabase 모드로 회귀를 확인한다~~ → 위 3, 나빠진 항목 없음
   - 배포 비밀값에 `SEARCH_BACKEND = "supabase"`와 `SUPABASE_DB_URL`을 넣고, Streamlit Cloud와 Cloud Run에서 실제 지연과 메모리를 잰다.
 - **다시 검토할 조건:** Supabase 장애·지연이 운영에 문제가 되면 ADR-0003(메모리 안 전수)으로 돌아간다. 그 코드는 남겨 둔다.
