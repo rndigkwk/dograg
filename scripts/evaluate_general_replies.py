@@ -61,7 +61,7 @@ def main() -> int:
         print(item["id"], result.get("route"), "ok" if ok else f"WRONG {why}", "|", reply[:80].replace("\n", " "), flush=True)
     summary = defaultdict(dict)
     for kind in ("greeting", "thanks", "capability", "scope"):
-        for split in ("dev", "holdout"):
+        for split in sorted({r["split"] for r in rows}):
             group = [r for r in rows if r["kind"] == kind and r["split"] == split]
             summary[kind][split] = f"{sum(r['ok'] for r in group)}/{len(group)}"
     none_rows = [r for r in rows if r["route"] == "none"]
