@@ -114,6 +114,50 @@ def clear_vector_db_cache() -> None:
         loader.clear()
 
 
+# The search Supabase falls back to (docs/adr/0007): the exact in-memory store (numpy, no chromadb)
+# and no Kiwi. Health uses the vectors alone: dense useful@3 0.827 vs 0.809 with Kiwi BM25 on the 220
+# judged questions. Reports add a character-bigram BM25 over their 1,193 chunks: gold page in the
+# top 6 15/18 vs 16/18 with Kiwi and 12/18 without keywords (scripts/evaluate_light_fallback.py).
+FALLBACK_STORE_DIR = DATA_DIR / "vector_store"
+
+
+class NoKeywordIndex:
+    """A keyword index that finds nothing, so the hybrid search returns the dense ranking."""
+
+    def search(self, query, top_k, where=None):
+        return []
+
+
+@st.cache_resource(show_spinner=False)
+def load_fallback_vector_db():
+    from src.vector_store import ExactVectorStore
+
+    return ExactVectorStore.load(FALLBACK_STORE_DIR / "health", load_health_embeddings())
+
+
+@st.cache_resource(show_spinner=False)
+def load_fallback_health_index():
+    return NoKeywordIndex()
+
+
+@st.cache_resource(show_spinner=False)
+def load_fallback_report_vector_db():
+    embeddings = create_embedding_model()
+    if embeddings is None:
+        return None
+    from src.vector_store import ExactVectorStore
+
+    return ExactVectorStore.load(FALLBACK_STORE_DIR / "report", embeddings)
+
+
+@st.cache_resource(show_spinner=False)
+def load_fallback_report_index():
+    from src.hybrid_retrieval import HealthBM25Index, bigram_tokenize
+
+    db = load_fallback_report_vector_db()
+    return None if db is None else HealthBM25Index.from_chroma(db, bigram_tokenize)
+
+
 @st.cache_resource(show_spinner=False)
 def load_health_embeddings():
     return OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN"))
@@ -124,7 +168,7 @@ def load_vector_db():
     if search_backend() == "supabase":
         from src.supabase_store import PgVectorStore
 
-        return _supabase(PgVectorStore, SUPABASE_HEALTH_TABLE, load_local_vector_db, load_health_embeddings())
+        return _supabase(PgVectorStore, SUPABASE_HEALTH_TABLE, load_fallback_vector_db, load_health_embeddings())
     return load_local_vector_db()
 
 
@@ -156,7 +200,7 @@ def load_health_bm25_index():
     if search_backend() == "supabase":
         from src.supabase_store import PgroongaIndex
 
-        return _supabase(PgroongaIndex, SUPABASE_HEALTH_TABLE, load_local_health_bm25_index)
+        return _supabase(PgroongaIndex, SUPABASE_HEALTH_TABLE, load_fallback_health_index)
     return load_local_health_bm25_index()
 
 
@@ -197,7 +241,7 @@ def load_report_bm25_index():
             return None
         from src.supabase_store import PgroongaIndex
 
-        return _supabase(PgroongaIndex, SUPABASE_REPORT_TABLE, load_local_report_bm25_index)
+        return _supabase(PgroongaIndex, SUPABASE_REPORT_TABLE, load_fallback_report_index)
     return load_local_report_bm25_index()
 
 
@@ -221,7 +265,7 @@ def load_report_vector_db():
             return None
         from src.supabase_store import PgVectorStore
 
-        return _supabase(PgVectorStore, SUPABASE_REPORT_TABLE, load_local_report_vector_db, embeddings)
+        return _supabase(PgVectorStore, SUPABASE_REPORT_TABLE, load_fallback_report_vector_db, embeddings)
     return load_local_report_vector_db()
 
 

@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import heapq
 import json
+import re
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -13,6 +14,20 @@ from langchain_core.documents import Document
 
 DEFAULT_CANDIDATE_K = 12
 DEFAULT_RRF_C = 60
+_WORDS = re.compile(r"[가-힣]+|[0-9A-Za-z]+")
+
+
+def bigram_tokenize(text: str) -> list[str]:
+    """Keyword tokens without a morphological analyzer: Hangul runs as overlapping two-character
+    pieces (반려견은 -> 반려, 려견, 견은), Latin words and numbers whole. Used by the local search
+    that answers when Supabase fails, so Kiwi (about 290 MB) is not loaded (docs/adr/0007)."""
+    tokens: list[str] = []
+    for word in _WORDS.findall(text.lower()):
+        if "가" <= word[0] <= "힣" and len(word) > 1:
+            tokens.extend(word[i:i + 2] for i in range(len(word) - 1))
+        else:
+            tokens.append(word)
+    return tokens
 
 
 def _document_key(document: Document) -> str:
