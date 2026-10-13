@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_deployed_app import error_in, summary_line  # noqa: E402
+from check_deployed_app import error_in, same_commit, summary_line  # noqa: E402
 
 # The chat page on 2026-10-09, redeployed without a reboot (Streamlit Cloud redacts the message).
 DEPLOYED_IMPORT_ERROR = (
@@ -36,6 +36,25 @@ class SummaryTests(unittest.TestCase):
     def test_a_failed_deployment_shows_the_problem(self):
         self.assertEqual(summary_line("https://x", None, None, ["did not become ready"]),
                          "| https://x | - | - | - | did not become ready |")
+
+
+class CommitTests(unittest.TestCase):
+    def test_short_and_full_hashes_of_one_commit_match(self):
+        self.assertTrue(same_commit("027492d", "027492d1a2b3c4d5e6f708192a3b4c5d6e7f8091"))
+        self.assertTrue(same_commit("027492d1a2b3c4d5e6f708192a3b4c5d6e7f8091", "027492d1a2b3c4d5e6f708192a3b4c5d6e7f8091"))
+
+    def test_another_or_missing_commit_does_not(self):
+        self.assertFalse(same_commit("a9deab1", "027492d1a2b3c4d5e6f708192a3b4c5d6e7f8091"))
+        self.assertFalse(same_commit(None, "027492d1"))
+        self.assertFalse(same_commit("0274", "027492d1"))  # too short to trust
+
+
+class FooterTests(unittest.TestCase):
+    def test_footer_carries_the_commit_without_showing_it(self):
+        from src.ui import footer_html
+
+        self.assertIn('data-commit="027492d"', footer_html("027492d"))
+        self.assertNotIn("data-commit", footer_html(None))
 
 
 if __name__ == "__main__":
