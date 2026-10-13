@@ -38,3 +38,9 @@
   - 문서 수가 크게 늘어 메모리 안 BM25가 한도를 넘을 때
 
 **기록:** [wiki/retrieval-experiments.md](../wiki/retrieval-experiments.md) 실험 1·4·13, [improvement-log.md](../improvement-log.md) 1절
+
+## 보충 측정 (2026-10-13)
+결정은 바꾸지 않는다. "질문 유형마다 다른 전략: 측정하지 않음"을 측정했다([wiki/retrieval-experiments.md](../wiki/retrieval-experiments.md) "질문 유형마다 다른 검색 전략").
+- **유형별 라우터는 만들 이유가 없다.** 길이 × 이름 포함으로 나눈 4개 유형, 220문항에서 유형별로 고른 상한은 0.836이다. 하이브리드는 0.809이고 p=0.29다.
+- **미세조정 뒤에는 dense만(0.827)과 하이브리드(0.809)도 차이가 없다**(p=0.56). 그래서 다시 검토할 조건을 하나 더한다.
+  - 건강 BM25를 빼서 메모리를 줄이고 싶을 때, 더 큰 세트와 CRAG 60으로 dense만 써도 나빠지지 않는지 확인한 뒤 새 ADR을 쓴다.
