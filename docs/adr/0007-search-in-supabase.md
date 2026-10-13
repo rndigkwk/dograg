@@ -1,6 +1,6 @@
 # ADR-0007: 벡터 검색과 키워드 검색을 Supabase(pgvector + PGroonga)로 옮김
 
-- **상태:** 제안 (2026-10-13). 채택하면 ADR-0003(메모리 안 전수 검색)을 대체한다.
+- **상태:** 채택 (2026-10-13). 두 배포 모두 `SEARCH_BACKEND=supabase`로 운영한다(아래 "배포 확인"). ADR-0003(메모리 안 전수 검색)을 대체한다.
 
 ## 맥락
 - 앱 메모리의 대부분은 벡터가 아니라 키워드 검색이다. Kiwi 형태소 분석기와 BM25 색인이 약 320MB를 쓴다.
@@ -79,7 +79,21 @@
 - 나빠진 항목이 없다. 보고서 정답 페이지 1문항 차이는 #114와 같은 결과이고, 답의 정답 수는 오히려 같거나 많다.
 - 실행: `SEARCH_BACKEND=local|supabase uv run --group tools python scripts/evaluate_crag.py --output …`, `scripts/evaluate_report_pages.py compare --variants hybrid --repeats 2`
 
-## 결과 (채택하면)
+## 배포 확인 (2026-10-13)
+- Streamlit Cloud: 앱 Secrets에 `SEARCH_BACKEND`, `SUPABASE_DB_URL`. Cloud Run: repository secret `SEARCH_BACKEND`와 Secret Manager `SUPABASE_DB_URL`(revision `ragdog-00028`).
+- 두 배포에서 질문할 때 Supabase 벡터 색인 사용 횟수가 늘었고(`pg_stat_user_indexes`), Langfuse 기록의 `search_backend`가 `supabase`다.
+- 같은 질문 4개(건강 3, 보고서 1). 메모리는 질문마다 Langfuse 기록에 남긴 값이다(`src/memory_limits.process_memory_mb`).
+
+| | Streamlit Cloud (오리건 추정) | Cloud Run (서울) |
+| --- | ---: | ---: |
+| 답변 완료 (4문항) | 10.4~14.0초 | 7.3~11.7초 |
+| 질문 중 메모리 (RSS) | 592~636MB | 572~614MB |
+| 최고 메모리 (시작 포함, VmHWM) | **702MB** | 기록 안 됨 (샌드박스가 제공하지 않음) |
+
+- Streamlit Cloud 최고 메모리가 로컬 측정(991MB, Chroma + Kiwi)에서 702MB로 줄었다. 보장값 690MB에 거의 닿는다.
+- 답변 시간은 회귀 평가의 로컬 값(건강 평균 10.5초)과 같은 수준이다. 미국에서 서울 DB까지의 왕복은 검색당 1번이라 체감되지 않는다.
+
+## 결과
 - **얻는 것:**
   - 앱 최고 메모리가 절반 이하로 줄어 보장값 690MB 안에 들어간다.
   - 남는 약 250MB로 더 큰 질문 임베딩 모델 등을 시도할 수 있다.
