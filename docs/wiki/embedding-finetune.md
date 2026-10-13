@@ -231,6 +231,37 @@ uv run --group tools python scripts/compare_doc_lengths.py
 - 노트북이 비공개 데이터셋 `experiments` 브랜치에 올린 `doclen/*.npy`를 `output/experiments/doclen/`에 받아 둔다.
 - 결과: `output/experiments/doc_lengths.json`
 
+## 큰 한국어 모델: KURE-v1 (2026-10-13)
+
+질문: Supabase로 검색을 옮겨 메모리 여유가 생겼다(Streamlit Cloud 실제 약 1GB). Day 58 교안 01의 후보 중 건강 과제 점수가 가장 높은 KURE-v1이 지금 앱보다 나을까?
+- KURE-v1: BGE-M3를 한국어 검색으로 추가 학습한 모델이다. 1,024차원, 파라미터 5.7억 개다. MTEB 한국어 `PublicHealthQA` 81.92(e5-small 73.70)다.
+- 방법: `scripts/compare_kure.py`
+  - 문서 벡터는 Colab T4로 만들었다(`notebooks/kure_v1_embed_colab.ipynb`). 1,024토큰까지 넣어 상담 글의 0.11%만 잘린다.
+  - 질문은 이 PC에서 float로 임베딩했다. 앱은 배포 그대로(미세조정 ko-sroberta, 질문은 int8 ONNX)다.
+  - 220문항 `useful@3`, 같은 Kiwi BM25 하이브리드, McNemar는 앱과 비교했다.
+
+| | 앱 (미세조정 ko-sroberta) | KURE-v1 (미세조정 없음) | p |
+| --- | ---: | ---: | --- |
+| Dense 짧은 질문 | **0.817** | 0.708 | **0.019** |
+| Dense 긴 상담 글 | 0.84 | 0.83 | 1.0 |
+| Dense 전체 | **0.827** | 0.764 | 0.065 |
+| 하이브리드 짧은 질문 | **0.783** | 0.683 | **0.023** |
+| **하이브리드 전체** | **0.809** | 0.723 | **0.008** |
+| 질문 임베딩 (CPU, 중앙값) | 26ms (int8) | 275ms (float) | |
+| 모델 파일 | 186MB | 약 2.3GB (float) | |
+
+- **KURE-v1이 유의하게 낮다.** 특히 보호자가 짧게 쓴 질문에서 약 0.10 낮다. 이 차이는 우리 질문 말투로 만든 합성 질의로 미세조정한 효과다. 리더보드 점수(공공 보건 FAQ)가 우리 질문에서 그대로 이어지지 않았다. 교안이 "리더보드는 후보를 좁히는 데만 쓴다"고 한 경우다.
+- **기본 모델끼리는 KURE-v1이 낫다.** 기본 ko-sroberta는 같은 세트에서 Dense 0.582, 하이브리드 0.677이었다(위 "기본 모델 비교"). KURE-v1은 0.764·0.723이다.
+- **결정: 바꾸지 않는다.** 앱 모델이 더 정확하고, 10배 빠르고, 파일이 12분의 1이다.
+- **다시 볼 조건:** KURE-v1을 같은 합성 질의로 미세조정하면 지금 모델을 넘을 수 있다(기본 모델 차이 +0.18). 다만 int8로 줄여도 모델이 약 570MB라 앱 메모리가 약 1GB에 가까워진다. 짧은 질문 정확도가 더 필요해지면 그때 Colab에서 미세조정해 같은 세트로 재고, 메모리를 실측한다.
+
+```bash
+uv run --group tools --with psutil python scripts/compare_kure.py
+```
+
+- 노트북이 비공개 데이터셋 `experiments` 브랜치에 올린 `kure/kure_v1_rows.npy`를 `output/experiments/`에 받아 둔다.
+- 결과: `output/experiments/kure_v1.json`
+
 ## 다시 돌리기
 
 ```bash
