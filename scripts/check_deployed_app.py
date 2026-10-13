@@ -7,8 +7,12 @@ Cloud Run (CLOUD_RUN_URL). Cloud Run scales to zero after idle minutes, so on th
 "ready after" is its cold start; each run adds one line per deployment to the job summary.
 
 Wakes the app (scripts/wake_app.py), opens every page and fails when one shows Streamlit's
-error box, then asks the chatbot a date question (answered in code: no model call, no cost)
-and waits for the answer. Run by .github/workflows/keep-alive.yml every 8 hours and a few
+error box, then asks the chatbot two questions and waits for each answer:
+- a date question, answered in code (no search, no model call)
+- a health question, answered by the RAG path: search (Supabase on the deployments, docs/adr/0007)
+  and the answer model. It passes when the answer shows its evidence section. This also keeps the
+  Supabase free project from pausing for inactivity (a few database requests a week are enough);
+  the workflow's database job then checks that the search really reached Supabase. Run by .github/workflows/keep-alive.yml every 8 hours and a few
 minutes after each push to main.
 
 Why: on 2026-10-09 the app was redeployed without a reboot; the chat page showed an
@@ -33,9 +37,12 @@ CHAT_INPUT = 'textarea[data-testid="stChatInputTextArea"]'
 CHAT_MESSAGE = '[data-testid="stChatMessage"]'
 DATE_QUESTION = "오늘 날짜 알려줘"
 DATE_ANSWER = "오늘은"  # src/tools/router.py current_date_answer
+HEALTH_QUESTION = "강아지가 어제부터 노란 토를 해요"
+HEALTH_ANSWER = "검색 근거"  # the evidence section under a health answer (app_pages/rag.py)
 PAGE_TIMEOUT_S = 90
 SETTLE_S = 20
 ANSWER_TIMEOUT_S = 60
+HEALTH_ANSWER_TIMEOUT_S = 120
 
 
 def error_in(texts: list[str], error_boxes: int = 0) -> str | None:
@@ -103,33 +110,49 @@ def check_pages(page, url: str) -> list[str]:
     return problems
 
 
-def check_chat(page, url: str) -> tuple[str | None, float | None]:
-    """(problem or None, seconds until the answer)."""
-    page.goto(f"{url.rstrip('/')}/rag", wait_until="domcontentloaded")
-    frame = _app_frame(page, CHAT_INPUT, PAGE_TIMEOUT_S)
-    if frame is None:
-        return _page_error(page) or f"chat input missing after {PAGE_TIMEOUT_S}s", None
+def ask(page, frame, question: str, expected: str, timeout_s: float) -> tuple[str | None, float | None]:
+    """Send one question; (problem or None, seconds until an answer containing `expected`)."""
     before = frame.locator(CHAT_MESSAGE).count()
     box = frame.locator(CHAT_INPUT)
-    box.fill(DATE_QUESTION)
+    box.fill(question)
     box.press("Enter")
     started = time.perf_counter()
-    while time.perf_counter() - started < ANSWER_TIMEOUT_S:
+    while time.perf_counter() - started < timeout_s:
         page.wait_for_timeout(1000)
         messages = frame.locator(CHAT_MESSAGE)
-        if messages.count() >= before + 2 and DATE_ANSWER in messages.nth(messages.count() - 1).inner_text():
+        if messages.count() >= before + 2 and expected in messages.nth(messages.count() - 1).inner_text():
             seconds = time.perf_counter() - started
-            print(f"chat: answered in {seconds:.1f}s")
+            print(f"chat ({question}): answered in {seconds:.1f}s")
             return None, seconds
         if error := _page_error(page):
             return error, None
-    return f"no chat answer in {ANSWER_TIMEOUT_S}s", None
+    return f"no answer to {question!r} in {timeout_s:.0f}s", None
 
 
-def summary_line(url: str, ready_s: float | None, chat_s: float | None, problems: list[str]) -> str:
+def check_chat(page, url: str) -> tuple[list[str], float | None, float | None]:
+    """(problems, seconds to the date answer, seconds to the health answer)."""
+    page.goto(f"{url.rstrip('/')}/rag", wait_until="domcontentloaded")
+    frame = _app_frame(page, CHAT_INPUT, PAGE_TIMEOUT_S)
+    if frame is None:
+        return [_page_error(page) or f"chat input missing after {PAGE_TIMEOUT_S}s"], None, None
+    problems = []
+    date_problem, date_s = ask(page, frame, DATE_QUESTION, DATE_ANSWER, ANSWER_TIMEOUT_S)
+    if date_problem:
+        problems.append(date_problem)
+    # The input is locked while an answer is written (app_pages/rag.py); wait until it opens again.
+    frame.locator(f"{CHAT_INPUT}:not([disabled])").wait_for(timeout=ANSWER_TIMEOUT_S * 1000)
+    health_problem, health_s = ask(page, frame, HEALTH_QUESTION, HEALTH_ANSWER, HEALTH_ANSWER_TIMEOUT_S)
+    if health_problem:
+        problems.append(health_problem)
+    return problems, date_s, health_s
+
+
+def summary_line(url: str, ready_s: float | None, chat_s: float | None, problems: list[str],
+                 health_s: float | None = None) -> str:
     """One Markdown table row per deployment for the job summary."""
     shown = (lambda value: "-" if value is None else f"{value:.0f}s")
-    return f"| {url} | {shown(ready_s)} | {shown(chat_s)} | {'ok' if not problems else '; '.join(problems)[:200]} |"
+    return (f"| {url} | {shown(ready_s)} | {shown(chat_s)} | {shown(health_s)} | "
+            f"{'ok' if not problems else '; '.join(problems)[:200]} |")
 
 
 def write_summary(line: str) -> None:
@@ -137,7 +160,7 @@ def write_summary(line: str) -> None:
     if not path:
         return
     with open(path, "a", encoding="utf-8") as file:
-        file.write("| 배포 | 첫 화면까지 | 챗봇 답변 | 결과 |\n| --- | ---: | ---: | --- |\n" + line + "\n")
+        file.write("| 배포 | 첫 화면까지 | 날짜 답변 | 건강 답변 | 결과 |\n| --- | ---: | ---: | ---: | --- |\n" + line + "\n")
 
 
 def check(url: str) -> int:
@@ -155,15 +178,14 @@ def check(url: str) -> int:
         browser = playwright.chromium.launch()
         page = browser.new_page()
         problems = check_pages(page, url)
-        chat_problem, chat_s = check_chat(page, url)
-        if chat_problem:
-            problems.append(f"chat: {chat_problem}")
+        chat_problems, chat_s, health_s = check_chat(page, url)
+        problems += [f"chat: {problem}" for problem in chat_problems]
         if problems:
             page.screenshot(path="check_app_failure.png", full_page=True)
         browser.close()
     for problem in problems:
         print(f"PROBLEM {problem}")
-    write_summary(summary_line(url, ready_s, chat_s, problems))
+    write_summary(summary_line(url, ready_s, chat_s, problems, health_s))
     if problems and url == STREAMLIT_CLOUD_URL:
         print("If the code on main is fine, the app may need a reboot (Manage app -> Reboot app).")
     return 1 if problems else 0

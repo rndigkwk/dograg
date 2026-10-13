@@ -31,11 +31,11 @@ class ErrorDetectionTests(unittest.TestCase):
 
 class SummaryTests(unittest.TestCase):
     def test_a_working_deployment_shows_its_times(self):
-        self.assertEqual(summary_line("https://x.run.app", 12.4, 1.2, []), "| https://x.run.app | 12s | 1s | ok |")
+        self.assertEqual(summary_line("https://x.run.app", 12.4, 1.2, [], 9.6), "| https://x.run.app | 12s | 1s | 10s | ok |")
 
     def test_a_failed_deployment_shows_the_problem(self):
         self.assertEqual(summary_line("https://x", None, None, ["did not become ready"]),
-                         "| https://x | - | - | did not become ready |")
+                         "| https://x | - | - | - | did not become ready |")
 
 
 if __name__ == "__main__":
