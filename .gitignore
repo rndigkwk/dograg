@@ -75,6 +75,7 @@ data/df.csv
 data/df_val.csv
 data/bm25_health_tokens.json.gz
 data/chroma_db/
+data/vector_store/
 data/source/*.pdf
 data/finetune/
 data/vet_fees/

@@ -13,7 +13,6 @@ import shutil
 from pathlib import Path
 
 import streamlit as st
-from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src import settings
@@ -83,6 +82,10 @@ def create_embedding_model():
 
 @st.cache_resource(show_spinner=False)
 def load_vector_db():
+    # Imported here: chromadb is heavy, and a store that does not use it should not load it
+    # (ADR-0003, scripts/measure_memory.py --store).
+    from langchain_chroma import Chroma
+
     return Chroma(
         collection_name=HEALTH_COLLECTION_NAME,
         embedding_function=OnnxSentenceEmbeddings.from_hub(
@@ -148,6 +151,8 @@ def load_report_vector_db():
     embeddings = create_embedding_model()
     if embeddings is None:
         return None
+    from langchain_chroma import Chroma
+
     return Chroma(
         collection_name=REPORT_COLLECTION_NAME,
         embedding_function=embeddings,

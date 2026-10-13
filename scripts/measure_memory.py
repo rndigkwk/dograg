@@ -47,7 +47,7 @@ def peak_mb() -> float | None:
     return peak / 2**20 if peak else None
 
 
-def run(copy_path: Path, reranker: str | None) -> dict:
+def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     stages: list[dict] = []
@@ -72,10 +72,22 @@ def run(copy_path: Path, reranker: str | None) -> dict:
     mark(f"imports (streamlit, langchain; torch loaded={'torch' in sys.modules})", started)
 
     resources.CHROMA_DIR = copy_path
+    if store != "chroma":  # ADR-0003: the exact in-memory store (scripts/export_vector_store.py writes its files)
+        from src.onnx_embeddings import OnnxSentenceEmbeddings
+        from src.vector_store import ExactVectorStore
+
+        from functools import cache
+
+        exact_dir = PROJECT_DIR / "data" / "vector_store"
+        # Cached like the app's st.cache_resource loaders: the BM25 index asks for the store again.
+        resources.load_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "health", OnnxSentenceEmbeddings.from_hub(
+            resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE, token=resources.settings.get_setting("HF_TOKEN"))))
+        if store == "exact-all":
+            resources.load_report_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "report", resources.create_embedding_model()))
     started = time.perf_counter()
     health_db = resources.load_vector_db()
     health_db.similarity_search(QUERIES[0], k=3)
-    mark(f"+ health Chroma + {type(health_db.embeddings).__name__}", started)
+    mark(f"+ health {type(health_db).__name__} + {type(health_db.embeddings).__name__}", started)
 
     started = time.perf_counter()
     bm25 = resources.load_health_bm25_index()
@@ -84,7 +96,7 @@ def run(copy_path: Path, reranker: str | None) -> dict:
     started = time.perf_counter()
     report_db = resources.load_report_vector_db()
     report_db.similarity_search(QUERIES[0], k=6)
-    mark(f"+ report Chroma + {type(report_db.embeddings).__name__}", started)
+    mark(f"+ report {type(report_db).__name__} + {type(report_db.embeddings).__name__}", started)
 
     candidates = {q: retrieve_hybrid(health_db, bm25, q, top_k=24) for q in QUERIES}
 
@@ -116,6 +128,8 @@ def run(copy_path: Path, reranker: str | None) -> dict:
     return {
         "cloud_limit_mb": CLOUD_LIMIT_MB,
         "reranker": reranker,
+        "store": store,
+        "chromadb_loaded": "chromadb" in sys.modules,
         "stages": stages,
         "final_rss_mb": round(rss_mb()),
         "peak_mb": round(peak_mb()) if peak_mb() else None,
@@ -128,14 +142,16 @@ def run(copy_path: Path, reranker: str | None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reranker", choices=["qwen3", "bge-dense"])
+    parser.add_argument("--store", choices=["chroma", "exact-health", "exact-all"], default="chroma",
+                        help="vector store: Chroma (the app today) or the exact in-memory store for health / both (ADR-0003)")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    output = args.output or PROJECT_DIR / "output" / f"memory_{args.reranker or 'baseline'}.json"
+    output = args.output or PROJECT_DIR / "output" / f"memory_{args.reranker or 'baseline'}_{args.store}.json"
     # Chroma keeps its files open on Windows, so the copy may outlive this process.
     with tempfile.TemporaryDirectory(prefix="dograg-mem-", ignore_cleanup_errors=True) as directory:
         copy_path = Path(directory) / "chroma_db"
         shutil.copytree(PROJECT_DIR / "data" / "chroma_db", copy_path)
-        result = run(copy_path, args.reranker)
+        result = run(copy_path, args.reranker, args.store)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({k: result[k] for k in ("final_rss_mb", "peak_mb", "rerank_ms_per_query")}), flush=True)
