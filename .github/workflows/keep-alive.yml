@@ -3,7 +3,7 @@ name: Keep deployed app awake and working
 # Streamlit Community Cloud puts an app to sleep after a stretch without visitors; waking it
 # then takes about 100s. A headless browser visit every 8 hours keeps it awake, and clicks
 # the wake button if it already sleeps (scripts/wake_app.py). The same visit then opens every
-# page and asks the chatbot a date question (scripts/check_deployed_app.py), so an app that is
+# page and asks the chatbot a date and a health question (scripts/check_deployed_app.py), so an app that is
 # awake but broken fails the run. After a push to main it also runs once the redeploy is done:
 # on 2026-10-09 a redeploy without a reboot left the chat page on an ImportError.
 # Since 2026-10-12 the same check runs on the Cloud Run deployment too (docs/wiki/cloud-run.md):
@@ -64,3 +64,30 @@ jobs:
             wake_app_failure.png
             check_app_failure.png
           if-no-files-found: ignore
+
+  database:
+    # Both checks above ask a health question; with SEARCH_BACKEND=supabase (docs/adr/0007) that
+    # search must have used the Supabase vector index during this run. Otherwise the deployments
+    # answered from the local fallback and Supabase is failing for them. The query also counts as
+    # database activity, so the free project is not paused for inactivity.
+    needs: wake
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Check that the searches reached Supabase
+        run: |
+          if [ "$SEARCH_BACKEND" != supabase ]; then
+            echo "Search backend is not Supabase; nothing to check."
+            exit 0
+          fi
+          uv run --no-project --with "psycopg[binary]" python scripts/check_supabase_search.py --minutes 40
