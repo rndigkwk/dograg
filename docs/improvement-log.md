@@ -20,6 +20,7 @@
 | --- | --- | --- | --- |
 | [#1](https://github.com/rndigkwk/dograg/pull/1) | Dense 검색이 질문의 핵심 단어를 놓침 | 건강 hit@3 0.2264 → **0.2620** | Dense + BM25(Kiwi 명사) 하이브리드, RRF |
 | [#40](https://github.com/rndigkwk/dograg/pull/40) | 질문에서 추론한 연령·진료과 필터가 기대는 라벨이 질문 본문과 34%·59%만 맞음 | hit@3 0.141 → **0.264** | 자동 필터 제거 (질문 줄이기는 효과 없어 미적용) |
+| [#112](https://github.com/rndigkwk/dograg/pull/112) | 질문 유형마다 다른 검색 전략 (Day 58 교안 3-3, 길이 × 질병·약 이름 4개 유형, 220문항) | useful@3 dense 0.827 · BM25 0.595 · 하이브리드 0.809, 유형별로 골라도 상한 0.836 (p=0.29). dense 대 하이브리드도 p=0.56 | 유형별 라우터 미적용, 하이브리드 유지 |
 | [#62](https://github.com/rndigkwk/dograg/pull/62) | 보고서 답변의 병목이 생성이 아니라 검색 | 기준 답과 맞는 답 23 → **30/36** (p=0.016) | 보고서 검색도 BM25 + Dense 하이브리드 |
 | [#77](https://github.com/rndigkwk/dograg/pull/77) [#78](https://github.com/rndigkwk/dograg/pull/78) | 상담 글은 길고 사용자 질문은 짧아 임베딩이 약함 | 짧은 질문 useful@3 0.600 → **0.783** (p=0.0001), 긴 질문 0.72 → **0.84** (p=0.023) | 보호자 말투 합성 질의($3.37)로 ko-sroberta 미세조정(Colab T4 4.6분), ONNX int8 |
 | [#96](https://github.com/rndigkwk/dograg/pull/96) | 배포 앱에서 진료비·시설 질문 뒤의 건강 질문이 "자료에 없다" | holdout 주제 전환 0.38 → **1.0**, 시설 지역 4/6 → **6/6** (이어받기 0.72 → 0.64) | 앞선 질문을 모두 붙이지 않고, 모델이 혼자 읽히는 검색어를 씀 |
