@@ -36,7 +36,8 @@ jobs:
             url: https://ragdog-892238791473.asia-northeast3.run.app
     name: wake (${{ matrix.target.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Up to 5 min for the redeploy, 10 min for the deployed commit to match, then the page and chat checks.
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
@@ -53,7 +54,7 @@ jobs:
         run: sleep 300
 
       - name: Wake the app and check every page and the chatbot
-        run: uvx --with playwright python scripts/check_deployed_app.py "${{ matrix.target.url }}"
+        run: uvx --with playwright python scripts/check_deployed_app.py "${{ matrix.target.url }}" ${{ github.ref == 'refs/heads/main' && format('--expect-commit {0}', github.sha) || '' }}
 
       - name: Keep the failure screenshot
         if: failure()

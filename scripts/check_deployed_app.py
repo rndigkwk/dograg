@@ -15,6 +15,11 @@ error box, then asks the chatbot two questions and waits for each answer:
   the workflow's database job then checks that the search really reached Supabase. Run by .github/workflows/keep-alive.yml every 8 hours and a few
 minutes after each push to main.
 
+With --expect-commit (the workflow passes the commit it runs for), the footer's data-commit must be
+that commit: Streamlit Cloud twice kept serving the code before a merge until it was rebooted
+(2026-10-13), and both questions above still pass on old code. The check reloads for a while first,
+because a redeploy can still be on its way.
+
 Why: on 2026-10-09 the app was redeployed without a reboot; the chat page showed an
 ImportError (new app_pages/rag.py, old src/chat_graph.py still in memory) and the wake-up
 visit, which only waited for the home page, reported success.
@@ -35,6 +40,8 @@ ERROR_SELECTOR = '[data-testid="stException"]'
 ERROR_TEXTS = ("This app has encountered an error", "Traceback:")
 CHAT_INPUT = 'textarea[data-testid="stChatInputTextArea"]'
 CHAT_MESSAGE = '[data-testid="stChatMessage"]'
+FOOTER = ".app-footer"
+COMMIT_WAIT_S = 600  # a redeploy can still be running when the check starts
 DATE_QUESTION = "오늘 날짜 알려줘"
 DATE_ANSWER = "오늘은"  # src/tools/router.py current_date_answer
 HEALTH_QUESTION = "강아지가 어제부터 노란 토를 해요"
@@ -147,6 +154,35 @@ def check_chat(page, url: str) -> tuple[list[str], float | None, float | None]:
     return problems, date_s, health_s
 
 
+def same_commit(deployed: str | None, expected: str) -> bool:
+    """Short and full hashes of one commit match (Streamlit Cloud reports 7 characters)."""
+    if not deployed or not expected:
+        return False
+    length = min(len(deployed), len(expected))
+    return length >= 7 and deployed[:length] == expected[:length]
+
+
+def deployed_commit(page) -> str | None:
+    frame = _app_frame(page, FOOTER, PAGE_TIMEOUT_S)
+    return None if frame is None else frame.locator(FOOTER).first.get_attribute("data-commit")
+
+
+def check_commit(page, url: str, expected: str) -> tuple[str | None, str | None]:
+    """(problem or None, the deployed commit). Reloads until the commit matches or COMMIT_WAIT_S."""
+    started = time.perf_counter()
+    while True:
+        page.goto(url, wait_until="domcontentloaded")
+        commit = deployed_commit(page)
+        if same_commit(commit, expected):
+            print(f"commit: {commit}")
+            return None, commit
+        if time.perf_counter() - started > COMMIT_WAIT_S:
+            hint = " (Streamlit Cloud: reboot the app)" if url == STREAMLIT_CLOUD_URL else ""
+            return f"running {commit or 'unknown'}, not {expected[:7]}{hint}", commit
+        print(f"commit: {commit}, waiting for {expected[:7]}", flush=True)
+        page.wait_for_timeout(60_000)
+
+
 def summary_line(url: str, ready_s: float | None, chat_s: float | None, problems: list[str],
                  health_s: float | None = None) -> str:
     """One Markdown table row per deployment for the job summary."""
@@ -163,7 +199,7 @@ def write_summary(line: str) -> None:
         file.write("| 배포 | 첫 화면까지 | 날짜 답변 | 건강 답변 | 결과 |\n| --- | ---: | ---: | ---: | --- |\n" + line + "\n")
 
 
-def check(url: str) -> int:
+def check(url: str, expected_commit: str | None = None) -> int:
     # Imported here so tests can load error_in() without Playwright installed.
     from playwright.sync_api import sync_playwright
 
@@ -177,7 +213,12 @@ def check(url: str) -> int:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page()
-        problems = check_pages(page, url)
+        problems = []
+        if expected_commit:
+            commit_problem, _ = check_commit(page, url, expected_commit)
+            if commit_problem:
+                problems.append(f"commit: {commit_problem}")
+        problems += check_pages(page, url)
         chat_problems, chat_s, health_s = check_chat(page, url)
         problems += [f"chat: {problem}" for problem in chat_problems]
         if problems:
@@ -194,4 +235,6 @@ def check(url: str) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("url", nargs="?", default=STREAMLIT_CLOUD_URL)
-    sys.exit(check(parser.parse_args().url))
+    parser.add_argument("--expect-commit", help="the commit the deployment should run (the workflow's GITHUB_SHA)")
+    args = parser.parse_args()
+    sys.exit(check(args.url, args.expect_commit))

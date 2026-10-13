@@ -819,9 +819,15 @@ def render_stat_cards(stats: list[dict[str, str]], st_module: Any | None = None)
             )
 
 
+def footer_html(commit: str | None) -> str:
+    """The footer; data-commit carries the deployed commit (not shown) so the deployed-app check
+    (scripts/check_deployed_app.py) can tell a deployment still running older code."""
+    attribute = f' data-commit="{escape(commit)}"' if commit else ""
+    return f'<div class="app-footer"{attribute}>🐾 라그도그 · 데이터와 기술로 더 나은 반려동물 케어를 만듭니다.</div>'
+
+
 def render_footer(st_module: Any | None = None) -> None:
     """Render the small product footer shared by all pages."""
-    _resolve_streamlit(st_module).markdown(
-        '<div class="app-footer">🐾 라그도그 · 데이터와 기술로 더 나은 반려동물 케어를 만듭니다.</div>',
-        unsafe_allow_html=True,
-    )
+    from src.tracing import release
+
+    _resolve_streamlit(st_module).markdown(footer_html(release()), unsafe_allow_html=True)
