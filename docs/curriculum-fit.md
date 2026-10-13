@@ -17,6 +17,8 @@
 | 배울 내용 | 이 프로젝트에 이미 있는 것 | 기록 |
 | --- | --- | --- |
 | 하이브리드 검색 (Day 58) | 문장 벡터 검색(ko-sroberta) + BM25(Kiwi 명사) + RRF | [wiki/retrieval-experiments.md](wiki/retrieval-experiments.md) |
+| 질문 유형별 검색 전략 (Day 58, 교안 02 3-3) | 2026-10-13 측정. 4개 유형 × dense·BM25·하이브리드. 유형별로 골라도 상한 0.836 대 하이브리드 0.809(p=0.29) → 라우터 불필요 | [wiki/retrieval-experiments.md](wiki/retrieval-experiments.md) "질문 유형마다 다른 검색 전략" |
+| 벡터 저장소 선택, ADR (Day 58) | 2026-10-13. Chroma·FAISS·pgvector 비교 → 메모리 안 전수 검색 채택(ADR-0003), 결정 기록 `docs/adr/` | [adr/](adr/README.md) |
 | 임베딩 모델 선택 (Day 58) | 임베딩 비교 실험 후 건강은 ko-sroberta, 보고서는 OpenAI 임베딩 | [wiki/deployment-resources.md](wiki/deployment-resources.md) |
 | 충실도, 환각 (Day 59) | 자체 충실도 평가(답의 주장이 근거에 있는 비율), 근거 밖 의학 사실 0 | [wiki/safety-and-evidence.md](wiki/safety-and-evidence.md) |
 | LLM-as-Judge, 판정 신뢰도 (Day 60) | `useful@3` 판정, 같은 답 두 번 판정 일치율 86.5%(κ 0.79) | [wiki/retrieval-experiments.md](wiki/retrieval-experiments.md) |
