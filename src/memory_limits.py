@@ -51,3 +51,15 @@ def release_free_memory() -> None:
     libc = _glibc()
     if libc is not None:
         libc.malloc_trim(0)
+
+
+def process_memory_mb() -> dict:
+    """This process's resident memory now and at its peak (VmRSS, VmHWM), in MB; empty off Linux.
+    Sent with each chat trace so the deployed apps' memory can be read from Langfuse."""
+    try:
+        with open("/proc/self/status", encoding="ascii") as status:
+            fields = dict(line.split(":", 1) for line in status if ":" in line)
+    except OSError:
+        return {}
+    return {key: round(int(fields[name].split()[0]) / 1024) for key, name in (("rss_mb", "VmRSS"), ("peak_rss_mb", "VmHWM"))
+            if name in fields}
