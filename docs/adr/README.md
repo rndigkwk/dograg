@@ -10,6 +10,6 @@
 | --- | --- | --- |
 | [0001](0001-embedding-finetuned-ko-sroberta.md) | 건강 상담 임베딩으로 보호자 말투로 미세조정한 ko-sroberta 사용(질문은 ONNX int8), 보고서는 OpenAI 임베딩 | 채택 |
 | [0002](0002-hybrid-dense-bm25-rrf.md) | 검색 전략으로 Dense + BM25(Kiwi) 하이브리드, RRF 합치기 사용 | 채택 |
-| 0003 | 벡터 저장소 | 비교 중 (교안 방식으로 Chroma·FAISS·pgvector 비교 후 작성) |
+| [0003](0003-vector-store-faiss-flat.md) | 건강 상담 벡터 저장소로 FAISS 전수 검색 사용 (Chroma·FAISS·pgvector 비교, 앱 전체 메모리 확인 후 채택) | 제안 |
 | [0004](0004-no-shared-db.md) | 두 배포(Streamlit Cloud, Cloud Run)에 공유 DB를 두지 않음 | 채택 |
 | [0005](0005-no-reranker.md) | 리랭커를 쓰지 않음 | 채택 |
