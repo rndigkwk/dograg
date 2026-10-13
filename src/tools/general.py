@@ -20,7 +20,8 @@ THANKS_REPLY = "도움이 됐다니 다행이에요. 반려견에 대해 더 궁
 OUT_OF_SCOPE_REPLY = "그 질문은 제가 도와드릴 수 있는 범위 밖이에요. " + SERVICE_GUIDE
 
 GREETING_WORDS = ("안녕", "반가", "처음", "hello", "hi")
-THANKS_WORDS = ("고마", "감사", "thank")
+# 고맙 is its own syllable, not 고마 + ...: "고맙습니다" missed the old list (holdout2, 2026-10-13).
+THANKS_WORDS = ("고마", "고맙", "감사", "thank", "thx", "땡큐", "땡스", "덕분", "도움됐", "도움이됐")
 CAPABILITY_WORDS = ("기능", "할수있", "이름", "누구", "소개", "사용법", "물어볼")
 
 
