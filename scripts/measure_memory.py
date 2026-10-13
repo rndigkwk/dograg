@@ -73,19 +73,11 @@ def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
 
     resources.CHROMA_DIR = copy_path
     if store == "supabase":  # pgvector + PGroonga in Postgres (src/supabase_store.py, scripts/export_supabase_store.py)
-        from functools import cache
-
+        # The app's own path (SEARCH_BACKEND=supabase): the Supabase tables behind the local fallback.
         from dotenv import dotenv_values
 
-        from src.onnx_embeddings import OnnxSentenceEmbeddings
-        from src.supabase_store import PgroongaIndex, PgVectorStore, connector
-
-        connect = connector(dotenv_values(PROJECT_DIR / ".env")["SUPABASE_DB_URL"])
-        resources.load_vector_db = cache(lambda: PgVectorStore(connect, "ragdog_health", OnnxSentenceEmbeddings.from_hub(
-            resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE, token=resources.settings.get_setting("HF_TOKEN"))))
-        resources.load_report_vector_db = cache(lambda: PgVectorStore(connect, "ragdog_report", resources.create_embedding_model()))
-        resources.load_health_bm25_index = cache(lambda: PgroongaIndex(connect, "ragdog_health"))
-        resources.load_report_bm25_index = cache(lambda: PgroongaIndex(connect, "ragdog_report"))
+        os.environ["SEARCH_BACKEND"] = "supabase"
+        os.environ["SUPABASE_DB_URL"] = dotenv_values(PROJECT_DIR / ".env")["SUPABASE_DB_URL"]
     elif store != "chroma":  # ADR-0003: the exact in-memory store (scripts/export_vector_store.py writes its files)
         from src.onnx_embeddings import OnnxSentenceEmbeddings
         from src.vector_store import ExactVectorStore
@@ -94,10 +86,10 @@ def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
 
         exact_dir = PROJECT_DIR / "data" / "vector_store"
         # Cached like the app's st.cache_resource loaders: the BM25 index asks for the store again.
-        resources.load_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "health", OnnxSentenceEmbeddings.from_hub(
+        resources.load_local_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "health", OnnxSentenceEmbeddings.from_hub(
             resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE, token=resources.settings.get_setting("HF_TOKEN"))))
         if store == "exact-all":
-            resources.load_report_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "report", resources.create_embedding_model()))
+            resources.load_local_report_vector_db = cache(lambda: ExactVectorStore.load(exact_dir / "report", resources.create_embedding_model()))
     started = time.perf_counter()
     health_db = resources.load_vector_db()
     health_db.similarity_search(QUERIES[0], k=3)

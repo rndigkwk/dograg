@@ -134,7 +134,10 @@ class WarmupDecisionTests(unittest.TestCase):
         from src import resources
 
         for loader in (resources.load_vector_db, resources.load_health_bm25_index, resources.load_health_answer_table,
-                       resources.load_report_vector_db, resources.load_report_bm25_index):
+                       resources.load_report_vector_db, resources.load_report_bm25_index, resources.load_health_embeddings,
+                       resources.load_local_vector_db, resources.load_local_health_bm25_index,
+                       resources.load_local_report_vector_db, resources.load_local_report_bm25_index,
+                       resources.load_search_breaker):
             self.assertFalse(loader._info.show_spinner, loader.__name__)
 
 

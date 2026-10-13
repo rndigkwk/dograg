@@ -113,7 +113,7 @@ def evaluate(copy_path: Path, output_path: Path) -> dict[str, Any]:
     bm25_latencies: list[float] = []
     hybrid_latencies: list[float] = []
     try:
-        resources.load_vector_db.clear()
+        resources.clear_vector_db_cache()
         resources.CHROMA_DIR = copy_path
         dense_db = resources.load_vector_db()
         stored = dense_db.get(include=["documents", "metadatas"])
@@ -171,7 +171,7 @@ def evaluate(copy_path: Path, output_path: Path) -> dict[str, Any]:
                 print(f"evaluated={len(dense_latencies)}/{len(validation)}", flush=True)
     finally:
         resources.CHROMA_DIR = original_chroma_dir
-        resources.load_vector_db.clear()
+        resources.clear_vector_db_cache()
 
     metrics = {name: summarize_retrieval(records) for name, records in result_records.items()}
     result = {
