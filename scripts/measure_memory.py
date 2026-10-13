@@ -72,7 +72,21 @@ def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
     mark(f"imports (streamlit, langchain; torch loaded={'torch' in sys.modules})", started)
 
     resources.CHROMA_DIR = copy_path
-    if store != "chroma":  # ADR-0003: the exact in-memory store (scripts/export_vector_store.py writes its files)
+    if store == "supabase":  # pgvector + PGroonga in Postgres (src/supabase_store.py, scripts/export_supabase_store.py)
+        from functools import cache
+
+        from dotenv import dotenv_values
+
+        from src.onnx_embeddings import OnnxSentenceEmbeddings
+        from src.supabase_store import PgroongaIndex, PgVectorStore, connector
+
+        connect = connector(dotenv_values(PROJECT_DIR / ".env")["SUPABASE_DB_URL"])
+        resources.load_vector_db = cache(lambda: PgVectorStore(connect, "ragdog_health", OnnxSentenceEmbeddings.from_hub(
+            resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE, token=resources.settings.get_setting("HF_TOKEN"))))
+        resources.load_report_vector_db = cache(lambda: PgVectorStore(connect, "ragdog_report", resources.create_embedding_model()))
+        resources.load_health_bm25_index = cache(lambda: PgroongaIndex(connect, "ragdog_health"))
+        resources.load_report_bm25_index = cache(lambda: PgroongaIndex(connect, "ragdog_report"))
+    elif store != "chroma":  # ADR-0003: the exact in-memory store (scripts/export_vector_store.py writes its files)
         from src.onnx_embeddings import OnnxSentenceEmbeddings
         from src.vector_store import ExactVectorStore
 
@@ -130,6 +144,7 @@ def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
         "reranker": reranker,
         "store": store,
         "chromadb_loaded": "chromadb" in sys.modules,
+        "kiwi_loaded": "kiwipiepy" in sys.modules,
         "stages": stages,
         "final_rss_mb": round(rss_mb()),
         "peak_mb": round(peak_mb()) if peak_mb() else None,
@@ -142,7 +157,7 @@ def run(copy_path: Path, reranker: str | None, store: str = "chroma") -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reranker", choices=["qwen3", "bge-dense"])
-    parser.add_argument("--store", choices=["chroma", "exact-health", "exact-all"], default="chroma",
+    parser.add_argument("--store", choices=["chroma", "exact-health", "exact-all", "supabase"], default="chroma",
                         help="vector store: Chroma (the app today) or the exact in-memory store for health / both (ADR-0003)")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
