@@ -1,5 +1,5 @@
 {
- "description": "Questions the router sends to the small-talk route (none), 2026-10-12, written before changing it. Today a model answers them as a general assistant: it said it was ChatGPT and offered coding and translation. kind: greeting, thanks, capability (what the service does / who it is), scope (outside the service). A good reply introduces this service (dog health, facilities, fees, statistics) without claiming other abilities, and does not do out-of-scope tasks. dev was looked at while writing the replies; holdout was written at the same time and kept for checking.",
+ "description": "Questions the router sends to the small-talk route (none), 2026-10-12, written before changing it. Today a model answers them as a general assistant: it said it was ChatGPT and offered coding and translation. kind: greeting, thanks, capability (what the service does / who it is), scope (outside the service). A good reply introduces this service (dog health, facilities, fees, statistics) without claiming other abilities, and does not do out-of-scope tasks. dev was looked at while writing the replies; holdout was written at the same time and kept for checking. holdout2 (2026-10-13, written before changing the thanks words, after t-h1 and t-h3 had been used to choose them): six new thanks questions.",
  "items": [
   {
    "id": "g-d1",
@@ -95,7 +95,8 @@
    "id": "t-h1",
    "split": "holdout",
    "kind": "thanks",
-   "question": "땡큐"
+   "question": "땡큐",
+   "informed_fix": "2026-10-13: these two misses chose the thanks words, so they no longer measure that fix (see holdout2)"
   },
   {
    "id": "t-h2",
@@ -107,7 +108,8 @@
    "id": "t-h3",
    "split": "holdout",
    "kind": "thanks",
-   "question": "덕분에 살았어요"
+   "question": "덕분에 살았어요",
+   "informed_fix": "2026-10-13: these two misses chose the thanks words, so they no longer measure that fix (see holdout2)"
   },
   {
    "id": "c-h1",
@@ -144,6 +146,42 @@
    "split": "holdout",
    "kind": "scope",
    "question": "오늘 저녁 메뉴 추천해줘"
+  },
+  {
+   "id": "t-h2-1",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "땡스"
+  },
+  {
+   "id": "t-h2-2",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "thx!"
+  },
+  {
+   "id": "t-h2-3",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "덕분에 해결됐어요"
+  },
+  {
+   "id": "t-h2-4",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "많은 도움 됐습니다"
+  },
+  {
+   "id": "t-h2-5",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "답변 감사드려요"
+  },
+  {
+   "id": "t-h2-6",
+   "split": "holdout2",
+   "kind": "thanks",
+   "question": "알려줘서 고맙습니다~"
   }
  ]
 }
