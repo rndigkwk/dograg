@@ -96,5 +96,27 @@ class SearchBackendTests(unittest.TestCase):
             self.assertEqual(resources.search_backend(), "local")
 
 
+class LightFallbackTests(unittest.TestCase):
+    def test_health_fallback_returns_the_dense_ranking(self):
+        from src import resources
+        from src.hybrid_retrieval import retrieve_hybrid
+
+        class Dense:
+            embeddings = "embedder"
+
+            def similarity_search(self, query, k=4, filter=None):  # noqa: A002 - Chroma's name
+                from langchain_core.documents import Document
+
+                return [Document(id=str(i), page_content=query) for i in range(k)]
+
+        docs = retrieve_hybrid(Dense(), resources.NoKeywordIndex(), "구토", top_k=3)
+        self.assertEqual([d.id for d in docs], ["0", "1", "2"])
+
+    def test_bigram_tokens(self):
+        from src.hybrid_retrieval import bigram_tokenize
+
+        self.assertEqual(bigram_tokenize("반려견은 2024년 KB 개"), ["반려", "려견", "견은", "2024", "년", "kb", "개"])
+
+
 if __name__ == "__main__":
     unittest.main()

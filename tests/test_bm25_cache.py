@@ -137,7 +137,9 @@ class WarmupDecisionTests(unittest.TestCase):
                        resources.load_report_vector_db, resources.load_report_bm25_index, resources.load_health_embeddings,
                        resources.load_local_vector_db, resources.load_local_health_bm25_index,
                        resources.load_local_report_vector_db, resources.load_local_report_bm25_index,
-                       resources.load_search_breaker):
+                       resources.load_search_breaker, resources.load_fallback_vector_db,
+                       resources.load_fallback_health_index, resources.load_fallback_report_vector_db,
+                       resources.load_fallback_report_index):
             self.assertFalse(loader._info.show_spinner, loader.__name__)
 
 

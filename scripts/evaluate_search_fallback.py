@@ -9,9 +9,9 @@ search_reports_hybrid):
 - supabase:    the Supabase tables, healthy
 - unreachable: SUPABASE_DB_URL points at a host that never answers (connect timeout)
 - refused:     the right host with a wrong password (the database answers with an error at once)
-Per scenario: seconds for the first and later questions, peak memory (RSS), whether the local stores
+Per scenario: seconds for the first and later questions, peak memory (RSS), whether chromadb and Kiwi
 were loaded, how many times the breaker tripped, and the share of top-3 documents equal to the
-local run (the fallback should give exactly the local results). Results:
+local run (the fallback is the exact store without Kiwi, so its results differ slightly). Results:
 output/experiments/search_fallback.json.
 """
 
@@ -59,7 +59,7 @@ def child(scenario: str, chroma_copy: str) -> None:
         "backend": resources.search_backend(),
         "first_question_s": timings[0], "later_questions_s_max": max(timings[1:]), "seconds": timings,
         "peak_rss_mb": round(peak / 2**20),
-        "local_stores_loaded": "chromadb" in sys.modules or "kiwipiepy" in sys.modules,
+        "chromadb_loaded": "chromadb" in sys.modules, "kiwi_loaded": "kiwipiepy" in sys.modules,
         "breaker_trips": breaker.failures if breaker else None,
         "tops": tops,
     }, ensure_ascii=False))

@@ -30,7 +30,9 @@ REPO_ID = "blanden77/dograg-data"
 #   main     2026-10-10 split from the public repository (base ko-sroberta vectors)
 #   data-v2  2026-10-10 health collection rebuilt with blanden77/ko-sroberta-dograg-b
 #   data-v3  2026-10-10 + regional clinic fees (data/vet_fees/vet_fees.csv, scripts/collect_vet_fees.py)
-REVISION = "data-v3"
+#   data-v4  2026-10-13 + the exact in-memory store (data/vector_store, scripts/export_vector_store.py)
+#            that the search falls back to when Supabase fails (docs/adr/0007)
+REVISION = "data-v4"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"
@@ -41,6 +43,7 @@ PRIVATE_PATTERNS = (
     "data/bm25_health_tokens.json.gz",
     "data/chroma_db/*",
     "data/chroma_db/*/*",
+    "data/vector_store/*/*",
     "data/source/*.pdf",
     "data/finetune/queries.jsonl",
     # Collected from animalclinicfee.or.kr, which states no terms of use: kept private until it does.
