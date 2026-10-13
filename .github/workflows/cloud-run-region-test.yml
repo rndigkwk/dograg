@@ -1,0 +1,56 @@
+name: Cloud Run region test (temporary)
+
+# Deploys the image the Seoul service runs now to another region as a separate, temporary
+# service, to compare answer times from Korea (OpenAI and Langfuse are in the US). Runs only on
+# pushes to the ops/region-test branch; ops/region_test.json says the region and deploy|delete.
+on:
+  push:
+    branches: [ops/region-test]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ragdog-511311
+  SOURCE_REGION: asia-northeast3
+  SOURCE_SERVICE: ragdog
+  TEST_SERVICE: ragdog-region-test
+  DEPLOYER: github-deployer@ragdog-511311.iam.gserviceaccount.com
+  RUNTIME: ragdog-runtime@ragdog-511311.iam.gserviceaccount.com
+
+jobs:
+  region-test:
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - name: Deploy or delete
+        run: |
+          region="$(jq -r .region ops/region_test.json)"
+          action="$(jq -r .action ops/region_test.json)"
+          if [ "$action" = delete ]; then
+            gcloud run services delete "$TEST_SERVICE" --region="$region" --quiet
+            echo "### deleted $TEST_SERVICE in $region" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          image="$(gcloud run services describe "$SOURCE_SERVICE" --region="$SOURCE_REGION" --format='value(spec.template.spec.containers[0].image)')"
+          gcloud run deploy "$TEST_SERVICE" --image="$image" --region="$region" \
+            --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
+            --min-instances=0 --max-instances=1 --session-affinity --timeout=3600 \
+            --allow-unauthenticated \
+            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest" \
+            --set-env-vars="ENABLE_CRAG=true,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun-$region"
+          url="$(gcloud run services describe "$TEST_SERVICE" --region="$region" --format='value(status.url)')"
+          for attempt in $(seq 1 30); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' "$url/_stcore/health" || true)" = 200 ] && break
+            sleep 5
+          done
+          echo "### $TEST_SERVICE in $region: $url (image $image)" >> "$GITHUB_STEP_SUMMARY"
+          echo "URL=$url"
