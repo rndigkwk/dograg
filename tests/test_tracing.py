@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from src import tracing
 from src.chat_graph import run_chat
+from src.pii import mask_pii
 
 QUESTION = "우리 초코가 어제부터 설사를 해요 010-1234-5678"
 ANSWER = "수분을 충분히 주고 하루 이상 계속되면 병원에 가 보세요"
@@ -153,7 +154,7 @@ class TraceExportTests(unittest.TestCase):
         output = json.loads(root.attributes["langfuse.observation.output"])
         self.assertEqual(output["route"], "rag")
         self.assertEqual(output["trace"][0]["kept_ids"], ["12"])
-        self.assertEqual(output["question_chars"], len(QUESTION))
+        self.assertEqual(output["question_chars"], len(mask_pii(QUESTION)))  # the phone number is masked first
         self.assertEqual(root.attributes["session.id"], tracing.session_id("browser-session"))
         self.assertEqual(root.attributes["langfuse.trace.tags"], ("chat",))
 
