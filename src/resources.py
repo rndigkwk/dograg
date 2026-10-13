@@ -46,6 +46,9 @@ HEALTH_ONNX_FILE = "onnx/model_qint8.onnx"
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 REPORT_COLLECTION_NAME = "pet_reports_openai3small_1536_3233577ba398"
 CHAT_MODEL_NAME = "gpt-6-luna"
+# Supabase tables for SEARCH_BACKEND=supabase (scripts/export_supabase_store.py fills them).
+SUPABASE_HEALTH_TABLE = "ragdog_health"
+SUPABASE_REPORT_TABLE = "ragdog_report"
 
 
 def _source_stamp(source: Path) -> str:
@@ -80,16 +83,60 @@ def create_embedding_model():
     return OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME, api_key=api_key)
 
 
+def search_backend() -> str:
+    """Where the four search indexes live. "supabase" (SEARCH_BACKEND=supabase with SUPABASE_DB_URL
+    set) searches the Supabase tables (docs/adr/0007) and falls back to the local stores when the
+    database fails; anything else is "local": Chroma + Kiwi BM25 in this process."""
+    if (settings.get_setting("SEARCH_BACKEND") or "").strip().lower() == "supabase" and settings.get_setting("SUPABASE_DB_URL"):
+        return "supabase"
+    return "local"
+
+
+@st.cache_resource(show_spinner=False)
+def load_search_breaker():
+    """One per process, shared by the four Supabase searches, so an outage costs one timeout."""
+    from src.supabase_store import Breaker
+
+    return Breaker()
+
+
+def _supabase(primary_class, table: str, load_local, *args):
+    from src import supabase_store
+
+    primary = primary_class(supabase_store.connector(settings.get_setting("SUPABASE_DB_URL")), table, *args)
+    wrapper = supabase_store.FallbackVectorStore if primary_class is supabase_store.PgVectorStore else supabase_store.FallbackIndex
+    return wrapper(primary, load_local, load_search_breaker())
+
+
+def clear_vector_db_cache() -> None:
+    """For scripts that point CHROMA_DIR or the health model elsewhere and load again."""
+    for loader in (load_vector_db, load_local_vector_db, load_health_embeddings):
+        loader.clear()
+
+
+@st.cache_resource(show_spinner=False)
+def load_health_embeddings():
+    return OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN"))
+
+
 @st.cache_resource(show_spinner=False)
 def load_vector_db():
+    if search_backend() == "supabase":
+        from src.supabase_store import PgVectorStore
+
+        return _supabase(PgVectorStore, SUPABASE_HEALTH_TABLE, load_local_vector_db, load_health_embeddings())
+    return load_local_vector_db()
+
+
+@st.cache_resource(show_spinner=False)
+def load_local_vector_db():
     # Imported here: chromadb is heavy, and a store that does not use it should not load it
     # (ADR-0003, scripts/measure_memory.py --store).
     from langchain_chroma import Chroma
 
     return Chroma(
         collection_name=HEALTH_COLLECTION_NAME,
-        embedding_function=OnnxSentenceEmbeddings.from_hub(
-            HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN")),
+        embedding_function=load_health_embeddings(),
         persist_directory=str(chroma_dir()),
     )
 
@@ -106,10 +153,19 @@ def load_health_answer_table():
 # The chat page shows its own progress line, and the token cache makes the build quick.
 @st.cache_resource(show_spinner=False)
 def load_health_bm25_index():
+    if search_backend() == "supabase":
+        from src.supabase_store import PgroongaIndex
+
+        return _supabase(PgroongaIndex, SUPABASE_HEALTH_TABLE, load_local_health_bm25_index)
+    return load_local_health_bm25_index()
+
+
+@st.cache_resource(show_spinner=False)
+def load_local_health_bm25_index():
     from src.hybrid_retrieval import HealthBM25Index
 
     return HealthBM25Index.from_chroma(
-        load_vector_db(),
+        load_local_vector_db(),
         make_health_tokenizer(),
         token_cache=BM25_TOKEN_CACHE,
         tokenizer_version=HEALTH_TOKENIZER_VERSION,
@@ -136,18 +192,41 @@ def make_health_tokenizer():
 
 @st.cache_resource(show_spinner=False)
 def load_report_bm25_index():
+    if search_backend() == "supabase":
+        if create_embedding_model() is None:
+            return None
+        from src.supabase_store import PgroongaIndex
+
+        return _supabase(PgroongaIndex, SUPABASE_REPORT_TABLE, load_local_report_bm25_index)
+    return load_local_report_bm25_index()
+
+
+@st.cache_resource(show_spinner=False)
+def load_local_report_bm25_index():
     """BM25 over the report chunks (1,193). Uses the health index's tokenizer, so no second Kiwi
     (about 290MB) is loaded; tokenizing the chunks takes a few seconds once per process."""
     from src.hybrid_retrieval import HealthBM25Index
 
-    db = load_report_vector_db()
+    db = load_local_report_vector_db()
     if db is None:
         return None
-    return HealthBM25Index.from_chroma(db, load_health_bm25_index().tokenize)
+    return HealthBM25Index.from_chroma(db, load_local_health_bm25_index().tokenize)
 
 
 @st.cache_resource(show_spinner=False)
 def load_report_vector_db():
+    if search_backend() == "supabase":
+        embeddings = create_embedding_model()
+        if embeddings is None:
+            return None
+        from src.supabase_store import PgVectorStore
+
+        return _supabase(PgVectorStore, SUPABASE_REPORT_TABLE, load_local_report_vector_db, embeddings)
+    return load_local_report_vector_db()
+
+
+@st.cache_resource(show_spinner=False)
+def load_local_report_vector_db():
     embeddings = create_embedding_model()
     if embeddings is None:
         return None

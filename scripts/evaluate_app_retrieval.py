@@ -43,13 +43,13 @@ def run(setting: str, questions: dict[str, list[str]]) -> dict[str, list[list]]:
         model, onnx = resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE
         if setting == "before":
             resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE = BASE_MODEL, BASE_ONNX
-        resources.load_vector_db.clear()
+        resources.clear_vector_db_cache()
         health.initialize_rag.clear()
         try:
             return {name: [health.retrieve_health(q, k=3) for q in qs] for name, qs in questions.items()}
         finally:
             resources.HEALTH_EMBEDDING_MODEL_NAME, resources.HEALTH_ONNX_FILE = model, onnx
-            resources.load_vector_db.clear()
+            resources.clear_vector_db_cache()
             health.initialize_rag.clear()
             resources.CHROMA_DIR = resources.SOURCE_CHROMA_DIR
 

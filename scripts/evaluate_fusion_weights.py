@@ -156,7 +156,7 @@ def collect_candidates(copy_path: Path, output_path: Path) -> None:
     original_chroma_dir = resources.CHROMA_DIR
     records = []
     try:
-        resources.load_vector_db.clear()
+        resources.clear_vector_db_cache()
         resources.CHROMA_DIR = copy_path
         dense_db = resources.load_vector_db()
         stored = dense_db.get(include=["documents", "metadatas"])
@@ -194,7 +194,7 @@ def collect_candidates(copy_path: Path, output_path: Path) -> None:
                 print(f"retrieved={len(records)}/{len(validation)}", flush=True)
     finally:
         resources.CHROMA_DIR = original_chroma_dir
-        resources.load_vector_db.clear()
+        resources.clear_vector_db_cache()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
