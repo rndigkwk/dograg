@@ -191,7 +191,11 @@ class ChatTrace:
         if self._span is None:
             return
         try:
-            self._span.update(output=record, level="ERROR" if record.get("error") else None)
+            from src.memory_limits import process_memory_mb
+
+            memory = process_memory_mb()
+            output = {**record, "process": memory} if memory else record
+            self._span.update(output=output, level="ERROR" if record.get("error") else None)
         except Exception:
             logger.warning("Langfuse trace update failed", exc_info=True)
 

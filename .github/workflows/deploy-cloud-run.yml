@@ -63,13 +63,25 @@ jobs:
         # Streamlit keeps a websocket open per tab: the timeout is the longest a tab stays connected.
         # Settings mirror the Streamlit Cloud secrets (ENABLE_CRAG, Langfuse); HF_TOKEN is not needed
         # at run time because the data and the model are in the image.
+        # Search in Supabase (docs/adr/0007) when the repository secret SEARCH_BACKEND is "supabase":
+        # the database URL then comes from the Secret Manager secret SUPABASE_DB_URL (created once by
+        # scripts/gcp/setup_cloud_run.sh), like the other runtime secrets.
+        env:
+          SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
         run: |
+          secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest"
+          backend=local
+          if [ "$SEARCH_BACKEND" = supabase ]; then
+            backend=supabase
+            secrets="$secrets,SUPABASE_DB_URL=SUPABASE_DB_URL:latest"
+          fi
+          echo "### Search backend: $backend" >> "$GITHUB_STEP_SUMMARY"
           gcloud run deploy "$SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
             --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
             --min-instances=0 --max-instances=2 --session-affinity --timeout=3600 \
             --allow-unauthenticated \
-            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest" \
-            --set-env-vars="ENABLE_CRAG=true,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
+            --set-secrets="$secrets" \
+            --set-env-vars="ENABLE_CRAG=true,SEARCH_BACKEND=$backend,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
 
       - name: Check the deployed service
         run: |
