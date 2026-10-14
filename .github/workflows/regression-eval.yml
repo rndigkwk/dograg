@@ -1,7 +1,8 @@
 name: Weekly regression evaluation
 
 # Runs the CRAG answer/abstain set (60), the place routing set (36) and the visit-prep team set
-# (12 consultations, with node visit counts) as Langfuse experiments with real model calls, then
+# (12 consultations, with node visit counts) as Langfuse experiments with real model calls, scores
+# 100 health answers against the vets' answers (Answer Correctness), then
 # fails when a score crosses its limit (scripts/check_regression.py).
 # Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY,
 # LANGFUSE_BASE_URL and HF_TOKEN (read access to the private data, src/private_data.py).
@@ -70,8 +71,23 @@ jobs:
       - name: Visit-prep team set
         run: .venv/bin/python scripts/langfuse_experiments.py run visit --name "$RUN_NAME" --description "weekly regression (${{ github.event_name }})"
 
+      - name: Health answers against the vets' answers (100 consultations)
+        # Answer Correctness only, judged once (docs/wiki/safety-and-evidence.md): about 100 answers
+        # in 4 processes and 300 judge calls. ragas needs its own environment (an older LangChain).
+        env:
+          SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          for shard in 0 1 2 3; do
+            .venv/bin/python scripts/evaluate_answer_quality.py generate --run 0 --shard "$shard/4" > "answer_gen_$shard.log" 2>&1 &
+          done
+          wait
+          tail -n 2 answer_gen_*.log
+          uv run --no-project --python 3.12 --with "ragas==0.4.3" --with "langchain-community<0.4" --with python-dotenv \
+            python scripts/evaluate_answer_quality.py judge --repeats 1 --metrics answer_correctness --result-name "$RUN_NAME"
+
       - name: Compare with limits
-        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" visit "$RUN_NAME"
+        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
 
       - name: Keep the item-level results
         if: always()

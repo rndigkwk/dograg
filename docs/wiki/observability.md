@@ -178,7 +178,7 @@
 평가 실험을 사람이 손으로 돌리지 않고 GitHub Actions가 매주 돌린다(`.github/workflows/regression-eval.yml`).
 
 - **언제:** 매주 월요일 09:23(KST), 그리고 Actions 화면에서 수동 실행.
-- **무엇을:** CRAG 60문항, 시설 라우팅 36문항, 방문 준비 팀 상담 12개(2026-10-08 추가)를 Langfuse 실험으로 실행한다. 실행 이름은 `ci-<날짜>-<커밋>`이고 환경은 `ci`라서 Langfuse에서 개발·배포 트레이스와 섞이지 않는다.
+- **무엇을:** CRAG 60문항, 시설 라우팅 36문항, 방문 준비 팀 상담 12개(2026-10-08 추가)를 Langfuse 실험으로 실행한다. 건강 긴 상담 100문항의 답을 수의사 답과 대조한다(Answer Correctness, 2026-10-14 추가, [safety-and-evidence.md](safety-and-evidence.md)). 실행 이름은 `ci-<날짜>-<커밋>`이고 환경은 `ci`라서 Langfuse에서 개발·배포 트레이스와 섞이지 않는다.
 - **판정:** `scripts/check_regression.py`가 실행 점수를 기준과 비교한다. 하나라도 넘으면 작업이 실패하고 GitHub가 알림을 보낸다. 결과 표는 작업 요약(Job summary)에, 문항별 결과는 아티팩트로 남는다.
 
 | 구분 | 지표 | 기준 | 병합된 결과 |
@@ -187,6 +187,7 @@
 | over_abstain | ≤ 0.10 | 0.026 |
 | missed_abstain | ≤ 0.35 | 0.18~0.23 |
 | 경보 | latency_p90_s | ≤ 25초 | 12.3~12.6초 |
+| 품질 | 건강 답변 정확도 `answer_correctness` (수의사 답과 대조, 100문항, 2026-10-14 추가) | ≥ 0.25 | 0.27~0.29 |
 | 품질 | route_accuracy / kind_accuracy | ≥ 0.94 / 1.0 | 1.0 / 1.0 |
 | 품질 | 방문 팀: 반려견 통과율 / 대상 처리 / 응급 판정 / 병원 목록 | ≥ 0.8 / 0.83 / 1.0 / 0.88 | 1.0 / 1.0 / 1.0 / 1.0 |
 | 경보 | 방문 팀: 반복 의심 비율 (`repeat_suspect_rate`) | ≤ 0.34 | 0.167 |
@@ -209,6 +210,21 @@
 - **비용:** 한 번에 챗봇 답변 약 60회 + 라우팅 판정 36회 + 방문 팀 실행 12회(모델 호출 약 200회, 약 10분).
 - **필요한 저장소 시크릿:** `OPENAI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`. 없으면 첫 단계에서 실패하며 무엇이 빠졌는지 알려 준다.
 
+
+## PR 품질 검사: 답변 경로를 바꿀 때만 (2026-10-14)
+
+주간 회귀는 병합된 **뒤**에 돈다. 병합하면 Cloud Run이 바로 배포되므로, 답변을 바꿀 수 있는 수정은 병합 **전**에 확인한다(`.github/workflows/pr-quality.yml`). 모델 호출 비용과 시간이 들어 모든 PR에 돌리지는 않는다(사용자 결정).
+
+- **언제 도나:** 다음 파일을 바꾼 PR, 또는 `quality-check` 라벨을 붙인 PR
+  - `src/tools/router.py`, `src/tools/places.py`: 경로 판단
+  - `src/tools/health.py`, `src/tools/report.py`, `src/tools/general.py`: 답변 프롬프트·검색·일반 대화
+  - `src/crag.py`, `src/chat_graph.py`, `src/chatbot.py`: 거절 판단과 전체 흐름
+  - `src/resources.py`, `src/supabase_store.py`, `src/hybrid_retrieval.py`: 검색 저장소와 모델
+  - `src/pii.py`: 입력 가림
+- **무엇을:** CRAG 60문항과 시설 라우팅 36문항(모델 호출 약 100회, 10~15분). 주간 회귀와 같은 기준(`scripts/check_regression.py`)과 비교한다.
+- **나머지 PR:** 작업이 "건너뜀"으로 끝난다. 이 검사를 브랜치 보호의 필수 검사로 지정해도, 건너뛴 작업은 통과로 셈해 병합을 막지 않는다.
+- **병합을 실제로 막으려면:** 저장소 Settings → Branches(또는 Rules)에서 main의 필수 상태 검사에 `quality`를 넣는다. 저장소 설정이라 사람이 한다.
+- 기준이 흔들림 때문에 거짓 경보를 내지 않는지는 CRAG를 3번 돌려 확인했다(정확도 0.883~0.917, 기준 0.85, [safety-and-evidence.md](safety-and-evidence.md)).
 
 ## 👎 이유와 동의한 대화 모으기 (2026-10-14)
 
