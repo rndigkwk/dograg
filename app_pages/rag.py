@@ -8,7 +8,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlException
 
-from src import resources
+from src import feedback_store, resources
 from src.chat_graph import HEALTH_ABSTAIN, HEALTH_PART_HEADING
 from src.chatbot import chatbot
 from src.conversation_session import ConversationSession
@@ -27,7 +27,7 @@ from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import history_with_summary, summary_due
 from src.tools.places import emergency_hospitals
 from src.tools.profile import detect_profile, profile_summary
-from src.tracing import record_feedback
+from src.tracing import record_feedback, record_feedback_reason
 from src.ui import apply_app_theme, plain_tildes, render_page_header
 
 SELECTED_PLACE_ID_STATE_KEY = "selected_place_id"
@@ -144,11 +144,38 @@ def send_feedback(trace_id: str) -> None:
         record_feedback(trace_id, helpful=value == 1)
 
 
-def render_feedback(message: dict) -> None:
-    """👍/👎 under answers of this session that have a Langfuse trace (tracing on)."""
+def send_feedback_reason(trace_id: str) -> None:
+    reason = st.session_state.get(f"feedback_reason_{trace_id}")
+    if reason:
+        record_feedback_reason(trace_id, reason)
+
+
+def render_feedback(message: dict, question: str | None = None) -> None:
+    """👍/👎 under answers of this session that have a Langfuse trace (tracing on). After a 👎: why
+    (a Langfuse score) and, with consent, this question and answer for review (src/feedback_store.py)."""
     trace_id = message.get("trace_id")
-    if trace_id:
-        st.feedback("thumbs", key=f"feedback_{trace_id}", on_change=send_feedback, args=(trace_id,))
+    if not trace_id:
+        return
+    st.feedback("thumbs", key=f"feedback_{trace_id}", on_change=send_feedback, args=(trace_id,))
+    if st.session_state.get(f"feedback_{trace_id}") != 0:
+        return
+    st.radio("어떤 점이 아쉬웠나요?", feedback_store.REASONS, index=None, horizontal=True,
+             key=f"feedback_reason_{trace_id}", on_change=send_feedback_reason, args=(trace_id,))
+    if not (question and feedback_store.enabled()):
+        return
+    sent_key = f"feedback_sent_{trace_id}"
+    if st.session_state.get(sent_key):
+        st.caption("보내 주셔서 고맙습니다. 답변을 고치는 데 쓰겠습니다.")
+        return
+    consent = st.checkbox("이 질문과 답변을 개선에 쓰도록 보내기 (전화번호·주소 같은 개인정보는 가린 뒤 저장합니다)",
+                          key=f"feedback_consent_{trace_id}")
+    if consent and st.button("보내기", key=f"feedback_send_{trace_id}"):
+        st.session_state[sent_key] = feedback_store.save_review(
+            question=question, answer=message.get("content", ""), route=message.get("route"),
+            reason=st.session_state.get(f"feedback_reason_{trace_id}"), trace_id=trace_id,
+            evidence=[feedback_store.evidence_summary(row) for row in message.get("evidence_rows", []) if isinstance(row, dict)])
+        st.caption("보내 주셔서 고맙습니다. 답변을 고치는 데 쓰겠습니다." if st.session_state[sent_key]
+                   else "지금은 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.")
 
 
 EXCERPT_PREVIEW_CHARS = 150  # about 2-3 lines in the chat column
@@ -201,7 +228,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True, key: st
     if show_notice and message.get("emergency") is not None:
         render_emergency(message["emergency"])
     st.write(plain_tildes(message["content"]))
-    render_feedback(message)
+    render_feedback(message, question)
     # Not under an abstention: there was no evidence, so a report would spend 10-20 model calls
     # on the same empty search. Stored turns keep no "abstained" flag, so the text is checked too.
     abstained = message.get("abstained") or str(message.get("content", "")).startswith(HEALTH_ABSTAIN)
