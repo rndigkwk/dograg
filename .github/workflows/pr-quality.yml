@@ -89,10 +89,10 @@ jobs:
         run: echo "RUN_NAME=pr-${{ github.event.pull_request.number }}-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - name: CRAG answer/abstain set
-        run: .venv/bin/python scripts/langfuse_experiments.py run crag --name "$RUN_NAME" --description "PR #${{ github.event.pull_request.number }} quality check"
+        run: .venv/bin/python scripts/langfuse_experiments.py run crag --name "$RUN_NAME" --description "pull request ${{ github.event.pull_request.number }} quality check"
 
       - name: Place routing set
-        run: .venv/bin/python scripts/langfuse_experiments.py run routing --name "$RUN_NAME" --description "PR #${{ github.event.pull_request.number }} quality check"
+        run: .venv/bin/python scripts/langfuse_experiments.py run routing --name "$RUN_NAME" --description "pull request ${{ github.event.pull_request.number }} quality check"
 
       - name: Compare with the weekly limits
         run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME"
