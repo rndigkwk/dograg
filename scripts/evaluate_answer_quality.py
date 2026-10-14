@@ -24,6 +24,11 @@ gpt-6-luna with a Korean output rule; embeddings text-embedding-3-large):
 Abstentions are reported apart (a correct "the material does not cover this" scores low on all three).
 Noise: judge (same answers, repeats) and system (run 0 vs run 1, first judging).
 Results: output/experiments/answer_quality_{gen_run<r>_<shard>,scores,summary}.json.
+
+The weekly regression (.github/workflows/regression-eval.yml) runs one answer run and judges only
+Answer Correctness once (`judge --repeats 1 --metrics answer_correctness --result-name <run>`): it was
+the stable and sensitive one (docs/wiki/safety-and-evidence.md). --result-name also writes
+output/experiments/answer_<run>.json in the shape scripts/check_regression.py reads.
 """
 
 from __future__ import annotations
@@ -94,7 +99,7 @@ def generate(run: int, shard: int, shards: int) -> int:
     return 0
 
 
-def judge(repeats: int, concurrency: int) -> int:
+def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, result_name: str | None = None) -> int:
     from dotenv import load_dotenv
     from openai import AsyncOpenAI
     from ragas.embeddings.base import embedding_factory
@@ -107,9 +112,10 @@ def judge(repeats: int, concurrency: int) -> int:
     llm = llm_factory(os.getenv("OPENAI_EVAL_MODEL", "gpt-6-luna"), client=client, max_tokens=8192,
                       system_prompt="모든 출력 문장(질문·주장·이유)은 한국어로 작성하세요.")
     embeddings = embedding_factory("openai", model="text-embedding-3-large", client=client)
-    metrics = {"answer_correctness": AnswerCorrectness(llm=llm, embeddings=embeddings),
-               "context_recall": ContextRecall(llm=llm),
-               "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=embeddings)}
+    metrics = {"answer_correctness": lambda: AnswerCorrectness(llm=llm, embeddings=embeddings),
+               "context_recall": lambda: ContextRecall(llm=llm),
+               "answer_relevancy": lambda: AnswerRelevancy(llm=llm, embeddings=embeddings)}
+    metrics = {name: metrics[name]() for name in names}
     runs = {}
     for path in sorted(OUT_DIR.glob("answer_quality_gen_run*_*.json")):
         for row in json.loads(path.read_text(encoding="utf-8")):
@@ -141,24 +147,29 @@ def judge(repeats: int, concurrency: int) -> int:
         scores = []
         for run, repeat in jobs:
             rows = [row for row in runs[run].values() if row["answer"]]
-            tasks = [score(name, row) for row in rows for name in METRICS]
+            tasks = [score(name, row) for row in rows for name in names]
             started = time.perf_counter()
             values = await asyncio.gather(*tasks)
             for i, row in enumerate(rows):
                 scores.append({"id": row["id"], "run": run, "repeat": repeat, "abstained": row["abstained"],
-                               **{name: values[i * len(METRICS) + j] for j, name in enumerate(METRICS)}})
+                               **{name: values[i * len(names) + j] for j, name in enumerate(names)}})
             print(f"judged run {run} repeat {repeat}: {len(rows)} answers in {time.perf_counter() - started:.0f}s", flush=True)
         return scores
 
     scores = asyncio.run(main_async())
     (OUT_DIR / "answer_quality_scores.json").write_text(json.dumps(scores, ensure_ascii=False, indent=1), encoding="utf-8")
-    summary = summarize(scores, runs)
+    summary = summarize(scores, runs, names)
     print(json.dumps(summary, ensure_ascii=False, indent=1))
     (OUT_DIR / "answer_quality_summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
+    if result_name:
+        first = [s for s in scores if s["run"] == min(runs) and s["repeat"] == 0]
+        run_scores = {name: statistics.fmean(v) for name in names
+                      if (v := [s[name] for s in first if s[name] is not None])}
+        (OUT_DIR / f"answer_{result_name}.json").write_text(json.dumps({"run_scores": run_scores}, indent=1), encoding="utf-8")
     return 0
 
 
-def summarize(scores: list[dict], runs: dict) -> dict:
+def summarize(scores: list[dict], runs: dict, names: tuple[str, ...] = METRICS) -> dict:
     def mean(values):
         values = [v for v in values if v is not None]
         return round(statistics.fmean(values), 3) if values else None
@@ -171,7 +182,7 @@ def summarize(scores: list[dict], runs: dict) -> dict:
                                             "errors": sum(bool(r["error"]) for r in rows.values())}
                                  for run, rows in runs.items()}}
     repeats = sorted({s["repeat"] for s in scores if s["run"] == 0})
-    for name in METRICS:
+    for name in names:
         entry = {"run0_mean_by_repeat": [mean(pick(0, r, name).values()) for r in repeats]}
         # judge noise: the same answers judged again
         per_item = {}
@@ -204,11 +215,13 @@ def main() -> int:
     jud = sub.add_parser("judge")
     jud.add_argument("--repeats", type=int, default=3)
     jud.add_argument("--concurrency", type=int, default=16)
+    jud.add_argument("--metrics", nargs="+", choices=METRICS, default=list(METRICS))
+    jud.add_argument("--result-name", help="also write output/experiments/answer_<name>.json for check_regression.py")
     args = parser.parse_args()
     if args.command == "generate":
         shard, shards = (int(x) for x in args.shard.split("/"))
         return generate(args.run, shard, shards)
-    return judge(args.repeats, args.concurrency)
+    return judge(args.repeats, args.concurrency, tuple(args.metrics), args.result_name)
 
 
 if __name__ == "__main__":
