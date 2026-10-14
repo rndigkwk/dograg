@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src import resources, settings
+from src import data_gaps, resources, settings
 from src.chat_graph import build_chat_graph, run_chat
 from src.tools.health import DEFAULT_RAG_TOP_K
 from src.tools.toolset import TOOLS
@@ -37,7 +37,7 @@ def chatbot(
     if self_rag is None:
         self_rag = settings.setting_enabled("CHAT_SELF_RAG")
     model_ready = resources.load_chat_model() is not None
-    return run_chat(
+    result = run_chat(
         TOOLS,
         question,
         top_k=top_k,
@@ -52,3 +52,5 @@ def chatbot(
         on_step=on_step,
         session_id=session_id,
     )
+    data_gaps.record(result)  # what the material did not cover (deployments only, src/data_gaps.py)
+    return result
