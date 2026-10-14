@@ -70,6 +70,16 @@ class CheckRegressionTests(unittest.TestCase):
             self.assertEqual(check_regression.main(["visit", "lost"]), 1)
             self.assertEqual(check_regression.main(["visit", "old"]), 1)  # a run without the scores is not a pass
 
+    def test_health_answer_correctness_has_a_floor(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        results = Path(directory.name)
+        (results / "answer_ok.json").write_text(json.dumps({"run_scores": {"answer_correctness": 0.28}}), encoding="utf-8")
+        (results / "answer_bad.json").write_text(json.dumps({"run_scores": {"answer_correctness": 0.20}}), encoding="utf-8")
+        with patch.object(check_regression, "RESULTS_DIR", results), patch.dict("os.environ", {"GITHUB_STEP_SUMMARY": ""}):
+            self.assertEqual(check_regression.main(["answer", "ok"]), 0)
+            self.assertEqual(check_regression.main(["answer", "bad"]), 1)
+
     def test_each_set_keeps_at_most_five_quality_scores(self):
         for set_name, limits in check_regression.LIMITS.items():
             quality = [name for name, *_ in limits if name not in check_regression.ALARMS]
