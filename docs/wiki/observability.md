@@ -210,3 +210,18 @@
 - **비용:** 한 번에 챗봇 답변 약 60회 + 라우팅 판정 36회 + 방문 팀 실행 12회(모델 호출 약 200회, 약 10분).
 - **필요한 저장소 시크릿:** `OPENAI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`. 없으면 첫 단계에서 실패하며 무엇이 빠졌는지 알려 준다.
 
+
+## PR 품질 검사: 답변 경로를 바꿀 때만 (2026-10-14)
+
+주간 회귀는 병합된 **뒤**에 돈다. 병합하면 Cloud Run이 바로 배포되므로, 답변을 바꿀 수 있는 수정은 병합 **전**에 확인한다(`.github/workflows/pr-quality.yml`). 모델 호출 비용과 시간이 들어 모든 PR에 돌리지는 않는다(사용자 결정).
+
+- **언제 도나:** 다음 파일을 바꾼 PR, 또는 `quality-check` 라벨을 붙인 PR
+  - `src/tools/router.py`, `src/tools/places.py`: 경로 판단
+  - `src/tools/health.py`, `src/tools/report.py`, `src/tools/general.py`: 답변 프롬프트·검색·일반 대화
+  - `src/crag.py`, `src/chat_graph.py`, `src/chatbot.py`: 거절 판단과 전체 흐름
+  - `src/resources.py`, `src/supabase_store.py`, `src/hybrid_retrieval.py`: 검색 저장소와 모델
+  - `src/pii.py`: 입력 가림
+- **무엇을:** CRAG 60문항과 시설 라우팅 36문항(모델 호출 약 100회, 10~15분). 주간 회귀와 같은 기준(`scripts/check_regression.py`)과 비교한다.
+- **나머지 PR:** 작업이 "건너뜀"으로 끝난다. 이 검사를 브랜치 보호의 필수 검사로 지정해도, 건너뛴 작업은 통과로 셈해 병합을 막지 않는다.
+- **병합을 실제로 막으려면:** 저장소 Settings → Branches(또는 Rules)에서 main의 필수 상태 검사에 `quality`를 넣는다. 저장소 설정이라 사람이 한다.
+- 기준이 흔들림 때문에 거짓 경보를 내지 않는지는 CRAG를 3번 돌려 확인했다(정확도 0.883~0.917, 기준 0.85, [safety-and-evidence.md](safety-and-evidence.md)).
