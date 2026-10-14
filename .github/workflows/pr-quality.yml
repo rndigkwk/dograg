@@ -39,7 +39,7 @@ jobs:
           LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'quality-check') }}
           # Routing (router, places), prompts, abstaining, the graph and its entry, search stores and models, input masking, small talk.
           ANSWER_PATH: >-
-            ^src/(tools/(router|health|report|general)\.py|crag\.py|chat_graph\.py|resources\.py|supabase_store\.py|hybrid_retrieval\.py|pii\.py)$
+            ^src/(tools/(router|places|health|report|general)\.py|crag\.py|chat_graph\.py|chatbot\.py|resources\.py|supabase_store\.py|hybrid_retrieval\.py|pii\.py)$
         run: |
           changed="$(git diff --name-only "$BASE" "$HEAD")"
           hits="$(printf '%s\n' "$changed" | grep -E "$ANSWER_PATH" || true)"
