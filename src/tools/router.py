@@ -131,8 +131,22 @@ def current_date_answer() -> str:
     return f"오늘은 {today.year}년 {today.month}월 {today.day}일입니다."
 
 
+# A guardian's consultation post, not a short request. Every short routed question we evaluate is
+# 41 characters or less; 95% of the 561 validation consultations are 92 or more (median 274). In a
+# long post a single keyword is weak evidence: "날씨가 더워지면서", "양육", "동물병원에서 진단을
+# 받았는데" are part of a health story. 9 of 100 long consultations went to facility search, small
+# talk or reports that way (scripts/evaluate_long_post_routing.py, 2026-10-14).
+LONG_POST_CHARS = 80
+
+
+def is_long_post(question: str) -> bool:
+    return len(question.strip()) > LONG_POST_CHARS
+
+
 def is_out_of_scope_question(question: str) -> bool:
     normalized = "".join(question.lower().split())
+    if is_long_post(question) or describes_symptom(question):
+        return False
     return any(keyword in normalized for keyword in OUT_OF_SCOPE_KEYWORDS)
 
 
@@ -206,9 +220,12 @@ def classify_question(question: str, chat_history=None) -> str:
     # 예: "닭 뼈를 삼켰는데 가까운 동물병원에 갈 수 없어요"(건강 + 병원 찾기 표현)
     if has_health_topic and not has_hospital_lookup:
         return "rag"
-    if mentions_hospital and not has_health_topic and not has_report_topic:
+    long_post = is_long_post(question)
+    # A long post that names a hospital is a health story ("동물병원에서 진단을 받았는데 어떻게
+    # 해야 하는지 알려주세요"); even a request verb is common there, so the model router decides.
+    if mentions_hospital and not has_health_topic and not has_report_topic and not long_post:
         return "sql"
-    if has_report_topic and not mentions_hospital and not has_health_topic:
+    if has_report_topic and not mentions_hospital and not has_health_topic and not long_post:
         return "analysis"
 
     model = resources.load_chat_model()
