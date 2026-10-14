@@ -5,6 +5,11 @@
 Prints a Markdown table (appended to $GITHUB_STEP_SUMMARY when set) and exits 1 when any
 score crosses its limit. Limits sit a little below the merged results (docs/wiki/observability.md)
 so model-call noise does not fail the job, but a real drop does.
+
+Scores are of two kinds (the "구분" column). Quality scores are what a change is judged by; each set
+keeps them to a few strong ones (at most 5, as DeepEval and Ragas advise). Alarms are operational
+checks (latency, loops, researchers without an answer): they also fail the job, because they catch
+breakage, but they are not quality measures.
 """
 
 from __future__ import annotations
@@ -18,6 +23,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_DIR / "output" / "experiments"
 
 # (score, "min" or "max", limit, merged result for reference)
+# Operational alarms; every other score is a quality score.
+ALARMS = {"latency_p90_s", "repeat_suspect_rate", "reask_rate", "no_answer_rate"}
 LIMITS = {
     "crag": [
         ("accuracy", "min", 0.85, 0.900),
@@ -64,7 +71,8 @@ def check(set_name: str, run_name: str) -> tuple[list[str], bool]:
         ok &= passed
         sign = "≥" if direction == "min" else "≤"
         shown = "없음" if value is None else f"{value:.3f}"
-        rows.append(f"| {set_name} | {name} | {shown} | {sign} {limit} | {reference} | {'✅' if passed else '❌'} |")
+        kind = "경보" if name in ALARMS else "품질"
+        rows.append(f"| {set_name} | {kind} | {name} | {shown} | {sign} {limit} | {reference} | {'✅' if passed else '❌'} |")
     return rows, ok
 
 
@@ -72,7 +80,7 @@ def main(argv: list[str]) -> int:
     if not argv or len(argv) % 2:
         print(__doc__)
         return 2
-    lines = ["| 평가 세트 | 지표 | 이번 실행 | 기준 | 병합 시 결과 | 판정 |", "| --- | --- | ---: | --- | ---: | :---: |"]
+    lines = ["| 평가 세트 | 구분 | 지표 | 이번 실행 | 기준 | 병합 시 결과 | 판정 |", "| --- | --- | --- | ---: | --- | ---: | :---: |"]
     all_ok = True
     for set_name, run_name in zip(argv[::2], argv[1::2]):
         rows, ok = check(set_name, run_name)
