@@ -206,6 +206,16 @@ def create_tables(conn, table: str, dimension: int, vector_type: str = "halfvec"
     conn.execute("create extension if not exists pgroonga")
     conn.execute(f"drop table if exists {table}")
     conn.execute(f"create table {table} (id text primary key, body text, metadata jsonb, embedding {vector_type}({dimension}))")
+    lock_from_data_api(conn, table)
+
+
+def lock_from_data_api(conn, table: str) -> None:
+    """Keep a table out of Supabase's public REST API. Tables in the public schema are granted to
+    the anon and authenticated roles by default, and without row level security anyone with the
+    project URL and its publishable key could read or delete them (AI Hub text must not be shared).
+    The app connects as the table owner, which row level security does not restrict."""
+    conn.execute(f"alter table {table} enable row level security")
+    conn.execute(f"revoke all on {table} from anon, authenticated")
 
 
 def load_rows(conn, table: str, ids, texts, metadatas, vectors, vector_type: str = "halfvec") -> None:
