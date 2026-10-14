@@ -1,6 +1,6 @@
 """Compare saved experiment results (output/experiments/<set>_<run>.json) with fixed limits.
 
-    uv run python scripts/check_regression.py crag ci-2026-10-12 routing ci-2026-10-12 visit ci-2026-10-12
+    uv run python scripts/check_regression.py crag ci-2026-10-12 routing ci-2026-10-12 visit ci-2026-10-12 answer ci-2026-10-12
 
 Prints a Markdown table (appended to $GITHUB_STEP_SUMMARY when set) and exits 1 when any
 score crosses its limit. Limits sit a little below the merged results (docs/wiki/observability.md)
@@ -31,6 +31,12 @@ LIMITS = {
         ("over_abstain", "max", 0.10, 0.026),
         ("missed_abstain", "max", 0.35, 0.227),
         ("latency_p90_s", "max", 25.0, 12.6),
+    ],
+    # Health answers against the vet's own answer (scripts/evaluate_answer_quality.py): measured
+    # 0.273-0.285 over three judgings and two runs, judge noise 0.012; a broken route or prompt
+    # halves it (0.14 on misrouted consultations).
+    "answer": [
+        ("answer_correctness", "min", 0.25, 0.28),
     ],
     "routing": [
         ("route_accuracy", "min", 0.94, 1.0),
