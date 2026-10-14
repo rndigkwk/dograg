@@ -1,0 +1,106 @@
+name: PR quality check
+
+# The answer-path quality check before merging, only for changes that can move answers: the
+# CRAG answer/abstain set (60) and the place routing set (36) with real model calls, compared
+# with the weekly regression limits (scripts/check_regression.py). About 100 model calls and
+# 10-15 minutes, so it runs only when
+# - the pull request changes a file on the answer path (ANSWER_PATH below), or
+# - someone adds the label quality-check (for any other change worth checking).
+# Other pull requests get a skipped job, which a required status check counts as passed.
+# The weekly run (regression-eval.yml) still checks everything after merging.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Answer-path change or quality-check label?
+        id: decide
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'quality-check') }}
+          # Routing (router, places), prompts, abstaining, the graph and its entry, search stores and models, input masking, small talk.
+          ANSWER_PATH: >-
+            ^src/(tools/(router|health|report|general)\.py|crag\.py|chat_graph\.py|resources\.py|supabase_store\.py|hybrid_retrieval\.py|pii\.py)$
+        run: |
+          changed="$(git diff --name-only "$BASE" "$HEAD")"
+          hits="$(printf '%s\n' "$changed" | grep -E "$ANSWER_PATH" || true)"
+          if [ -n "$hits" ] || [ "$LABELLED" = true ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "### Quality check runs: ${hits:-label quality-check}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "### Quality check skipped: no answer-path file changed, no quality-check label" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  quality:
+    needs: decide
+    if: needs.decide.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      LANGFUSE_TRACING_ENVIRONMENT: ci
+      HF_HUB_OFFLINE: "0"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --locked --no-install-project
+
+      - name: Download the private data
+        run: .venv/bin/python -m src.private_data
+
+      - name: Name this run
+        run: echo "RUN_NAME=pr-${{ github.event.pull_request.number }}-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: CRAG answer/abstain set
+        run: .venv/bin/python scripts/langfuse_experiments.py run crag --name "$RUN_NAME" --description "PR #${{ github.event.pull_request.number }} quality check"
+
+      - name: Place routing set
+        run: .venv/bin/python scripts/langfuse_experiments.py run routing --name "$RUN_NAME" --description "PR #${{ github.event.pull_request.number }} quality check"
+
+      - name: Compare with the weekly limits
+        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME"
+
+      - name: Keep the item-level results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: pr-quality-${{ env.RUN_NAME }}
+          path: output/experiments/
+          if-no-files-found: ignore
