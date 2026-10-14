@@ -29,14 +29,14 @@ class CheckRegressionTests(unittest.TestCase):
     def test_scores_within_limits_pass_and_write_the_job_summary(self):
         code, summary = self.run_check({"accuracy": 0.917, "over_abstain": 0.026, "missed_abstain": 0.18, "latency_p90_s": 12.3})
         self.assertEqual(code, 0)
-        self.assertIn("| crag | accuracy | 0.917 |", summary)
+        self.assertIn("| crag | 품질 | accuracy | 0.917 |", summary)
         self.assertNotIn("❌", summary)
 
     def test_a_drop_or_a_missing_score_fails(self):
         code, summary = self.run_check({"accuracy": 0.80, "over_abstain": 0.026, "missed_abstain": 0.18})
         self.assertEqual(code, 1)
-        self.assertIn("| crag | accuracy | 0.800 |", summary)
-        self.assertIn("| crag | latency_p90_s | 없음 |", summary)
+        self.assertIn("| crag | 품질 | accuracy | 0.800 |", summary)
+        self.assertIn("| crag | 경보 | latency_p90_s | 없음 |", summary)
 
 
     def test_the_visit_team_set_fails_when_workers_repeat(self):
@@ -69,6 +69,11 @@ class CheckRegressionTests(unittest.TestCase):
             self.assertEqual(check_regression.main(["visit", "reasks"]), 1)
             self.assertEqual(check_regression.main(["visit", "lost"]), 1)
             self.assertEqual(check_regression.main(["visit", "old"]), 1)  # a run without the scores is not a pass
+
+    def test_each_set_keeps_at_most_five_quality_scores(self):
+        for set_name, limits in check_regression.LIMITS.items():
+            quality = [name for name, *_ in limits if name not in check_regression.ALARMS]
+            self.assertLessEqual(len(quality), 5, set_name)
 
 
 if __name__ == "__main__":
