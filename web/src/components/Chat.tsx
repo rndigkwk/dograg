@@ -1,22 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
-import { type Answer, applyEvent, type Emergency, finish, type Hospital, historyOf, type Message, type Pending, plainTildes, startPending } from "@/lib/chat";
+import { type Answer, applyEvent, type Emergency, finish, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
+
+import Evidence from "./Evidence";
+import Feedback from "./Feedback";
+import Markdown from "./Markdown";
 
 const FAILED = "답변을 받지 못했습니다. 잠시 뒤 다시 질문해 주세요.";
 const PLACEHOLDER = "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요.";
-
-function Markdown({ text }: { text: string }) {
-  return (
-    <div className="markdown">
-      <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>{plainTildes(text)}</ReactMarkdown>
-    </div>
-  );
-}
 
 function HospitalLine({ row }: { row: Hospital }) {
   const digits = row.phone?.replace(/\D/g, "");
@@ -52,7 +46,7 @@ function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency
   );
 }
 
-function AnswerView({ answer }: { answer: Answer }) {
+function AnswerView({ answer, question }: { answer: Answer; question?: string }) {
   return (
     <>
       {answer.urgent ? <UrgentBox {...answer.urgent} /> : null}
@@ -67,6 +61,12 @@ function AnswerView({ answer }: { answer: Answer }) {
       {answer.abstained && answer.route === "rag" ? (
         <p className="mt-2 text-sm text-muted">증상이 걱정되면 지역 이름으로 가까운 동물병원을 물어보세요. 예: “강남구 동물병원 알려줘”</p>
       ) : null}
+      {answer.notice ? null : (
+        <>
+          <Feedback answer={answer} question={question} />
+          <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
+        </>
+      )}
     </>
   );
 }
@@ -94,6 +94,12 @@ function Bubble({ role, children }: { role: "user" | "assistant"; children: Reac
       <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${mine ? "bg-accent text-white" : "border border-line bg-white"}`}>{children}</div>
     </div>
   );
+}
+
+/** The question an answer replied to (for the review a guardian may send). */
+function askedBefore(messages: Message[], index: number): string | undefined {
+  const previous = messages[index - 1];
+  return previous?.role === "user" ? previous.content : undefined;
 }
 
 export default function Chat() {
@@ -151,7 +157,11 @@ export default function Chat() {
         ) : null}
         {messages.map((message, index) => (
           <Bubble key={index} role={message.role}>
-            {message.role === "user" ? <p className="whitespace-pre-wrap">{message.content}</p> : <AnswerView answer={message} />}
+            {message.role === "user" ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <AnswerView answer={message} question={askedBefore(messages, index)} />
+            )}
           </Bubble>
         ))}
         {pending ? (

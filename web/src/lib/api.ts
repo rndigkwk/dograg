@@ -40,6 +40,52 @@ export type ChatRequest = {
   memory: Memory;
 };
 
+// The reasons under a 👎 (src/feedback_store.REASONS; the API refuses any other).
+export const FEEDBACK_REASONS = ["틀린 정보", "질문과 다른 답", "근거가 부족해요", "너무 길어요", "기타"] as const;
+
+async function post(path: string, body: unknown): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 👍/👎 on an answer (a Langfuse score; a changed vote overwrites it). */
+export function sendVote(traceId: string, helpful: boolean): Promise<boolean> {
+  return post("/feedback", { trace_id: traceId, helpful });
+}
+
+export function sendReason(traceId: string, reason: string): Promise<boolean> {
+  return post("/feedback/reason", { trace_id: traceId, reason });
+}
+
+/** The guardian agreed to send this question and answer for review (stored masked, api/feedback.py). */
+export async function sendReview(review: {
+  traceId: string;
+  question: string;
+  answer: string;
+  route?: string;
+  reason?: string | null;
+  evidenceRows?: Record<string, unknown>[];
+}): Promise<boolean> {
+  const response = await fetch(`${API_URL}/feedback/review`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      trace_id: review.traceId,
+      question: review.question,
+      answer: review.answer,
+      route: review.route ?? null,
+      reason: review.reason ?? null,
+      evidence_rows: (review.evidenceRows ?? []).slice(0, 12),
+    }),
+  }).catch(() => null);
+  if (!response?.ok) return false;
+  return Boolean((await response.json()).saved);
+}
+
 /** POST /chat: each event of the answer as it arrives. Throws on a refused request. */
 export async function* askChat(body: ChatRequest, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
   const response = await fetch(`${API_URL}/chat`, { method: "POST", headers: headers(), body: JSON.stringify(body), signal });
