@@ -198,6 +198,9 @@
 - **품질과 경보 (2026-10-14):** 지표를 둘로 나눴다. **품질**은 변경을 판단하는 지표이고, 세트마다 강한 신호 몇 개(5개 이하)만 둔다. **경보**는 지연·반복·무응답 같은 운영 점검이다. 둘 다 넘으면 작업이 실패한다. 경보도 실제 고장을 잡기 때문이다. 결과 표의 "구분" 열에 나온다.
   - 근거: DeepEval은 결정에 쓰는 지표를 5개 이하로 권한다([Metrics introduction](https://deepeval.com/docs/metrics-introduction)). Ragas는 약한 신호의 지표 여러 개보다 강한 신호 몇 개를 고르라고 한다([Metrics overview](https://docs.ragas.io/en/stable/concepts/metrics/overview/)).
   - 나누기 전에는 방문 팀 세트 하나에 기준이 8개였다. 품질만 세면 CRAG 3개, 라우팅 2개, 방문 팀 4개다. 세트마다 품질이 5개를 넘지 않는지 테스트가 확인한다(`tests/test_check_regression.py`).
+- **판사 모델 기록 (2026-10-15):** LLM이 채점하는 결과에는 판사 모델 이름이 남는다. 답변 정확도는 `answer_<실행>.json`과 요약의 `judge_model`, 검색 관련성 세트는 `health_relevance_100.json`의 `judge.model`(gpt-6-luna)에 남는다.
+  - 판사가 바뀌면 점수의 눈금도 바뀐다. 그래서 답변 정확도 기준(0.25)을 잰 판사(`check_regression.JUDGES`)와 다른 판사로 채점한 실행은 실패로 표시한다. 기준을 그 판사로 다시 잰 뒤에 바꾼다(Day 60 "판사를 바꾸면 성적표부터 다시").
+  - 관련성 판사는 이제 앱 모델(`CHAT_MODEL_NAME`)을 따라가지 않는다. 앱 모델을 바꿔도 판사는 그대로라, 바뀐 것이 앱인지 판사인지 섞이지 않는다.
 - **답 없이 끝난 조사원 (2026-10-10 추가):**
   - API가 추론만 하고 답 없이 끝나는 응답(`status: incomplete`, `max_messages`)을 받으면, 조사원에게 한 번 더 묻는다.
   - 다시 물은 조사는 `result.json`의 `reasks`와 Langfuse 트레이스의 `reasks`에 남는다.
