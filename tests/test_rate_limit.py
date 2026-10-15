@@ -28,6 +28,8 @@ class FakeTable:
     def execute(self, sql, params=()):
         self.statements.append(sql)
         result = SimpleNamespace(fetchall=lambda: [])
+        if "to_regclass" in sql:
+            return SimpleNamespace(fetchone=lambda: (None,))  # a fresh project: the table is created
         if sql.startswith("delete"):
             self.rows = [row for row in self.rows if row[0] >= params[0]]
         elif sql.startswith("insert"):

@@ -209,6 +209,13 @@ def create_tables(conn, table: str, dimension: int, vector_type: str = "halfvec"
     lock_from_data_api(conn, table)
 
 
+def table_exists(conn, table: str) -> bool:
+    """Whether the table is there. The app connects as ragdog_app (2026-10-15), which may read and
+    write its tables but not create, alter or lock them: those run only where the table is missing,
+    that is with the admin connection (a fresh project, tests)."""
+    return conn.execute("select to_regclass(%s)", [f"public.{table}"]).fetchone()[0] is not None
+
+
 def lock_from_data_api(conn, table: str) -> None:
     """Keep a table out of Supabase's public REST API. Tables in the public schema are granted to
     the anon and authenticated roles by default, and without row level security anyone with the

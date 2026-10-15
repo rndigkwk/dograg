@@ -124,16 +124,17 @@ def check(person: str, network: str | None = None) -> Decision:
     if not settings.get_setting("SUPABASE_DB_URL"):
         return _check_memory(person_key, network_key, now)
     try:
-        from src.supabase_store import connector, lock_from_data_api
+        from src.supabase_store import connector, lock_from_data_api, table_exists
 
         with connector(settings.get_setting("SUPABASE_DB_URL"))() as conn:
             if not _ready:
-                conn.execute(f"""create table if not exists {TABLE} (
-                    id bigint generated always as identity primary key,
-                    at timestamptz not null default now(), person text not null, network text not null)""")
-                conn.execute(f"create index if not exists {TABLE}_person_at on {TABLE} (person, at)")
-                conn.execute(f"create index if not exists {TABLE}_network_at on {TABLE} (network, at)")
-                lock_from_data_api(conn, TABLE)
+                if not table_exists(conn, TABLE):
+                    conn.execute(f"""create table {TABLE} (
+                        id bigint generated always as identity primary key,
+                        at timestamptz not null default now(), person text not null, network text not null)""")
+                    conn.execute(f"create index {TABLE}_person_at on {TABLE} (person, at)")
+                    conn.execute(f"create index {TABLE}_network_at on {TABLE} (network, at)")
+                    lock_from_data_api(conn, TABLE)
                 _ready = True
             if random.randrange(CLEAN_EVERY) == 0:
                 conn.execute(f"delete from {TABLE} where at < %s", [now - timedelta(hours=KEEP_HOURS)])

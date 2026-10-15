@@ -31,7 +31,7 @@ RECORD_FLAG = "RAGDOG_EVAL_HISTORY"
 # Same statements as src/supabase_store.lock_from_data_api (that module needs langchain; these
 # scripts run with psycopg only). tests/test_eval_history.py keeps the two the same.
 LOCK = (f"alter table {TABLE} enable row level security", f"revoke all on {TABLE} from anon, authenticated")
-CREATE = f"""create table if not exists {TABLE} (
+CREATE = f"""create table {TABLE} (
     id bigint generated always as identity primary key,
     created_at timestamptz not null default now(),
     kind text not null, target text not null, run text, commit text,
@@ -48,9 +48,11 @@ def record(kind: str, target: str, ok: bool, metrics: dict, run: str | None = No
         import psycopg
 
         with psycopg.connect(url, autocommit=True, connect_timeout=10) as conn:
-            conn.execute(CREATE)
-            for statement in LOCK:
-                conn.execute(statement)
+            # The workflows connect as ragdog_app, which cannot create or lock tables: only when missing.
+            if conn.execute("select to_regclass(%s)", [f"public.{TABLE}"]).fetchone()[0] is None:
+                conn.execute(CREATE)
+                for statement in LOCK:
+                    conn.execute(statement)
             conn.execute(f"insert into {TABLE} (kind, target, run, commit, ok, metrics) values (%s, %s, %s, %s, %s, %s)",
                          [kind, target, run, commit or os.environ.get("GITHUB_SHA"), ok,
                           json.dumps(metrics, ensure_ascii=False, default=str)])
