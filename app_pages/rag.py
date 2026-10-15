@@ -11,7 +11,7 @@ from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlExcepti
 from src import feedback_store, resources
 from src.chat_graph import HEALTH_ABSTAIN, HEALTH_PART_HEADING
 from src.chatbot import chatbot
-from src.conversation_session import ConversationSession
+from src.conversation_session import LOADING, ConversationSession
 from src.conversation_ui import (
     CHAT_MESSAGES_STATE_KEY,
     HOSPITAL_ROWS_STATE_KEY,
@@ -308,8 +308,12 @@ def suggest_profile(session: ConversationSession, question: str, route: str) -> 
     An empty profile: offered whole, and not asked again this session once declined. A stored one:
     only new facts (a diagnosis, a medicine, a surgery, a new weight), each set offered once.
     Nothing is saved without a click."""
+    # Until the browser reports its stored profile the session holds an empty one: a suggestion
+    # then would offer a "new" profile, and saving it would replace the stored one (2026-10-15).
+    if route != "rag" or session.status == LOADING:
+        return
     current = session.profiles.get()
-    if route != "rag" or (current is None and st.session_state.get(PROFILE_DISMISSED_KEY)):
+    if current is None and st.session_state.get(PROFILE_DISMISSED_KEY):
         return
     try:
         suggestion = suggest_memory(current, question)
