@@ -201,6 +201,23 @@
 - **판사 모델 기록 (2026-10-15):** LLM이 채점하는 결과에는 판사 모델 이름이 남는다. 답변 정확도는 `answer_<실행>.json`과 요약의 `judge_model`, 검색 관련성 세트는 `health_relevance_100.json`의 `judge.model`(gpt-6-luna)에 남는다.
   - 판사가 바뀌면 점수의 눈금도 바뀐다. 그래서 답변 정확도 기준(0.25)을 잰 판사(`check_regression.JUDGES`)와 다른 판사로 채점한 실행은 실패로 표시한다. 기준을 그 판사로 다시 잰 뒤에 바꾼다(Day 60 "판사를 바꾸면 성적표부터 다시").
   - 관련성 판사는 이제 앱 모델(`CHAT_MODEL_NAME`)을 따라가지 않는다. 앱 모델을 바꿔도 판사는 그대로라, 바뀐 것이 앱인지 판사인지 섞이지 않는다.
+- **결과 이력 (2026-10-15):** 주간 회귀와 배포 확인 결과가 Supabase 표 `ragdog_eval_history`에 한 줄씩 쌓인다(`scripts/eval_history.py`). 공개 REST API는 닫혀 있다.
+  - 왜: 결과가 GitHub 작업 요약과 Langfuse에만 있었다. Langfuse 무료 플랜은 보관 기간이 짧고, CI의 `output/`은 작업이 끝나면 사라진다. 추세(정확도가 조금씩 내려가는지, 냉시동이 길어지는지)를 볼 곳이 없었다.
+  - **regression**(주간 회귀): 세트마다 점수와 판사 모델
+  - **deploy**(8시간마다, main 병합 뒤): 배포마다 첫 화면까지 걸린 초, 날짜·건강 답변 초, 배포된 커밋, 문제 목록
+  - **database**: 문서 수, DB 용량, 색인 사용
+  - **기록 조건:** 워크플로가 `RAGDOG_EVAL_HISTORY=1`을 줄 때만 기록한다. DB 주소만으로는 기록하지 않는다. `src/settings.py`가 `.env`의 주소를 환경에 올리기 때문에, 처음 만들 때 단위 테스트의 가짜 점수 14줄이 표에 들어갔다(지움). 로컬 실행, 테스트, PR 품질 검사는 기록하지 않는다. 기록 실패는 검사를 실패시키지 않는다.
+  - **보기:** `uv run --with "psycopg[binary]" python scripts/eval_history.py --days 60 [--kind deploy]`
+  - 2026-10-07부터의 과거 실행(keep-alive, 주간 회귀 2회)은 GitHub 로그에서 옮겨 넣었다(`run`이 `backfill:<실행 번호>`, `metrics.backfilled`).
+  - 옮겨 넣은 뒤 처음 본 추세(2026-10-15까지):
+
+    | 배포 | 확인 횟수 | 첫 화면까지 중앙값 / 최대 | 건강 답변 중앙값 / p90 | 실패 |
+    | --- | ---: | --- | --- | --- |
+    | Cloud Run (10-11부터) | 42 | 15초 / 27초 | 11.2초 / 15.1초 | 0 |
+    | Streamlit Cloud (10-07부터) | 71 | 6초 / 18초 | 12.1초 / 13.4초 | 3 |
+
+    - Streamlit 실패 3회는 모두 재부팅이 필요한 경우였다: 10-13 배포 커밋 불일치 2회, 10-15 ImportError 1회.
+    - Cloud Run의 첫 화면이 더 느린 것은 사용자가 없을 때 인스턴스를 0개로 줄였다가 다시 띄우는 냉시동 때문이다.
 - **답 없이 끝난 조사원 (2026-10-10 추가):**
   - API가 추론만 하고 답 없이 끝나는 응답(`status: incomplete`, `max_messages`)을 받으면, 조사원에게 한 번 더 묻는다.
   - 다시 물은 조사는 `result.json`의 `reasks`와 Langfuse 트레이스의 `reasks`에 남는다.

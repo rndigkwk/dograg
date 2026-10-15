@@ -204,6 +204,7 @@ def check(url: str, expected_commit: str | None = None) -> int:
     # Imported here so tests can load error_in() without Playwright installed.
     from playwright.sync_api import sync_playwright
 
+    import eval_history
     from wake_app import wake
 
     started = time.perf_counter()
@@ -216,9 +217,9 @@ def check(url: str, expected_commit: str | None = None) -> int:
         agent = browser.new_page().evaluate("navigator.userAgent")
         # the app leaves the answers to this check out of its data-gap table (src/data_gaps.py)
         page = browser.new_page(user_agent=f"{agent} {CHECK_AGENT}")
-        problems = []
+        problems, commit = [], None
         if expected_commit:
-            commit_problem, _ = check_commit(page, url, expected_commit)
+            commit_problem, commit = check_commit(page, url, expected_commit)
             if commit_problem:
                 problems.append(f"commit: {commit_problem}")
         problems += check_pages(page, url)
@@ -226,10 +227,15 @@ def check(url: str, expected_commit: str | None = None) -> int:
         problems += [f"chat: {problem}" for problem in chat_problems]
         if problems:
             page.screenshot(path="check_app_failure.png", full_page=True)
+        elif commit is None:
+            commit = deployed_commit(page)  # the chat page has the footer
         browser.close()
     for problem in problems:
         print(f"PROBLEM {problem}")
     write_summary(summary_line(url, ready_s, chat_s, problems, health_s))
+    eval_history.record("deploy", "streamlit-cloud" if url == STREAMLIT_CLOUD_URL else "cloud-run", not problems,
+                        {"ready_s": ready_s, "date_answer_s": chat_s, "health_answer_s": health_s, "problems": problems},
+                        commit=commit)
     if problems and url == STREAMLIT_CLOUD_URL:
         print("If the code on main is fine, the app may need a reboot (Manage app -> Reboot app).")
     return 1 if problems else 0

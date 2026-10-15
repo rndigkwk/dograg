@@ -17,6 +17,8 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import eval_history
+
 INDEX = "ragdog_health_embedding_idx"
 
 
@@ -42,6 +44,8 @@ def main() -> int:
     line = (f"| Supabase | 건강 문서 {rows:,}건 | 벡터 색인 마지막 사용 {age_text} (누적 {scans:,}회) | "
             f"DB {size_mb:.0f}MB / 500MB | {'ok' if fresh else 'search did not reach Supabase in this run'} |")
     print(line)
+    eval_history.record("database", "supabase", fresh, {"documents": rows, "db_mb": round(size_mb), "index_scans": scans,
+                                                        "index_last_use_min": None if age is None else round(age.total_seconds() / 60)})
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as file:
