@@ -6,24 +6,20 @@ team at a time. Files go to a temporary folder that is deleted after the run; th
 stays only in this session, like the chat (the server keeps no consultation text).
 """
 
-import tempfile
-import threading
-import time
-import uuid
 from pathlib import Path
 
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
-from src import rate_limit, resources, settings, tracing
+from src import rate_limit, settings, tracing, visit_prep_runs
 from src.conversation_session import ConversationSession
 from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
 from src.health_safety import detect_urgent_sign
 from src.tools.profile import profile_summary
 from src.ui import apply_app_theme, plain_tildes, render_page_header
+from src.visit_prep_runs import MAX_CONSULTATION_CHARS, PAUSED_RUN_TTL_SECONDS  # noqa: F401
 
 MAX_RUNS_PER_SESSION = 2
-MAX_CONSULTATION_CHARS = 500
 RUNS_STATE_KEY = "visit_prep_runs"
 # The consultation box's widget key. The chat page sets it to an answer's question before
 # switching here ("이 상담으로 방문 준비 보고서 만들기").
@@ -33,61 +29,16 @@ RESULT_STATE_KEY = "visit_prep_result"
 PENDING_STATE_KEY = "visit_prep_pending"
 # A paused run whose questions are not answered within this time is deleted from the server
 # (the guardian closed the tab, or went away); answering after that asks for a new run.
-PAUSED_RUN_TTL_SECONDS = 30 * 60
 EXPIRED_NOTICE = "질문을 받은 지 30분이 지나 답변 대기가 끝났습니다. 남은 횟수는 그대로이니 다시 만들어 주세요."
 ANSWER_KEY = "visit_prep_answer"
-PREPARED = "검색 자료를 준비했습니다"
-STEP_LABELS = {
-    "clarify": None,  # shown as the questions themselves
-    "ask_guardian": "보호자 답변을 상담 내용에 더했습니다",
-    "planner": "상담을 조사 작업으로 나눴습니다",
-    "researcher": "조사 하나를 마쳤습니다",
-    "supervisor": "다음 담당을 정했습니다",
-    "writer": "보고서를 썼습니다",
-    "reviewer": "문장마다 근거를 대조했습니다",
-    "publisher": "결과를 정리했습니다",
-}
 
 
-@st.cache_resource(show_spinner=False)
-def team_lock() -> threading.Lock:
-    """One team run at a time on the server: each run holds several model calls in flight."""
-    return threading.Lock()
-
-
-@st.cache_resource(show_spinner=False)
-def team_checkpointer():
-    """Where a run paused for the guardian's answer waits (one per server, keyed by thread_id).
-    In memory: a paused run holds the consultation, and the server keeps no consultation text
-    on disk. Each thread is deleted when its run finishes, is replaced, or expires."""
-    from langgraph.checkpoint.memory import InMemorySaver
-
-    return InMemorySaver()
-
-
-@st.cache_resource(show_spinner=False)
-def paused_runs() -> dict[str, float]:
-    """{thread_id: time it paused} for every run waiting on a guardian's answer, server-wide."""
-    return {}
-
-
-def remember_paused_run(thread_id: str) -> None:
-    paused_runs()[thread_id] = time.time()
-
-
-def forget_paused_run(thread_id: str) -> None:
-    team_checkpointer().delete_thread(thread_id)
-    paused_runs().pop(thread_id, None)
-
-
-def forget_expired_runs(now: float | None = None) -> list[str]:
-    """Delete paused runs nobody answered within PAUSED_RUN_TTL_SECONDS; returns their ids."""
-    now = time.time() if now is None else now
-    expired = [thread_id for thread_id, paused_at in list(paused_runs().items())
-               if now - paused_at > PAUSED_RUN_TTL_SECONDS]
-    for thread_id in expired:
-        forget_paused_run(thread_id)
-    return expired
+team_lock = visit_prep_runs.team_lock
+team_checkpointer = visit_prep_runs.team_checkpointer
+paused_runs = visit_prep_runs.paused_runs
+forget_paused_run = visit_prep_runs.forget_paused_run
+forget_expired_runs = visit_prep_runs.forget_expired_runs
+step_line = visit_prep_runs.step_line
 
 
 def run_team(consultation: str, region: str, profile: str, run_dir: Path, on_step, *,
@@ -106,84 +57,26 @@ def last_question() -> str:
     return ""
 
 
-def step_line(node: str, update: dict) -> str | None:
-    label = STEP_LABELS.get(node)
-    if node == "planner" and update.get("plan"):
-        kinds = {"health": "증상", "place": "병원", "cost": "비용"}
-        tasks = ", ".join(kinds.get(task["kind"], task["kind"]) for task in update["plan"])
-        return f"{label}: {tasks}"
-    if node == "researcher" and update.get("failures"):
-        kinds = {"health": "증상", "place": "병원", "cost": "비용"}
-        failed = ", ".join(kinds.get(item["kind"], item["kind"]) for item in update["failures"].values())
-        return f"조사 하나가 오류로 실패했습니다: {failed} (나머지 조사로 계속합니다)"
-    if node == "reviewer" and update.get("review"):
-        review = update["review"]
-        verdict = "통과" if review.get("passed") else f"반려(근거 없는 문장 {len(review.get('unsupported', []))}개)"
-        return f"{label}: {verdict}"
-    return label
-
-
 def prepare_search() -> None:
-    """Load the search resources in this page's own script thread before the team starts.
-
-    Researchers run in worker threads with no Streamlit session. A cached loader with a
-    spinner (the BM25 index) loading there for the first time raises NoSessionContext, and
-    right after a reboot that failed every health researcher on the deployed app (run held)."""
-    resources.load_vector_db()
-    resources.load_health_bm25_index()
-    resources.load_health_answer_table()
-    resources.load_report_vector_db()
-    resources.load_report_bm25_index()
+    """Load the search resources in this page's own script thread before the team starts
+    (src/visit_prep_runs.prepare_search: a cached loader first used in a worker thread failed)."""
+    visit_prep_runs.prepare_search()
 
 
 def generate(consultation: str, region: str, profile: str, pending: dict | None = None,
              answer: str | None = None) -> dict:
-    """Run the team in a temporary folder and keep only the report text and its status.
-
-    The first call may stop before planning to ask the guardian (day51 interrupt): it returns
-    {"paused": True, ...} with the questions. The second call passes that pending run and the
-    answer ("" to skip), and the same thread resumes from the question."""
-    from team.core import config
-    from team.core.citations import readable_report
-    from team.graph.nodes import run_status as status_of
-
-    started = time.perf_counter()
-    thread_id = pending["thread_id"] if pending else uuid.uuid4().hex
+    """src/visit_prep_runs.generate with the page's progress box."""
     label = "답변을 더해 보고서를 만드는 중입니다. 1~2분 걸립니다." if pending else "보고서를 만드는 중입니다. 1~2분 걸립니다."
     with st.status(label, expanded=True) as status:
-        prepare_search()
-        steps = list(pending["steps"]) if pending else [PREPARED]
-        if not pending:
-            status.write(f"✓ {PREPARED}")
-        with tempfile.TemporaryDirectory(prefix="ragdog-visit-", ignore_cleanup_errors=True) as directory:
-            run_dir = Path(directory)
-
-            def show(node: str, update: dict) -> None:
-                line = step_line(node, update)
-                if line:
-                    steps.append(line)
-                    status.write(f"✓ {line}")
-
-            state = run_team(consultation, region, profile, run_dir, show, thread_id=thread_id,
-                             resume=answer if pending else None)
-            if state["paused"]:
-                remember_paused_run(thread_id)
-                status.update(label="보고서에 필요한 내용을 몇 가지 여쭤볼게요", state="complete", expanded=False)
-                return {"paused": True, "thread_id": thread_id, "questions": state["questions"],
-                        "consultation": consultation, "region": region, "profile": profile, "steps": steps,
-                        "seconds": round(time.perf_counter() - started)}
-            # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
-            report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
-                                     state.get("findings") or {})
-        forget_paused_run(thread_id)
-        run_status = status_of(state)
-        passed = run_status == config.PASSED
-        status.update(label="보고서를 만들었습니다" if passed else run_status,
-                      state="complete" if passed else "error", expanded=False)
-    seconds = round(time.perf_counter() - started) + (pending["seconds"] if pending else 0)
-    return {"paused": False, "report": report, "passed": passed, "status": run_status, "round": state["round"],
-            "steps": steps, "urgent": bool(detect_urgent_sign(consultation)), "seconds": seconds,
-            "answered": bool(pending and answer)}
+        outcome = visit_prep_runs.generate(
+            consultation, region, profile, run_team=run_team, prepare=prepare_search,
+            on_line=lambda line: status.write(f"✓ {line}"), pending=pending, answer=answer)
+        if outcome["paused"]:
+            status.update(label="보고서에 필요한 내용을 몇 가지 여쭤볼게요", state="complete", expanded=False)
+        else:
+            status.update(label="보고서를 만들었습니다" if outcome["passed"] else outcome["status"],
+                          state="complete" if outcome["passed"] else "error", expanded=False)
+    return outcome
 
 
 def render_urgent_notice() -> None:
