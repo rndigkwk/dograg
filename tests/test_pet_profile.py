@@ -64,6 +64,53 @@ class DetectionTests(unittest.TestCase):
             self.assertIsNone(pet_profile.detect_profile("우리 초코가 5개월이에요"))
 
 
+class AutomaticMemoryTests(unittest.TestCase):
+    """New facts about a stored dog (tests/data/profile_memory_questions.json measures the model part)."""
+
+    def model_returning(self, detected, seen=None):
+        def read(prompt):
+            if seen is not None:
+                seen.append(prompt.to_messages()[-1].content)
+            return detected
+        model = Mock()
+        model.with_structured_output.return_value = RunnableLambda(read)
+        return patch.object(resources, "load_chat_model", return_value=model)
+
+    def test_only_what_is_new_is_offered(self):
+        current = PetProfile(name="보리", weight_kg=5, conditions=["이첨판 폐쇄부전증"], neutered=False)
+        found = PetProfile(name="초코", breed="말티즈", weight_kg=7, neutered=True,
+                           conditions=["이첨판폐쇄부전증 2기", "기관지 협착증"], medications=["베트메딘"])
+        facts, parts = pet_profile.new_facts(current, found)
+        self.assertEqual(facts, {"conditions": ["기관지 협착증"], "medications": ["베트메딘"], "weight_kg": 7,
+                                 "neutered": True, "breed": "말티즈"})  # a different name is not taken
+        self.assertEqual(parts, ["지병 + 기관지 협착증", "복용약 + 베트메딘", "체중 5kg → 7kg", "중성화 함", "견종 말티즈"])
+
+    def test_a_stored_profile_is_read_only_for_questions_with_a_cue(self):
+        current = PetProfile(name="보리")
+        with self.model_returning(pet_profile.DetectedProfile(procedures=["슬개골 수술"])) as load:
+            self.assertIsNone(pet_profile.suggest_memory(current, "보리가 어제부터 구토해요"))
+            load.assert_not_called()
+            suggestion = pet_profile.suggest_memory(current, "보리가 3개월 전에 슬개골 수술을 했어요")
+        self.assertEqual(suggestion.profile, PetProfile(name="보리", procedures=["슬개골 수술"]))
+        self.assertEqual(suggestion.summary, "수술·시술 + 슬개골 수술")
+
+    def test_nothing_new_and_other_dogs_offer_nothing(self):
+        current = PetProfile(name="호두", medications=["아조딜"])
+        with self.model_returning(pet_profile.DetectedProfile(medications=["아조딜"])):
+            self.assertIsNone(pet_profile.suggest_memory(current, "호두가 아조딜을 먹고 있어요"))
+        with self.model_returning(pet_profile.DetectedProfile(about_own_dog=False, conditions=["당뇨"])):
+            self.assertIsNone(pet_profile.suggest_memory(current, "친구네 개가 당뇨 진단을 받았대요"))
+
+    def test_the_question_is_masked_before_the_model(self):
+        seen = []
+        with self.model_returning(pet_profile.DetectedProfile(), seen):
+            pet_profile.detect("초코가 당뇨 진단을 받았어요 010-1234-5678")
+        self.assertNotIn("010-1234-5678", seen[0])
+
+    def test_procedures_reach_the_prompt(self):
+        self.assertIn("수술·시술: 슬개골 수술", pet_profile.profile_context(PetProfile(procedures=["슬개골 수술"])))
+
+
 class ProfileInRetrievalTests(unittest.TestCase):
     def test_profile_fills_the_life_stage_and_the_question_wins(self):
         senior = PetProfile(birth_month=born(9 * 12))

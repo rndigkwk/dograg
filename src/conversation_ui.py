@@ -121,13 +121,14 @@ def render_profile_sidebar(session: ConversationSession) -> None:
             conditions = st.text_input("지병 (쉼표로 구분)", value=", ".join(current.conditions))
             medications = st.text_input("복용약 (쉼표로 구분)", value=", ".join(current.medications))
             allergies = st.text_input("알레르기 (쉼표로 구분)", value=", ".join(current.allergies))
+            procedures = st.text_input("수술·시술 이력 (쉼표로 구분)", value=", ".join(current.procedures))
             if st.form_submit_button("저장", type="primary"):
                 try:
                     updated = PetProfile(
                         name=name or None, breed=breed or None, birth_month=birth, weight_kg=weight or None,
                         neutered=None if neutered == "모름" else neutered == "함",
                         conditions=_split_items(conditions), medications=_split_items(medications),
-                        allergies=_split_items(allergies),
+                        allergies=_split_items(allergies), procedures=_split_items(procedures),
                     )
                 except ValidationError:
                     st.error("입력값을 확인해 주세요.")

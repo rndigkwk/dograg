@@ -115,6 +115,7 @@ class PetProfile(BaseModel):
     conditions: list[str] = Field(default_factory=list)
     medications: list[str] = Field(default_factory=list)
     allergies: list[str] = Field(default_factory=list)
+    procedures: list[str] = Field(default_factory=list)  # surgeries and procedures done (2026-10-15)
 
     @field_validator("name", "breed")
     @classmethod
@@ -123,7 +124,7 @@ class PetProfile(BaseModel):
             return None
         return clean_text(value, MAX_PROFILE_TEXT, single_line=True) or None
 
-    @field_validator("conditions", "medications", "allergies")
+    @field_validator("conditions", "medications", "allergies", "procedures")
     @classmethod
     def _items(cls, value: list[str]) -> list[str]:
         return _clean_items(value)
