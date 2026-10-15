@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from contextvars import ContextVar
 
 from src import settings
 from src.pii import mask_pii
@@ -55,8 +56,16 @@ def enabled() -> bool:
     return settings.deployed() and bool(settings.get_setting("SUPABASE_DB_URL"))
 
 
+# The User-Agent of the HTTP request being answered, set by the API (api/chat.py) for its worker
+# thread; the Streamlit page reads its own request headers instead.
+REQUEST_AGENT: ContextVar[str | None] = ContextVar("ragdog_request_agent", default=None)
+
+
 def from_check() -> bool:
     """Whether this question came from the deployment check's browser (its user agent)."""
+    agent = REQUEST_AGENT.get()
+    if agent is not None:
+        return CHECK_AGENT in agent
     try:
         import streamlit as st
 
