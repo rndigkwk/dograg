@@ -52,6 +52,7 @@ class RateLimitTests(unittest.TestCase):
     def setUp(self):
         self.table = FakeTable()
         rate_limit._ready = False
+        rate_limit._memory.clear()
         patches = [patch.object(rate_limit.settings, "deployed", return_value=True),
                    patch.object(rate_limit.settings, "get_setting", return_value="postgresql://x"),
                    patch("src.supabase_store.connector", return_value=self.table),
@@ -96,14 +97,27 @@ class RateLimitTests(unittest.TestCase):
             rate_limit.check("browser-b", "1.2.3.4")
         self.assertEqual(len(self.table.rows), 1)
 
-    def test_not_counted_locally_for_the_deployment_check_or_when_the_database_fails(self):
+    def test_not_counted_locally_or_for_the_deployment_check(self):
         with patch.object(rate_limit.settings, "deployed", return_value=False):
             self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
         with patch.object(rate_limit.data_gaps, "from_check", return_value=True):
             self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
         self.assertEqual(self.table.rows, [])
+        self.assertEqual(rate_limit._memory, {})
+
+    def test_without_a_database_the_count_is_kept_in_memory(self):
+        # The Streamlit backup on its own Chroma search has no SUPABASE_DB_URL.
+        with patch.object(rate_limit.settings, "get_setting", return_value=None):
+            for _ in range(10):
+                self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
+            self.assertFalse(rate_limit.check("browser-a", "1.2.3.4").allowed)
+            self.assertTrue(rate_limit.check("browser-b", "1.2.3.4").allowed)
+        self.assertEqual(self.table.rows, [])
+
+    def test_a_failing_database_falls_back_to_memory_not_to_no_limit(self):
         with patch("src.supabase_store.connector", side_effect=OSError("down")):
-            self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
+            results = [rate_limit.check("browser-a", "1.2.3.4").allowed for _ in range(11)]
+        self.assertEqual(results, [True] * 10 + [False])
 
     def test_the_first_forwarded_address_is_the_client(self):
         context = SimpleNamespace(headers={"X-Forwarded-For": "203.0.113.5, 35.191.0.1"}, ip_address="35.191.0.1")

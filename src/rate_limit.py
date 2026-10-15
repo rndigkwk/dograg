@@ -6,11 +6,13 @@ the OpenAI budget. A person here is a browser: a random id kept in its localStor
 new id, so the network (client IP) has its own, looser limits, NETWORK_LIMITS: an academy or an
 office shares one address, and a person limit on the IP alone would make them share 10 questions.
 
-Only hashes are stored (salted with the database URL, a secret), with the time, in the Supabase
-table ragdog_rate_limit, closed to the public REST API; rows older than KEEP_HOURS are deleted.
+Where it is counted: with SUPABASE_DB_URL, in the Supabase table ragdog_rate_limit (salted hashes
+and times only, closed to the public REST API, rows older than KEEP_HOURS deleted), so every
+instance and restart shares the count. Without it (the Streamlit backup on its own Chroma search,
+2026-10-15) or while the database fails, in this process's memory: the same limits, reset when the
+app restarts or sleeps, which is enough to stop someone asking in a loop.
 Counted: a chat question and a visit-prep report. Not counted: local runs, tests and evaluation
 scripts (they call the code, not the page), and the deployment check (src/data_gaps.from_check).
-When the database fails the question is allowed: the limit must never stop the app.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ import hashlib
 import logging
 import math
 import random
+import secrets
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -32,6 +36,10 @@ NETWORK_LIMITS = ((timedelta(hours=1), 60), (timedelta(days=1), 200))
 KEEP_HOURS = 48
 CLEAN_EVERY = 20  # delete expired rows on about one check in this many
 _ready = False
+# The in-memory count: hash -> times, shared by every session of this process.
+_memory: dict[str, list[datetime]] = {}
+_memory_lock = threading.Lock()
+_PROCESS_SALT = secrets.token_hex(16)  # without a database URL: never stored, changes on restart
 
 
 @dataclass
@@ -42,12 +50,41 @@ class Decision:
 
 
 def enabled() -> bool:
-    return settings.deployed() and bool(settings.get_setting("SUPABASE_DB_URL"))
+    return settings.deployed()
 
 
 def _hash(kind: str, value: str) -> str:
-    salt = hashlib.sha256((settings.get_setting("SUPABASE_DB_URL") or "").encode()).hexdigest()
+    url = settings.get_setting("SUPABASE_DB_URL")
+    salt = hashlib.sha256(url.encode()).hexdigest() if url else _PROCESS_SALT
     return hashlib.sha256(f"{salt}:{kind}:{value}".encode()).hexdigest()[:32]
+
+
+def _decide(counts, now: datetime) -> Decision | None:
+    """counts: ((window, limit), (questions in it, oldest time)) pairs; the refusal, or None to allow."""
+    for (window, limit), (count, oldest) in counts:
+        if count >= limit:
+            wait = max(1, math.ceil((oldest + window - now).total_seconds() / 60))
+            return Decision(False, wait, window <= timedelta(hours=1))
+    return None
+
+
+def _check_memory(person_key: str, network_key: str, now: datetime) -> Decision:
+    with _memory_lock:
+        for key in list(_memory):
+            _memory[key] = [t for t in _memory[key] if t > now - timedelta(hours=KEEP_HOURS)]
+            if not _memory[key]:
+                del _memory[key]
+        counts = []
+        for key, limits in ((person_key, PERSON_LIMITS), (network_key, NETWORK_LIMITS if network_key else ())):
+            for window, limit in limits:
+                inside = [t for t in _memory.get(key, []) if t > now - window]
+                counts.append(((window, limit), (len(inside), min(inside) if inside else None)))
+        if refused := _decide(counts, now):
+            return refused
+        for key in (person_key, network_key):
+            if key:
+                _memory.setdefault(key, []).append(now)
+        return Decision(True)
 
 
 def client_network() -> str:
@@ -83,6 +120,9 @@ def check(person: str, network: str | None = None) -> Decision:
         return Decision(True)
     network = client_network() if network is None else network
     person_key, network_key = _hash("person", person), _hash("network", network) if network else ""
+    now = datetime.now(timezone.utc)
+    if not settings.get_setting("SUPABASE_DB_URL"):
+        return _check_memory(person_key, network_key, now)
     try:
         from src.supabase_store import connector, lock_from_data_api
 
@@ -95,19 +135,16 @@ def check(person: str, network: str | None = None) -> Decision:
                 conn.execute(f"create index if not exists {TABLE}_network_at on {TABLE} (network, at)")
                 lock_from_data_api(conn, TABLE)
                 _ready = True
-            now = datetime.now(timezone.utc)
             if random.randrange(CLEAN_EVERY) == 0:
                 conn.execute(f"delete from {TABLE} where at < %s", [now - timedelta(hours=KEEP_HOURS)])
             limits = [*PERSON_LIMITS, *(NETWORK_LIMITS if network_key else ())]
-            for (window, limit), (count, oldest) in zip(limits, _counts(conn, person_key, network_key, now)):
-                if count >= limit:
-                    wait = max(1, math.ceil((oldest + window - now).total_seconds() / 60))
-                    return Decision(False, wait, window <= timedelta(hours=1))
+            if refused := _decide(zip(limits, _counts(conn, person_key, network_key, now)), now):
+                return refused
             conn.execute(f"insert into {TABLE} (person, network) values (%s, %s)", [person_key, network_key])
         return Decision(True)
-    except Exception:  # noqa: BLE001 - a broken limit must not stop the app
-        logger.warning("rate limit check failed; question allowed", exc_info=True)
-        return Decision(True)
+    except Exception:  # noqa: BLE001 - a broken database must not stop the app: count in memory
+        logger.warning("rate limit table unavailable; counting in memory", exc_info=True)
+        return _check_memory(person_key, network_key, now)
 
 
 def message(decision: Decision) -> str:
