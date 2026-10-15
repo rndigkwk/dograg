@@ -74,11 +74,19 @@ class CheckRegressionTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         results = Path(directory.name)
-        (results / "answer_ok.json").write_text(json.dumps({"run_scores": {"answer_correctness": 0.28}}), encoding="utf-8")
-        (results / "answer_bad.json").write_text(json.dumps({"run_scores": {"answer_correctness": 0.20}}), encoding="utf-8")
+        judge = check_regression.JUDGES["answer"]
+        runs = {"ok": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28}},
+                "bad": {"judge_model": judge, "run_scores": {"answer_correctness": 0.20}},
+                # another judge scores on another scale: the limit no longer applies (Day 60)
+                "other_judge": {"judge_model": "gpt-4.1", "run_scores": {"answer_correctness": 0.40}},
+                "unrecorded": {"run_scores": {"answer_correctness": 0.28}}}
+        for name, result in runs.items():
+            (results / f"answer_{name}.json").write_text(json.dumps(result), encoding="utf-8")
         with patch.object(check_regression, "RESULTS_DIR", results), patch.dict("os.environ", {"GITHUB_STEP_SUMMARY": ""}):
             self.assertEqual(check_regression.main(["answer", "ok"]), 0)
             self.assertEqual(check_regression.main(["answer", "bad"]), 1)
+            self.assertEqual(check_regression.main(["answer", "other_judge"]), 1)
+            self.assertEqual(check_regression.main(["answer", "unrecorded"]), 1)
 
     def test_each_set_keeps_at_most_five_quality_scores(self):
         for set_name, limits in check_regression.LIMITS.items():

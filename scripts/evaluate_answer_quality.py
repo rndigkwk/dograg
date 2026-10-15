@@ -109,7 +109,8 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
     load_dotenv(PROJECT_DIR / ".env")
     os.environ["RAGAS_DO_NOT_TRACK"] = "true"
     client = AsyncOpenAI()
-    llm = llm_factory(os.getenv("OPENAI_EVAL_MODEL", "gpt-6-luna"), client=client, max_tokens=8192,
+    judge_model = os.getenv("OPENAI_EVAL_MODEL", "gpt-6-luna")
+    llm = llm_factory(judge_model, client=client, max_tokens=8192,
                       system_prompt="모든 출력 문장(질문·주장·이유)은 한국어로 작성하세요.")
     embeddings = embedding_factory("openai", model="text-embedding-3-large", client=client)
     metrics = {"answer_correctness": lambda: AnswerCorrectness(llm=llm, embeddings=embeddings),
@@ -158,14 +159,14 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
 
     scores = asyncio.run(main_async())
     (OUT_DIR / "answer_quality_scores.json").write_text(json.dumps(scores, ensure_ascii=False, indent=1), encoding="utf-8")
-    summary = summarize(scores, runs, names)
+    summary = {"judge_model": judge_model, **summarize(scores, runs, names)}
     print(json.dumps(summary, ensure_ascii=False, indent=1))
     (OUT_DIR / "answer_quality_summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     if result_name:
         first = [s for s in scores if s["run"] == min(runs) and s["repeat"] == 0]
         run_scores = {name: statistics.fmean(v) for name in names
                       if (v := [s[name] for s in first if s[name] is not None])}
-        (OUT_DIR / f"answer_{result_name}.json").write_text(json.dumps({"run_scores": run_scores}, indent=1), encoding="utf-8")
+        (OUT_DIR / f"answer_{result_name}.json").write_text(json.dumps({"judge_model": judge_model, "run_scores": run_scores}, indent=1), encoding="utf-8")
     return 0
 
 

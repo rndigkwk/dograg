@@ -2,6 +2,7 @@
  "description": "Health retrieval relevance set: LLM-graded candidate pools for 100 validation questions (scripts/relevance_set.py). Grades: 2 directly useful, 1 partly, 0 not useful.",
  "seed": 20261008,
  "judge": {
+  "model": "gpt-6-luna",
   "prompt_version": 1,
   "reasoning_effort": "low"
  },
