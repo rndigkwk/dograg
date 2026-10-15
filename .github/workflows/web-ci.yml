@@ -1,0 +1,49 @@
+name: Web checks
+
+# The Next.js frontend (web/, docs/adr/0008): unit tests, types, lint and a production build.
+on:
+  pull_request:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web-ci.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

@@ -1,0 +1,48 @@
+// Calls to the RagDog API (api/, Cloud Run ragdog-api; docs/adr/0008).
+
+import { readEvents, type StreamEvent } from "./sse";
+
+export const API_URL = (process.env.NEXT_PUBLIC_RAGDOG_API_URL ?? "https://ragdog-api-892238791473.asia-northeast3.run.app").replace(/\/$/, "");
+
+// This browser's random id: the API counts questions per browser (src/rate_limit.py) with it.
+// The same key as the Streamlit app's (src/storage/snapshot.py CLIENT_KEY).
+const CLIENT_KEY = "ragdog:v1:client";
+
+export function clientId(): string | null {
+  try {
+    let id = localStorage.getItem(CLIENT_KEY);
+    if (!id || !/^[0-9a-f]{32}$/.test(id)) {
+      id = crypto.randomUUID().replace(/-/g, "");
+      localStorage.setItem(CLIENT_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // storage blocked: the API counts by network instead
+  }
+}
+
+function headers(): HeadersInit {
+  const id = clientId();
+  return { "Content-Type": "application/json", ...(id ? { "X-RagDog-Client": id } : {}) };
+}
+
+/** Wakes the API (Cloud Run scales to zero; the first request after a pause takes 15-27 s). */
+export function warmUp(): void {
+  fetch(`${API_URL}/health`).catch(() => {});
+}
+
+export type Turn = { role: "user" | "assistant"; content: string; route?: string };
+export type Memory = { upto: number; summary: string };
+
+export type ChatRequest = {
+  question: string;
+  history: Turn[];
+  memory: Memory;
+};
+
+/** POST /chat: each event of the answer as it arrives. Throws on a refused request. */
+export async function* askChat(body: ChatRequest, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
+  const response = await fetch(`${API_URL}/chat`, { method: "POST", headers: headers(), body: JSON.stringify(body), signal });
+  if (!response.ok || !response.body) throw new Error(`chat ${response.status}`);
+  yield* readEvents(response.body);
+}
