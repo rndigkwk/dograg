@@ -86,7 +86,7 @@ DETECT_PROMPT = ChatPromptTemplate.from_messages([
         "- 계획이나 가정(나중에 수술하면, 먹여도 되나요)과 약·병에 대한 일반 질문은 넣지 않습니다. 실제로 겪은 일만 넣습니다."
         ),
     ),
-    ("human", "{question}"),
+    ("human", "{known}{question}"),
 ])
 
 
@@ -124,12 +124,21 @@ def to_profile(detected: DetectedProfile, on: date | None = None) -> PetProfile 
     return None if profile.is_empty() else profile
 
 
-def detect(question: str) -> DetectedProfile | None:
+def known_name_line(name: str | None) -> str:
+    """The stored name, so a dog called after a food (두부, 콩이, 보리, 고구마) is read as the dog:
+    "두부가 슬개골 수술을 했는데" was once read as not about the user's dog (2026-10-15)."""
+    if not name:
+        return ""
+    return f"[보호자가 저장한 반려견 이름: {name}. 질문의 '{name}'는 음식 이름이어도 이 반려견입니다.]\n"
+
+
+def detect(question: str, known_name: str | None = None) -> DetectedProfile | None:
     """The chat model's reading of the question; personal data masked first, as for the answer (src/pii.py)."""
     model = resources.load_chat_model()
     if model is None:
         return None
-    return (DETECT_PROMPT | model.with_structured_output(DetectedProfile)).invoke({"question": mask_pii(question)})
+    return (DETECT_PROMPT | model.with_structured_output(DetectedProfile)).invoke(
+        {"known": known_name_line(known_name), "question": mask_pii(question)})
 
 
 def detect_profile(question: str) -> PetProfile | None:
@@ -202,7 +211,7 @@ def suggest_memory(current: PetProfile | None, question: str) -> MemorySuggestio
     question has a memory cue."""
     if current is not None and not current.is_empty() and not may_have_memory(question):
         return None
-    detected = detect(question)
+    detected = detect(question, current.name if current else None)
     found = None if detected is None else to_profile(detected)
     if found is None:
         return None
