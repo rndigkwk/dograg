@@ -419,5 +419,22 @@ class ConversationPageTests(unittest.TestCase):
         self.assertEqual(self.detect.call_count, 0)
         self.assertNotIn("profile_suggest_save", [b.key for b in at.button])
 
+    def test_over_the_question_limit_no_answer_but_emergencies_still_warned(self):
+        from src import rate_limit
+
+        refused = rate_limit.Decision(False, 25)
+        browser = FakeBrowser(notice=True)
+        with patch.object(chat_page.rate_limit, "check", return_value=refused):
+            at = self.run_app(browser)
+            at.chat_input[0].set_value("강아지 귀 청소는 어떻게 해요?")
+            at = self.run_app(browser, at)
+            self.assertTrue(any("약 25분 뒤" in w.value for w in at.warning))
+            at.chat_input[0].set_value("강아지가 경련을 하고 쓰러졌어요")
+            at = self.run_app(browser, at)
+        self.assertEqual([e.message for e in at.exception], [])
+        self.assertTrue(any("동물병원" in w.value and "약 25분" not in w.value for w in at.warning))
+        self.assertEqual(browser.stored_threads(), [])  # nothing was answered, so nothing was recorded
+        self.assertEqual(len(at.chat_message), 0)
+
 if __name__ == "__main__":
     unittest.main()

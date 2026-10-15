@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 
 from pydantic import ValidationError
@@ -20,7 +21,11 @@ STORAGE_PREFIX = "ragdog:v1:"
 THREADS_KEY = STORAGE_PREFIX + "threads"
 PROFILE_KEY = STORAGE_PREFIX + "profile"
 NOTICE_KEY = STORAGE_PREFIX + "notice_seen"
-STORAGE_KEYS = (THREADS_KEY, PROFILE_KEY, NOTICE_KEY)
+# A random id for this browser, for the per-person question limit (src/rate_limit.py). Not linked
+# to anything else; "clear everything on this device" keeps it so the limit is not reset by it.
+CLIENT_KEY = STORAGE_PREFIX + "client"
+STORAGE_KEYS = (THREADS_KEY, PROFILE_KEY, NOTICE_KEY, CLIENT_KEY)
+_CLIENT_ID = re.compile(r"[0-9a-f]{32}")
 # localStorage allows about 5MB per site; stay well below it.
 MAX_THREADS_JSON_CHARS = 1_000_000
 
@@ -32,6 +37,7 @@ class LocalSnapshot:
     threads: list[Thread] = field(default_factory=list)
     profile: PetProfile = field(default_factory=PetProfile)
     notice_seen: bool = False
+    client_id: str = ""
     version: int = 0
     dropped: int = 0  # invalid or oversized records ignored on the last load
 
@@ -44,6 +50,7 @@ class LocalSnapshot:
             THREADS_KEY: json.dumps(threads, ensure_ascii=False),
             PROFILE_KEY: self.profile.model_dump_json(exclude_defaults=True),
             NOTICE_KEY: "1" if self.notice_seen else "",
+            CLIENT_KEY: self.client_id,
         }
 
     @classmethod
@@ -53,6 +60,8 @@ class LocalSnapshot:
         if not isinstance(raw, dict):
             return snapshot
         snapshot.notice_seen = raw.get(NOTICE_KEY) == "1"
+        client = raw.get(CLIENT_KEY)
+        snapshot.client_id = client if isinstance(client, str) and _CLIENT_ID.fullmatch(client) else ""
         snapshot.threads, dropped_threads = _load_threads(raw.get(THREADS_KEY))
         snapshot.profile, dropped_profile = _load_profile(raw.get(PROFILE_KEY))
         snapshot.dropped = dropped_threads + dropped_profile

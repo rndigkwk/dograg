@@ -41,6 +41,11 @@ class ConversationSession:
     def _set(self, name, value) -> None:
         self.state[_PREFIX + name] = value
 
+    @property
+    def person(self) -> str:
+        """Who asks, for the question limit: this browser's stored id, or this session until it is known."""
+        return self.snapshot.client_id or self.request
+
     # --- browser sync ---------------------------------------------------
     @property
     def request(self) -> str:
@@ -69,7 +74,8 @@ class ConversationSession:
             stored.profile = current.profile
         stored.notice_seen = stored.notice_seen or current.notice_seen
         stored.version = current.version
-        if current.threads or current.notice_seen:
+        if current.threads or current.notice_seen or not stored.client_id:
+            stored.client_id = stored.client_id or uuid.uuid4().hex
             stored.touch()  # write the merged result back
         self._set("snapshot", stored)
         self._set("status", READY)

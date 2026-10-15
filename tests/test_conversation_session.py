@@ -3,13 +3,16 @@ import unittest
 
 from src.conversation_session import LOADING, READY, UNAVAILABLE, ConversationSession
 from src.storage.models import Thread, Turn
-from src.storage.snapshot import NOTICE_KEY, THREADS_KEY
+from src.storage.snapshot import CLIENT_KEY, NOTICE_KEY, THREADS_KEY
+
+CLIENT = "0123456789abcdef0123456789abcdef"
 
 
-def browser_report(session, *, threads=(), notice=False):
+def browser_report(session, *, threads=(), notice=False, client=CLIENT):
     values = {
         THREADS_KEY: json.dumps([thread.model_dump(mode="json") for thread in threads], ensure_ascii=False),
         NOTICE_KEY: "1" if notice else "",
+        CLIENT_KEY: client,
     }
     return {"request": session.request, "status": "ok", "values": values}
 
@@ -27,6 +30,15 @@ class ConversationSessionTests(unittest.TestCase):
         self.assertEqual([t.title for t in self.session.threads()], ["예전 대화"])
         self.assertIsNone(self.session.pending_values())  # nothing new to write back
         self.assertFalse(self.session.apply_report(browser_report(self.session)))  # later reports are ignored
+        self.assertEqual(self.session.person, CLIENT)
+
+    def test_a_new_browser_gets_an_id_written_once(self):
+        self.assertEqual(self.session.person, self.session.request)  # until the browser reports
+        self.session.apply_report(browser_report(self.session, client=""))
+        person = self.session.person
+        self.assertRegex(person, r"^[0-9a-f]{32}$")
+        self.assertNotEqual(person, self.session.request)
+        self.assertEqual(self.session.pending_values()[CLIENT_KEY], person)
 
     def test_unavailable_storage_keeps_working_in_memory(self):
         self.session.apply_report({"request": self.session.request, "status": "unavailable"})
