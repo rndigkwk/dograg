@@ -1,0 +1,31 @@
+{
+ "description": "Personal names and addresses src/pii.py did not mask (2026-10-15), written before the change. mask: the exact string that must not survive mask_pii; keep: a string that must survive unchanged (a dog's name, a number that belongs to the dog question, a district facility search needs). dev was used to write the rules; holdout was not looked at while writing them.",
+ "items": [
+  {"id": "n-d1", "split": "dev", "text": "저는 김민수이고 강아지가 기침을 해요", "mask": "김민수"},
+  {"id": "n-d2", "split": "dev", "text": "제 이름은 박지영입니다. 초코가 설사를 해요", "mask": "박지영", "keep": "초코"},
+  {"id": "n-d3", "split": "dev", "text": "보호자 이서연입니다. 3살 말티즈가 구토해요", "mask": "이서연", "keep": "3살"},
+  {"id": "n-d4", "split": "dev", "text": "성함은 최준호예요. 병원 예약하고 싶어요", "mask": "최준호"},
+  {"id": "n-d5", "split": "dev", "text": "감사합니다. 정하늘 드림", "mask": "정하늘"},
+  {"id": "a-d1", "split": "dev", "text": "역삼동 123-4에 사는데 근처 병원 알려줘", "mask": "123-4"},
+  {"id": "a-d2", "split": "dev", "text": "테헤란로 12길 34 근처예요", "mask": "12길 34"},
+  {"id": "a-d3", "split": "dev", "text": "래미안아파트 101동 1203호에 살아요", "mask": "1203호"},
+  {"id": "k-d1", "split": "dev", "text": "저는 걱정이 많아서요. 강아지가 하루 운동 30분 정도 해요", "keep": "운동 30분"},
+  {"id": "k-d2", "split": "dev", "text": "저는 한번 더 물어볼게요. 산책은 2번 해요", "keep": "한번"},
+  {"id": "k-d3", "split": "dev", "text": "강남구 동물병원 알려줘", "keep": "강남구 동물병원"},
+  {"id": "k-d4", "split": "dev", "text": "이동 3번 했는데 차멀미를 해요", "keep": "이동 3번"},
+  {"id": "k-d5", "split": "dev", "text": "제 이름은 몰라도 돼요. 보리가 5kg이에요", "keep": "보리가 5kg"},
+
+  {"id": "n-h1", "split": "holdout", "text": "저는 윤서준이라고 합니다. 강아지가 절뚝거려요", "mask": "윤서준"},
+  {"id": "n-h2", "split": "holdout", "text": "견주 한지민이에요. 고양이 말고 강아지 질문이요", "mask": "한지민"},
+  {"id": "n-h3", "split": "holdout", "text": "제 이름은 강다은이고 연락 주세요", "mask": "강다은"},
+  {"id": "n-h4", "split": "holdout", "text": "남궁민 올림", "mask": "남궁민"},
+  {"id": "a-h1", "split": "holdout", "text": "신사동 567번지 근처 동물병원 있나요?", "mask": "567번지"},
+  {"id": "a-h2", "split": "holdout", "text": "강남대로 396 근처에서 산책해요", "mask": "396"},
+  {"id": "a-h3", "split": "holdout", "text": "자이아파트 205동 702호예요", "mask": "702호"},
+  {"id": "k-h1", "split": "holdout", "text": "행동 교정을 2가지 해 봤어요", "keep": "2가지"},
+  {"id": "k-h2", "split": "holdout", "text": "활동 1시간 하고 나면 헐떡여요", "keep": "활동 1시간"},
+  {"id": "k-h3", "split": "holdout", "text": "저는 오늘 처음 강아지를 데려왔어요", "keep": "오늘"},
+  {"id": "k-h4", "split": "holdout", "text": "도로 2개를 건너서 병원에 가요", "keep": "도로 2개"},
+  {"id": "k-h5", "split": "holdout", "text": "마포구 동물약국 찾아줘", "keep": "마포구 동물약국"}
+ ]
+}
