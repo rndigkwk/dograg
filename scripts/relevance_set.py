@@ -44,6 +44,7 @@ SEED = 20261008
 POOL_K = 24
 ANSWER_CHARS = 300
 JUDGE_EFFORT = "low"
+JUDGE_MODEL = "gpt-6-luna"  # the grades in SET_PATH; another judge needs scripts/judge_validation.py first
 FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 
 
@@ -68,9 +69,9 @@ JUDGE_PROMPT = """반려견 보호자의 질문과, 검색된 상담 사례 후�
 def judge_model():
     from langchain_openai import ChatOpenAI
 
-    from src import resources, settings
+    from src import settings
 
-    return ChatOpenAI(model=resources.CHAT_MODEL_NAME, api_key=settings.get_openai_api_key(),
+    return ChatOpenAI(model=JUDGE_MODEL, api_key=settings.get_openai_api_key(),
                       reasoning_effort=JUDGE_EFFORT).with_structured_output(Grades)
 
 
@@ -134,7 +135,7 @@ def build(workers: int) -> None:
     SET_PATH.write_text(json.dumps({
         "description": "Health retrieval relevance set: LLM-graded candidate pools for 100 validation questions "
                        "(scripts/relevance_set.py). Grades: 2 directly useful, 1 partly, 0 not useful.",
-        "seed": SEED, "judge": {"prompt_version": 1, "reasoning_effort": JUDGE_EFFORT},
+        "seed": SEED, "judge": {"model": JUDGE_MODEL, "prompt_version": 1, "reasoning_effort": JUDGE_EFFORT},
         "items": items,
     }, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"saved {len(items)} questions, {sum(len(i['grades']) for i in items)} graded candidates -> {SET_PATH}")

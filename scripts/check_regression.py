@@ -22,6 +22,11 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_DIR / "output" / "experiments"
 
+# The judge each LLM-judged set's limits were measured with. Another judge scores on another scale
+# (Day 60: re-measure the judge before trusting its numbers), so a run judged by another model fails
+# until the limits are measured again with it.
+JUDGES = {"answer": "gpt-6-luna"}
+
 # (score, "min" or "max", limit, merged result for reference)
 # Operational alarms; every other score is a quality score.
 ALARMS = {"latency_p90_s", "repeat_suspect_rate", "reask_rate", "no_answer_rate"}
@@ -63,8 +68,13 @@ LIMITS = {
 
 def check(set_name: str, run_name: str) -> tuple[list[str], bool]:
     path = RESULTS_DIR / f"{set_name}_{run_name}.json"
-    scores = json.loads(path.read_text(encoding="utf-8"))["run_scores"]
+    result = json.loads(path.read_text(encoding="utf-8"))
+    scores = result["run_scores"]
     rows, ok = [], True
+    if set_name in JUDGES and result.get("judge_model") != JUDGES[set_name]:
+        rows.append(f"| {set_name} | 판사 | judge_model | {result.get('judge_model') or '기록 없음'} | = {JUDGES[set_name]} | "
+                    f"{JUDGES[set_name]} | ❌ |")
+        ok = False
     for name, direction, limit, reference in LIMITS[set_name]:
         value = scores.get(name)
         passed = value is not None and (value >= limit if direction == "min" else value <= limit)
