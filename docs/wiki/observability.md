@@ -209,6 +209,15 @@
   - **기록 조건:** 워크플로가 `RAGDOG_EVAL_HISTORY=1`을 줄 때만 기록한다. DB 주소만으로는 기록하지 않는다. `src/settings.py`가 `.env`의 주소를 환경에 올리기 때문에, 처음 만들 때 단위 테스트의 가짜 점수 14줄이 표에 들어갔다(지움). 로컬 실행, 테스트, PR 품질 검사는 기록하지 않는다. 기록 실패는 검사를 실패시키지 않는다.
   - **보기:** `uv run --with "psycopg[binary]" python scripts/eval_history.py --days 60 [--kind deploy]`
   - 2026-10-07부터의 과거 실행(keep-alive, 주간 회귀 2회)은 GitHub 로그에서 옮겨 넣었다(`run`이 `backfill:<실행 번호>`, `metrics.backfilled`).
+  - 옮겨 넣은 뒤 처음 본 추세(2026-10-15까지):
+
+    | 배포 | 확인 횟수 | 첫 화면까지 중앙값 / 최대 | 건강 답변 중앙값 / p90 | 실패 |
+    | --- | ---: | --- | --- | --- |
+    | Cloud Run (10-11부터) | 42 | 15초 / 27초 | 11.2초 / 15.1초 | 0 |
+    | Streamlit Cloud (10-07부터) | 71 | 6초 / 18초 | 12.1초 / 13.4초 | 3 |
+
+    - Streamlit 실패 3회는 모두 재부팅이 필요한 경우였다: 10-13 배포 커밋 불일치 2회, 10-15 ImportError 1회.
+    - Cloud Run의 첫 화면이 더 느린 것은 사용자가 없을 때 인스턴스를 0개로 줄였다가 다시 띄우는 냉시동 때문이다.
 - **답 없이 끝난 조사원 (2026-10-10 추가):**
   - API가 추론만 하고 답 없이 끝나는 응답(`status: incomplete`, `max_messages`)을 받으면, 조사원에게 한 번 더 묻는다.
   - 다시 물은 조사는 `result.json`의 `reasks`와 Langfuse 트레이스의 `reasks`에 남는다.
