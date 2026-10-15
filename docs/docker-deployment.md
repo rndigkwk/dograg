@@ -5,7 +5,7 @@
 | 배포 | 주소 | 역할 | 배포 방식 |
 | --- | --- | --- | --- |
 | **Google Cloud Run** | <https://ragdog-892238791473.asia-northeast3.run.app/rag> | 주 배포 | main 병합 → GitHub Actions가 이미지 빌드 → Artifact Registry → Cloud Run |
-| Streamlit Community Cloud | <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag> | 예비 | Streamlit이 저장소 변경을 감지해 직접 배포 |
+| Streamlit Community Cloud (백업) | <https://dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app/rag> | 고정된 백업 | `streamlit-backup` 브랜치(보호됨)를 배포. 자체 Chroma 검색 |
 
 작업 순서와 측정 기록은 [wiki/cloud-run.md](wiki/cloud-run.md)에 있습니다. 이 문서는 **왜 이렇게 설계했는지**를 정리합니다.
 
@@ -19,6 +19,13 @@
 | 플랫폼 하나에 묶인다 | 한쪽이 멈춰도 다른 쪽이 계속 돈다 |
 
 Streamlit Cloud는 무료이고 이미 잘 돌고 있어서 없애지 않고 예비로 남겼습니다.
+
+**2026-10-15 바뀜: Streamlit Cloud는 고정된 백업으로만 남깁니다.** 화면을 Next.js로 옮기기로 해서(사용자 결정) main은 Cloud Run에만 배포합니다.
+- 옮기다 실패하면 돌아갈 곳으로, main의 마지막 Streamlit 버전을 `streamlit-backup` 브랜치와 `streamlit-final` 태그로 고정했습니다(커밋 337b3df). 브랜치는 보호돼 있어 PR 없이 바뀌지 않습니다.
+- 백업 앱은 Supabase를 쓰지 않습니다. secrets에 `SEARCH_BACKEND`, `SUPABASE_DB_URL`이 없어 자체 Chroma + Kiwi BM25로 검색합니다. 건강 질문 전후로 Supabase 색인 사용 횟수가 그대로인 것을 확인했습니다.
+- DB가 필요한 기능(자료 빈칸 수집, 👎 저장, 결과 이력)은 꺼집니다. 질문 횟수 제한은 메모리로 셉니다(`src/rate_limit.py`).
+- keep-alive는 백업 앱을 확인하지 않습니다. 오래 방문이 없으면 잠들고, 처음 열 때 깨우는 데 100초쯤 걸립니다.
+- 예전 앱(`dograg-n4gxibufynkgiuixfrkx2v`)은 지웠습니다. Streamlit Cloud는 기존 앱의 브랜치를 바꿀 수 없어서 새로 만들었습니다.
 
 ## 2. 전체 흐름
 
