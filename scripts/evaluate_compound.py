@@ -42,7 +42,7 @@ NIGHT = [
 def main() -> int:
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from src.chatbot import chatbot
-    from app_pages.rag import places_first
+    from src.chat_events import places_first
     from src.tools import places, router
 
     rows = []
@@ -70,7 +70,7 @@ def main() -> int:
                          "health_abstained": result.get("abstained", False), "health_evidence": len(result.get("evidence_rows") or []),
                          "seconds": seconds, "answer": answer})
             if variant == "now":
-                # When the app can put the place list on screen (app_pages/rag.py places_first);
+                # When the app can put the place list on screen (src/chat_events.py places_first);
                 # before that change it appeared with the finished answer, at `seconds`.
                 rows[-1]["places_shown_s"] = shown.get("places")
                 rows[-1]["first_token_s"] = shown.get("token")

@@ -39,6 +39,10 @@ def create_app() -> FastAPI:
         allow_credentials=False,  # the Supabase token goes in the Authorization header, not a cookie
     )
 
+    from api.chat import router as chat_router
+
+    app.include_router(chat_router)
+
     @app.get("/health")
     def health() -> dict:
         """Up and which commit. The frontend calls it when a page opens, so a scaled-to-zero

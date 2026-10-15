@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch
 from streamlit.testing.v1 import AppTest
 
 from app_pages import rag as chat_page
-from src import conversation_ui
+from src import chat_events, conversation_ui
 from src.private_data import needs_private_data
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
@@ -182,7 +182,7 @@ class ConversationPageTests(unittest.TestCase):
         browser = FakeBrowser(notice=True)
         at = self.run_app(browser)
         with patch.object(chat_page, "render_location_control", return_value=((37.5, 127.0), None)), \
-                patch.object(chat_page, "emergency_hospitals", return_value={"nearest": [hospital], "night": [night]}) as lookup:
+                patch.object(chat_events, "emergency_hospitals", return_value={"nearest": [hospital], "night": [night]}) as lookup:
             at.chat_input[0].set_value("강아지가 경련을 해요")
             at = self.run_app(browser, at)
         lookup.assert_called_once_with((37.5, 127.0))
@@ -195,7 +195,7 @@ class ConversationPageTests(unittest.TestCase):
     def test_urgent_question_without_location_points_to_the_place_page(self):
         browser = FakeBrowser(notice=True)
         at = self.run_app(browser)
-        with patch.object(chat_page, "emergency_hospitals") as lookup:
+        with patch.object(chat_events, "emergency_hospitals") as lookup:
             at.chat_input[0].set_value("강아지가 경련을 해요")
             at = self.run_app(browser, at)
         lookup.assert_not_called()
