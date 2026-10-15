@@ -15,7 +15,7 @@ from pathlib import Path
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
-from src import resources, settings, tracing
+from src import rate_limit, resources, settings, tracing
 from src.conversation_session import ConversationSession
 from src.conversation_ui import CHAT_MESSAGES_STATE_KEY
 from src.health_safety import detect_urgent_sign
@@ -305,6 +305,8 @@ def render_page() -> None:
             st.info("상담 내용을 적어 주세요.")
         elif not settings.get_openai_api_key():
             st.error("OpenAI API 키가 없어 보고서를 만들 수 없습니다.")
+        elif not (decision := rate_limit.check(ConversationSession(st.session_state).person)).allowed:
+            st.warning(rate_limit.message(decision))  # a report counts as one question (src/rate_limit.py)
         else:
             if old := st.session_state.pop(PENDING_STATE_KEY, None):
                 forget_paused_run(old["thread_id"])  # a new consultation replaces an unanswered one

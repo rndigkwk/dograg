@@ -21,8 +21,9 @@ CHAT_MESSAGES_STATE_KEY = "fixing_messages"
 HOSPITAL_ROWS_STATE_KEY = "hospital_rows"
 RENDERED_THREAD_STATE_KEY = "rendered_thread"
 STORAGE_NOTICE = (
-    "대화와 반려견 정보는 이 브라우저에 저장됩니다. 서버에는 자료를 보강하려고 두 가지만 남깁니다: "
+    "대화와 반려견 정보는 이 브라우저에 저장됩니다. 서버에는 자료를 보강하려고 두 가지를 남깁니다: "
     "답변 속 '자료에 없다'는 문장, 그리고 👎 뒤 직접 보내 주신 질문과 답변(둘 다 전화번호 같은 개인정보는 가림). "
+    "질문 횟수 제한(한 시간 10번, 하루 30번)을 위해 알아볼 수 없게 바꾼 브라우저·접속 주소 값과 시각을 이틀 동안 둡니다. "
     "공용 PC라면 사용 후 '이 기기의 기록 모두 지우기'로 지워 주세요."
 )
 

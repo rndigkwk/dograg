@@ -8,7 +8,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlException
 
-from src import feedback_store, resources
+from src import feedback_store, rate_limit, resources
 from src.chat_graph import HEALTH_ABSTAIN, HEALTH_PART_HEADING
 from src.chatbot import chatbot
 from src.conversation_session import LOADING, ConversationSession
@@ -17,7 +17,7 @@ from src.conversation_ui import (
     HOSPITAL_ROWS_STATE_KEY,
     RENDERED_THREAD_STATE_KEY,
 )
-from src.tools.urgency import urgent_notice as find_urgent_notice
+from src.health_safety import detect_urgent_sign
 from src.location_component import render_location_control
 from src.memory_limits import release_free_memory
 from src.report_evidence import render_pdf_page, resolve_report_pdf
@@ -27,6 +27,7 @@ from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import history_with_summary, summary_due
 from src.tools.places import emergency_hospitals
 from src.tools.profile import profile_summary, suggest_memory
+from src.tools.urgency import urgent_notice as find_urgent_notice
 from src.tracing import record_feedback, record_feedback_reason
 from src.ui import apply_app_theme, plain_tildes, render_page_header
 
@@ -447,6 +448,14 @@ def render_page():
         """,
         unsafe_allow_html=True,
     )
+    if question and not (decision := rate_limit.check(session.person)).allowed:
+        # Over the question limit (src/rate_limit.py): no model call. The emergency rules need none,
+        # so a dog in danger still gets the hospital first.
+        if notice := detect_urgent_sign(question):
+            st.warning(notice)
+            render_emergency(find_emergency_hospitals(location))
+        st.warning(rate_limit.message(decision))
+        question = None
     if question:
         # Record the question as in flight and draw the page again, now with the input closed;
         # that run answers it (below). A rerun from another widget mid-answer resumes it the same way.
