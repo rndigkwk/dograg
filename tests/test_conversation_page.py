@@ -40,15 +40,18 @@ def chat_app():
 
 
 class FakeBrowser:
-    def __init__(self, threads=(), notice=False, status="ok"):
+    def __init__(self, threads=(), notice=False, status="ok", loaded=True):
         self.values = {
             THREADS_KEY: json.dumps([t.model_dump(mode="json") for t in threads], ensure_ascii=False),
             NOTICE_KEY: "1" if notice else "",
         }
         self.status = status
+        self.loaded = loaded  # False: the browser has not reported its storage yet
         self.writes = []
 
     def __call__(self, key, *, request, version, values):
+        if not self.loaded:
+            return None
         if values is not None:
             self.writes.append(values)
             self.values.update(values)
@@ -403,6 +406,18 @@ class ConversationPageTests(unittest.TestCase):
         at = self.run_app(browser, at, detected=None)
         self.assertEqual(self.detect.call_count, 0)
         self.assertEqual(self.stored_profile(browser), {})
+
+    def test_no_suggestion_before_the_stored_profile_is_known(self):
+        # Asked before the browser reported: the session's profile is still empty, and saving a
+        # suggestion then would replace the stored profile.
+        browser = FakeBrowser(notice=True, loaded=False)
+        browser.values[PROFILE_KEY] = PetProfile(name="두부", medications=["관절 영양제"]).model_dump_json(exclude_defaults=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("두부가 슬개골 수술을 했어요")
+        found = MemorySuggestion(PetProfile(name="두부", procedures=["슬개골 수술"]), {"name": "두부"}, "이름 두부")
+        at = self.run_app(browser, at, detected=found)
+        self.assertEqual(self.detect.call_count, 0)
+        self.assertNotIn("profile_suggest_save", [b.key for b in at.button])
 
 if __name__ == "__main__":
     unittest.main()
