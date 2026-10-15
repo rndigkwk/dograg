@@ -1,0 +1,605 @@
+{
+ "description": "Automatic pet memory (scripts/evaluate_profile_memory.py), written 2026-10-15 before the change. Each item is one health question asked with the stored profile `profile` (null = empty). `expect` lists the facts that should be offered for saving: for list fields, a keyword each new item must contain; weight_kg / neutered when they should be filled or changed. An empty `expect` means nothing new should be offered (symptoms only, another dog, a plan, a general question, a fact already stored). `use` cases check that a stored fact reaches a later answer in a new conversation: the answer should mention one of `must_mention`. `unrelated` cases (added 2026-10-15 before the answer-prompt change): the stored fact has nothing to do with the question, and the answer should not mention any of `must_not_mention`.",
+ "items": [
+  {
+   "id": "m-d01",
+   "split": "dev",
+   "profile": {
+    "name": "초코",
+    "breed": "말티즈"
+   },
+   "question": "초코가 지난주에 슬개골 탈구 2기 진단을 받았어요. 산책은 얼마나 해도 될까요?",
+   "expect": {
+    "conditions": [
+     "슬개골"
+    ]
+   }
+  },
+  {
+   "id": "m-d02",
+   "split": "dev",
+   "profile": {
+    "name": "보리",
+    "conditions": [
+     "이첨판 폐쇄부전증"
+    ]
+   },
+   "question": "보리가 요즘 베트메딘을 하루 두 번 먹고 있는데 기침이 줄지 않아요.",
+   "expect": {
+    "medications": [
+     "베트메딘"
+    ]
+   }
+  },
+  {
+   "id": "m-d03",
+   "split": "dev",
+   "profile": {
+    "name": "콩이"
+   },
+   "question": "콩이는 닭고기 알레르기가 있어서 연어 사료를 먹이는데 요즘 귀를 자꾸 긁어요.",
+   "expect": {
+    "allergies": [
+     "닭"
+    ]
+   }
+  },
+  {
+   "id": "m-d04",
+   "split": "dev",
+   "profile": {
+    "name": "두부",
+    "breed": "푸들"
+   },
+   "question": "두부가 3개월 전에 슬개골 수술을 했는데 아직 다리를 살짝 절어요.",
+   "expect": {
+    "procedures": [
+     "슬개골"
+    ]
+   }
+  },
+  {
+   "id": "m-d05",
+   "split": "dev",
+   "profile": {
+    "name": "해피",
+    "weight_kg": 5.0
+   },
+   "question": "해피 몸무게가 7kg까지 늘었어요. 다이어트 사료로 바꿔야 할까요?",
+   "expect": {
+    "weight_kg": 7.0
+   }
+  },
+  {
+   "id": "m-d06",
+   "split": "dev",
+   "profile": {
+    "name": "몽이",
+    "neutered": false
+   },
+   "question": "몽이가 어제 중성화 수술을 받았는데 넥카라를 계속 빼려고 해요.",
+   "expect": {
+    "neutered": true
+   }
+  },
+  {
+   "id": "m-d07",
+   "split": "dev",
+   "profile": {
+    "name": "초코",
+    "conditions": [
+     "슬개골 탈구"
+    ]
+   },
+   "question": "초코가 어제부터 구토를 세 번 했어요.",
+   "expect": {}
+  },
+  {
+   "id": "m-d08",
+   "split": "dev",
+   "profile": {
+    "name": "보리"
+   },
+   "question": "친구네 강아지가 당뇨 진단을 받았대요. 우리 보리도 검사해 봐야 할까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-d09",
+   "split": "dev",
+   "profile": {
+    "name": "콩이"
+   },
+   "question": "나중에 콩이 중성화 수술을 하면 언제쯤 하는 게 좋아요?",
+   "expect": {}
+  },
+  {
+   "id": "m-d10",
+   "split": "dev",
+   "profile": {
+    "name": "두부",
+    "medications": [
+     "넥스가드"
+    ]
+   },
+   "question": "넥스가드 먹인 날 두부가 설사를 했어요. 약 때문일까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-d11",
+   "split": "dev",
+   "profile": {
+    "name": "해피"
+   },
+   "question": "강아지 심장약 베트메딘은 부작용이 뭐가 있나요?",
+   "expect": {}
+  },
+  {
+   "id": "m-d12",
+   "split": "dev",
+   "profile": null,
+   "question": "우리 5살 시츄 몽이가 작년에 백내장 수술을 했고 지금은 안약을 넣고 있어요. 눈곱이 많아졌어요.",
+   "expect": {
+    "procedures": [
+     "백내장"
+    ],
+    "medications": [
+     "안약"
+    ]
+   }
+  },
+  {
+   "id": "m-d13",
+   "split": "dev",
+   "profile": {
+    "name": "순심",
+    "breed": "진돗개"
+   },
+   "question": "순심이가 갑상선 기능 저하증이라 호르몬제를 먹고 있어요. 털이 계속 빠지는데 약이 안 맞는 걸까요?",
+   "expect": {
+    "conditions": [
+     "갑상선"
+    ],
+    "medications": [
+     "호르몬"
+    ]
+   }
+  },
+  {
+   "id": "m-d14",
+   "split": "dev",
+   "profile": {
+    "name": "까미"
+   },
+   "question": "예전에 키우던 강아지는 쿠싱이 있었는데, 까미도 물을 많이 마셔서 걱정이에요.",
+   "expect": {}
+  },
+  {
+   "id": "m-d15",
+   "split": "dev",
+   "profile": {
+    "name": "루이",
+    "allergies": [
+     "소고기"
+    ]
+   },
+   "question": "루이는 소고기 알레르기가 있어요. 오리 간식은 괜찮을까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-d16",
+   "split": "dev",
+   "profile": {
+    "name": "망고"
+   },
+   "question": "망고가 피가 섞인 설사를 해요. 병원에 바로 가야 하나요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h01",
+   "split": "holdout",
+   "profile": {
+    "name": "토리",
+    "breed": "포메라니안"
+   },
+   "question": "토리가 기관지 협착증 진단을 받았어요. 하네스로 바꾸는 게 좋을까요?",
+   "expect": {
+    "conditions": [
+     "기관"
+    ]
+   }
+  },
+  {
+   "id": "m-h02",
+   "split": "holdout",
+   "profile": {
+    "name": "구름",
+    "conditions": [
+     "아토피"
+    ]
+   },
+   "question": "구름이가 아포퀠을 먹기 시작한 지 2주 됐는데 아직도 발을 핥아요.",
+   "expect": {
+    "medications": [
+     "아포퀠"
+    ]
+   }
+  },
+  {
+   "id": "m-h03",
+   "split": "holdout",
+   "profile": {
+    "name": "밤이"
+   },
+   "question": "밤이는 밀가루 알레르기가 있어요. 사료 고를 때 뭘 봐야 하나요?",
+   "expect": {
+    "allergies": [
+     "밀"
+    ]
+   }
+  },
+  {
+   "id": "m-h04",
+   "split": "holdout",
+   "profile": {
+    "name": "봄이"
+   },
+   "question": "봄이가 올해 초에 자궁축농증으로 수술을 받았어요. 그 뒤로 식욕이 좀 줄었어요.",
+   "expect": {
+    "procedures": [
+     "자궁"
+    ]
+   }
+  },
+  {
+   "id": "m-h05",
+   "split": "holdout",
+   "profile": {
+    "name": "단비",
+    "weight_kg": 12.0
+   },
+   "question": "단비가 아파서 체중이 9kg으로 빠졌어요. 사료 양을 늘려도 될까요?",
+   "expect": {
+    "weight_kg": 9.0
+   }
+  },
+  {
+   "id": "m-h06",
+   "split": "holdout",
+   "profile": {
+    "name": "호두",
+    "conditions": [
+     "신부전"
+    ],
+    "medications": [
+     "아조딜"
+    ]
+   },
+   "question": "호두가 신부전 때문에 아조딜을 먹고 있는데 요즘 물을 덜 마셔요.",
+   "expect": {}
+  },
+  {
+   "id": "m-h07",
+   "split": "holdout",
+   "profile": {
+    "name": "라떼"
+   },
+   "question": "옆집 개가 파보 장염이었대요. 라떼가 같이 놀았는데 괜찮을까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h08",
+   "split": "holdout",
+   "profile": {
+    "name": "쿠키"
+   },
+   "question": "쿠키한테 심장사상충 약은 몇 살까지 먹여야 하나요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h09",
+   "split": "holdout",
+   "profile": {
+    "name": "사랑"
+   },
+   "question": "사랑이가 이빨이 흔들리는데 스케일링을 하면 마취가 위험할까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h10",
+   "split": "holdout",
+   "profile": null,
+   "question": "8살 비숑 코코가 당뇨라서 인슐린 주사를 맞고 있어요. 산책 후에 기운이 없어요.",
+   "expect": {
+    "conditions": [
+     "당뇨"
+    ],
+    "medications": [
+     "인슐린"
+    ]
+   }
+  },
+  {
+   "id": "m-h11",
+   "split": "holdout",
+   "profile": {
+    "name": "제리"
+   },
+   "question": "제리가 작년에 방광 결석 제거 수술을 했는데 또 소변에 피가 보여요.",
+   "expect": {
+    "procedures": [
+     "결석"
+    ]
+   }
+  },
+  {
+   "id": "m-h12",
+   "split": "holdout",
+   "profile": {
+    "name": "하루"
+   },
+   "question": "하루가 기침을 하고 콧물이 나요. 감기일까요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h13",
+   "split": "holdout",
+   "profile": {
+    "name": "별이",
+    "neutered": false
+   },
+   "question": "별이가 지난달에 중성화를 했는데 살이 찌기 시작했어요.",
+   "expect": {
+    "neutered": true
+   }
+  },
+  {
+   "id": "m-h14",
+   "split": "holdout",
+   "profile": {
+    "name": "모카"
+   },
+   "question": "모카가 간 수치가 높다고 해서 우루사를 처방받았어요. 간식은 줘도 되나요?",
+   "expect": {
+    "medications": [
+     "우루사"
+    ]
+   }
+  },
+  {
+   "id": "m-h15",
+   "split": "holdout",
+   "profile": {
+    "name": "체리"
+   },
+   "question": "강아지들이 많이 걸리는 슬개골 탈구는 어떻게 예방하나요?",
+   "expect": {}
+  },
+  {
+   "id": "m-h16",
+   "split": "holdout",
+   "profile": {
+    "name": "누리"
+   },
+   "question": "누리 동생 강아지가 피부병이 있는데 누리한테 옮을까요?",
+   "expect": {}
+  }
+ ],
+ "use": [
+  {
+   "id": "u01",
+   "profile": {
+    "name": "보리",
+    "conditions": [
+     "이첨판 폐쇄부전증"
+    ],
+    "medications": [
+     "베트메딘"
+    ]
+   },
+   "question": "날이 더운데 산책은 얼마나 시켜도 될까요?",
+   "must_mention": [
+    "심장",
+    "이첨판",
+    "베트메딘"
+   ]
+  },
+  {
+   "id": "u02",
+   "profile": {
+    "name": "콩이",
+    "allergies": [
+     "닭고기"
+    ]
+   },
+   "question": "새 간식을 사려는데 어떤 걸 고르면 좋을까요?",
+   "must_mention": [
+    "닭"
+   ]
+  },
+  {
+   "id": "u03",
+   "profile": {
+    "name": "두부",
+    "procedures": [
+     "슬개골 수술"
+    ]
+   },
+   "question": "계단을 오르내려도 괜찮을까요?",
+   "must_mention": [
+    "슬개골",
+    "수술"
+   ]
+  },
+  {
+   "id": "u04",
+   "profile": {
+    "name": "코코",
+    "conditions": [
+     "당뇨"
+    ],
+    "medications": [
+     "인슐린"
+    ]
+   },
+   "question": "간식으로 고구마를 줘도 되나요?",
+   "must_mention": [
+    "당뇨",
+    "혈당",
+    "인슐린"
+   ]
+  },
+  {
+   "id": "u05",
+   "profile": {
+    "name": "호두",
+    "conditions": [
+     "신부전"
+    ]
+   },
+   "question": "사료를 바꾸려고 하는데 뭘 봐야 하나요?",
+   "must_mention": [
+    "신부전",
+    "신장",
+    "콩팥",
+    "인"
+   ]
+  },
+  {
+   "id": "u06",
+   "profile": {
+    "name": "몽이",
+    "procedures": [
+     "백내장 수술"
+    ],
+    "medications": [
+     "안약"
+    ]
+   },
+   "question": "눈을 자꾸 비벼요. 어떻게 해야 하나요?",
+   "must_mention": [
+    "백내장",
+    "수술",
+    "안약"
+   ]
+  },
+  {
+   "id": "u07",
+   "profile": {
+    "name": "구름",
+    "conditions": [
+     "아토피"
+    ],
+    "medications": [
+     "아포퀠"
+    ]
+   },
+   "question": "목욕은 얼마나 자주 시키는 게 좋아요?",
+   "must_mention": [
+    "아토피",
+    "아포퀠",
+    "피부"
+   ]
+  },
+  {
+   "id": "u08",
+   "profile": {
+    "name": "토리",
+    "conditions": [
+     "기관지 협착증"
+    ]
+   },
+   "question": "목줄을 하고 산책해도 되나요?",
+   "must_mention": [
+    "기관",
+    "협착",
+    "하네스"
+   ]
+  }
+ ],
+ "unrelated": [
+  {
+   "id": "x01",
+   "profile": {
+    "name": "두부",
+    "procedures": [
+     "슬개골 수술"
+    ]
+   },
+   "question": "눈곱이 갑자기 많아졌어요.",
+   "must_not_mention": [
+    "슬개골",
+    "수술"
+   ]
+  },
+  {
+   "id": "x02",
+   "profile": {
+    "name": "콩이",
+    "allergies": [
+     "닭고기"
+    ]
+   },
+   "question": "발톱은 얼마나 자주 깎아야 하나요?",
+   "must_not_mention": [
+    "닭",
+    "알레르기"
+   ]
+  },
+  {
+   "id": "x03",
+   "profile": {
+    "name": "몽이",
+    "procedures": [
+     "백내장 수술"
+    ]
+   },
+   "question": "설사를 이틀째 해요.",
+   "must_not_mention": [
+    "백내장",
+    "수술"
+   ]
+  },
+  {
+   "id": "x04",
+   "profile": {
+    "name": "토리",
+    "conditions": [
+     "기관지 협착증"
+    ]
+   },
+   "question": "귀에서 냄새가 나고 자꾸 긁어요.",
+   "must_not_mention": [
+    "기관",
+    "협착"
+   ]
+  },
+  {
+   "id": "x05",
+   "profile": {
+    "name": "구름",
+    "medications": [
+     "아포퀠"
+    ]
+   },
+   "question": "이빨에 치석이 많이 꼈어요.",
+   "must_not_mention": [
+    "아포퀠"
+   ]
+  },
+  {
+   "id": "x06",
+   "profile": {
+    "name": "제리",
+    "procedures": [
+     "방광 결석 제거 수술"
+    ]
+   },
+   "question": "산책할 때 자꾸 풀을 뜯어 먹어요.",
+   "must_not_mention": [
+    "결석",
+    "방광",
+    "수술"
+   ]
+  }
+ ]
+}

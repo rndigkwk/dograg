@@ -19,6 +19,7 @@ from src.private_data import needs_private_data
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
 from src.tools import urgency
+from src.tools.profile import MemorySuggestion
 
 MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
@@ -72,7 +73,7 @@ class ConversationPageTests(unittest.TestCase):
         self.detect = Mock(return_value=detected)
         with patch.object(conversation_ui, "sync_local_store", browser), \
                 patch.object(chat_page, "chatbot", side_effect=fake_chatbot), \
-                patch.object(chat_page, "detect_profile", self.detect),                 patch.object(urgency, "decide_urgent", return_value=None):  # no Decisions call in tests
+                patch.object(chat_page, "suggest_memory", self.detect),                 patch.object(urgency, "decide_urgent", return_value=None):  # no Decisions call in tests
             if at is None:
                 at = AppTest.from_file(MAIN, default_timeout=30) if home else AppTest.from_function(chat_app, default_timeout=30)
             return at.run()
@@ -288,7 +289,7 @@ class ConversationPageTests(unittest.TestCase):
         with patch.object(chat_page.st, "chat_input", side_effect=chat_input):
             with patch.object(conversation_ui, "sync_local_store", browser), \
                     patch.object(chat_page, "chatbot", side_effect=chatbot), \
-                    patch.object(chat_page, "detect_profile", Mock(return_value=None)), \
+                    patch.object(chat_page, "suggest_memory", Mock(return_value=None)), \
                     patch.object(urgency, "decide_urgent", return_value=None):
                 at.run()
         self.assertEqual(while_answering, [True])  # answered once, with the input closed
@@ -355,32 +356,53 @@ class ConversationPageTests(unittest.TestCase):
         browser = FakeBrowser(notice=True)
         at = self.run_app(browser)
         at.chat_input[0].set_value("우리 초코가 5개월인데 설사해요")
-        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        found = MemorySuggestion(PetProfile(name="초코"), {"name": "초코"}, "이름 초코")
+        at = self.run_app(browser, at, detected=found)
         self.assertEqual(self.detect.call_count, 1)
         self.assertEqual(self.stored_profile(browser), {})  # nothing saved yet
         at.button(key="profile_suggest_save").click()
         at = self.run_app(browser, at)
         self.assertEqual(self.stored_profile(browser), {"name": "초코"})
 
-    def test_no_detection_when_a_profile_exists_or_after_declining(self):
+    def test_new_facts_are_offered_for_a_stored_profile(self):
         browser = FakeBrowser(notice=True)
         browser.values[PROFILE_KEY] = PetProfile(name="보리").model_dump_json(exclude_defaults=True)
         at = self.run_app(browser)
-        at.chat_input[0].set_value("기침해요")
-        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
-        self.assertEqual(self.detect.call_count, 0)
+        at.chat_input[0].set_value("보리가 베트메딘을 먹고 있는데 기침해요")
+        found = MemorySuggestion(PetProfile(name="보리", medications=["베트메딘"]), {"medications": ["베트메딘"]},
+                                 "복용약 + 베트메딘")
+        at = self.run_app(browser, at, detected=found)
+        self.assertEqual(self.detect.call_args.args[0], PetProfile(name="보리"))  # the stored profile goes in
+        self.assertTrue(any("복용약 + 베트메딘" in m.value for m in at.markdown))
+        at.button(key="profile_suggest_save").click()
+        at = self.run_app(browser, at)
+        self.assertEqual(self.stored_profile(browser), {"name": "보리", "medications": ["베트메딘"]})
 
+    def test_declined_facts_are_not_offered_again(self):
         browser = FakeBrowser(notice=True)
+        browser.values[PROFILE_KEY] = PetProfile(name="보리").model_dump_json(exclude_defaults=True)
+        found = MemorySuggestion(PetProfile(name="보리", medications=["베트메딘"]), {"medications": ["베트메딘"]},
+                                 "복용약 + 베트메딘")
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("보리가 베트메딘을 먹고 있는데 기침해요")
+        at = self.run_app(browser, at, detected=found)
+        at.button(key="profile_suggest_dismiss").click()
+        at = self.run_app(browser, at)
+        at.chat_input[0].set_value("베트메딘 먹는데 또 기침해요")
+        at = self.run_app(browser, at, detected=found)
+        self.assertFalse(any("복용약 + 베트메딘" in m.value for m in at.markdown))
+        self.assertEqual(self.stored_profile(browser), {"name": "보리"})
+
+        browser = FakeBrowser(notice=True)  # an empty profile, declined once: not read again this session
         at = self.run_app(browser)
         at.chat_input[0].set_value("우리 초코가 기침해요")
-        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
+        at = self.run_app(browser, at, detected=MemorySuggestion(PetProfile(name="초코"), {"name": "초코"}, "이름 초코"))
         at.button(key="profile_suggest_dismiss").click()
         at = self.run_app(browser, at)
         at.chat_input[0].set_value("또 기침해요")
-        at = self.run_app(browser, at, detected=PetProfile(name="초코"))
-        self.assertEqual(self.detect.call_count, 0)  # declined once: not asked again this session
+        at = self.run_app(browser, at, detected=None)
+        self.assertEqual(self.detect.call_count, 0)
         self.assertEqual(self.stored_profile(browser), {})
-
 
 if __name__ == "__main__":
     unittest.main()

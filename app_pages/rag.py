@@ -26,7 +26,7 @@ from src.storage.models import PetProfile
 from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 from src.tools.history import history_with_summary, summary_due
 from src.tools.places import emergency_hospitals
-from src.tools.profile import detect_profile, profile_summary
+from src.tools.profile import profile_summary, suggest_memory
 from src.tracing import record_feedback, record_feedback_reason
 from src.ui import apply_app_theme, plain_tildes, render_page_header
 
@@ -41,6 +41,8 @@ PROFILE_SUGGESTION_KEY = "profile_suggestion"
 # {thread id: {"upto", "summary"}}: the running summary of each conversation's older turns
 HISTORY_SUMMARY_STATE_KEY = "history_summaries"
 PROFILE_DISMISSED_KEY = "profile_detection_dismissed"
+# New facts the user chose not to remember this session (their summaries): not offered again
+MEMORY_DECLINED_KEY = "memory_declined"
 
 
 def format_evidence_row(row, index):
@@ -302,35 +304,49 @@ def start_warmup():
 
 
 def suggest_profile(session: ConversationSession, question: str, route: str) -> None:
-    """Profile detection (design doc phase 4): only for health answers, only while the profile is empty,
-    and only until the user declines once in this session. Nothing is saved without a click."""
-    if route != "rag" or session.profiles.get() is not None or st.session_state.get(PROFILE_DISMISSED_KEY):
+    """Profile detection and automatic memory (src/tools/profile.suggest_memory), for health answers.
+    An empty profile: offered whole, and not asked again this session once declined. A stored one:
+    only new facts (a diagnosis, a medicine, a surgery, a new weight), each set offered once.
+    Nothing is saved without a click."""
+    current = session.profiles.get()
+    if route != "rag" or (current is None and st.session_state.get(PROFILE_DISMISSED_KEY)):
         return
     try:
-        detected = detect_profile(question)
+        suggestion = suggest_memory(current, question)
     except Exception:  # detection is optional; the answer is already shown
         logging.getLogger(__name__).warning("Profile detection failed", exc_info=True)
         return
-    if detected is not None:
-        st.session_state[PROFILE_SUGGESTION_KEY] = detected.model_dump(mode="json")
+    if suggestion is None or suggestion.summary in st.session_state.get(MEMORY_DECLINED_KEY, []):
+        return
+    st.session_state[PROFILE_SUGGESTION_KEY] = {"profile": suggestion.profile.model_dump(mode="json"),
+                                                "summary": suggestion.summary, "update": current is not None}
 
 
 def render_profile_suggestion(session: ConversationSession) -> None:
     suggestion = st.session_state.get(PROFILE_SUGGESTION_KEY)
     if not suggestion:
         return
-    profile = PetProfile.model_validate(suggestion)
+    profile = PetProfile.model_validate(suggestion["profile"])
+    update = suggestion["update"]
     with st.container(border=True):
-        st.markdown(f"**대화에서 반려견 정보를 찾았어요.** {profile_summary(profile)}")
-        st.caption("저장하면 이 브라우저에만 남고, 다음 상담부터 나이에 맞는 자료를 먼저 찾습니다.")
+        if update:
+            st.markdown(f"**새로 알게 된 정보를 기억할까요?** {suggestion['summary']}")
+            st.caption("기억하면 이 브라우저의 '우리 아이 정보'에 더해지고, 다음 상담부터 답변에 반영됩니다.")
+        else:
+            st.markdown(f"**대화에서 반려견 정보를 찾았어요.** {profile_summary(profile)}")
+            st.caption("저장하면 이 브라우저에만 남고, 다음 상담부터 나이에 맞는 자료를 먼저 찾습니다.")
         save, dismiss = st.columns(2)
-        if save.button("우리 아이 정보에 저장", key="profile_suggest_save", type="primary", width="stretch"):
+        if save.button("기억하기" if update else "우리 아이 정보에 저장", key="profile_suggest_save", type="primary",
+                       width="stretch"):
             session.profiles.save(profile)
             st.session_state.pop(PROFILE_SUGGESTION_KEY, None)
             st.rerun()
-        if dismiss.button("저장하지 않기", key="profile_suggest_dismiss", width="stretch"):
+        if dismiss.button("기억하지 않기" if update else "저장하지 않기", key="profile_suggest_dismiss", width="stretch"):
             st.session_state.pop(PROFILE_SUGGESTION_KEY, None)
-            st.session_state[PROFILE_DISMISSED_KEY] = True
+            if update:
+                st.session_state.setdefault(MEMORY_DECLINED_KEY, []).append(suggestion["summary"])
+            else:
+                st.session_state[PROFILE_DISMISSED_KEY] = True
             st.rerun()
 
 
