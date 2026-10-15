@@ -1,9 +1,9 @@
 name: Deploy to Cloud Run
 
 # Builds the container image (Dockerfile: private data and model baked in, HF_TOKEN as a build
-# secret), pushes it to the private Artifact Registry repository and deploys it to Cloud Run.
-# Streamlit Community Cloud keeps deploying from the repository on its own; this is the second
-# deployment (docs/wiki/cloud-run.md).
+# secret), pushes it to the private Artifact Registry repository and deploys it to Cloud Run twice:
+# the Streamlit app (service ragdog, docs/wiki/cloud-run.md) and, from the same image with another
+# command, the API for the Next.js frontend (service ragdog-api, docs/adr/0008).
 #
 # One-time setup: scripts/gcp/setup_cloud_run.sh in Cloud Shell, then the repository variable
 # GCP_WORKLOAD_IDENTITY_PROVIDER (Settings > Secrets and variables > Actions > Variables).
@@ -25,6 +25,7 @@ env:
   PROJECT_ID: ragdog-511311
   REGION: asia-northeast3
   SERVICE: ragdog
+  API_SERVICE: ragdog-api
   IMAGE: asia-northeast3-docker.pkg.dev/ragdog-511311/ragdog/app
   DEPLOYER: github-deployer@ragdog-511311.iam.gserviceaccount.com
   RUNTIME: ragdog-runtime@ragdog-511311.iam.gserviceaccount.com
@@ -83,6 +84,35 @@ jobs:
             --set-secrets="$secrets" \
             --set-env-vars="ENABLE_CRAG=true,SEARCH_BACKEND=$backend,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
 
+      - name: Deploy the API
+        # The same image and settings as the app, started as the FastAPI server (api/main.py).
+        # One instance at most: a visit report paused for the guardian's answer waits in that server's
+        # memory (api/visit_prep.py), so the answer must reach the same instance. No session affinity:
+        # the browser calls with fetch and no cookies. 15 minutes per request: a report streams for
+        # one to two minutes. RAGDOG_WEB_ORIGINS (repository variable) lists the frontend's origins
+        # for CORS; until the frontend exists only the local dev server is allowed.
+        env:
+          SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
+          WEB_ORIGINS: ${{ vars.RAGDOG_WEB_ORIGINS }}
+          WEB_ORIGIN_REGEX: ${{ vars.RAGDOG_WEB_ORIGIN_REGEX }}
+        run: |
+          secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest"
+          backend=local
+          if [ "$SEARCH_BACKEND" = supabase ]; then
+            backend=supabase
+            secrets="$secrets,SUPABASE_DB_URL=SUPABASE_DB_URL:latest"
+          fi
+          # ^|^ : env values may hold commas (the origin list), so the variables are split on "|".
+          env_vars="^|^ENABLE_CRAG=true|SEARCH_BACKEND=$backend|LANGFUSE_BASE_URL=https://us.cloud.langfuse.com|LANGFUSE_TRACING_ENVIRONMENT=cloudrun-api|LANGFUSE_RELEASE=$GITHUB_SHA"
+          [ -n "$WEB_ORIGINS" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGINS=$WEB_ORIGINS"
+          [ -n "$WEB_ORIGIN_REGEX" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGIN_REGEX=$WEB_ORIGIN_REGEX"
+          gcloud run deploy "$API_SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
+            --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
+            --min-instances=0 --max-instances=1 --no-session-affinity --timeout=900 \
+            --allow-unauthenticated \
+            --command=uvicorn --args=api.main:app,--host,0.0.0.0,--port,8080 \
+            --set-secrets="$secrets" --set-env-vars="$env_vars"
+
       - name: Check the deployed service
         run: |
           url="$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')"
@@ -95,4 +125,19 @@ jobs:
             sleep 5
           done
           echo "::error::$url/_stcore/health did not answer 200 (last: $code)"
+          exit 1
+
+      - name: Check the deployed API
+        # /health reports the commit (LANGFUSE_RELEASE): the new revision must be the one serving.
+        run: |
+          url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
+          for attempt in $(seq 1 30); do
+            body="$(curl -s "$url/health" || true)"
+            if echo "$body" | grep -q "\"commit\":\"$GITHUB_SHA\""; then
+              echo "### Cloud Run API: $url (health ok, commit ${GITHUB_SHA::7}, attempt $attempt)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url/health did not report $GITHUB_SHA (last: $body)"
           exit 1
