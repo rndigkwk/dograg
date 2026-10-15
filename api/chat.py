@@ -11,8 +11,13 @@ The same steps as the Streamlit chat page (app_pages/rag.py), in the same order:
 4. The chat graph (src/chatbot.py), which masks personal data before any model call, streams the
    answer's text and records the material's gaps.
 
+5. After the result, for a health answer: new facts about the dog to offer for saving
+   (src/tools/profile.suggest_memory), when the frontend asks (suggest_memory: its stored profile is
+   loaded) and the guardian has not declined the same facts. Sent last, so it never delays the answer.
+
 Events (text/event-stream, one JSON object each): step {message} · places {text} · urgent
-{notice, hospitals} · token {text} · result {...} · limited {message, wait_minutes} · error {message}.
+{notice, hospitals} · token {text} · result {...} · memory {profile, new_facts, summary, update} ·
+limited {message, wait_minutes} · error {message}.
 The frontend reads them with fetch (the request is a POST, which EventSource cannot send).
 """
 
@@ -64,6 +69,11 @@ class ChatRequest(BaseModel):
     profile: PetProfile | None = None
     location: tuple[float, float] | None = None
     top_k: int = Field(default=DEFAULT_RAG_TOP_K, ge=MIN_RAG_TOP_K, le=MAX_RAG_TOP_K)
+    # The frontend asks for a memory suggestion only once its stored profile is loaded (a suggestion
+    # against an empty stand-in would replace the stored profile, 2026-10-15), and lists the facts the
+    # guardian declined this session so they are not offered again.
+    suggest_memory: bool = False
+    declined_memory: list[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("question")
     @classmethod
@@ -160,6 +170,22 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "")
         "safety_notice": result.get("safety_notice") or notice, "abstained": result.get("abstained", False),
         "trace_id": result.get("trace_id"), "memory": memory,
     })
+    if body.suggest_memory and result["route"] == "rag":
+        yield from memory_event(body)
+
+
+def memory_event(body: ChatRequest) -> Iterator[str]:
+    from src.tools.profile import suggest_memory
+
+    try:
+        suggestion = suggest_memory(body.profile, body.question)
+    except Exception:  # noqa: BLE001 - optional: the answer is already out
+        logger.warning("memory suggestion failed", exc_info=True)
+        return
+    if suggestion is not None and suggestion.summary not in body.declined_memory:
+        yield event("memory", {"profile": suggestion.profile.model_dump(mode="json", exclude_defaults=True),
+                               "new_facts": suggestion.new_facts, "summary": suggestion.summary,
+                               "update": body.profile is not None and not body.profile.is_empty()})
 
 
 @router.post("/chat")

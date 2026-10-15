@@ -103,3 +103,14 @@ flowchart LR
 - Vercel 무료 플랜 조건이 바뀌거나 상업적으로 쓰게 되면 화면 배포처를 다시 정한다.
 - 로그인 사용자가 거의 없으면 P4(서버 기록)를 미루고, "기억 내보내기·가져오기"로 대신한다.
 - 이전이 실패하면 `streamlit-final`로 돌아간다. Streamlit Cloud 백업 앱과 보호 브랜치가 그 대비다.
+
+## 구현하며 바꾼 것 (P1, 2026-10-15)
+- **방문 준비 보고서:** "작업 시작 + 진행 조회(폴링)" 대신 `/chat`처럼 **요청 하나를 스트리밍**한다(`POST /visit-prep`).
+  - 보호자에게 물을 질문이 생기면 `paused`로 끝나고, `POST /visit-prep/{id}/answer`로 이어 만든다.
+  - 작업 저장소가 필요 없어 더 단순하다.
+  - 멈춘 실행은 서버 메모리에만 있으므로, **API 서비스는 인스턴스 1개(`max-instances=1`)로 운영한다.**
+- **기억 제안:** 별도 `/memory/suggest` 대신 `/chat`의 결과 뒤에 `memory` 이벤트로 보낸다(화면이 `suggest_memory`로 요청할 때만).
+  - 답변 뒤라는 시점이 지금 화면과 같고, 답을 늦추지 않는다.
+  - 따로 부를 수 있는 경로가 없어, 그 경로만 반복 호출해 모델을 쓰게 하는 길도 없다.
+- **피드백:** `POST /feedback`(👍/👎), `/feedback/reason`(이유), `/feedback/review`(동의한 대화 저장). 모델은 부르지 않지만 Langfuse·Supabase에 쓰므로 브라우저당 시간당 60번으로 막는다.
+- **화면 코드에서 옮긴 것:** 진행 문구·응급 병원(`src/chat_events.py`), 시설 조회(`src/places_search.py`), 데이터 수치(`src/data_stats.py`), 방문 준비 실행(`src/visit_prep_runs.py`). Streamlit 화면도 이것을 써서 두 화면의 결과가 같다.

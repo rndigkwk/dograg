@@ -98,6 +98,37 @@ class ChatTests(unittest.TestCase):
             got = events(self.post({"question": "기침해요"}))
         self.assertEqual(got, [("error", {"message": chat_api.FAILED})])
 
+    def test_a_memory_suggestion_comes_after_the_result_when_asked(self):
+        from src.storage.models import PetProfile
+        from src.tools.profile import MemorySuggestion
+
+        found = MemorySuggestion(PetProfile(name="보리", medications=["베트메딘"]), {"medications": ["베트메딘"]},
+                                 "복용약 + 베트메딘")
+        with patch("src.tools.profile.suggest_memory", return_value=found) as suggest:
+            asked = events(self.post({"question": "보리가 베트메딘을 먹고 있어요", "profile": {"name": "보리"},
+                                      "suggest_memory": True}))
+            not_asked = events(self.post({"question": "보리가 베트메딘을 먹고 있어요", "profile": {"name": "보리"}}))
+            declined = events(self.post({"question": "보리가 베트메딘을 먹고 있어요", "profile": {"name": "보리"},
+                                         "suggest_memory": True, "declined_memory": ["복용약 + 베트메딘"]}))
+        self.assertEqual([kind for kind, _ in asked][-2:], ["result", "memory"])
+        self.assertEqual(asked[-1][1], {"profile": {"name": "보리", "medications": ["베트메딘"]},
+                                        "new_facts": {"medications": ["베트메딘"]}, "summary": "복용약 + 베트메딘",
+                                        "update": True})
+        self.assertEqual(not_asked[-1][0], "result")
+        self.assertEqual(declined[-1][0], "result")
+        self.assertEqual(suggest.call_count, 2)  # not asked: no detector call
+
+    def test_no_memory_suggestion_for_other_routes_or_when_it_fails(self):
+        self.chatbot.side_effect = lambda *a, **k: {**fake_chatbot(*a, **k), "route": "sql"}
+        with patch("src.tools.profile.suggest_memory") as suggest:
+            got = events(self.post({"question": "강남구 동물병원", "suggest_memory": True}))
+        suggest.assert_not_called()
+        self.assertEqual(got[-1][0], "result")
+        self.chatbot.side_effect = fake_chatbot
+        with patch("src.tools.profile.suggest_memory", side_effect=RuntimeError("down")),                 self.assertLogs("api.chat", level="WARNING"):
+            got = events(self.post({"question": "기침해요", "suggest_memory": True}))
+        self.assertEqual(got[-1][0], "result")
+
     def test_bad_requests_are_refused_before_anything_runs(self):
         for body in ({"question": "   "}, {"question": "가" * 1001}, {"question": "기침", "location": [200, 0]},
                      {"question": "기침", "profile": {"weight_kg": -1}}, {"question": "기침", "top_k": 99},
