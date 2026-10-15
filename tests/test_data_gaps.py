@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from src import data_gaps
@@ -37,6 +38,18 @@ class RecordTests(unittest.TestCase):
         with patch.object(data_gaps.settings, "deployed", return_value=False), \
                 patch.object(data_gaps.settings, "get_setting", return_value="postgresql://x"):
             self.assertIsNone(data_gaps.record({"route": "rag", "answer": ANSWER}))
+
+    def test_the_deployment_check_is_left_out(self):
+        check = SimpleNamespace(headers={"User-Agent": f"Mozilla/5.0 HeadlessChrome/140 {data_gaps.CHECK_AGENT}"})
+        guardian = SimpleNamespace(headers={"User-Agent": "Mozilla/5.0 Chrome/140 Mobile Safari"})
+        with patch.object(data_gaps.settings, "deployed", return_value=True), \
+                patch.object(data_gaps.settings, "get_setting", return_value="postgresql://x"):
+            with patch("streamlit.context", check):
+                self.assertTrue(data_gaps.from_check())
+                self.assertIsNone(data_gaps.record({"route": "rag", "answer": ANSWER}))
+            with patch("streamlit.context", guardian):
+                self.assertFalse(data_gaps.from_check())
+        self.assertFalse(data_gaps.from_check())  # outside a Streamlit session
 
     def test_a_deployment_inserts_in_the_background_into_a_locked_table(self):
         conn = MagicMock()
