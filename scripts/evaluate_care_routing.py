@@ -25,6 +25,7 @@ DATA = PROJECT_DIR / "tests" / "data"
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repeats", type=int, default=2)
+    parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     sys.stdout.reconfigure(encoding="utf-8")
@@ -34,6 +35,11 @@ def main() -> int:
     items += [{"id": i["id"], "split": "basic_care", "expected": "rag", "question": i["question"]}
               for i in json.loads((DATA / "basic_care_questions.json").read_text(encoding="utf-8"))["items"]]
     jobs = [item for item in items for _ in range(args.repeats)]
+    from cost_guard import confirm
+
+    # at most one router call per question; those the keyword rules decide make none
+    if not confirm("evaluate_care_routing", len(jobs), f"{len(items)} questions x {args.repeats}, upper bound", args.yes):
+        return 1
     with ThreadPoolExecutor(8) as pool:
         routes = list(pool.map(lambda item: classify_question(item["question"]), jobs))
     wrong = Counter()

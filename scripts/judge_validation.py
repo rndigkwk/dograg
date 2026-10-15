@@ -533,7 +533,15 @@ def main() -> int:
     parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score"))
     parser.add_argument("--other-model", default=OTHER_MODEL)
     parser.add_argument("--labels", type=Path, help="judge_labels.json saved from the labelling page")
+    parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
+    from cost_guard import confirm
+
+    # judge: relevance 3 x 48 (one call per question's pool) + answers 2 x 30; bias: 30 answers x 3 pairs
+    # x 2 orders x 2 judges; ragas-bias: 90 scores x about 3 calls
+    calls = {"judge": 3 * 48 + 2 * 30, "bias": 30 * 3 * 2 * 2, "ragas-bias": 90 * 3}.get(args.command, 0)
+    if calls and not confirm(f"judge_validation {args.command}", calls, yes=args.yes):
+        return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from dotenv import load_dotenv
 

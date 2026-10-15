@@ -148,6 +148,15 @@
 
 - 다음에 줄일 곳은 모델 호출 자체다. 그래프 오버헤드(`LangGraph` 대비 노드 합)는 작다.
 
+## 실험 비용 미리 보기 (2026-10-15)
+
+2026-10-15 하루 동안 평가 실험으로 모델 호출이 평소보다 훨씬 많았다. 주로 판사 검증, 자동 기억, 라우팅 평가였고, 흔들림을 보려고 2~10번씩 반복했다. 그래서 자주 쓰는 평가 스크립트가 실행 전에 예상 호출 수를 보여 주고, 많으면 멈추게 했다(`scripts/cost_guard.py`).
+
+- **보여 주는 것:** `[모델 호출 예상] judge_validation bias: 약 360번 · 오늘 실험 누계 168번`. 누계는 이 컴퓨터의 `output/experiments/model_calls.jsonl`에 쌓는다.
+- **멈추는 기준:** 200번을 넘으면 멈춘다. `--yes`(또는 `RAGDOG_EVAL_YES=1`)를 붙이거나 터미널에서 y라고 답해야 진행한다. GitHub Actions(`CI=true`)는 그대로 진행한다. CI는 PR 품질 검사와 주간 회귀로 이미 횟수가 정해져 있다.
+- **적용한 스크립트:** `judge_validation.py`(judge 204, bias 360, ragas-bias 270), `evaluate_profile_memory.py`(offer 32, use 66, food-names 10×반복), `evaluate_care_routing.py`(질문×반복, 최대치), `evaluate_answer_quality.py`(generate 약 300, judge 반복×지표×300), `relevance_set.py build`(100)
+- 숫자는 모델 호출 횟수의 추정이다. 토큰이나 비용이 아니다. 긴 근거가 들어가는 호출(답변 생성, 쌍 비교, 후보 묶음 채점)은 한 번이 짧은 판단 호출보다 훨씬 비싸다.
+
 ## 평가 데이터셋과 실험 (2026-10-07)
 
 로컬 스크립트와 JSON으로만 하던 평가를 Langfuse 데이터셋과 실험으로도 돌린다. 실행 결과는 Langfuse의 Datasets → 해당 데이터셋 → Runs에서 나란히 비교한다. 재현: `scripts/langfuse_experiments.py`.

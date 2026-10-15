@@ -176,7 +176,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("build", "evaluate"))
     parser.add_argument("--workers", type=int, default=6)
+    parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
+    if args.command == "build":
+        from cost_guard import confirm
+
+        if not confirm("relevance_set build", SAMPLE_SIZE, "one judge call per question", args.yes):
+            return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     build(args.workers) if args.command == "build" else evaluate()
     return 0
