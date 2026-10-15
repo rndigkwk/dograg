@@ -14,7 +14,7 @@ is not enough: src/settings.py loads it from .env into the environment, and on 2
 tests of check_regression.py wrote their made-up scores into the table that way. Local runs, tests
 and the PR quality check record nothing. A failed insert never fails the check.
 
-    uv run --with "psycopg[binary]" python scripts/eval_history.py [--days 60] [--kind deploy]
+    uv run --with "psycopg[binary]" python scripts/eval_history.py [--days 60] [--kind deploy] [--last 15]
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def _fmt(value) -> str:
     return "-" if value is None else str(value)
 
 
-def show(days: int, kind: str | None) -> None:
+def show(days: int, kind: str | None, last: int) -> None:
     import psycopg
     from dotenv import dotenv_values
 
@@ -87,11 +87,12 @@ def show(days: int, kind: str | None) -> None:
     for row in rows:
         groups.setdefault((row[1], row[2]), []).append(row)
     for (group_kind, target), items in groups.items():
-        names = sorted({name for item in items for name in item[6]})
-        print(f"\n## {group_kind} · {target}\n")
+        names = sorted({name for item in items for name in item[6]} - {"backfilled"})
+        failed = sum(not item[5] for item in items)
+        print(f"\n## {group_kind} · {target}: {len(items)}회, 실패 {failed}회 (최근 {min(last, len(items))}회)\n")
         print("| 시각 (UTC) | 커밋 | 결과 | " + " | ".join(names) + " |")
         print("| --- | --- | --- | " + " | ".join("---:" for _ in names) + " |")
-        for created, _, _, _, commit, ok, metrics in items:
+        for created, _, _, _, commit, ok, metrics in items[-last:]:
             print(f"| {created:%m-%d %H:%M} | {(commit or '-')[:7]} | {'✅' if ok else '❌'} | "
                   + " | ".join(_fmt(metrics.get(name)) for name in names) + " |")
 
@@ -100,8 +101,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--days", type=int, default=60)
     parser.add_argument("--kind", choices=("regression", "deploy", "database"))
+    parser.add_argument("--last", type=int, default=15, help="rows shown per deployment or set")
     args = parser.parse_args()
-    show(args.days, args.kind)
+    show(args.days, args.kind, args.last)
     return 0
 
 
