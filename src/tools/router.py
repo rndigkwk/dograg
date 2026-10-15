@@ -198,6 +198,34 @@ def is_symptom_and_place_request(question: str) -> bool:
     return describes_symptom(question) and asks_for_places(question)
 
 
+# Report topics that are also everyday questions about one's own dog: "강아지 비만인지 어떻게 알아요?",
+# "건강검진은 몇 살부터?" went to the report analysis by keyword (tests/data/care_routing_questions.json).
+# They take the analysis shortcut only with a statistics word; otherwise the model decides.
+CARE_AND_REPORT_TOPICS = ("비만", "건강검진")
+STATISTICS_WORDS = ("보고서", "통계", "비율", "비중", "평균", "현황", "추이", "조사", "%", "퍼센트", "몇명", "몇 명", "가구")
+
+
+# Everyday care of the dog: the model router sent "새 간식을 사려는데 어떤 걸 고르면 좋을까요?" to none
+# (out of scope). Widening the router's wording instead moved other questions ("내일 비 와?",
+# "로또 번호 뽑아 줘" to rag), so care words decide by rule, before the model, unless places are asked.
+CARE_WORDS = ("간식", "사료", "개껌", "산책", "배변", "목욕", "빗질", "발톱", "장난감", "하네스", "목줄", "노즈워크",
+              "훈련", "짖")
+# "산책하기 좋은 공원 어디 있어?" asks for a place even without a facility word: the model decides.
+PLACE_HINTS = ("어디", "근처", "주소", "위치", "가까운")
+
+
+def has_care_topic(normalized_question: str) -> bool:
+    return (any(word in normalized_question for word in CARE_WORDS)
+            and not any(word in normalized_question for word in PLACE_HINTS))
+
+
+def has_report_topic_in(normalized_question: str) -> bool:
+    hits = [k for k in report.REPORT_ANALYSIS_KEYWORDS if k.replace(" ", "") in normalized_question]
+    if hits and all(hit in CARE_AND_REPORT_TOPICS for hit in hits):
+        return any(word.replace(" ", "") in normalized_question for word in STATISTICS_WORDS)
+    return bool(hits)
+
+
 def classify_question(question: str, chat_history=None) -> str:
     if is_out_of_scope_question(question):
         return "none"
@@ -209,16 +237,16 @@ def classify_question(question: str, chat_history=None) -> str:
     has_health_topic = any(
         keyword in normalized_question for keyword in HEALTH_QUERY_KEYWORDS
     )
-    has_report_topic = any(
-        keyword.replace(" ", "") in normalized_question
-        for keyword in report.REPORT_ANALYSIS_KEYWORDS
-    )
+    has_report_topic = has_report_topic_in(normalized_question)
     mentions_hospital = places.is_place_question(question)
     if has_report_topic and "보고서" in normalized_question:
         return "analysis"
     # 키워드 신호가 하나뿐일 때만 규칙으로 정하고, 신호가 충돌하면 LLM 라우터에 맡깁니다.
     # 예: "닭 뼈를 삼켰는데 가까운 동물병원에 갈 수 없어요"(건강 + 병원 찾기 표현)
     if has_health_topic and not has_hospital_lookup:
+        return "rag"
+    if (has_care_topic(normalized_question) and not has_report_topic and not mentions_hospital
+            and not asks_for_places(question) and not is_long_post(question)):
         return "rag"
     long_post = is_long_post(question)
     # A long post that names a hospital is a health story ("동물병원에서 진단을 받았는데 어떻게

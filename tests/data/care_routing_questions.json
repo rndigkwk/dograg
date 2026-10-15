@@ -1,0 +1,347 @@
+{
+ "description": "Routing of everyday dog-care questions (2026-10-15), written before the fix. '새 간식을 사려는데 어떤 걸 고르면 좋을까요?' was routed to none (out of scope) and got the service menu instead of an answer. Questions about the user's dog's food, treats, walks, grooming, habits and care belong to rag (the health answer path, which abstains when the material has nothing); questions that are not about a dog stay none. scripts/evaluate_care_routing.py. holdout was looked at while fixing the router wording (c-h16, c-h17 went to rag after the first change), so its items carry informed_fix; holdout2 was written after that and before the second change.",
+ "items": [
+  {
+   "id": "c-d01",
+   "split": "dev",
+   "expected": "rag",
+   "question": "새 간식을 사려는데 어떤 걸 고르면 좋을까요?"
+  },
+  {
+   "id": "c-d02",
+   "split": "dev",
+   "expected": "rag",
+   "question": "사료를 바꾸려면 어떻게 섞어서 줘야 해요?"
+  },
+  {
+   "id": "c-d03",
+   "split": "dev",
+   "expected": "rag",
+   "question": "강아지 장난감은 어떤 게 안전해요?"
+  },
+  {
+   "id": "c-d04",
+   "split": "dev",
+   "expected": "rag",
+   "question": "산책은 하루에 몇 번 시키는 게 좋아요?"
+  },
+  {
+   "id": "c-d05",
+   "split": "dev",
+   "expected": "rag",
+   "question": "겨울에 강아지 옷을 입혀야 하나요?"
+  },
+  {
+   "id": "c-d06",
+   "split": "dev",
+   "expected": "rag",
+   "question": "우리 강아지가 밤에 자꾸 짖는데 어떻게 하죠?"
+  },
+  {
+   "id": "c-d07",
+   "split": "dev",
+   "expected": "rag",
+   "question": "강아지한테 우유 줘도 되나요?"
+  },
+  {
+   "id": "c-d08",
+   "split": "dev",
+   "expected": "rag",
+   "question": "강아지 배변 훈련은 어떻게 시작해요?"
+  },
+  {
+   "id": "c-d09",
+   "split": "dev",
+   "expected": "rag",
+   "question": "개껌은 하루에 몇 개까지 줘도 돼요?"
+  },
+  {
+   "id": "c-d10",
+   "split": "dev",
+   "expected": "rag",
+   "question": "강아지 털 빗질은 얼마나 자주 해야 해요?"
+  },
+  {
+   "id": "c-d11",
+   "split": "dev",
+   "expected": "rag",
+   "question": "물은 하루에 얼마나 마셔야 정상이에요?"
+  },
+  {
+   "id": "c-d12",
+   "split": "dev",
+   "expected": "rag",
+   "question": "강아지를 혼자 두고 출근해도 괜찮을까요?"
+  },
+  {
+   "id": "c-d13",
+   "split": "dev",
+   "expected": "none",
+   "question": "오늘 저녁 메뉴 추천해 줘"
+  },
+  {
+   "id": "c-d14",
+   "split": "dev",
+   "expected": "none",
+   "question": "파이썬으로 리스트 정렬하는 법 알려줘"
+  },
+  {
+   "id": "c-d15",
+   "split": "dev",
+   "expected": "none",
+   "question": "영화 추천 좀 해줘"
+  },
+  {
+   "id": "c-d16",
+   "split": "dev",
+   "expected": "none",
+   "question": "안녕하세요"
+  },
+  {
+   "id": "c-d17",
+   "split": "dev",
+   "expected": "none",
+   "question": "너는 어떤 걸 할 수 있어?"
+  },
+  {
+   "id": "c-d18",
+   "split": "dev",
+   "expected": "none",
+   "question": "제주도 여행 코스 짜 줘"
+  },
+  {
+   "id": "c-h01",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "강아지 간식으로 고구마 말랭이 괜찮아요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h02",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "사료는 건식이랑 습식 중에 뭐가 나아요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h03",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "노즈워크 놀이는 어떻게 해 주면 돼요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h04",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "비 오는 날에도 산책을 꼭 나가야 하나요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h05",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "강아지 하네스랑 목줄 중에 뭐가 좋아요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h06",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "강아지가 신발을 자꾸 물어뜯어요. 어떻게 고쳐요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h07",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "수박 같은 과일 줘도 되나요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h08",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "새끼 강아지 데려왔는데 첫날 뭘 준비해야 해요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h09",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "강아지 영양제는 꼭 먹여야 하나요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h10",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "여름에 털을 짧게 밀어 줘도 될까요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h11",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "차 타고 멀리 갈 때 강아지는 어떻게 데려가요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h12",
+   "split": "holdout",
+   "expected": "rag",
+   "question": "강아지 이름 부르면 오게 하는 훈련 방법이 있나요?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h13",
+   "split": "holdout",
+   "expected": "none",
+   "question": "주말에 볼 만한 드라마 있어?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h14",
+   "split": "holdout",
+   "expected": "none",
+   "question": "엑셀에서 합계 구하는 함수가 뭐야?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h15",
+   "split": "holdout",
+   "expected": "none",
+   "question": "고마워요!",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h16",
+   "split": "holdout",
+   "expected": "none",
+   "question": "다이어트 식단 짜 줘",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h17",
+   "split": "holdout",
+   "expected": "none",
+   "question": "로또 번호 뽑아 줘",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h18",
+   "split": "holdout",
+   "expected": "none",
+   "question": "회사 면접 자기소개 어떻게 해?",
+   "informed_fix": true
+  },
+  {
+   "id": "c-h2-01",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 간식은 하루에 얼마나 줘도 되나요?"
+  },
+  {
+   "id": "c-h2-02",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "유기농 사료가 더 좋은가요?"
+  },
+  {
+   "id": "c-h2-03",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 산책할 때 신발 신겨야 해요?"
+  },
+  {
+   "id": "c-h2-04",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지가 손을 자꾸 핥아요. 왜 그러죠?"
+  },
+  {
+   "id": "c-h2-05",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 이갈이 시기에 뭘 씹게 해 줘요?"
+  },
+  {
+   "id": "c-h2-06",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "목욕시킨 뒤에 드라이는 꼭 해야 하나요?"
+  },
+  {
+   "id": "c-h2-07",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 사료 보관은 어떻게 해요?"
+  },
+  {
+   "id": "c-h2-08",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지랑 같이 자도 괜찮아요?"
+  },
+  {
+   "id": "c-h2-09",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 체중 관리하려면 간식을 줄여야 할까요?"
+  },
+  {
+   "id": "c-h2-10",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지가 다른 개를 보면 너무 짖어요"
+  },
+  {
+   "id": "c-h2-11",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "노견 산책은 얼마나 해야 해요?"
+  },
+  {
+   "id": "c-h2-12",
+   "split": "holdout2",
+   "expected": "rag",
+   "question": "강아지 물그릇은 얼마나 자주 씻어야 해요?"
+  },
+  {
+   "id": "c-h2-13",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "내일 비 와?"
+  },
+  {
+   "id": "c-h2-14",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "헬스장에서 하체 운동 루틴 알려줘"
+  },
+  {
+   "id": "c-h2-15",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "요즘 인기 있는 게임 뭐야?"
+  },
+  {
+   "id": "c-h2-16",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "부산 맛집 추천해 줘"
+  },
+  {
+   "id": "c-h2-17",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "파스타 만드는 법 알려줘"
+  },
+  {
+   "id": "c-h2-18",
+   "split": "holdout2",
+   "expected": "none",
+   "question": "잘 자"
+  }
+ ]
+}
