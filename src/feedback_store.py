@@ -30,16 +30,17 @@ def enabled() -> bool:
 
 
 def _connect():
-    from src.supabase_store import connector, lock_from_data_api
+    from src.supabase_store import connector, lock_from_data_api, table_exists
 
     conn = connector(settings.get_setting("SUPABASE_DB_URL"))()
     if not _ready.is_set():
-        conn.execute(f"""create table if not exists {TABLE} (
-            id bigint generated always as identity primary key,
-            created_at timestamptz not null default now(),
-            trace_id text, route text, reason text,
-            question text not null, answer text not null, evidence jsonb)""")
-        lock_from_data_api(conn, TABLE)
+        if not table_exists(conn, TABLE):
+            conn.execute(f"""create table {TABLE} (
+                id bigint generated always as identity primary key,
+                created_at timestamptz not null default now(),
+                trace_id text, route text, reason text,
+                question text not null, answer text not null, evidence jsonb)""")
+            lock_from_data_api(conn, TABLE)
         _ready.set()
     return conn
 

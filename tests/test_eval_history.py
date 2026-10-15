@@ -31,14 +31,24 @@ class RecordTests(unittest.TestCase):
     def test_a_row_in_a_locked_table(self):
         conn = MagicMock()
         conn.__enter__.return_value = conn
+        conn.execute.return_value.fetchone.return_value = (None,)  # the table is missing: created and locked
         with patch.dict("os.environ", {"SUPABASE_DB_URL": "postgresql://x", "GITHUB_SHA": "abc1234",
                                        "RAGDOG_EVAL_HISTORY": "1"}), \
                 patch("psycopg.connect", return_value=conn):
             self.assertTrue(eval_history.record("regression", "crag", False, {"accuracy": 0.8}, run="ci-1"))
         statements = [call.args[0] for call in conn.execute.call_args_list]
-        self.assertIn("enable row level security", statements[1])
+        self.assertTrue(any("enable row level security" in sql for sql in statements))
         insert = conn.execute.call_args_list[-1].args[1]
         self.assertEqual(insert[:5], ["regression", "crag", "ci-1", "abc1234", False])
+
+    def test_an_existing_table_is_only_written(self):
+        conn = MagicMock()
+        conn.__enter__.return_value = conn
+        conn.execute.return_value.fetchone.return_value = ("public.ragdog_eval_history",)
+        with patch.dict("os.environ", {"SUPABASE_DB_URL": "postgresql://x", "RAGDOG_EVAL_HISTORY": "1"}),                 patch("psycopg.connect", return_value=conn):
+            self.assertTrue(eval_history.record("deploy", "cloud-run", True, {}))
+        statements = [call.args[0] for call in conn.execute.call_args_list]
+        self.assertEqual([sql.split()[0] for sql in statements], ["select", "insert"])
 
     def test_the_lock_matches_the_app_tables(self):
         conn = MagicMock()
