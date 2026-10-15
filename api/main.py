@@ -41,9 +41,11 @@ def create_app() -> FastAPI:
 
     from api.chat import router as chat_router
     from api.places import router as places_router
+    from api.stats import router as stats_router
 
     app.include_router(chat_router)
     app.include_router(places_router)
+    app.include_router(stats_router)
 
     @app.get("/health")
     def health() -> dict:
