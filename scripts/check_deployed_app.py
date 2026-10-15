@@ -32,7 +32,9 @@ import os
 import sys
 import time
 
-STREAMLIT_CLOUD_URL = "https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app"
+CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
+# The frozen Streamlit backup (branch streamlit-backup, since 2026-10-15); checked by hand only.
+STREAMLIT_BACKUP_URL = "https://dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app"
 CHECK_AGENT = "RagDogCheck"  # added to the browser's user agent; same as src/data_gaps.CHECK_AGENT
 CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 PAGES = ("", "data", "rag", "hospital", "visit_prep")
@@ -178,7 +180,7 @@ def check_commit(page, url: str, expected: str) -> tuple[str | None, str | None]
             print(f"commit: {commit}")
             return None, commit
         if time.perf_counter() - started > COMMIT_WAIT_S:
-            hint = " (Streamlit Cloud: reboot the app)" if url == STREAMLIT_CLOUD_URL else ""
+            hint = " (Streamlit Cloud: reboot the app)" if "streamlit.app" in url else ""
             return f"running {commit or 'unknown'}, not {expected[:7]}{hint}", commit
         print(f"commit: {commit}, waiting for {expected[:7]}", flush=True)
         page.wait_for_timeout(60_000)
@@ -233,17 +235,17 @@ def check(url: str, expected_commit: str | None = None) -> int:
     for problem in problems:
         print(f"PROBLEM {problem}")
     write_summary(summary_line(url, ready_s, chat_s, problems, health_s))
-    eval_history.record("deploy", "streamlit-cloud" if url == STREAMLIT_CLOUD_URL else "cloud-run", not problems,
+    eval_history.record("deploy", "streamlit-backup" if "streamlit.app" in url else "cloud-run", not problems,
                         {"ready_s": ready_s, "date_answer_s": chat_s, "health_answer_s": health_s, "problems": problems},
                         commit=commit)
-    if problems and url == STREAMLIT_CLOUD_URL:
+    if problems and "streamlit.app" in url:
         print("If the code on main is fine, the app may need a reboot (Manage app -> Reboot app).")
     return 1 if problems else 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("url", nargs="?", default=STREAMLIT_CLOUD_URL)
+    parser.add_argument("url", nargs="?", default=CLOUD_RUN_URL)
     parser.add_argument("--expect-commit", help="the commit the deployment should run (the workflow's GITHUB_SHA)")
     args = parser.parse_args()
     sys.exit(check(args.url, args.expect_commit))

@@ -2,7 +2,7 @@
 
 > 반려견 건강 상담, 반려동물 시설 검색(동물병원·약국·동반 시설 등 38,529곳), 반려동물 보고서 분석을 하나의 챗봇으로 제공하는 RAG 서비스입니다. 근거가 없으면 지어내지 않고 답변을 보류합니다.
 
-- **배포 앱:** Google Cloud Run <https://ragdog-892238791473.asia-northeast3.run.app/rag> (주 배포, main 병합 시 GitHub Actions로 자동 배포) · Streamlit Community Cloud <https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app/rag> (예비). [Cloud Run 기록](docs/wiki/cloud-run.md)
+- **배포 앱:** Google Cloud Run <https://ragdog-892238791473.asia-northeast3.run.app/rag> (주 배포, main 병합 시 GitHub Actions로 자동 배포) · Streamlit Community Cloud 백업 <https://dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app/rag> (`streamlit-backup` 브랜치에 고정, Next.js 이전 중 대비). [Cloud Run 기록](docs/wiki/cloud-run.md)
 - **상세 문서:** [`docs/details.md`](docs/details.md)(기능·데이터·결정 전체), [`docs/wiki/`](docs/wiki/README.md)(실험 수치, 채택·기각 이유)
 - **데이터:** [데이터 명세서](docs/data-sources.md)(출처, 이용 조건, 가공). 건강 상담은 AI Hub(aihub.or.kr)의 「반려견 성장 및 질병관련 말뭉치 데이터」(과학기술정보통신부·한국지능정보사회진흥원 사업 결과)를 활용했습니다.
 - 프로젝트 노션: <https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5> · 발표 당시 버전: <https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag> · 발표 자료: [PDF](docs/presentation/RAG-DOG_발표.pdf)

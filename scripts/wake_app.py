@@ -1,5 +1,6 @@
-"""Open the deployed app in a headless browser so Streamlit Community Cloud does not put it to
-sleep, and wake it if it already sleeps. Run by .github/workflows/keep-alive.yml.
+"""Open the deployed app in a headless browser and wait until it is ready: a Cloud Run instance
+starts from zero, and a Streamlit Community Cloud app (the backup since 2026-10-15) is woken if it
+sleeps. Used by scripts/check_deployed_app.py (.github/workflows/keep-alive.yml).
 
 A plain HTTP request is not enough: the platform counts browser sessions, and a sleeping app
 only starts after its "Yes, get this app back up!" button is clicked.
@@ -15,7 +16,7 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-APP_URL = "https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app"
+APP_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 WAKE_BUTTON = "Yes, get this app back up!"
 READY_TEXT = "주요 서비스"  # home page section title, rendered once the app script has run
 TIMEOUT_S = 300

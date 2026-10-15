@@ -1,13 +1,12 @@
 name: Keep deployed app awake and working
 
-# Streamlit Community Cloud puts an app to sleep after a stretch without visitors; waking it
-# then takes about 100s. A headless browser visit every 8 hours keeps it awake, and clicks
-# the wake button if it already sleeps (scripts/wake_app.py). The same visit then opens every
-# page and asks the chatbot a date and a health question (scripts/check_deployed_app.py), so an app that is
-# awake but broken fails the run. After a push to main it also runs once the redeploy is done:
-# on 2026-10-09 a redeploy without a reboot left the chat page on an ImportError.
-# Since 2026-10-12 the same check runs on the Cloud Run deployment too (docs/wiki/cloud-run.md):
-# it scales to zero between visits, so the scheduled runs record its cold start in the summary.
+# Every 8 hours, and after a push to main once the redeploy is done, a headless browser opens the
+# Cloud Run deployment (docs/wiki/cloud-run.md), every page, and asks the chatbot a date and a
+# health question (scripts/check_deployed_app.py), so a deployment that is up but broken fails the
+# run. Cloud Run scales to zero between visits: the scheduled runs record its cold start.
+# Until 2026-10-15 the main branch also ran on Streamlit Community Cloud and this check kept it
+# awake. Since then Streamlit Cloud runs only the frozen backup (branch streamlit-backup, its own
+# Chroma search, docs/docker-deployment.md); it may sleep and is not checked here.
 on:
   schedule:
     - cron: "17 */8 * * *"
@@ -30,8 +29,6 @@ jobs:
       fail-fast: false  # one deployment failing must not hide the other's result
       matrix:
         target:
-          - name: streamlit-cloud
-            url: https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app
           - name: cloud-run
             url: https://ragdog-892238791473.asia-northeast3.run.app
     name: wake (${{ matrix.target.name }})
@@ -71,7 +68,7 @@ jobs:
           if-no-files-found: ignore
 
   database:
-    # Both checks above ask a health question; with SEARCH_BACKEND=supabase (docs/adr/0007) that
+    # The check above asks a health question; with SEARCH_BACKEND=supabase (docs/adr/0007) that
     # search must have used the Supabase vector index during this run. Otherwise the deployments
     # answered from the local fallback and Supabase is failing for them. The query also counts as
     # database activity, so the free project is not paused for inactivity.

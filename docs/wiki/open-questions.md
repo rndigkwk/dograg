@@ -38,7 +38,7 @@
 - **메모리 한도 초과 위험 (2026-10-02 측정):** 건강 검색 구성 요소와 보고서용 bge-m3를 모두 올리면 약 3.2GB로, Cloud 한도 2.7GB를 넘는다. 리랭커는 더 무겁다. 임베딩 모델을 하나로 줄이는 것이 우선이다([deployment-resources.md](deployment-resources.md)).
 
 - ~~Streamlit Cloud(HTTPS)에서 위치 권한 동작을 확인하지 않았다.~~ 2026-10-02 부분 확인([safety-and-evidence.md](safety-and-evidence.md)). 남은 것은 실제 기기 권한 팝업에서 허용, 거부, 시간 초과를 사람이 직접 확인하는 일이다.
-- 배포가 두 곳이다. `dograg-n4gxibufynkgiuixfrkx2v.streamlit.app`(`rndigkwk/dograg` main, 최신)과 `mle-01-p1-team2-…streamlit.app`(`encore-ai-campus/mle-01-p1-team2`, 2026-09-18 README 최종본에서 멈춤). 발표 자료나 노션에 옛 주소가 남아 있으면 혼동될 수 있다.
+- (2026-10-15 바뀜: main은 Cloud Run에만 배포하고, Streamlit Cloud는 `streamlit-backup` 브랜치의 백업 앱 `dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app`만 남겼다. [docker-deployment.md](../docker-deployment.md)) 예전 기록: 배포가 두 곳이다. `dograg-n4gxibufynkgiuixfrkx2v.streamlit.app`(`rndigkwk/dograg` main, 최신)과 `mle-01-p1-team2-…streamlit.app`(`encore-ai-campus/mle-01-p1-team2`, 2026-09-18 README 최종본에서 멈춤). 발표 자료나 노션에 옛 주소가 남아 있으면 혼동될 수 있다.
 - ~~로컬 `pyproject.toml`에 `typesafe-sdk`(Jev 섀도 실험 전용)가 앱 의존성으로 추가돼 있었다.~~ 2026-10-02 커밋하지 않고 되돌렸다. 섀도 스크립트는 `uv run --with typesafe-sdk==0.7.1`로 실행한다.
 - 응급 신호 문구와 규칙을 수의사가 검토하지 않았다. 규칙만으로는 처음 보는 표현의 응급 질문을 절반쯤 놓쳐(holdout 9/20) Decisions 두 번째 판단을 붙였다(19/20). 평가셋 라벨도 수의사 검토 없이 매겼다([기록](safety-and-evidence.md)).
 
