@@ -19,6 +19,8 @@ import os
 import sys
 from pathlib import Path
 
+import eval_history
+
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_DIR / "output" / "experiments"
 
@@ -66,7 +68,7 @@ LIMITS = {
 }
 
 
-def check(set_name: str, run_name: str) -> tuple[list[str], bool]:
+def check(set_name: str, run_name: str) -> tuple[list[str], bool, dict]:
     path = RESULTS_DIR / f"{set_name}_{run_name}.json"
     result = json.loads(path.read_text(encoding="utf-8"))
     scores = result["run_scores"]
@@ -83,7 +85,7 @@ def check(set_name: str, run_name: str) -> tuple[list[str], bool]:
         shown = "없음" if value is None else f"{value:.3f}"
         kind = "경보" if name in ALARMS else "품질"
         rows.append(f"| {set_name} | {kind} | {name} | {shown} | {sign} {limit} | {reference} | {'✅' if passed else '❌'} |")
-    return rows, ok
+    return rows, ok, result
 
 
 def main(argv: list[str]) -> int:
@@ -93,8 +95,12 @@ def main(argv: list[str]) -> int:
     lines = ["| 평가 세트 | 구분 | 지표 | 이번 실행 | 기준 | 병합 시 결과 | 판정 |", "| --- | --- | --- | ---: | --- | ---: | :---: |"]
     all_ok = True
     for set_name, run_name in zip(argv[::2], argv[1::2]):
-        rows, ok = check(set_name, run_name)
+        rows, ok, result = check(set_name, run_name)
         lines += rows
+        metrics = dict(result["run_scores"])
+        if result.get("judge_model"):
+            metrics["judge_model"] = result["judge_model"]
+        eval_history.record("regression", set_name, ok, metrics, run=run_name)  # only with SUPABASE_DB_URL
         all_ok &= ok
     table = "\n".join(lines)
     sys.stdout.reconfigure(errors="replace")  # ✅/❌ on a Windows console (cp949)

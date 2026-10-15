@@ -54,7 +54,11 @@ jobs:
         run: sleep 300
 
       - name: Wake the app and check every page and the chatbot
-        run: uvx --with playwright python scripts/check_deployed_app.py "${{ matrix.target.url }}" ${{ github.ref == 'refs/heads/main' && format('--expect-commit {0}', github.sha) || '' }}
+        # The result also goes to ragdog_eval_history (scripts/eval_history.py) for the trend.
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RAGDOG_EVAL_HISTORY: "1"
+        run: uvx --with playwright --with "psycopg[binary]" python scripts/check_deployed_app.py "${{ matrix.target.url }}" ${{ github.ref == 'refs/heads/main' && format('--expect-commit {0}', github.sha) || '' }}
 
       - name: Keep the failure screenshot
         if: failure()
@@ -78,6 +82,7 @@ jobs:
     env:
       SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      RAGDOG_EVAL_HISTORY: "1"  # the database row of ragdog_eval_history
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
