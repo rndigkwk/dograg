@@ -1,5 +1,5 @@
 {
- "description": "Automatic pet memory (scripts/evaluate_profile_memory.py), written 2026-10-15 before the change. Each item is one health question asked with the stored profile `profile` (null = empty). `expect` lists the facts that should be offered for saving: for list fields, a keyword each new item must contain; weight_kg / neutered when they should be filled or changed. An empty `expect` means nothing new should be offered (symptoms only, another dog, a plan, a general question, a fact already stored). `use` cases check that a stored fact reaches a later answer in a new conversation: the answer should mention one of `must_mention`. `unrelated` cases (added 2026-10-15 before the answer-prompt change): the stored fact has nothing to do with the question, and the answer should not mention any of `must_not_mention`.",
+ "description": "Automatic pet memory (scripts/evaluate_profile_memory.py), written 2026-10-15 before the change. Each item is one health question asked with the stored profile `profile` (null = empty). `expect` lists the facts that should be offered for saving: for list fields, a keyword each new item must contain; weight_kg / neutered when they should be filled or changed. An empty `expect` means nothing new should be offered (symptoms only, another dog, a plan, a general question, a fact already stored). `use` cases check that a stored fact reaches a later answer in a new conversation: the answer should mention one of `must_mention`. `unrelated` cases (added 2026-10-15 before the answer-prompt change): the stored fact has nothing to do with the question, and the answer should not mention any of `must_not_mention`. `food_names` (added 2026-10-15 before the fix): dogs named after foods, with the name stored; on Cloud Run '두부가 3개월 전에 슬개골 수술을 했는데' offered nothing, and 1 of 8 detections said it was not about the user's dog.",
  "items": [
   {
    "id": "m-d01",
@@ -600,6 +600,98 @@
     "방광",
     "수술"
    ]
+  }
+ ],
+ "food_names": [
+  {
+   "id": "f01",
+   "profile": {
+    "name": "두부"
+   },
+   "question": "두부가 3개월 전에 슬개골 수술을 했는데 아직 다리를 살짝 절어요.",
+   "field": "procedures",
+   "expect": "슬개골"
+  },
+  {
+   "id": "f02",
+   "profile": {
+    "name": "콩이"
+   },
+   "question": "콩이가 요즘 피부약을 먹고 있는데 털이 계속 빠져요.",
+   "field": "medications",
+   "expect": "피부"
+  },
+  {
+   "id": "f03",
+   "profile": {
+    "name": "보리"
+   },
+   "question": "보리가 작년에 디스크 진단을 받았어요. 계단은 피해야 하나요?",
+   "field": "conditions",
+   "expect": "디스크"
+  },
+  {
+   "id": "f04",
+   "profile": {
+    "name": "초코"
+   },
+   "question": "초코는 닭고기 알레르기가 있어요. 간식 고를 때 뭘 봐야 해요?",
+   "field": "allergies",
+   "expect": "닭"
+  },
+  {
+   "id": "f05",
+   "profile": {
+    "name": "호두"
+   },
+   "question": "호두가 지난달에 이빨 발치 수술을 했는데 사료를 잘 안 먹어요.",
+   "field": "procedures",
+   "expect": "발치"
+  },
+  {
+   "id": "f06",
+   "profile": {
+    "name": "감자"
+   },
+   "question": "감자가 심장병 진단을 받고 약을 먹기 시작했어요.",
+   "field": "conditions",
+   "expect": "심장"
+  },
+  {
+   "id": "f07",
+   "profile": {
+    "name": "고구마"
+   },
+   "question": "고구마가 당뇨라서 인슐린 주사를 맞고 있어요.",
+   "field": "conditions",
+   "expect": "당뇨"
+  },
+  {
+   "id": "f08",
+   "profile": {
+    "name": "우유"
+   },
+   "question": "우유가 몸무게가 8kg까지 늘었어요.",
+   "field": "weight_kg",
+   "expect": 8.0
+  },
+  {
+   "id": "f09",
+   "profile": {
+    "name": "땅콩"
+   },
+   "question": "땅콩이가 백내장 수술을 받았는데 눈을 자꾸 비벼요.",
+   "field": "procedures",
+   "expect": "백내장"
+  },
+  {
+   "id": "f10",
+   "profile": {
+    "name": "쿠키"
+   },
+   "question": "쿠키가 갑상선 약을 먹고 있는데 기운이 없어요.",
+   "field": "medications",
+   "expect": "갑상선"
   }
  ]
 }

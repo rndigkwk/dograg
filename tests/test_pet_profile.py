@@ -107,6 +107,17 @@ class AutomaticMemoryTests(unittest.TestCase):
             pet_profile.detect("초코가 당뇨 진단을 받았어요 010-1234-5678")
         self.assertNotIn("010-1234-5678", seen[0])
 
+    def test_the_stored_name_reaches_the_detector(self):
+        # A dog called after a food (두부) was once read as "not about the user's dog".
+        seen = []
+        with self.model_returning(pet_profile.DetectedProfile(procedures=["슬개골 수술"]), seen):
+            pet_profile.suggest_memory(PetProfile(name="두부"), "두부가 슬개골 수술을 했어요")
+        self.assertIn("저장한 반려견 이름: 두부", seen[0])
+        seen.clear()
+        with self.model_returning(pet_profile.DetectedProfile(name="초코"), seen):
+            pet_profile.suggest_memory(None, "우리 초코가 5개월이에요")
+        self.assertNotIn("저장한 반려견 이름", seen[0])
+
     def test_procedures_reach_the_prompt(self):
         self.assertIn("수술·시술: 슬개골 수술", pet_profile.profile_context(PetProfile(procedures=["슬개골 수술"])))
 

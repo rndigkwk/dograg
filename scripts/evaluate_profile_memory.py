@@ -4,6 +4,7 @@ fact reach a later answer? (tests/data/profile_memory_questions.json, written be
     uv run python scripts/evaluate_profile_memory.py offer --mode before   # the app before (detection only on an empty profile)
     uv run python scripts/evaluate_profile_memory.py offer --mode after    # src/tools/profile.suggest_memory
     uv run python scripts/evaluate_profile_memory.py use                   # answers without / with the stored facts
+    uv run python scripts/evaluate_profile_memory.py food-names --repeats 5   # dogs named after foods
 
 offer: per item, the facts the app would offer to save. A list fact counts as found when an offered
 item of that field contains the expected keyword; an offered fact matching nothing expected is a
@@ -138,14 +139,38 @@ def use() -> dict:
     return out
 
 
+def food_names(repeats: int) -> dict:
+    """Dogs named after foods (두부, 콩이, 보리 ...), name stored: is the fact offered every time?"""
+    from src.tools.profile import suggest_memory
+
+    cases = load()["food_names"]
+    jobs = [case for case in cases for _ in range(repeats)]
+
+    def one(case):
+        suggestion = suggest_memory(stored(case["profile"]), case["question"])
+        value = None if suggestion is None else suggestion.new_facts.get(case["field"])
+        if isinstance(case["expect"], str):
+            return bool(value) and any(case["expect"] in item for item in value)
+        return value == case["expect"]
+
+    with ThreadPoolExecutor(8) as pool:
+        hits = list(pool.map(one, jobs))
+    per_case = {case["id"]: sum(hits[i * repeats:(i + 1) * repeats]) for i, case in enumerate(cases)}
+    out = {"summary": {"offered": f"{sum(hits)}/{len(hits)}", "per_case": per_case}}
+    (OUT_DIR / "profile_memory_food_names.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("offer", "use"))
+    parser.add_argument("command", choices=("offer", "use", "food-names"))
+    parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--mode", choices=("before", "after"), default="after")
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     sys.stdout.reconfigure(encoding="utf-8")
-    out = offer(args.mode) if args.command == "offer" else use()
+    out = (offer(args.mode) if args.command == "offer" else use() if args.command == "use"
+           else food_names(args.repeats))
     print(json.dumps(out["summary"], ensure_ascii=False, indent=1))
     return 0
 
