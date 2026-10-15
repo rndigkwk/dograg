@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/* The Streamlit app's colors (src/ui.py apply_app_theme): navy text, violet accent. */
+@theme {
+  --color-page: #f7f8fc;
+  --color-ink: #17233f;
+  --color-muted: #66728d;
+  --color-line: #dfe3ee;
+  --color-accent: #5943d8;
+  --color-danger: #c62828;
+  --color-warn: #f2a900;
+  --color-warn-strong: #8a5a00;
+  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.markdown > * + * {
+  margin-top: 0.6em;
+}
+.markdown ul {
+  list-style: disc;
+  padding-left: 1.25em;
+}
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.25em;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-weight: 700;
+}
+.markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.markdown table {
+  border-collapse: collapse;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--color-line);
+  padding: 0.25em 0.5em;
+}

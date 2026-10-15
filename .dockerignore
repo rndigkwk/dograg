@@ -25,6 +25,8 @@ data/*
 
 # Not needed to run the app
 docs/
+# The Next.js frontend, deployed to Vercel (docs/adr/0008)
+web/
 notebooks/
 eval/
 tests/
