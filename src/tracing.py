@@ -252,6 +252,26 @@ def record_feedback(trace_id: str | None, helpful: bool) -> bool:
         return False
 
 
+FEEDBACK_REASON_SCORE = "user_feedback_reason"
+
+
+def record_feedback_reason(trace_id: str | None, reason: str) -> bool:
+    """Store why an answer got 👎 (one of src/feedback_store.REASONS) as a CATEGORICAL score, so the
+    reasons can be counted per kind of failure (Day 59: wrong facts, off the question, no evidence)."""
+    langfuse = client()
+    if langfuse is None or not trace_id:
+        return False
+    try:
+        langfuse.create_score(
+            name=FEEDBACK_REASON_SCORE, value=reason, data_type="CATEGORICAL",
+            trace_id=trace_id, score_id=f"{trace_id}-{FEEDBACK_REASON_SCORE}",
+        )
+        return True
+    except Exception:
+        logger.warning("Langfuse feedback reason failed", exc_info=True)
+        return False
+
+
 def flush() -> None:
     """Send queued traces now (scripts call this before exiting; the app exports in the background)."""
     langfuse = client()

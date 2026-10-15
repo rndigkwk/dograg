@@ -209,6 +209,36 @@ class ConversationPageTests(unittest.TestCase):
         record.assert_called_once_with("trace-4", helpful=True)
         self.assertEqual([e.message for e in at.exception], [])
 
+    def test_a_thumbs_down_asks_why_and_sends_only_with_consent(self):
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        at.chat_input[0].set_value("기침해요 제 번호 010-1234-5678")
+        at = self.run_app(browser, at)
+        reasons = lambda at: [r for r in at.radio if r.label == "어떤 점이 아쉬웠나요?"]  # noqa: E731
+        self.assertEqual(reasons(at), [])  # nothing before a vote
+        with patch.object(chat_page, "record_feedback"),                 patch.object(chat_page.feedback_store, "enabled", return_value=True),                 patch.object(chat_page.feedback_store, "save_review", return_value=True) as save,                 patch.object(chat_page, "record_feedback_reason") as reason:
+            at.feedback[0].set_value(0)
+            at = self.run_app(browser, at)
+            self.assertEqual(reasons(at)[0].options, list(chat_page.feedback_store.REASONS))
+            reasons(at)[0].set_value("틀린 정보")
+            at = self.run_app(browser, at)
+            reason.assert_called_once()
+            trace_id, chosen = reason.call_args.args
+            self.assertEqual(chosen, "틀린 정보")
+            save.assert_not_called()  # no consent yet
+            [consent] = [c for c in at.checkbox if c.label.startswith("이 질문과 답변을 개선에")]
+            consent.check()
+            at = self.run_app(browser, at)
+            [send] = [b for b in at.button if b.label == "보내기"]
+            send.click()
+            at = self.run_app(browser, at)
+        save.assert_called_once()
+        kwargs = save.call_args.kwargs
+        self.assertEqual((kwargs["reason"], kwargs["trace_id"]), ("틀린 정보", trace_id))
+        self.assertIn("010-1234-5678", kwargs["question"])  # masked inside save_review, as stored
+        self.assertTrue(any("고맙습니다" in c.value for c in at.caption))
+        self.assertEqual([e.message for e in at.exception], [])
+
     def test_no_feedback_without_a_trace(self):
         browser = FakeBrowser(notice=True)
         at = self.run_app(browser)
