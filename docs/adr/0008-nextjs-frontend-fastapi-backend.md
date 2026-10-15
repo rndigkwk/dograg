@@ -114,3 +114,21 @@ flowchart LR
   - 따로 부를 수 있는 경로가 없어, 그 경로만 반복 호출해 모델을 쓰게 하는 길도 없다.
 - **피드백:** `POST /feedback`(👍/👎), `/feedback/reason`(이유), `/feedback/review`(동의한 대화 저장). 모델은 부르지 않지만 Langfuse·Supabase에 쓰므로 브라우저당 시간당 60번으로 막는다.
 - **화면 코드에서 옮긴 것:** 진행 문구·응급 병원(`src/chat_events.py`), 시설 조회(`src/places_search.py`), 데이터 수치(`src/data_stats.py`), 방문 준비 실행(`src/visit_prep_runs.py`). Streamlit 화면도 이것을 써서 두 화면의 결과가 같다.
+
+## P1 품질 확인 (2026-10-15)
+배포된 `ragdog-api`(커밋 141a11a, Supabase 검색)에 `/chat`으로 CRAG 60문항과 시설 라우팅 36문항을 물었다(`scripts/evaluate_api.py`).
+
+| 세트 | 지표 | 배포 API | 주간 기준 | 로컬 병합 시 |
+| --- | --- | ---: | --- | ---: |
+| CRAG | accuracy | 0.867 | ≥ 0.85 | 0.900 |
+| CRAG | over_abstain | 0.000 | ≤ 0.10 | 0.026 |
+| CRAG | missed_abstain | 0.364 (8/22) | ≤ 0.35 | 0.227 (5/22) |
+| CRAG | latency_p90_s (네트워크 포함) | 11.6 | ≤ 25 | 12.6 |
+| 라우팅 | route_accuracy / kind_accuracy | 1.000 / 1.000 | ≥ 0.94 / 1.0 | 1.000 / 1.000 |
+
+- missed_abstain이 한 문항 차이로 기준을 넘었다. 원인을 갈랐다.
+  - 보류할 22문항을 로컬에서 같은 Supabase 검색으로 돌리면 5/22(u02·u04·u06·u16·r19)로, 로컬 Chroma 실행들(4~5/22)과 같다. 검색 백엔드 탓이 아니다.
+  - 이번에 새로 놓친 u01·u08·u16·u20을 API로 다시 물으면 u01·u08·u20은 보류했고, u16만 다시 답했다(로컬에서도 놓치는 문항).
+  - 따라서 근거 평가가 실행마다 달라지는 잡음이다. API 코드는 같은 `chatbot()`을 같은 설정으로 부른다.
+- 다시 검토할 조건("API 품질이 주간 기준 아래면 P2로 가지 않는다")은 해당하지 않는다고 보고 P2로 간다.
+- 차이: API는 CRAG decision을 돌려주지 않아 partial을 answer로 센다(지표는 같다). 개수만 답한 시설 질문 8개는 장소 목록이 없어 kind를 채점하지 않았다.
