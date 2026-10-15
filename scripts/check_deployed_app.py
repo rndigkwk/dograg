@@ -33,6 +33,7 @@ import sys
 import time
 
 STREAMLIT_CLOUD_URL = "https://dograg-n4gxibufynkgiuixfrkx2v.streamlit.app"
+CHECK_AGENT = "RagDogCheck"  # added to the browser's user agent; same as src/data_gaps.CHECK_AGENT
 CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 PAGES = ("", "data", "rag", "hospital", "visit_prep")
 # Streamlit's uncaught-exception box, and the text it shows when the message is redacted.
@@ -212,7 +213,9 @@ def check(url: str, expected_commit: str | None = None) -> int:
     ready_s = time.perf_counter() - started  # Cloud Run at zero instances: its cold start
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        page = browser.new_page()
+        agent = browser.new_page().evaluate("navigator.userAgent")
+        # the app leaves the answers to this check out of its data-gap table (src/data_gaps.py)
+        page = browser.new_page(user_agent=f"{agent} {CHECK_AGENT}")
         problems = []
         if expected_commit:
             commit_problem, _ = check_commit(page, url, expected_commit)

@@ -6,7 +6,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_deployed_app import error_in, same_commit, summary_line  # noqa: E402
+from check_deployed_app import CHECK_AGENT, error_in, same_commit, summary_line  # noqa: E402
+
+from src import data_gaps  # noqa: E402
 
 # The chat page on 2026-10-09, redeployed without a reboot (Streamlit Cloud redacts the message).
 DEPLOYED_IMPORT_ERROR = (
@@ -56,6 +58,11 @@ class FooterTests(unittest.TestCase):
         self.assertIn('data-commit="027492d"', footer_html("027492d"))
         self.assertNotIn("data-commit", footer_html(None))
 
+
+
+class CheckAgentTests(unittest.TestCase):
+    def test_the_app_knows_the_check_browser(self):
+        self.assertEqual(CHECK_AGENT, data_gaps.CHECK_AGENT)
 
 if __name__ == "__main__":
     unittest.main()

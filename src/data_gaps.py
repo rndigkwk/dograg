@@ -8,7 +8,9 @@ src/pii.py) go to the Supabase table ragdog_data_gaps, closed to the public REST
 app abstained from adds one row of kind "abstained" without text. The question itself is not stored.
 
 Only on the deployments (settings.deployed()) with SUPABASE_DB_URL: local runs, tests and the
-evaluation runs in CI would fill the table with the evaluation sets. The insert runs in a background
+evaluation runs in CI would fill the table with the evaluation sets. The deployment check
+(scripts/check_deployed_app.py, every few hours) asks a health question too; its browser adds
+CHECK_AGENT to its user agent and those answers are left out. The insert runs in a background
 thread so it never slows or breaks an answer. scripts/report_data_gaps.py lists what was collected.
 """
 
@@ -33,6 +35,7 @@ _SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
 # "자료에 따르면 ... 할 수 없습니다" is what the material says, not a gap either.
 _GAP = re.compile(r"자료(?:에는|에서는|엔|에(?! 따르면))[^.?!]*?(?:(?<!수 )없(?:습니다|고|어(?!도)|으며|는데|다)|"
                   r"(?:나와|설명되어|언급되어|포함되어|담겨|제시되어) 있지 않|다루지 않|확인되지 않)")
+CHECK_AGENT = "RagDogCheck"
 _ready = threading.Event()
 
 
@@ -50,6 +53,16 @@ def gap_sentences(answer: str) -> list[str]:
 
 def enabled() -> bool:
     return settings.deployed() and bool(settings.get_setting("SUPABASE_DB_URL"))
+
+
+def from_check() -> bool:
+    """Whether this question came from the deployment check's browser (its user agent)."""
+    try:
+        import streamlit as st
+
+        return CHECK_AGENT in (st.context.headers.get("User-Agent") or "")
+    except Exception:  # noqa: BLE001 - outside a Streamlit session there are no headers
+        return False
 
 
 def rows_for(result: dict) -> list[tuple[str, str, str | None]]:
@@ -82,7 +95,7 @@ def _insert(rows: list[tuple[str, str, str | None]]) -> None:
 
 def record(result: dict) -> threading.Thread | None:
     """Save the gaps of one answer in the background (deployments only); the thread, for tests."""
-    if not enabled():
+    if not enabled() or from_check():
         return None
     rows = rows_for(result)
     if not rows:
