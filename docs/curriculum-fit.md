@@ -21,7 +21,7 @@
 | 벡터 저장소 선택, ADR (Day 58) | 2026-10-13. Chroma·FAISS·pgvector 비교 → 메모리 안 전수 검색 채택(ADR-0003), 결정 기록 `docs/adr/` | [adr/](adr/README.md) |
 | 임베딩 모델 선택 (Day 58) | 임베딩 비교 실험 후 건강은 ko-sroberta, 보고서는 OpenAI 임베딩 | [wiki/deployment-resources.md](wiki/deployment-resources.md) |
 | 충실도, 환각 (Day 59) | 자체 충실도 평가(답의 주장이 근거에 있는 비율), 근거 밖 의학 사실 0 | [wiki/safety-and-evidence.md](wiki/safety-and-evidence.md) |
-| LLM-as-Judge, 판정 신뢰도 (Day 60) | `useful@3` 판정, 같은 답 두 번 판정 일치율 86.5%(κ 0.79) | [wiki/retrieval-experiments.md](wiki/retrieval-experiments.md) |
+| LLM-as-Judge, 판정 신뢰도 (Day 60) | `useful@3` 판정, 같은 답 두 번 판정 일치율 86.5%(κ 0.79). 2026-10-15: 후보 순서 뒤집기 0.833, 다른 판사(gpt-4.1) κ 0.78, 길이 편향은 양방향 판정으로 30/30, 사람 판정 성적표 | [wiki/judge-validation.md](wiki/judge-validation.md) |
 | 테스트 케이스 설계, 도메인 기준 (Day 60) | 측정 전에 쓴 평가 세트와 dev/holdout 분리. 응급 감지, 진료비, 주제 전환, 근거 귀속 등 | [improvement-log.md](improvement-log.md) |
 | 평가 자동화, 기준선 관리 (Day 61) | GitHub Actions 주간 회귀 평가와 고정 기준값(`scripts/check_regression.py`) | [wiki/observability.md](wiki/observability.md) |
 | 임베딩 파인튜닝 (Day 74) | ko-sroberta 미세조정, 짧은 질문 useful@3 0.600 → 0.783 (p=0.0001) | [wiki/embedding-finetune.md](wiki/embedding-finetune.md) |
@@ -82,6 +82,7 @@
 - 자체 지표(useful@3, 충실도)를 같은 문항에서 RAGAS의 Context Precision과 Faithfulness로도 재고 일치율을 본다.
 - "왜 표준 도구를 안 썼나"에 숫자로 답할 수 있다.
 - 지금은 판정 모델이 답변 모델과 같다(자기 답에 후한 편향 가능). 쌍 비교(Pairwise)와 다른 판정 모델로 그 편향을 잰다.
+  - 2026-10-15 쟀다: 다른 판사와 κ 0.78, 큰 자기 선호 신호 없음. 사람 판정 대조는 [wiki/judge-validation.md](wiki/judge-validation.md).
 
 ### 4) 임베딩 미세조정에 하드 네거티브 (Day 74)
 

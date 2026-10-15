@@ -1,0 +1,446 @@
+{
+ "description": "Cells for checking the LLM judges against a person (scripts/judge_validation.py). relevance: judge = the grade in tests/data/health_relevance_100.json; answer: correctness = mean RAGAS answer_correctness of run 0.",
+ "seed": 20261015,
+ "relevance": [
+  {
+   "id": "r01",
+   "row": 297,
+   "doc": "13117",
+   "judge": 2
+  },
+  {
+   "id": "r02",
+   "row": 83,
+   "doc": "4748",
+   "judge": 2
+  },
+  {
+   "id": "r03",
+   "row": 86,
+   "doc": "7332",
+   "judge": 2
+  },
+  {
+   "id": "r04",
+   "row": 361,
+   "doc": "11933",
+   "judge": 2
+  },
+  {
+   "id": "r05",
+   "row": 300,
+   "doc": "15233",
+   "judge": 2
+  },
+  {
+   "id": "r06",
+   "row": 242,
+   "doc": "10932",
+   "judge": 2
+  },
+  {
+   "id": "r07",
+   "row": 317,
+   "doc": "15050",
+   "judge": 2
+  },
+  {
+   "id": "r08",
+   "row": 72,
+   "doc": "14227",
+   "judge": 2
+  },
+  {
+   "id": "r09",
+   "row": 257,
+   "doc": "11617",
+   "judge": 2
+  },
+  {
+   "id": "r10",
+   "row": 553,
+   "doc": "18914",
+   "judge": 2
+  },
+  {
+   "id": "r11",
+   "row": 558,
+   "doc": "16724",
+   "judge": 2
+  },
+  {
+   "id": "r12",
+   "row": 342,
+   "doc": "13361",
+   "judge": 2
+  },
+  {
+   "id": "r13",
+   "row": 473,
+   "doc": "10857",
+   "judge": 2
+  },
+  {
+   "id": "r14",
+   "row": 270,
+   "doc": "11755",
+   "judge": 2
+  },
+  {
+   "id": "r15",
+   "row": 174,
+   "doc": "15894",
+   "judge": 2
+  },
+  {
+   "id": "r16",
+   "row": 392,
+   "doc": "12007",
+   "judge": 2
+  },
+  {
+   "id": "r17",
+   "row": 185,
+   "doc": "3651",
+   "judge": 1
+  },
+  {
+   "id": "r18",
+   "row": 122,
+   "doc": "2509",
+   "judge": 1
+  },
+  {
+   "id": "r19",
+   "row": 153,
+   "doc": "1790",
+   "judge": 1
+  },
+  {
+   "id": "r20",
+   "row": 46,
+   "doc": "12272",
+   "judge": 1
+  },
+  {
+   "id": "r21",
+   "row": 327,
+   "doc": "13996",
+   "judge": 1
+  },
+  {
+   "id": "r22",
+   "row": 408,
+   "doc": "6408",
+   "judge": 1
+  },
+  {
+   "id": "r23",
+   "row": 61,
+   "doc": "4389",
+   "judge": 1
+  },
+  {
+   "id": "r24",
+   "row": 375,
+   "doc": "13116",
+   "judge": 1
+  },
+  {
+   "id": "r25",
+   "row": 152,
+   "doc": "5445",
+   "judge": 1
+  },
+  {
+   "id": "r26",
+   "row": 205,
+   "doc": "10547",
+   "judge": 1
+  },
+  {
+   "id": "r27",
+   "row": 68,
+   "doc": "6913",
+   "judge": 1
+  },
+  {
+   "id": "r28",
+   "row": 380,
+   "doc": "13530",
+   "judge": 1
+  },
+  {
+   "id": "r29",
+   "row": 221,
+   "doc": "18459",
+   "judge": 1
+  },
+  {
+   "id": "r30",
+   "row": 245,
+   "doc": "11007",
+   "judge": 1
+  },
+  {
+   "id": "r31",
+   "row": 79,
+   "doc": "8286",
+   "judge": 1
+  },
+  {
+   "id": "r32",
+   "row": 36,
+   "doc": "3873",
+   "judge": 1
+  },
+  {
+   "id": "r33",
+   "row": 286,
+   "doc": "12363",
+   "judge": 0
+  },
+  {
+   "id": "r34",
+   "row": 325,
+   "doc": "13677",
+   "judge": 0
+  },
+  {
+   "id": "r35",
+   "row": 478,
+   "doc": "14429",
+   "judge": 0
+  },
+  {
+   "id": "r36",
+   "row": 510,
+   "doc": "4650",
+   "judge": 0
+  },
+  {
+   "id": "r37",
+   "row": 65,
+   "doc": "4099",
+   "judge": 0
+  },
+  {
+   "id": "r38",
+   "row": 69,
+   "doc": "526",
+   "judge": 0
+  },
+  {
+   "id": "r39",
+   "row": 183,
+   "doc": "3916",
+   "judge": 0
+  },
+  {
+   "id": "r40",
+   "row": 53,
+   "doc": "7118",
+   "judge": 0
+  },
+  {
+   "id": "r41",
+   "row": 279,
+   "doc": "14890",
+   "judge": 0
+  },
+  {
+   "id": "r42",
+   "row": 542,
+   "doc": "208",
+   "judge": 0
+  },
+  {
+   "id": "r43",
+   "row": 59,
+   "doc": "911",
+   "judge": 0
+  },
+  {
+   "id": "r44",
+   "row": 164,
+   "doc": "17734",
+   "judge": 0
+  },
+  {
+   "id": "r45",
+   "row": 546,
+   "doc": "6509",
+   "judge": 0
+  },
+  {
+   "id": "r46",
+   "row": 13,
+   "doc": "4370",
+   "judge": 0
+  },
+  {
+   "id": "r47",
+   "row": 414,
+   "doc": "9458",
+   "judge": 0
+  },
+  {
+   "id": "r48",
+   "row": 54,
+   "doc": "1785",
+   "judge": 0
+  }
+ ],
+ "answer": [
+  {
+   "id": "a01",
+   "answer": "long-57",
+   "correctness": 0.194
+  },
+  {
+   "id": "a02",
+   "answer": "long-77",
+   "correctness": 0.232
+  },
+  {
+   "id": "a03",
+   "answer": "long-51",
+   "correctness": 0.109
+  },
+  {
+   "id": "a04",
+   "answer": "long-73",
+   "correctness": 0.141
+  },
+  {
+   "id": "a05",
+   "answer": "long-56",
+   "correctness": 0.223
+  },
+  {
+   "id": "a06",
+   "answer": "long-41",
+   "correctness": 0.232
+  },
+  {
+   "id": "a07",
+   "answer": "long-99",
+   "correctness": 0.171
+  },
+  {
+   "id": "a08",
+   "answer": "long-33",
+   "correctness": 0.209
+  },
+  {
+   "id": "a09",
+   "answer": "long-66",
+   "correctness": 0.164
+  },
+  {
+   "id": "a10",
+   "answer": "long-68",
+   "correctness": 0.167
+  },
+  {
+   "id": "a11",
+   "answer": "long-65",
+   "correctness": 0.25
+  },
+  {
+   "id": "a12",
+   "answer": "long-32",
+   "correctness": 0.238
+  },
+  {
+   "id": "a13",
+   "answer": "long-58",
+   "correctness": 0.329
+  },
+  {
+   "id": "a14",
+   "answer": "long-79",
+   "correctness": 0.285
+  },
+  {
+   "id": "a15",
+   "answer": "long-60",
+   "correctness": 0.256
+  },
+  {
+   "id": "a16",
+   "answer": "long-9",
+   "correctness": 0.329
+  },
+  {
+   "id": "a17",
+   "answer": "long-54",
+   "correctness": 0.301
+  },
+  {
+   "id": "a18",
+   "answer": "long-38",
+   "correctness": 0.303
+  },
+  {
+   "id": "a19",
+   "answer": "long-23",
+   "correctness": 0.269
+  },
+  {
+   "id": "a20",
+   "answer": "long-5",
+   "correctness": 0.265
+  },
+  {
+   "id": "a21",
+   "answer": "long-83",
+   "correctness": 0.344
+  },
+  {
+   "id": "a22",
+   "answer": "long-91",
+   "correctness": 0.364
+  },
+  {
+   "id": "a23",
+   "answer": "long-55",
+   "correctness": 0.498
+  },
+  {
+   "id": "a24",
+   "answer": "long-8",
+   "correctness": 0.372
+  },
+  {
+   "id": "a25",
+   "answer": "long-70",
+   "correctness": 0.339
+  },
+  {
+   "id": "a26",
+   "answer": "long-90",
+   "correctness": 0.434
+  },
+  {
+   "id": "a27",
+   "answer": "long-40",
+   "correctness": 0.602
+  },
+  {
+   "id": "a28",
+   "answer": "long-1",
+   "correctness": 0.566
+  },
+  {
+   "id": "a29",
+   "answer": "long-94",
+   "correctness": 0.363
+  },
+  {
+   "id": "a30",
+   "answer": "long-7",
+   "correctness": 0.342
+  }
+ ]
+}
