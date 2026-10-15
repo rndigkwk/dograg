@@ -218,10 +218,21 @@ def main() -> int:
     jud.add_argument("--concurrency", type=int, default=16)
     jud.add_argument("--metrics", nargs="+", choices=METRICS, default=list(METRICS))
     jud.add_argument("--result-name", help="also write output/experiments/answer_<name>.json for check_regression.py")
+    for sub_parser in (gen, jud):
+        sub_parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
+    from cost_guard import confirm
+
     if args.command == "generate":
         shard, shards = (int(x) for x in args.shard.split("/"))
+        # each consultation: router, search check, answer (about 3 calls)
+        if not confirm("evaluate_answer_quality generate", -(-100 // shards) * 3, f"shard {args.shard}", args.yes):
+            return 1
         return generate(args.run, shard, shards)
+    # ragas: about 3 judge calls per answer and metric
+    if not confirm("evaluate_answer_quality judge", 100 * args.repeats * len(args.metrics) * 3,
+                   f"{args.repeats} judging(s) x {len(args.metrics)} metric(s)", args.yes):
+        return 1
     return judge(args.repeats, args.concurrency, tuple(args.metrics), args.result_name)
 
 

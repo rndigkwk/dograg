@@ -166,7 +166,17 @@ def main() -> int:
     parser.add_argument("command", choices=("offer", "use", "food-names"))
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--mode", choices=("before", "after"), default="after")
+    parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
+    sys.path.insert(0, str(PROJECT_DIR / "scripts"))
+    from cost_guard import confirm
+
+    data = load()
+    calls = {"offer": len(data["items"]),  # one detector call at most per question
+             "use": (2 * len(data["use"]) + len(data.get("unrelated", []))) * 3,  # whole answers: about 3 calls each
+             "food-names": len(data["food_names"]) * args.repeats}[args.command]
+    if not confirm(f"evaluate_profile_memory {args.command}", calls, yes=args.yes):
+        return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     sys.stdout.reconfigure(encoding="utf-8")
     out = (offer(args.mode) if args.command == "offer" else use() if args.command == "use"
