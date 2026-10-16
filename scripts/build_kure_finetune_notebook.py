@@ -32,7 +32,8 @@ CELLS = [
 - **손실:** `CachedMultipleNegativesRankingLoss`. 큰 모델이라 작은 묶음(MINI_BATCH)으로 나눠 계산하되, 배치 64 안의 다른 상담을 오답으로 쓰는 효과는 같습니다.
 - **기록:** 설정, 학습 전·후 dev 점수, 학습 시간·손실, 결과 파일을 **MLflow(DagsHub)** 에 남깁니다. 모델 가중치(약 2.2GB)는 Hugging Face 비공개 저장소에 올립니다.
 - **토큰 두 개:** Hugging Face(쓰기)와 DagsHub. Colab Secrets에 `HF_TOKEN`, `DAGSHUB_TOKEN`으로 넣거나 실행 중 입력합니다. 화면에는 길이만 표시합니다.
-- **예상 시간(T4):** dev 평가 2번 약 10분, 학습 약 25~40분, 문서 19,206개 임베딩 약 10분. 메모리가 부족하면(OOM) `MINI_BATCH`를 8로 줄입니다.
+- **메모리(T4 14.5GB):** 일반 AdamW는 가중치·기울기·옵티마이저 상태만 약 9GB라 첫 실행(2026-10-17)이 학습 중 OOM으로 멈췄습니다. 그래서 8비트 AdamW(`adamw_bnb_8bit`, 상태 약 1.1GB)와 gradient checkpointing을 씁니다. 또 OOM이 나면 런타임을 다시 시작하고 `MINI_BATCH`를 4로 줄입니다.
+- **예상 시간(T4):** 학습 전 dev 평가 약 9분(아래 `BASE_SCORES`가 있으면 건너뜀), 학습 약 30~50분, 학습 후 dev 평가 약 9분, 문서 19,206개 임베딩 약 10분.
 - **최종 평가는 로컬에서:** `uv run --group tools python scripts/compare_kure.py --finetuned` (같은 220문항, judge 호출 수를 먼저 보여 줍니다).
 """),
     ("code", """# 설정: SMOKE=True면 작은 부분만으로 코드가 도는지 확인합니다(CPU 가능, MLflow는 로컬 폴더).
@@ -42,7 +43,11 @@ BASE_MODEL = "nlpai-lab/KURE-v1"
 MAX_SEQ_LENGTH = 256      # 학습 길이 (앱 ko-sroberta는 128). 최종 문서 임베딩은 ENCODE_SEQ_LENGTH
 ENCODE_SEQ_LENGTH = 1024  # 2026-10-13 KURE-v1 비교와 같은 길이 (상담 0.11%만 잘림)
 BATCH_SIZE = 64
-MINI_BATCH = 16
+MINI_BATCH = 8              # CachedMNRL: 64개 배치를 8개씩 나눠 계산 (배치 안 오답 효과는 64개 그대로)
+OPTIM = "adamw_bnb_8bit"    # 8비트 AdamW: 옵티마이저 상태 약 4.5GB -> 1.1GB
+GRADIENT_CHECKPOINTING = True
+# 학습 전 dev 점수(2026-10-17 T4 첫 실행에서 잰 값). None이면 다시 잽니다(약 9분).
+BASE_SCORES = {"accuracy@1": 0.255, "accuracy@10": 0.515, "accuracy@50": 0.6617, "mrr@10": 0.333}
 LEARNING_RATE = 1e-5
 EPOCHS = 1
 DEV_DOCS = 300
@@ -53,8 +58,9 @@ MLFLOW_URI = "https://dagshub.com/rndigkwk/dograg.mlflow"
 MLFLOW_USER = "rndigkwk"
 EXPERIMENT = "health-embedding\""""),
     ("code", """import os, subprocess, sys
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")  # less fragmentation (set before torch)
 if os.path.exists("/content"):
-    !pip -q install -U "sentence-transformers[train]>=5.1" "mlflow>=3.4" huggingface_hub
+    !pip -q install -U "sentence-transformers[train]>=5.1" "mlflow>=3.4" huggingface_hub bitsandbytes
 os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
 import torch
 print(sys.version, torch.__version__, torch.cuda.get_device_name(0) if torch.cuda.is_available() else "GPU 없음 (SMOKE만 가능)")
@@ -151,23 +157,31 @@ run = mlflow.start_run(run_name="kure-v1-ft-b" + ("-smoke" if SMOKE else ""),
                              "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"})
 mlflow.log_params({"max_seq_length": MAX_SEQ_LENGTH, "encode_seq_length": ENCODE_SEQ_LENGTH, "batch_size": BATCH_SIZE,
                    "mini_batch": MINI_BATCH, "learning_rate": LEARNING_RATE, "epochs": EPOCHS, "seed": SEED,
-                   "loss": "CachedMultipleNegativesRankingLoss", "dev_docs": len(dev_ids), "train_docs": len(train_rows),
+                   "loss": "CachedMultipleNegativesRankingLoss", "optim": OPTIM if not SMOKE else "adamw_torch",
+                   "encoder_checkpointing": GRADIENT_CHECKPOINTING, "dev_docs": len(dev_ids), "train_docs": len(train_rows),
                    "corpus": len(corpus)})
-results = {"base": evaluate(load_base())}
+results = {"base": dict(BASE_SCORES) if BASE_SCORES and not SMOKE else evaluate(load_base())}
+mlflow.set_tag("base_scores", "measured in this run" if not BASE_SCORES or SMOKE else "from the first T4 run (BASE_SCORES)")
 mlflow.log_metrics({f"base_{n.replace('@', '_at_')}": v for n, v in results["base"].items()})
 print("MLflow run", run.info.run_id)"""),
     ("code", """# 학습: 상담마다 질의 2개(short, detailed). 손실은 50스텝마다 MLflow에 기록됩니다(report_to="mlflow").
 from datasets import Dataset
 from sentence_transformers import SentenceTransformerTrainer, SentenceTransformerTrainingArguments, losses
 from sentence_transformers.training_args import BatchSamplers
+import gc
 
+gc.collect()
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()  # the evaluation model's memory, before the training model loads
 rows = [{"anchor": q[kind], "positive": corpus[q["id"]]} for q in train_rows for kind in ("short", "detailed")]
 data = Dataset.from_list(rows).shuffle(seed=SEED)
 model = load_base()
+if GRADIENT_CHECKPOINTING:
+    model[0].auto_model.gradient_checkpointing_enable()  # recompute activations instead of keeping them
 args = SentenceTransformerTrainingArguments(
     output_dir="/tmp/kure-ft", num_train_epochs=EPOCHS,
     per_device_train_batch_size=8 if SMOKE else BATCH_SIZE, learning_rate=LEARNING_RATE,
-    warmup_ratio=0.1, fp16=device == "cuda", seed=SEED,
+    warmup_steps=0.1, fp16=device == "cuda", seed=SEED, optim="adamw_torch" if SMOKE else OPTIM,
     # Two queries per document: the same document twice in a batch would be scored as a wrong answer for itself.
     batch_sampler=BatchSamplers.NO_DUPLICATES,
     eval_strategy="no", save_strategy="no", logging_steps=2 if SMOKE else 50, report_to=["mlflow"],
@@ -222,8 +236,9 @@ if not SMOKE:
     mlflow.set_tags({"hf_model": repo, "rows": f"{DATA_REPO}@experiments/{ROWS_PATH}"})
     print("uploaded", repo, "and", ROWS_PATH)
     del HF_TOKEN, api
-    os.environ.pop("MLFLOW_TRACKING_PASSWORD", None)
+# Close the run while the DagsHub token is still set (the first full run removed it first: 403 on runs/update).
 mlflow.end_run()
+os.environ.pop("MLFLOW_TRACKING_PASSWORD", None)
 print("done:", run.info.run_id)"""),
 ]
 
