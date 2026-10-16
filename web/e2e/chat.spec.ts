@@ -21,7 +21,7 @@ test("a question streams into an answer with evidence and feedback", async ({ pa
       }),
     ],
   ]);
-  await page.goto("/");
+  await page.goto("/chat");
   await ask(page, "말티즈가 이틀째 설사를 해요");
 
   await expect(conversation(page).getByText("설사가 이틀 넘게 계속되면 병원에 가세요.", { exact: false })).toBeVisible();
@@ -55,7 +55,7 @@ test("an urgent warning comes before the answer, with the nearest hospitals", as
       result("바로 병원에 가세요.", { safety_notice: "응급 징후가 의심됩니다." }),
     ],
   ]);
-  await page.goto("/");
+  await page.goto("/chat");
   await page.getByRole("button", { name: /현재 위치 사용/ }).click();
   await expect(page.getByText("현재 위치를 사용합니다.", { exact: false })).toBeVisible();
   await ask(page, "강아지가 경련을 하고 쓰러졌어요");
@@ -73,7 +73,7 @@ test("the question limit shows a notice that is neither stored nor sent back", a
     [["limited", { message: "질문 한도를 넘었습니다. 40분 뒤에 다시 질문해 주세요.", wait_minutes: 40 }]],
     [result("두 번째 답")],
   ]);
-  await page.goto("/");
+  await page.goto("/chat");
   await ask(page, "첫 질문");
   await expect(page.getByRole("status").filter({ hasText: "질문 한도를 넘었습니다" })).toBeVisible();
   await ask(page, "두 번째 질문");
@@ -86,7 +86,7 @@ test("the question limit shows a notice that is neither stored nor sent back", a
 
 test("conversations stay in the browser and can be continued, started and deleted", async ({ page }) => {
   const api = await fakeApi(page, [[result("첫 답")], [result("이어진 답")], [result("새 답")]]);
-  await page.goto("/");
+  await page.goto("/chat");
   await ask(page, "강아지가 구토해요");
   await expect(conversation(page).getByText("첫 답")).toBeVisible();
 
@@ -121,7 +121,7 @@ test("a memory suggestion is saved only on click and sent with the next question
     [result("답2"), ["memory", { profile: { name: "두부", breed: "말티즈", birth_month: "2023-04-01", medications: ["심장약"] }, new_facts: ["복용약: 심장약"], summary: "복용약: 심장약", update: true }]],
     [result("답3")],
   ]);
-  await page.goto("/");
+  await page.goto("/chat");
   await ask(page, "두부는 3살 말티즈예요. 구토를 해요");
   const card = page.getByRole("region", { name: "기억 제안" });
   await expect(card).toContainText("이름: 두부 · 견종: 말티즈");
@@ -143,7 +143,7 @@ test("a memory suggestion is saved only on click and sent with the next question
 
 test("the page fits a phone screen", async ({ page }) => {
   await fakeApi(page, [[result("답")]]);
-  await page.goto("/");
+  await page.goto("/chat");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBe(0);
 });
