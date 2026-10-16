@@ -53,6 +53,8 @@ export type ChatRequest = {
   // Ask for a memory suggestion only once the stored profile is loaded (api/chat.py ChatRequest).
   suggest_memory: boolean;
   declined_memory: string[];
+  // "report": the report page asks the five PDF reports directly (api/chat.py ChatRequest.route).
+  route?: "report";
 };
 
 // The reasons under a 👎 (src/feedback_store.REASONS; the API refuses any other).

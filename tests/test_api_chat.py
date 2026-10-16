@@ -58,6 +58,13 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(seen["pet_profile"].name, "보리")
         self.assertEqual(seen["session_id"], CLIENT)
 
+    def test_the_report_page_asks_the_reports_directly(self):
+        events(self.post({"question": "펫보험 가입률은?", "route": "report"}))
+        self.assertEqual(self.chatbot.call_args.kwargs["force_route"], "analysis")
+        events(self.post({"question": "강아지가 구토해요"}))
+        self.assertIsNone(self.chatbot.call_args.kwargs["force_route"])
+        self.assertEqual(self.post({"question": "질문", "route": "health"}).status_code, 422)  # only "report"
+
     def test_the_emergency_comes_before_the_answer(self):
         with patch("src.tools.urgency.urgent_notice", return_value="응급 징후가 의심됩니다."), \
                 patch.object(chat_api, "find_emergency_hospitals", return_value={"nearest": [{"name": "24시 병원"}]}) as near:

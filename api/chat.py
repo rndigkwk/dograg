@@ -74,6 +74,9 @@ class ChatRequest(BaseModel):
     # guardian declined this session so they are not offered again.
     suggest_memory: bool = False
     declined_memory: list[str] = Field(default_factory=list, max_length=20)
+    # "report": the report page (web /reports) asks the five PDF reports directly, without the
+    # classification call; anything else is classified as usual.
+    route: Literal["report"] | None = None
 
     @field_validator("question")
     @classmethod
@@ -152,7 +155,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
         try:
             outcome["result"] = chatbot(body.question, top_k=body.top_k, chat_history=chat_history,
                                         location=body.location, pet_profile=body.profile,
-                                        on_token=on_token, on_step=on_step, session_id=person)
+                                        on_token=on_token, on_step=on_step, session_id=person,
+                                        force_route="analysis" if body.route == "report" else None)
         except Exception:  # noqa: BLE001 - reported to the browser as one error event
             logger.exception("chat failed")
             outcome["error"] = True
