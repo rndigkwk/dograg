@@ -25,9 +25,15 @@ export function result(answer: string, extra: Record<string, unknown> = {}): Eve
 
 /** Answers /chat with the next event list in `replies` (the last one repeats), and records the requests.
  * `json` answers other GET paths (pathname -> body, or a function of the URL). */
-export async function fakeApi(page: Page, replies: Event[][], json: Record<string, unknown | ((url: URL) => unknown)> = {}) {
+export async function fakeApi(
+  page: Page,
+  replies: Event[][],
+  json: Record<string, unknown | ((url: URL) => unknown)> = {},
+  streams: Record<string, Event[] | number> = {}, // other POST paths: their events, or an HTTP status to refuse with
+) {
   const chats: Record<string, unknown>[] = [];
   const gets: string[] = [];
+  const posts: { path: string; body: Record<string, unknown> }[] = [];
   const feedback: { path: string; body: Record<string, unknown> }[] = [];
   await page.route(`${FAKE_API}/**`, async (route) => {
     const request: Request = route.request();
@@ -39,6 +45,12 @@ export async function fakeApi(page: Page, replies: Event[][], json: Record<strin
       chats.push(request.postDataJSON());
       const events = replies[Math.min(chats.length - 1, replies.length - 1)];
       return route.fulfill({ body: sse(events), headers: { ...cors, "Content-Type": "text/event-stream" } });
+    }
+    if (request.method() === "POST" && path in streams) {
+      posts.push({ path, body: request.postDataJSON() });
+      const reply = streams[path];
+      if (typeof reply === "number") return route.fulfill({ status: reply, json: { detail: "refused" }, headers: cors });
+      return route.fulfill({ body: sse(reply), headers: { ...cors, "Content-Type": "text/event-stream" } });
     }
     if (request.method() === "GET" && path in json) {
       const url = new URL(request.url());
@@ -52,7 +64,7 @@ export async function fakeApi(page: Page, replies: Event[][], json: Record<strin
     }
     return route.fulfill({ status: 404, headers: cors });
   });
-  return { chats, feedback, gets };
+  return { chats, feedback, gets, posts };
 }
 
 /** Types a question and sends it with Enter. */

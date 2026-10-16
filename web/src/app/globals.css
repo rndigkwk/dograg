@@ -36,6 +36,16 @@ body {
 .markdown h4 {
   font-weight: 700;
 }
+.markdown h1 {
+  font-size: 1.3rem;
+}
+.markdown h2 {
+  font-size: 1.15rem;
+  margin-top: 1.1em;
+}
+.markdown h3 {
+  font-size: 1.05rem;
+}
 .markdown a {
   color: var(--color-accent);
   text-decoration: underline;

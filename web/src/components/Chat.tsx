@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
 import { type Answer, applyEvent, type Emergency, finish, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
 
+import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
 import { browserStorage, clearDevice, type KeyValue, loadThreads, messagesOf, recordTurn, saveThreads, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
 
 import { locate, type Location } from "@/lib/location";
@@ -73,6 +75,7 @@ function AnswerView({ answer, question }: { answer: Answer; question?: string })
       {answer.notice ? null : (
         <>
           <PlaceLinks rows={answer.hospitalRows ?? []} />
+          {question && answer.route === "rag" && !answer.abstained ? <VisitPrepLink question={question} /> : null}
           <Feedback answer={answer} question={question} />
           <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
         </>
@@ -99,6 +102,28 @@ function PlaceLinks({ rows }: { rows: Record<string, unknown>[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Under a health answer: carry the question to the visit-prep page (app_pages/rag.py render_visit_prep_button).
+ * Not under an abstention: there was no evidence, and a report would spend 10-20 model calls on the same empty search. */
+function VisitPrepLink({ question }: { question: string }) {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        try {
+          sessionStorage.setItem(HANDOFF_KEY, question.slice(0, MAX_CONSULTATION_CHARS));
+        } catch {
+          // storage blocked: the page opens with an empty box
+        }
+        router.push("/visit-prep");
+      }}
+      className="mt-3 rounded-lg border border-line px-3 py-1 text-sm"
+    >
+      📝 이 상담으로 방문 준비 보고서 만들기
+    </button>
   );
 }
 
