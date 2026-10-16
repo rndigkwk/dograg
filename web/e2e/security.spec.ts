@@ -12,7 +12,7 @@ test("every page is sent with the security headers", async ({ request }) => {
     expect(headers["x-powered-by"]).toBeUndefined();
     const csp = headers["content-security-policy"];
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain(`connect-src 'self' ${FAKE_API}`);
+    expect(csp).toContain(`connect-src 'self' ${FAKE_API} https://ffdahevkdymdaxcexkth.supabase.co`);
     expect(csp).not.toContain("unsafe-eval"); // production build
   }
 });

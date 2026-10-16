@@ -12,6 +12,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
     "leaflet": "1.9.4",
     "next": "15.5.28",
     "react": "19.1.10",

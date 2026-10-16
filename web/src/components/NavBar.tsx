@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import AccountButton from "./AccountButton";
+
 // The Streamlit app's pages (src/ui.py NAVIGATION_GROUPS); the logo leads home.
 const LINKS = [
   { href: "/data", label: "📊 데이터 소개" },
@@ -32,6 +34,7 @@ export default function NavBar() {
             </Link>
           );
         })}
+        <AccountButton />
       </div>
     </nav>
   );
