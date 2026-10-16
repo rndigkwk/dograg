@@ -2,6 +2,7 @@
 checks those against Supabase in a throwaway schema)."""
 
 import unittest
+import unittest.mock
 from unittest.mock import patch
 
 from src import visit_prep_store as vps
@@ -55,6 +56,13 @@ class StoreChoiceTests(unittest.TestCase):
                 patch.object(vps.settings, "get_setting", return_value="postgresql://x"), \
                 patch.object(vps, "PostgresStore", side_effect=OSError("down")), \
                 self.assertLogs("src.visit_prep_store", level="WARNING"):
+            self.assertIsInstance(vps.store(), vps.MemoryStore)
+
+    def test_a_missing_schema_falls_back_to_memory(self):
+        vps._reset_for_tests(None)
+        broken = unittest.mock.MagicMock()
+        broken.probe.side_effect = RuntimeError('relation "paused" does not exist')
+        with patch.object(vps.settings, "deployed", return_value=True),                 patch.object(vps.settings, "get_setting", return_value="postgresql://x"),                 patch.object(vps, "PostgresStore", return_value=broken),                 self.assertLogs("src.visit_prep_store", level="WARNING"):
             self.assertIsInstance(vps.store(), vps.MemoryStore)
 
 
