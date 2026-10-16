@@ -26,7 +26,8 @@ export default function PlaceMap({ places }: { places: Place[] }) {
   const points = shown.map((p) => [p.latitude, p.longitude] as [number, number]);
   return (
     <div role="region" aria-label="시설 지도">
-      <MapContainer center={points[0]} zoom={13} scrollWheelZoom={false} className="h-80 w-full rounded-xl border border-line">
+      {/* The mouse wheel over the map zooms it (user request 2026-10-16); outside the map the page scrolls. */}
+      <MapContainer center={points[0]} zoom={13} scrollWheelZoom wheelPxPerZoomLevel={120} className="h-80 w-full rounded-xl border border-line">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {shown.map((p) => (
           <CircleMarker key={p.id} center={[p.latitude, p.longitude]} radius={7} pathOptions={{ color: "#c62828", fillOpacity: 0.7 }}>
