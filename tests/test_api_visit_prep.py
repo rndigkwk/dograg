@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from api import main
 from api import visit_prep as visit_api
-from src import rate_limit, settings, visit_prep_runs
+from src import rate_limit, settings, visit_prep_runs, visit_prep_store
 from tests.test_visit_prep_page import FakeTeam
 
 ME = "0123456789abcdef0123456789abcdef"
@@ -27,9 +27,10 @@ class VisitPrepApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(main.create_app())
         self.team = FakeTeam()
-        visit_api._reports.clear()
-        visit_api._owners.clear()
-        visit_api._pending.clear()
+        visit_prep_store._reset_for_tests(visit_prep_store.MemoryStore())
+        self.addCleanup(visit_prep_store._reset_for_tests, None)
+        visit_prep_runs.paused_runs().clear()
+        self.addCleanup(visit_prep_runs.paused_runs().clear)
         self.run_team = patch.object(visit_api, "_run_team", return_value=self.team)
         self.run_team_mock = self.run_team.start()
         self.addCleanup(self.run_team.stop)
@@ -102,7 +103,9 @@ class VisitPrepApiTests(unittest.TestCase):
         finally:
             lock.release()
         self.assertEqual(got, [("busy", {"message": visit_api.BUSY})])
-        self.assertEqual(visit_api._reports.get(ME), [])
+        # Not run, so not used up: both of today's reports are still there.
+        self.assertTrue(visit_api._take_report(ME, visit_prep_store.now()))
+        self.assertTrue(visit_api._take_report(ME, visit_prep_store.now()))
         self.assertEqual(self.team.calls, [])
 
     def test_a_failed_run_is_an_error_and_frees_the_team(self):

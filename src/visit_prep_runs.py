@@ -2,10 +2,10 @@
 
 A run makes 10-20 model calls and takes one to two minutes, so the server runs one team at a
 time (team_lock). A run may stop before planning to ask the guardian (day51 interrupt); it then
-waits in memory (team_checkpointer, keyed by thread id) until answered, and is deleted when it
-finishes, is replaced, or nobody answers within PAUSED_RUN_TTL_SECONDS. In memory only: a paused
-run holds the consultation, and the server keeps no consultation text on disk. Moved from the page
-unchanged (2026-10-15, ADR-0008).
+waits (team_checkpointer, keyed by thread id) until answered, and is deleted when it finishes, is
+replaced, or nobody answers within PAUSED_RUN_TTL_SECONDS. Since 2026-10-16 the wait is in Supabase
+when the database is configured (src/visit_prep_store.py, deleted after 30 minutes), else in memory.
+Moved from the page unchanged (2026-10-15, ADR-0008).
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ STEP_LABELS = {
     "publisher": "결과를 정리했습니다",
 }
 _lock = threading.Lock()
-_checkpointer = None
 _paused: dict[str, float] = {}
 
 
@@ -43,13 +42,11 @@ def team_lock() -> threading.Lock:
 
 
 def team_checkpointer():
-    """Where a run paused for the guardian's answer waits (one per server, keyed by thread_id)."""
-    global _checkpointer
-    if _checkpointer is None:
-        from langgraph.checkpoint.memory import InMemorySaver
+    """Where a run paused for the guardian's answer waits, keyed by thread_id: Supabase when the
+    database is configured (src/visit_prep_store.py), else this server's memory."""
+    from src import visit_prep_store
 
-        _checkpointer = InMemorySaver()
-    return _checkpointer
+    return visit_prep_store.store().checkpointer()
 
 
 def paused_runs() -> dict[str, float]:

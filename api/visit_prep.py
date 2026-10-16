@@ -22,7 +22,6 @@ import contextvars
 import logging
 import queue
 import threading
-import time
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -30,7 +29,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from api.chat import client_network, event, person_of
-from src import data_gaps, rate_limit, settings, tracing, visit_prep_runs
+from src import data_gaps, rate_limit, settings, tracing, visit_prep_runs, visit_prep_store
 from src.health_safety import detect_urgent_sign
 from team.core.config import MAX_ANSWER_CHARS
 
@@ -44,11 +43,8 @@ BUSY = "다른 사용자의 보고서를 만드는 중입니다. 1~2분 뒤에 �
 FAILED = "보고서를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요."
 REPORTS_USED = f"방문 준비 보고서는 하루 {REPORTS_PER_DAY}번까지 만들 수 있습니다. 내일 다시 만들어 주세요."
 
-# person -> times a report was started; {thread_id: who started it, to resume it}. In memory, like the paused runs.
-_reports: dict[str, list[float]] = {}
-_owners: dict[str, str] = {}
-_pending: dict[str, dict] = {}
-_bookkeeping = threading.Lock()
+# Report counts, the runs waiting for an answer and their owners live in src/visit_prep_store.py:
+# Supabase when the database is configured (shared by every instance, kept across deploys), else memory.
 
 
 class StartRequest(BaseModel):
@@ -71,13 +67,7 @@ class AnswerRequest(BaseModel):
 
 
 def _take_report(person: str, now: float) -> bool:
-    with _bookkeeping:
-        recent = [t for t in _reports.get(person, []) if now - t < 24 * 3600]
-        if len(recent) >= REPORTS_PER_DAY:
-            _reports[person] = recent
-            return False
-        _reports[person] = [*recent, now]
-        return True
+    return visit_prep_store.store().take_report(person, REPORTS_PER_DAY, now)
 
 
 def _run_team(person: str, location: tuple[float, float] | None = None):
@@ -100,11 +90,10 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
     if pending is None and detect_urgent_sign(consultation):
         yield event("urgent", {"notice": URGENT})
     if not visit_prep_runs.team_lock().acquire(blocking=False):
-        with _bookkeeping:
-            if pending is not None:  # still waiting: the guardian can send the answer again
-                _pending[pending["thread_id"]] = pending
-            elif _reports.get(person):  # not run, so not used up
-                _reports[person].pop()
+        if pending is not None:  # still waiting: the guardian can send the answer again
+            visit_prep_store.store().put_back(pending["thread_id"], person, pending, pending["paused_at"])
+        else:  # not run, so not used up
+            visit_prep_store.store().refund_report(person)
         yield event("busy", {"message": BUSY})
         return
     events: queue.Queue = queue.Queue()
@@ -128,9 +117,7 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
     if value is None:
         yield event("error", {"message": FAILED})
     elif value["paused"]:
-        with _bookkeeping:
-            _owners[value["thread_id"]] = person
-            _pending[value["thread_id"]] = value
+        visit_prep_store.store().save_paused(value["thread_id"], person, value, visit_prep_store.now())
         yield event("paused", {"thread_id": value["thread_id"], "questions": value["questions"]})
     else:
         yield event("result", {key: value[key] for key in
@@ -162,7 +149,8 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
     decision = rate_limit.check(person, network)
     if not decision.allowed:
         return _refused("limited", {"message": rate_limit.message(decision), "wait_minutes": decision.wait_minutes})
-    if not _take_report(person, time.time()):
+    visit_prep_store.store().expire(visit_prep_store.now())
+    if not _take_report(person, visit_prep_store.now()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
     return _response(_stream(person, consultation, body.region.strip(), body.profile.strip(), agent, location=body.location))
 
@@ -170,15 +158,11 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
 @router.post("/{thread_id}/answer")
 def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
            authorization: str | None = Header(default=None)) -> StreamingResponse:
-    visit_prep_runs.forget_expired_runs()
+    visit_prep_runs.forget_expired_runs()  # this server's own list of paused threads
+    store, now = visit_prep_store.store(), visit_prep_store.now()
+    store.expire(now)  # paused runs nobody answered within 30 minutes, with their checkpoints
     person = person_of(x_ragdog_client, client_network(request), authorization)
-    with _bookkeeping:
-        for stale in [key for key in _pending if key not in visit_prep_runs.paused_runs()]:
-            _pending.pop(stale, None)
-            _owners.pop(stale, None)
-        pending = _pending.get(thread_id) if _owners.get(thread_id) == person else None
-        if pending is not None:
-            _pending.pop(thread_id)
+    pending = store.take_paused(thread_id, person, now)  # the owner's, once
     if pending is None:  # unknown, expired (30 minutes), already answered, or someone else's run
         raise HTTPException(404, "답변을 기다리는 보고서가 없습니다. 다시 만들어 주세요.")
     agent = request.headers.get("User-Agent") or ""
