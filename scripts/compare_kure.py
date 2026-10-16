@@ -199,23 +199,21 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def log_to_mlflow(report: dict, out: Path, *, finetuned: bool, judge_calls: int) -> None:
-    """The comparison as one run in the health-embedding experiment (the training run is separate)."""
-    import mlflow
-    from mlflow_tracking import start_run
+    """The comparison as a parent run with one child per system, named like the baselines that
+    scripts/mlflow_backfill_embeddings.py logged (the training run is separate)."""
+    from mlflow_tracking import log_comparison, system_metrics
 
-    name = "compare kure-v1-ft vs app" if finetuned else "compare kure-v1 vs app"
-    with start_run("health-embedding", name, tags={"model": report["model"], "questions": "220 (short 120, long 100)",
-                                                   "script": "scripts/compare_kure.py"}):
-        mlflow.log_params({"candidates": CANDIDATES, "fusion": "RRF dense+BM25, top 3", "judge_calls": judge_calls})
-        for system, entry in report["useful@3"].items():
-            key = system.replace(" ", "_")
-            mlflow.log_metrics({f"useful3_{key}_{s}": v for s, v in entry.items() if isinstance(v, float)})
-            for s, p in entry.get("vs_app_p", {}).items():
-                mlflow.log_metric(f"p_{key}_{s}", p)
-        mlflow.log_metrics({f"query_ms_p50_{k}": v for k, v in report["query_ms_p50"].items()})
-        mlflow.log_metric("kure_float_model_mb", report["kure_float_model_mb"])
-        mlflow.log_artifact(str(out))
-
+    kure = "kure-v1 ft-b" if finetuned else "kure-v1 base"
+    systems = {}
+    for key, name in (("app", "ko-sroberta ft-b (app)"), ("kure", kure)):
+        systems[name] = {**system_metrics(report["useful@3"], "dense", key),
+                         **system_metrics(report["useful@3"], "hybrid", key),
+                         "query_ms_p50": report["query_ms_p50"][key]}
+    systems[kure]["float_model_mb"] = report["kure_float_model_mb"]
+    log_comparison("health-embedding", f"compare {kure} vs app", systems, artifact=out,
+                   params={"questions": "short 120, long 100, all 220", "reference": "ko-sroberta ft-b (app)",
+                           "candidates": CANDIDATES, "fusion": "RRF dense+BM25, top 3", "judge_calls": judge_calls},
+                   tags={"model": report["model"], "script": "scripts/compare_kure.py"})
 
 if __name__ == "__main__":
     raise SystemExit(main())
