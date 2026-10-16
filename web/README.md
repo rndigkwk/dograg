@@ -7,6 +7,7 @@ cd web
 npm ci
 npm run dev        # http://localhost:3000
 npm test           # 스트림 해석·대화 상태 단위 테스트
+npm run e2e        # 화면 흐름 (Playwright, API는 가짜로 바꿈: 모델 호출 0)
 ```
 
 - **API 주소:** `NEXT_PUBLIC_RAGDOG_API_URL`. 없으면 배포된 `ragdog-api`를 씁니다.
