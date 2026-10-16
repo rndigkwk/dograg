@@ -1,6 +1,7 @@
 name: Web checks
 
-# The Next.js frontend (web/, docs/adr/0008): unit tests, types, lint and a production build.
+# The Next.js frontend (web/, docs/adr/0008): unit tests, types, lint, a production build, and the
+# screen flows in a browser with the API replaced (web/e2e).
 on:
   pull_request:
     branches: [main]
@@ -47,3 +48,17 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Screen flows (Playwright, fake API, no model calls)
+        run: npm run e2e
+
+      - name: Keep the failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: playwright-traces
+          path: web/test-results/
+          retention-days: 7

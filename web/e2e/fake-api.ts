@@ -1,0 +1,55 @@
+import type { Page, Request } from "@playwright/test";
+
+import { FAKE_API } from "../playwright.config";
+
+type Event = [kind: string, data: unknown];
+
+export const sse = (events: Event[]) => events.map(([kind, data]) => `event: ${kind}\ndata: ${JSON.stringify(data)}\n\n`).join("");
+
+export function result(answer: string, extra: Record<string, unknown> = {}): Event {
+  return [
+    "result",
+    {
+      answer,
+      route: "rag",
+      evidence_rows: [],
+      hospital_rows: [],
+      safety_notice: null,
+      abstained: false,
+      trace_id: "0123456789abcdef0123456789abcdef",
+      memory: { upto: 0, summary: "" },
+      ...extra,
+    },
+  ];
+}
+
+/** Answers /chat with the next event list in `replies` (the last one repeats), and records the requests. */
+export async function fakeApi(page: Page, replies: Event[][]) {
+  const chats: Record<string, unknown>[] = [];
+  const feedback: { path: string; body: Record<string, unknown> }[] = [];
+  await page.route(`${FAKE_API}/**`, async (route) => {
+    const request: Request = route.request();
+    const path = new URL(request.url()).pathname;
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    if (path === "/health") return route.fulfill({ json: { status: "ok", commit: "test" }, headers: cors });
+    if (path === "/chat") {
+      chats.push(request.postDataJSON());
+      const events = replies[Math.min(chats.length - 1, replies.length - 1)];
+      return route.fulfill({ body: sse(events), headers: { ...cors, "Content-Type": "text/event-stream" } });
+    }
+    if (path.startsWith("/feedback")) {
+      feedback.push({ path, body: request.postDataJSON() });
+      return route.fulfill({ json: { recorded: true, saved: true }, headers: cors });
+    }
+    return route.fulfill({ status: 404, headers: cors });
+  });
+  return { chats, feedback };
+}
+
+/** Types a question and sends it with Enter. */
+export async function ask(page: Page, question: string) {
+  const box = page.getByRole("textbox", { name: "질문" });
+  await box.fill(question);
+  await box.press("Enter");
+}
