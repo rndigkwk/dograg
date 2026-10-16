@@ -95,9 +95,8 @@ def event(kind: str, data: dict) -> str:
 
 
 def client_network(request: Request) -> str:
-    """The first X-Forwarded-For hop (Cloud Run is behind Google's front end), else the peer."""
-    forwarded = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-    return forwarded or (request.client.host if request.client else "")
+    """The client address Cloud Run's front end saw (src/rate_limit.forwarded_client), else the peer."""
+    return rate_limit.forwarded_client(request.headers.get("X-Forwarded-For"), request.client.host if request.client else "")
 
 
 def person_of(client_id: str | None, network: str) -> str:
@@ -111,7 +110,7 @@ def urgent_event(notice: str, location) -> str:
     return event("urgent", {"notice": notice, "hospitals": find_emergency_hospitals(location)})
 
 
-def answer_events(body: ChatRequest, person: str, network: str, agent: str = "") -> Iterator[str]:
+def answer_events(body: ChatRequest, person: str, network: str, agent: str = "", trusted: bool = False) -> Iterator[str]:
     from src.chatbot import chatbot
     from src.tools.history import history_with_summary
     from src.tools.urgency import urgent_notice
@@ -119,6 +118,7 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "")
     # Set here, in the thread that runs this generator: the deployment check is not counted
     # (rate_limit) and its answers stay out of the data-gap table (data_gaps, in the worker below).
     data_gaps.REQUEST_AGENT.set(agent)
+    rate_limit.TRUSTED_CHECK.set(trusted)  # the check token, verified by the route
     decision = rate_limit.check(person, network)
     if not decision.allowed:
         if notice := detect_urgent_sign(body.question):
@@ -189,9 +189,11 @@ def memory_event(body: ChatRequest) -> Iterator[str]:
 
 
 @router.post("/chat")
-def chat(body: ChatRequest, request: Request, x_ragdog_client: str | None = Header(default=None)) -> StreamingResponse:
+def chat(body: ChatRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
+         x_ragdog_check: str | None = Header(default=None)) -> StreamingResponse:
     network = client_network(request)
     agent = request.headers.get("User-Agent") or ""
-    return StreamingResponse(answer_events(body, person_of(x_ragdog_client, network), network, agent),
+    trusted = rate_limit.trusted_check(x_ragdog_check)
+    return StreamingResponse(answer_events(body, person_of(x_ragdog_client, network), network, agent, trusted),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -57,8 +57,7 @@ class RateLimitTests(unittest.TestCase):
         rate_limit._memory.clear()
         patches = [patch.object(rate_limit.settings, "deployed", return_value=True),
                    patch.object(rate_limit.settings, "get_setting", return_value="postgresql://x"),
-                   patch("src.supabase_store.connector", return_value=self.table),
-                   patch.object(rate_limit.data_gaps, "from_check", return_value=False)]
+                   patch("src.supabase_store.connector", return_value=self.table)]
         for item in patches:
             item.start()
             self.addCleanup(item.stop)
@@ -102,8 +101,11 @@ class RateLimitTests(unittest.TestCase):
     def test_not_counted_locally_or_for_the_deployment_check(self):
         with patch.object(rate_limit.settings, "deployed", return_value=False):
             self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
-        with patch.object(rate_limit.data_gaps, "from_check", return_value=True):
+        token = rate_limit.TRUSTED_CHECK.set(True)
+        try:
             self.assertTrue(rate_limit.check("browser-a", "1.2.3.4").allowed)
+        finally:
+            rate_limit.TRUSTED_CHECK.reset(token)
         self.assertEqual(self.table.rows, [])
         self.assertEqual(rate_limit._memory, {})
 
@@ -121,11 +123,26 @@ class RateLimitTests(unittest.TestCase):
             results = [rate_limit.check("browser-a", "1.2.3.4").allowed for _ in range(11)]
         self.assertEqual(results, [True] * 10 + [False])
 
-    def test_the_first_forwarded_address_is_the_client(self):
-        context = SimpleNamespace(headers={"X-Forwarded-For": "203.0.113.5, 35.191.0.1"}, ip_address="35.191.0.1")
+    def test_the_client_is_counted_from_the_right_of_the_forwarded_addresses(self):
+        # The left entries are whatever the caller sent; the proxy appends the address it saw.
+        self.assertEqual(rate_limit.forwarded_client("6.6.6.6, 203.0.113.5"), "203.0.113.5")
+        self.assertEqual(rate_limit.forwarded_client("203.0.113.5"), "203.0.113.5")
+        self.assertEqual(rate_limit.forwarded_client("", "10.0.0.1"), "10.0.0.1")
+        with patch.object(rate_limit.settings, "get_setting", side_effect=lambda name: "2" if name == "RAGDOG_PROXY_HOPS" else None):
+            self.assertEqual(rate_limit.forwarded_client("6.6.6.6, 203.0.113.5, 35.191.0.1"), "203.0.113.5")
+            self.assertEqual(rate_limit.forwarded_client("203.0.113.5", "10.0.0.1"), "10.0.0.1")  # fewer than the hops
+        context = SimpleNamespace(headers={"X-Forwarded-For": "6.6.6.6, 203.0.113.5"}, ip_address="35.191.0.1")
         with patch("streamlit.context", context):
             self.assertEqual(rate_limit.client_network(), "203.0.113.5")
         self.assertEqual(rate_limit.client_network(), "")  # outside a Streamlit session
+
+    def test_the_check_token_must_match_exactly(self):
+        with patch.object(rate_limit.settings, "get_setting", return_value=None):
+            self.assertFalse(rate_limit.trusted_check("anything"))  # no token set: nobody is trusted
+        with patch.object(rate_limit.settings, "get_setting", return_value="s3cret-token"):
+            self.assertTrue(rate_limit.trusted_check("s3cret-token"))
+            for wrong in (None, "", "s3cret", "s3cret-token ", "RagDogCheck"):
+                self.assertFalse(rate_limit.trusted_check(wrong))
 
 
 if __name__ == "__main__":

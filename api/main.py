@@ -29,7 +29,10 @@ def allowed_origins() -> list[str]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="RagDog API", version="0.1.0", docs_url="/docs", redoc_url=None)
+    # The interactive docs list every route and schema; deployed, they stay off unless RAGDOG_API_DOCS=1.
+    docs = not settings.deployed() or settings.get_setting("RAGDOG_API_DOCS") == "1"
+    app = FastAPI(title="RagDog API", version="0.1.0", docs_url="/docs" if docs else None, redoc_url=None,
+                  openapi_url="/openapi.json" if docs else None)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins(),

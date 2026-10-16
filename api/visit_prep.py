@@ -136,7 +136,8 @@ def _refused(kind: str, data: dict) -> StreamingResponse:
 
 
 @router.post("")
-def start(body: StartRequest, request: Request, x_ragdog_client: str | None = Header(default=None)) -> StreamingResponse:
+def start(body: StartRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
+          x_ragdog_check: str | None = Header(default=None)) -> StreamingResponse:
     if not settings.get_openai_api_key():
         raise HTTPException(503, "OpenAI API 키가 없어 보고서를 만들 수 없습니다.")
     network = client_network(request)
@@ -146,6 +147,7 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
         raise HTTPException(422, "상담 내용을 적어 주세요.")
     agent = request.headers.get("User-Agent") or ""
     data_gaps.REQUEST_AGENT.set(agent)
+    rate_limit.TRUSTED_CHECK.set(rate_limit.trusted_check(x_ragdog_check))
     decision = rate_limit.check(person, network)
     if not decision.allowed:
         return _refused("limited", {"message": rate_limit.message(decision), "wait_minutes": decision.wait_minutes})

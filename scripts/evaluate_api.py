@@ -16,14 +16,18 @@ Differences from the in-process run:
 - latency is the whole request seen from here (network and streaming included), one question at
   a time: the API runs as one instance.
 
-The user agent carries RagDogCheck (src/data_gaps.CHECK_AGENT), so these questions are neither
-rate-limited nor recorded as data gaps.
+The user agent carries RagDogCheck (src/data_gaps.CHECK_AGENT), so these answers are not recorded as
+data gaps. The question limit is skipped only with the check token: RAGDOG_CHECK_TOKEN in the
+environment, sent as X-RagDog-Check and equal to the API's secret of that name. Without it the run
+counts as one browser and one network (src/rate_limit.py: 60 questions an hour per network), so 96
+questions stop at the limit (the user agent alone skipped it until 2026-10-16; anyone can set one).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
@@ -121,7 +125,12 @@ def main(argv: list[str] | None = None) -> int:
     if not cost_guard.confirm("evaluate_api", calls, detail, yes=args.yes):
         return 1
 
-    with httpx.Client(timeout=180, headers={"User-Agent": AGENT}) as client:
+    headers = {"User-Agent": AGENT}
+    if token := os.environ.get("RAGDOG_CHECK_TOKEN"):
+        headers["X-RagDog-Check"] = token
+    else:
+        print("RAGDOG_CHECK_TOKEN이 없어 질문 한도가 적용됩니다(네트워크당 시간 60번).", flush=True)
+    with httpx.Client(timeout=180, headers=headers) as client:
         print(client.get(f"{args.url}/health").json(), flush=True)  # also wakes the instance
         for set_name in args.sets:
             items = run_set(client, args.url, set_name)

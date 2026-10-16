@@ -35,7 +35,7 @@ import time
 CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 # The frozen Streamlit backup (branch streamlit-backup, since 2026-10-15); checked by hand only.
 STREAMLIT_BACKUP_URL = "https://dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app"
-CHECK_AGENT = "RagDogCheck"  # added to the browser's user agent; same as src/data_gaps.CHECK_AGENT
+CHECK_AGENT = "RagDogCheck"  # added to the browser's user agent: its answers stay out of the data gaps (src/data_gaps.CHECK_AGENT); its questions count toward the limit
 CLOUD_RUN_URL = "https://ragdog-892238791473.asia-northeast3.run.app"
 PAGES = ("", "data", "rag", "hospital", "visit_prep")
 # Streamlit's uncaught-exception box, and the text it shows when the message is redacted.
