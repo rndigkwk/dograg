@@ -53,7 +53,7 @@ class Review(BaseModel):
 
 def _allow(request: Request, client_id: str | None) -> None:
     network = client_network(request)
-    person, now = person_of(client_id, network), time.time()
+    person, now = person_of(client_id, network, request.headers.get("Authorization")), time.time()
     keys = [(person, FEEDBACK_PER_HOUR), (f"network:{network}", FEEDBACK_PER_HOUR_NETWORK)]
     with _sent_lock:
         recent = {key: [t for t in _sent.get(key, []) if now - t < 3600] for key, _ in keys}

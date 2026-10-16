@@ -36,6 +36,7 @@ test("a question streams into an answer with evidence and feedback", async ({ pa
   await expect(page.getByText("보내 주셔서 고맙습니다.", { exact: false })).toBeVisible();
 
   expect(api.chats[0]).toMatchObject({ question: "말티즈가 이틀째 설사를 해요", history: [], profile: null, suggest_memory: true });
+  expect(api.chatHeaders[0]["authorization"]).toBeUndefined(); // signed out: no token, counted by browser
   expect(api.feedback.map((call) => call.path)).toEqual(["/feedback", "/feedback/reason", "/feedback/review"]);
   expect(api.feedback[2].body).toMatchObject({ question: "말티즈가 이틀째 설사를 해요", reason: "근거가 부족해요", route: "rag" });
 });

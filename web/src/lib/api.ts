@@ -2,6 +2,7 @@
 
 import type { PetProfile } from "./profile";
 import { readEvents, type StreamEvent } from "./sse";
+import { supabase } from "./supabase";
 
 export const API_URL = (process.env.NEXT_PUBLIC_RAGDOG_API_URL ?? "https://ragdog-api-892238791473.asia-northeast3.run.app").replace(/\/$/, "");
 
@@ -22,9 +23,17 @@ export function clientId(): string | null {
   }
 }
 
-function headers(): HeadersInit {
+/** The browser id, and when signed in the Supabase access token: the API then counts this person's
+ * questions by account (api/chat.py person_of), which clearing the browser does not reset. */
+async function headers(): Promise<HeadersInit> {
   const id = clientId();
-  return { "Content-Type": "application/json", ...(id ? { "X-RagDog-Client": id } : {}) };
+  let token: string | null = null;
+  try {
+    token = (await supabase().auth.getSession()).data.session?.access_token ?? null; // refreshed when expired
+  } catch {
+    // no session available: counted by browser
+  }
+  return { "Content-Type": "application/json", ...(id ? { "X-RagDog-Client": id } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 }
 
 /** Wakes the API (Cloud Run scales to zero; the first request after a pause takes 15-27 s). */
@@ -51,7 +60,7 @@ export const FEEDBACK_REASONS = ["틀린 정보", "질문과 다른 답", "근�
 
 async function post(path: string, body: unknown): Promise<boolean> {
   try {
-    const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+    const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: await headers(), body: JSON.stringify(body) });
     return response.ok;
   } catch {
     return false;
@@ -78,7 +87,7 @@ export async function sendReview(review: {
 }): Promise<boolean> {
   const response = await fetch(`${API_URL}/feedback/review`, {
     method: "POST",
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify({
       trace_id: review.traceId,
       question: review.question,
@@ -105,7 +114,7 @@ export class HttpError extends Error {
 
 /** POST a JSON body and read the streamed events; a refused request throws HttpError. */
 export async function* postStream(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
-  const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: headers(), body: JSON.stringify(body), signal });
+  const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: await headers(), body: JSON.stringify(body), signal });
   if (!response.ok || !response.body) throw new HttpError(response.status);
   yield* readEvents(response.body);
 }

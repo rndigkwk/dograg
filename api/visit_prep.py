@@ -137,11 +137,11 @@ def _refused(kind: str, data: dict) -> StreamingResponse:
 
 @router.post("")
 def start(body: StartRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
-          x_ragdog_check: str | None = Header(default=None)) -> StreamingResponse:
+          x_ragdog_check: str | None = Header(default=None), authorization: str | None = Header(default=None)) -> StreamingResponse:
     if not settings.get_openai_api_key():
         raise HTTPException(503, "OpenAI API 키가 없어 보고서를 만들 수 없습니다.")
     network = client_network(request)
-    person = person_of(x_ragdog_client, network)
+    person = person_of(x_ragdog_client, network, authorization)
     consultation = body.consultation.strip()
     if not consultation:
         raise HTTPException(422, "상담 내용을 적어 주세요.")
@@ -157,10 +157,10 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
 
 
 @router.post("/{thread_id}/answer")
-def answer(thread_id: str, body: AnswerRequest, request: Request,
-           x_ragdog_client: str | None = Header(default=None)) -> StreamingResponse:
+def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
+           authorization: str | None = Header(default=None)) -> StreamingResponse:
     visit_prep_runs.forget_expired_runs()
-    person = person_of(x_ragdog_client, client_network(request))
+    person = person_of(x_ragdog_client, client_network(request), authorization)
     with _bookkeeping:
         for stale in [key for key in _pending if key not in visit_prep_runs.paused_runs()]:
             _pending.pop(stale, None)
