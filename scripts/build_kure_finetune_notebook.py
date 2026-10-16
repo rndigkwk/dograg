@@ -181,7 +181,7 @@ if GRADIENT_CHECKPOINTING:
 args = SentenceTransformerTrainingArguments(
     output_dir="/tmp/kure-ft", num_train_epochs=EPOCHS,
     per_device_train_batch_size=8 if SMOKE else BATCH_SIZE, learning_rate=LEARNING_RATE,
-    warmup_ratio=0.1, fp16=device == "cuda", seed=SEED, optim="adamw_torch" if SMOKE else OPTIM,
+    warmup_steps=0.1, fp16=device == "cuda", seed=SEED, optim="adamw_torch" if SMOKE else OPTIM,
     # Two queries per document: the same document twice in a batch would be scored as a wrong answer for itself.
     batch_sampler=BatchSamplers.NO_DUPLICATES,
     eval_strategy="no", save_strategy="no", logging_steps=2 if SMOKE else 50, report_to=["mlflow"],
@@ -236,8 +236,9 @@ if not SMOKE:
     mlflow.set_tags({"hf_model": repo, "rows": f"{DATA_REPO}@experiments/{ROWS_PATH}"})
     print("uploaded", repo, "and", ROWS_PATH)
     del HF_TOKEN, api
-    os.environ.pop("MLFLOW_TRACKING_PASSWORD", None)
+# Close the run while the DagsHub token is still set (the first full run removed it first: 403 on runs/update).
 mlflow.end_run()
+os.environ.pop("MLFLOW_TRACKING_PASSWORD", None)
 print("done:", run.info.run_id)"""),
 ]
 
