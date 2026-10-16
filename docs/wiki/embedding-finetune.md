@@ -289,7 +289,28 @@ uv run --group tools python scripts/compare_kure.py --finetuned --dry-run
 uv run --group tools python scripts/compare_kure.py --finetuned
 ```
 
-- 결과: `output/experiments/kure_v1_ft.json`, MLflow 실행 "compare kure-v1-ft vs app"
+- 결과: `output/experiments/kure_v1_ft.json`, MLflow 실행 "compare kure-v1 ft-b vs app"
+
+### MLflow에서 보기 (2026-10-16)
+
+[DagsHub MLflow](https://dagshub.com/rndigkwk/dograg.mlflow)의 실험 `health-embedding`에 이전 비교 4개를 기준선으로 올렸다(`scripts/mlflow_backfill_embeddings.py`, 모델 호출 없음, 원래 JSON을 첨부).
+- 구조는 비교마다 상위 실행 1개, 시스템마다 하위 실행 1개다.
+- 지표 이름은 모든 비교에서 같다: `hybrid_useful3_all`, `hybrid_useful3_short`, `dense_useful3_all`, `hybrid_p_all`(기준 대비 McNemar), `query_ms_p50`.
+- 짧은 질문 120개, 긴 상담 100개, 둘을 합친 220개 기준이다.
+
+| 비교 | 시스템 | `hybrid_useful3_all` |
+| --- | --- | ---: |
+| 2026-10-09 미세조정 A/B | ko-sroberta 기본 · A · B(앱) | 0.677 · 0.763 · 0.823 |
+| 2026-10-13 기본 모델 | ko-sroberta · e5-small | 0.677 · 0.673 |
+| 2026-10-13 KURE-v1 | 앱 · KURE-v1 기본 | 0.809 · 0.723 |
+| 2026-10-13 문서 길이 | 128 · 256 · 512 · 128 조각 | 0.823 · 0.800 · 0.795 · 0.800 |
+
+- 2026-10-09와 10-13의 앱 점수(0.823, 0.809)는 같은 모델인데 다르다. 잰 스크립트와 조건이 달랐다(10-13은 질문 임베딩을 배포 그대로 int8로 했고, 채점이 그 사이 더해졌다). 그래서 새 결과는 날짜가 다른 숫자끼리 비교하지 않고, **같은 실행 안의 앱과** 비교한다.
+- KURE-v1 미세조정의 학습 실행(`kure-v1-ft-b`)과 비교 실행도 같은 실험에 쌓인다.
+
+```bash
+uv run --group tools python scripts/mlflow_backfill_embeddings.py --dry-run
+```
 
 ## 다시 돌리기
 

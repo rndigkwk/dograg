@@ -60,6 +60,38 @@ def start_run(experiment: str, run_name: str, *, local: bool = False, tags: dict
         yield run
 
 
+def metric_key(name: str) -> str:
+    return name.replace("@", "").replace(" ", "_").replace("-", "_")
+
+
+def system_metrics(useful: dict, mode: str, system: str) -> dict[str, float]:
+    """useful@3 per question set ("short", "long_useful", "all") and the p value against the reference,
+    under one name in every comparison: e.g. hybrid_useful3_all, hybrid_p_short."""
+    entry = useful.get(f"{system} {mode}", {})
+    metrics = {f"{mode}_useful3_{s.replace('long_useful', 'long')}": v for s, v in entry.items() if isinstance(v, (int, float))}
+    for key, values in entry.items():
+        if key.startswith("vs_") and isinstance(values, dict):
+            metrics.update({f"{mode}_p_{s.replace('long_useful', 'long')}": p for s, p in values.items()})
+    return metrics
+
+
+def log_comparison(experiment: str, name: str, systems: dict[str, dict], *, params: dict, tags: dict,
+                   artifact: Path | None = None, local: bool = False) -> str:
+    """One parent run per comparison and one child run per system with the same metric names, so the
+    MLflow table shows, say, hybrid_useful3_all for the app, KURE-v1 and KURE-v1-ft side by side."""
+    import mlflow
+
+    with start_run(experiment, name, local=local, tags=tags) as parent:
+        mlflow.log_params(params)
+        if artifact is not None:
+            mlflow.log_artifact(str(artifact))
+        for system, metrics in systems.items():
+            with mlflow.start_run(run_name=system, nested=True, tags={**tags, "system": system}):
+                mlflow.log_params({"system": system, **params})
+                mlflow.log_metrics(metrics)
+        return parent.info.run_id
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="list the server's experiments")
