@@ -30,7 +30,8 @@ from team.graph.builder import build_graph
 from team.graph.nodes import failed_kinds, fallback_kinds, run_status
 
 
-def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path | None = None,
+def run(consultation: str, region: str = "", profile: str = "", *, location: tuple[float, float] | None = None,
+        run_dir: Path | None = None,
         on_step: Callable[[str, dict], None] | None = None, session: str | None = None,
         ask: bool = False, checkpointer=None, thread_id: str | None = None, resume: str | None = None) -> dict:
     """Run the team once. run_dir defaults to a new output/visit_prep/<time>/ folder;
@@ -50,6 +51,7 @@ def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path
     else:
         inputs = {
             "consultation": consultation, "region": region, "profile": profile,
+            "location": list(location) if location else None,
             "urgent": detect_urgent_sign(consultation) or "", "ask": ask, "questions": [],
             "plan": [], "findings": {}, "failures": {}, "reasks": {}, "outcome": "", "round": 0, "draft": "",
             "review": None, "feedback": "", "instruction": "",
@@ -61,7 +63,7 @@ def run(consultation: str, region: str = "", profile: str = "", *, run_dir: Path
     visits: dict[str, int] = {}
     started = time.perf_counter()
     with tracing.run_trace("visit-prep", question_fingerprint(consultation), session=session, tags=["visit-prep"],
-                           metadata={"region_given": bool(region), "profile_given": bool(profile),
+                           metadata={"region_given": bool(region), "location_given": bool(location), "profile_given": bool(profile),
                                      "resumed": resume is not None}) as trace:
         try:
             for mode, chunk in build_graph(checkpointer).stream(

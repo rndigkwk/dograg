@@ -475,3 +475,52 @@ class ReworkRuleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LocationTests(unittest.TestCase):
+    """The guardian's location (2026-10-16): the hospital task lists the nearest hospitals by distance."""
+
+    def test_find_hospitals_uses_the_location_when_given(self):
+        from team.tools import research
+
+        by_name = json.loads(research.find_hospitals.invoke({"region": "강남구"}))
+        token = research.NEAR.set((37.4939633, 127.0448504))  # a Gangnam hospital's own coordinates
+        try:
+            near = json.loads(research.find_hospitals.invoke({"region": "아무 지역"}))
+        finally:
+            research.NEAR.reset(token)
+        self.assertNotIn("distance_km", by_name[0])
+        distances = [row["distance_km"] for row in near]
+        self.assertEqual(distances, sorted(distances))
+        self.assertEqual(distances[0], 0.0)
+        self.assertLessEqual(len(near), 5)
+
+    def test_only_the_place_researcher_sees_the_location(self):
+        from team.tools import research
+
+        seen = {}
+
+        class Spy(FakeResearcher):
+            def invoke(self, inputs):
+                seen[self.kind] = (research.NEAR.get(), "[위치]" in inputs["messages"])
+                return super().invoke(inputs)
+
+        with patch.object(nodes, "create_researcher", side_effect=Spy):
+            for kind in ("health", "place"):
+                nodes.researcher({"task": {"task_id": "t1", "kind": kind, "query": "q", "angle": "a"}, "consultation": "c",
+                                  "urgent": False, "location": [37.5, 127.03], "region": "", "profile": ""})
+        self.assertEqual(seen, {"health": (None, False), "place": ((37.5, 127.03), True)})
+        self.assertIsNone(research.NEAR.get())  # reset after the task
+
+    def test_a_location_alone_adds_the_hospital_task(self):
+        tasks = [VisitTask(kind="health", query="설사", angle="원인")]
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)):
+            result = nodes.planner({"consultation": "설사", "region": "", "location": [37.5, 127.03], "profile": "", "plan": [], "urgent": "",
+                                    "feedback": "", "instruction": "", "findings": {}})
+        self.assertEqual([task["kind"] for task in result["plan"]], ["health", "place"])
+        self.assertEqual(result["plan"][-1]["query"], "보호자의 현재 위치")
+
+    def test_dispatch_passes_the_location_to_each_researcher(self):
+        sends = edges.dispatch({"plan": [{"task_id": "t1", "kind": "place"}], "findings": {}, "failures": {},
+                                "consultation": "c", "urgent": "", "region": "", "profile": "", "location": [37.5, 127.03]})
+        self.assertEqual(sends[0].arg["location"], [37.5, 127.03])

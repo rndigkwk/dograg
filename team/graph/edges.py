@@ -16,5 +16,6 @@ def dispatch(state: State) -> list[Send] | str:
         return "supervisor"
     # The cost researcher's fee tool needs the area and the dog's weight.
     payload = {"consultation": state["consultation"], "urgent": bool(state["urgent"]),
-               "region": state.get("region", ""), "profile": state.get("profile", "")}
+               "region": state.get("region", ""), "profile": state.get("profile", ""),
+               "location": state.get("location")}
     return [Send("researcher", {"task": task, **payload}) for task in todo]

@@ -30,9 +30,16 @@ test("a report pauses for the guardian's answer, then comes back reviewed", asyn
   expect(api.posts[0].body).toEqual({ consultation: "말티즈가 이틀째 설사를 해요", region: "강남구", profile: "" });
   expect(api.posts[1].body).toEqual({ answer: "어제 저녁부터요" });
 
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: /보고서 내려받기/ }).click();
-  expect((await download).suggestedFilename()).toBe("visit_report.md");
+  // Word and plain text for anyone; Markdown for those who use it.
+  for (const [button, file] of [[/Word/, "방문준비보고서.docx"], [/텍스트/, "방문준비보고서.txt"], [/Markdown/, "방문준비보고서.md"]] as const) {
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: button }).click();
+    const saved = await download;
+    expect(saved.suggestedFilename()).toBe(file);
+    const bytes = await (await saved.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks));
+    if (file.endsWith(".docx")) expect(bytes.subarray(0, 2).toString()).toBe("PK");
+    if (file.endsWith(".txt")) expect(bytes.toString("utf8")).toContain("• 설사가 이틀째입니다.");
+  }
 });
 
 test("an urgent consultation warns first; a busy server and an expired pause say so", async ({ page }) => {
@@ -63,4 +70,37 @@ test("a health answer carries its question to the report page, not in the URL", 
   await page.getByRole("button", { name: /이 상담으로 방문 준비 보고서 만들기/ }).click();
   await expect(page).toHaveURL(/\/visit-prep$/);
   await expect(page.getByLabel("상담 내용")).toHaveValue("말티즈가 이틀째 설사를 해요");
+});
+
+test("the current location fills the district and goes with the report request", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 37.4939633, longitude: 127.0448504 });
+  const api = await fakeApi(
+    page,
+    [],
+    { "/places/nearby": { places: [{ id: "hospital-1", kind: "hospital", name: "온숲", address: "서울특별시 강남구 도곡로 241", latitude: 37.4939633, longitude: 127.0448504, info: {}, info_lines: [], phone: null, homepage: null, category: null, distance_km: 0 }] } },
+    { "/visit-prep": [["result", REPORT]] },
+  );
+  await page.goto("/visit-prep");
+  await page.getByLabel("상담 내용").fill("설사를 해요");
+  await page.getByRole("button", { name: /현재 위치 사용/ }).click();
+  await expect(page.getByLabel("근처 동물병원을 찾을 지역 (선택)")).toHaveValue("서울특별시 강남구");
+  await expect(page.getByText("직선거리 순으로 찾습니다", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "검수 통과" })).toBeVisible();
+  expect(api.posts[0].body).toEqual({ consultation: "설사를 해요", region: "서울특별시 강남구", profile: "", location: [37.4939633, 127.0448504] });
+});
+
+test("typing a region by hand drops the location", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 37.5, longitude: 127.03 });
+  const api = await fakeApi(page, [], { "/places/nearby": { places: [] } }, { "/visit-prep": [["result", REPORT]] });
+  await page.goto("/visit-prep");
+  await page.getByLabel("상담 내용").fill("설사를 해요");
+  await page.getByRole("button", { name: /현재 위치 사용/ }).click();
+  await expect(page.getByText("직선거리 순으로 찾습니다", { exact: false })).toBeVisible();
+  await page.getByLabel("근처 동물병원을 찾을 지역 (선택)").fill("마포구");
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "검수 통과" })).toBeVisible();
+  expect(api.posts[0].body).toEqual({ consultation: "설사를 해요", region: "마포구", profile: "" });
 });

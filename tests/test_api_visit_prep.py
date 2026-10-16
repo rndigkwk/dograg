@@ -30,7 +30,10 @@ class VisitPrepApiTests(unittest.TestCase):
         visit_api._reports.clear()
         visit_api._owners.clear()
         visit_api._pending.clear()
-        for item in (patch.object(visit_api, "_run_team", return_value=self.team),
+        self.run_team = patch.object(visit_api, "_run_team", return_value=self.team)
+        self.run_team_mock = self.run_team.start()
+        self.addCleanup(self.run_team.stop)
+        for item in (
                      patch.object(visit_prep_runs, "prepare_search", return_value=None),
                      patch.object(settings, "get_openai_api_key", return_value="sk-test"),
                      patch.object(rate_limit, "check", return_value=rate_limit.Decision(True))):
@@ -110,9 +113,17 @@ class VisitPrepApiTests(unittest.TestCase):
         self.assertTrue(visit_prep_runs.team_lock().acquire(blocking=False))
         visit_prep_runs.team_lock().release()
 
+    def test_the_guardian_location_goes_to_the_team(self):
+        events(self.start(location=[37.4939633, 127.0448504]))
+        events(self.start(who=SOMEONE_ELSE))
+        self.assertEqual([call.args for call in self.run_team_mock.call_args_list],
+                         [(ME, (37.4939633, 127.0448504)), (SOMEONE_ELSE, None)])
+
     def test_bad_requests(self):
         self.assertEqual(self.start("   ").status_code, 422)
         self.assertEqual(self.start("가" * 501).status_code, 422)
+        self.assertEqual(self.start(location=[51.5, -0.12]).status_code, 422)  # outside Korea
+        self.assertEqual(self.start(location=[37.5]).status_code, 422)
         self.assertEqual(self.client.post("/visit-prep/x/answer", json={"answer": "가" * 301},
                                           headers={"X-RagDog-Client": ME}).status_code, 422)
         with patch.object(settings, "get_openai_api_key", return_value=None):
