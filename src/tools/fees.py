@@ -69,7 +69,8 @@ WEIGHTS = (5, 10, 20)
 def load_fee_rows(path: str = str(FEE_CSV)) -> tuple[dict, ...]:
     try:
         with open(path, encoding="utf-8-sig", newline="") as file:
-            return tuple(csv.DictReader(file))
+            # All zero means the survey has no figure there (e.g. MRI in 세종): not a 0-won price.
+            return tuple(row for row in csv.DictReader(file) if row["max"] != "0")
     except FileNotFoundError:
         return ()
 
