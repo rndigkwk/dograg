@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: {
     command: `npm run build && npm run start -- -p ${PORT} -H localhost`,
     url: `http://localhost:${PORT}`,
-    env: { NEXT_PUBLIC_RAGDOG_API_URL: FAKE_API },
+    env: { NEXT_PUBLIC_RAGDOG_API_URL: FAKE_API, NEXT_DIST_DIR: ".next-e2e" },
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
   },
