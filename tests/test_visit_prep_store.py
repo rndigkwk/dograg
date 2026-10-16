@@ -40,6 +40,32 @@ class MemoryStoreTests(unittest.TestCase):
         self.assertNotIn("0123456789abcdef0123456789abcdef", self.store._reports)
 
 
+class ThisServersListTests(unittest.TestCase):
+    """src/visit_prep_runs.py keeps its own list of runs paused here; with two instances the API
+    must not delete a checkpoint from it, as another instance may be resuming that run."""
+
+    def setUp(self):
+        from src import visit_prep_runs
+
+        self.runs, self.saver = visit_prep_runs, unittest.mock.MagicMock()
+        self.runs.paused_runs().clear()
+        self.runs.paused_runs()["t"] = 1_800_000_000.0
+        patcher = patch.object(visit_prep_runs, "team_checkpointer", return_value=self.saver)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.runs.paused_runs().clear)
+
+    def test_the_api_only_drops_it_from_the_list(self):
+        later = 1_800_000_000.0 + vps.PAUSED_RUN_TTL_SECONDS + 1
+        self.assertEqual(self.runs.forget_expired_runs(later, delete=False), ["t"])
+        self.assertNotIn("t", self.runs.paused_runs())
+        self.saver.delete_thread.assert_not_called()
+
+    def test_the_page_deletes_the_checkpoint(self):
+        self.runs.forget_expired_runs(1_800_000_000.0 + vps.PAUSED_RUN_TTL_SECONDS + 1)
+        self.saver.delete_thread.assert_called_once_with("t")
+
+
 class StoreChoiceTests(unittest.TestCase):
     def tearDown(self):
         vps._reset_for_tests(None)

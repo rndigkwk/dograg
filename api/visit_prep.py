@@ -158,7 +158,9 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
 @router.post("/{thread_id}/answer")
 def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
            authorization: str | None = Header(default=None)) -> StreamingResponse:
-    visit_prep_runs.forget_expired_runs()  # this server's own list of paused threads
+    # This server's own list only: the store owns the checkpoints, and another instance may be
+    # resuming a run that paused here.
+    visit_prep_runs.forget_expired_runs(delete=False)
     store, now = visit_prep_store.store(), visit_prep_store.now()
     store.expire(now)  # paused runs nobody answered within 30 minutes, with their checkpoints
     person = person_of(x_ragdog_client, client_network(request), authorization)
