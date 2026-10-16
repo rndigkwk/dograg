@@ -94,7 +94,18 @@ export async function sendReview(review: {
 
 /** POST /chat: each event of the answer as it arrives. Throws on a refused request. */
 export async function* askChat(body: ChatRequest, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
-  const response = await fetch(`${API_URL}/chat`, { method: "POST", headers: headers(), body: JSON.stringify(body), signal });
-  if (!response.ok || !response.body) throw new Error(`chat ${response.status}`);
+  yield* postStream("/chat", body, signal);
+}
+
+export class HttpError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
+/** POST a JSON body and read the streamed events; a refused request throws HttpError. */
+export async function* postStream(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
+  const response = await fetch(`${API_URL}${path}`, { method: "POST", headers: headers(), body: JSON.stringify(body), signal });
+  if (!response.ok || !response.body) throw new HttpError(response.status);
   yield* readEvents(response.body);
 }

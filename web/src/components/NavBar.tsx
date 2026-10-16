@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/data", label: "📊 데이터 소개" },
   { href: "/chat", label: "💬 질병 문의" },
   { href: "/places", label: "🏥 시설 찾기" },
+  { href: "/visit-prep", label: "📝 방문 준비 보고서" },
 ];
 
 export default function NavBar() {
