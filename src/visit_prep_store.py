@@ -120,6 +120,11 @@ class PostgresStore:
             "options": f"-c search_path={schema}"})
         self._saver = None
 
+    def probe(self) -> None:
+        """Fail now, not on the first report, if the database or the schema is missing."""
+        with self._pool.connection() as conn:
+            conn.execute("select 1 from paused, report_starts, checkpoints limit 0")
+
     def checkpointer(self):
         if self._saver is None:
             from langgraph.checkpoint.postgres import PostgresSaver
@@ -184,7 +189,8 @@ _store_lock = threading.Lock()
 
 
 def store() -> Store:
-    """Postgres on the deployed server with SUPABASE_DB_URL (memory if it cannot connect), else memory.
+    """Postgres on the deployed server with SUPABASE_DB_URL (memory if it cannot connect or the schema
+    from scripts/setup_visit_prep_store.py is missing), else memory.
     Local runs and tests use memory even though .env has the database URL: they must not write there."""
     global _store
     with _store_lock:
@@ -193,6 +199,7 @@ def store() -> Store:
             if url:
                 try:
                     _store = PostgresStore(url)
+                    _store.probe()
                 except Exception:  # noqa: BLE001 - a missing schema or a down database must not stop reports
                     logger.warning("visit-prep store unavailable; keeping runs in memory", exc_info=True)
                     _store = MemoryStore()

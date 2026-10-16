@@ -55,6 +55,13 @@ def main() -> int:
     try:
         setup(url, schema)
         store, now = PostgresStore(url, schema), time.time()
+        store.probe()
+        check("the probe passes once set up", True)
+        try:
+            PostgresStore(url, f"{schema}_missing").probe()
+            check("the probe fails without the schema", False)
+        except psycopg.Error:
+            check("the probe fails without the schema", True)
 
         check("first report of the day", store.take_report("browser-a", 2, now))
         check("second report", store.take_report("browser-a", 2, now))
