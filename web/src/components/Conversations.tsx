@@ -10,6 +10,7 @@ export default function Conversations(props: {
   onOpen: (id: string | null) => void;
   onDelete: () => void;
   onClear: () => void;
+  onDeleteAccount?: () => void; // signed in only
 }) {
   const { threads, current, busy, status } = props;
   return (
@@ -44,6 +45,11 @@ export default function Conversations(props: {
       <button type="button" disabled={busy} onClick={props.onClear} className="w-full rounded-lg px-3 py-2 text-danger hover:bg-danger/5 disabled:opacity-40">
         {props.where === "account" ? "계정의 기록 모두 지우기" : "이 기기의 기록 모두 지우기"}
       </button>
+      {props.where === "account" && props.onDeleteAccount ? (
+        <button type="button" disabled={busy} onClick={props.onDeleteAccount} className="w-full rounded-lg px-3 py-2 text-xs text-muted underline disabled:opacity-40">
+          계정 삭제
+        </button>
+      ) : null}
     </nav>
   );
 }

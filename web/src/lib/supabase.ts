@@ -61,3 +61,11 @@ export async function signOut(): Promise<void> {
   // scope "local": this browser only; the user's other devices stay signed in.
   await supabase().auth.signOut({ scope: "local" });
 }
+
+/** Deletes the signed-in account and, with it, its records (scripts/sql/delete_my_account.sql:
+ * the database function can only delete the caller). Then this browser forgets the session. */
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase().rpc("delete_my_account");
+  if (error) throw error;
+  await supabase().auth.signOut({ scope: "local" }); // the session no longer exists on the server
+}

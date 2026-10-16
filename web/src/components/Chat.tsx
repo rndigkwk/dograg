@@ -18,6 +18,7 @@ import Conversations from "./Conversations";
 import MemoryCard from "./MemoryCard";
 import ProfileForm from "./ProfileForm";
 import { useRecords } from "./useRecords";
+import { deleteAccount } from "@/lib/supabase";
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
@@ -164,6 +165,7 @@ export default function Chat() {
   const { records, storage } = useRecords();
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [accountNote, setAccountNote] = useState<string | null>(null);
   // Signed in with records still on this device: how many, to offer moving them into the account.
   const [deviceLeft, setDeviceLeft] = useState(0);
   const [notice, setNotice] = useState(false);
@@ -284,6 +286,20 @@ export default function Chat() {
     setSuggestion(null);
   }
 
+  async function removeAccount() {
+    const sure = window.confirm(
+      "라그도그 계정을 삭제합니다. 계정에 저장된 대화와 반려견 정보도 서버에서 함께 지워지고, 되돌릴 수 없습니다.\n\n" +
+        "Google의 '라그도그 로그인 허용'은 Google 계정 → 보안 → 타사 연결에서 직접 끊을 수 있습니다.",
+    );
+    if (!sure) return;
+    try {
+      await deleteAccount(); // signs out: the records switch to this browser's
+      setAccountNote("계정을 삭제했습니다. 이 브라우저에 남은 로그인 전 기록은 그대로입니다.");
+    } catch {
+      setSaveError("계정을 삭제하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+    }
+  }
+
   function keepProfile(next: PetProfile | null) {
     if (records) void write(() => records.saveProfile(next));
     setProfile(isEmpty(next) ? null : next);
@@ -370,6 +386,7 @@ export default function Chat() {
       busy={pending !== null}
       status={!loaded ? "loading" : records?.where === "account" || storage ? "ready" : "unavailable"}
       where={records?.where ?? "device"}
+      onDeleteAccount={() => void removeAccount()}
       onOpen={open}
       onDelete={remove}
       onClear={clearAll}
@@ -414,6 +431,11 @@ export default function Chat() {
               </button>
             </div>
           </div>
+        ) : null}
+        {accountNote ? (
+          <p role="status" className="mb-4 rounded-xl bg-accent/5 p-3 text-sm">
+            {accountNote}
+          </p>
         ) : null}
         {saveError ? (
           <p role="alert" className="mb-4 text-sm text-danger">
