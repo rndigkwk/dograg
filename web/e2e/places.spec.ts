@@ -84,3 +84,27 @@ test("the menu leads between the pages", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBe(0);
 });
+
+test("the mouse wheel over the map zooms it", async ({ page, isMobile }) => {
+  test.skip(isMobile, "no mouse wheel on a phone; pinch zoom is Leaflet's default");
+  await fakeApi(page, [], PLACES);
+  await page.goto("/places");
+  await page.getByLabel("시/군/구").selectOption("강남구");
+  await page.getByRole("button", { name: "조회" }).click();
+  const map = page.getByRole("region", { name: "시설 지도" });
+  await expect(map).toBeVisible();
+  // Zooming in pulls the two markers apart on screen.
+  const gap = () =>
+    map.locator("path.leaflet-interactive").evaluateAll((paths) => {
+      const [a, b] = paths.map((path) => path.getBoundingClientRect());
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    });
+  await expect(map.locator("path.leaflet-interactive")).toHaveCount(2);
+  await map.scrollIntoViewIfNeeded(); // the mouse must be over the map, inside the window
+  await page.waitForTimeout(800); // the fit-to-markers animation
+  const before = await gap();
+  const box = (await map.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -400);
+  await expect.poll(gap).toBeGreaterThan(before * 1.5);
+});
