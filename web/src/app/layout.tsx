@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import AuthProvider from "@/components/AuthProvider";
 import NavBar from "@/components/NavBar";
 
 import "./globals.css";
@@ -15,8 +16,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko">
       <body className="antialiased">
-        <NavBar />
-        {children}
+        <AuthProvider>
+          <NavBar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
