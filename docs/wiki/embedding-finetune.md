@@ -266,12 +266,15 @@ uv run --group tools --with psutil python scripts/compare_kure.py
 - 노트북이 비공개 데이터셋 `experiments` 브랜치에 올린 `kure/kure_v1_rows.npy`를 `output/experiments/`에 받아 둔다.
 - 결과: `output/experiments/kure_v1.json`
 
-## KURE-v1 미세조정 (준비 2026-10-16)
+## KURE-v1 미세조정 (2026-10-16~17)
+
+**결론: 앱 모델을 유지한다.** 미세조정한 KURE-v1은 하이브리드 `useful@3` 0.805로 앱(0.809)과 같았다(p=1.0). 질문 임베딩은 8배 느리고 모델은 약 12배 크다.
 
 위의 "다시 볼 조건"을 확인한다. 메모리 1GB 제한이 사라졌다(API는 Cloud Run 2GiB). 그래서 모델이 커지는 것보다 **정확도가 오르는지**와 **질문 지연**이 판단 기준이다.
 - **학습:** `notebooks/kure_finetune_colab.ipynb` (`scripts/build_kure_finetune_notebook.py`가 만든다)
   - 앱 모델 B와 같은 합성 질의(`short` + `detailed`)로 학습하고, dev 300개 상담을 학습에서 뺀다.
-  - 손실은 `CachedMultipleNegativesRankingLoss`다. 배치 64를 유지하되 16개씩 나눠 계산해 T4 메모리에 맞춘다. 학습 길이는 256토큰, 최종 문서 임베딩은 1,024토큰이다.
+  - 손실은 `CachedMultipleNegativesRankingLoss`다. 배치 64를 유지하되 8개씩 나눠 계산한다. 학습 길이는 256토큰, 최종 문서 임베딩은 1,024토큰이다.
+  - 첫 실행은 일반 AdamW로 학습하다 T4(14.5GB)에서 메모리가 부족했다. 가중치·기울기·옵티마이저 상태만 약 9GB였다. 8비트 AdamW와 gradient checkpointing으로 바꾸자 최대 7.75GB로 끝났다.
   - 모델은 비공개 `blanden77/kure-v1-dograg`, 문서 벡터는 비공개 데이터셋의 `experiments/kure/kure_v1_ft_rows.npy`에 둔다.
 - **기록:** 처음으로 학습을 **MLflow(DagsHub, 실험 `health-embedding`)** 에 남긴다. 남기는 것은 설정, 학습 전·후 dev 점수, 손실 곡선, 학습 시간, GPU 최대 메모리, 결과 파일이다. 로컬 비교도 같은 실험에 별도 실행으로 기록한다(`scripts/mlflow_tracking.py`).
 - **평가:** 위와 같은 220문항, 하이브리드 `useful@3`, McNemar로 앱과 비교한다. 이미 채점한 문서는 다시 채점하지 않는다. 그래서 `--dry-run`으로 judge 호출 수를 먼저 보고, 200번이 넘으면 `scripts/cost_guard.py`가 멈춘다.
@@ -290,6 +293,36 @@ uv run --group tools python scripts/compare_kure.py --finetuned
 ```
 
 - 결과: `output/experiments/kure_v1_ft.json`, MLflow 실행 "compare kure-v1 ft-b vs app"
+- Colab이 sentence-transformers 6.1.0으로 모델을 저장해, 로컬 비교도 같은 버전으로 돌렸다(`uv run --group tools --with "sentence-transformers==6.1.0" ...`). tools 그룹은 5.6.1이라 이 모델을 읽지 못한다.
+
+### 결과 (2026-10-17)
+
+**학습** (MLflow `kure-v1-ft-b`, T4)
+- 37,812쌍, 1에폭, 58.5분, GPU 최대 7.75GB
+- dev 300개 상담(학습에서 뺀 상담의 질의 600개로 원래 상담을 19,206개 중 찾기)
+
+| dev | 학습 전 | 학습 후 |
+| --- | ---: | ---: |
+| accuracy@1 | 0.255 | 0.555 |
+| accuracy@10 | 0.515 | 0.808 |
+| mrr@10 | 0.333 | 0.641 |
+
+**앱과 비교** (220문항, 위 KURE-v1 비교와 같은 방법, judge 호출 156번, 4분 41초)
+
+| | 앱 (미세조정 ko-sroberta) | KURE-v1 기본 (10-13) | KURE-v1 미세조정 | 앱 대비 p |
+| --- | ---: | ---: | ---: | --- |
+| Dense 짧은 질문 | 0.817 | 0.708 | 0.800 | 0.82 |
+| Dense 긴 상담 글 | 0.84 | 0.83 | 0.89 | 0.36 |
+| Dense 전체 | 0.827 | 0.764 | 0.841 | 0.75 |
+| 하이브리드 짧은 질문 | 0.783 | 0.683 | 0.775 | 1.0 |
+| **하이브리드 전체** | **0.809** | 0.723 | **0.805** | **1.0** |
+| 질문 임베딩 (CPU, 중앙값) | 22ms (int8) | 275ms | 176ms (float) | |
+| 모델 파일 | 186MB | 약 2.3GB | 약 2.2GB | |
+
+- **미세조정은 효과가 컸다.** 기본 KURE-v1보다 하이브리드 전체가 0.723에서 0.805로 올랐고, 짧은 질문의 차이(약 0.10)가 거의 사라졌다. 10-13에 본 차이는 모델 크기가 아니라 우리 질문 말투로 한 미세조정 때문이었다는 해석이 맞았다.
+- **그래도 앱을 넘지는 못했다.** 하이브리드는 사실상 같다(0.805 대 0.809, p=1.0). Dense만 쓰면 긴 상담 글에서 0.89로 조금 높지만 유의하지 않다(p=0.36). 앱은 하이브리드를 쓰므로 판단 기준은 하이브리드다.
+- **결정: 바꾸지 않는다.** 위 "바꿀 조건"(하이브리드 전체가 유의하게 높을 것)을 채우지 못했다. 같은 정확도라면 질문 임베딩이 8배 빠르고 모델이 12분의 1인 지금 모델이 낫다. 메모리 1GB 제한이 사라져도 결론은 같다. 이번 이유는 메모리가 아니라 이득이 없다는 것이다.
+- **다시 볼 조건:** Dense만으로 검색하는 경로가 생기거나(긴 상담 글 +0.05가 의미 있어짐), 더 많은 문항으로 다시 재서 차이가 유의해질 때. 평가 세트를 늘리는 것이 모델을 바꾸는 것보다 먼저다.
 
 ### MLflow에서 보기 (2026-10-16)
 
