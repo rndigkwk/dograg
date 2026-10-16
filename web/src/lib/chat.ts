@@ -3,6 +3,7 @@
 
 import type { StreamEvent } from "./sse";
 import type { Memory, Turn } from "./api";
+import { cleanProfile, type MemorySuggestion } from "./profile";
 
 export type Hospital = { name: string; distance_km: number; phone?: string | null; road_address?: string | null; lot_address?: string | null };
 export type Emergency = { nearest?: Hospital[]; night?: Hospital[] };
@@ -33,7 +34,7 @@ export function startPending(): Pending {
 }
 
 /** The pending answer after one event; `done` when the stream has nothing more to show for it. */
-export function applyEvent(pending: Pending, { kind, data }: StreamEvent): { pending: Pending; memory?: Memory } {
+export function applyEvent(pending: Pending, { kind, data }: StreamEvent): { pending: Pending; memory?: Memory; suggestion?: MemorySuggestion } {
   const d = data as Record<string, unknown>;
   switch (kind) {
     case "step":
@@ -66,6 +67,8 @@ export function applyEvent(pending: Pending, { kind, data }: StreamEvent): { pen
         },
         memory: d.memory as Memory | undefined,
       };
+    case "memory": // after the result: facts about the dog to offer for saving
+      return { pending, suggestion: { profile: cleanProfile(d.profile), summary: String(d.summary ?? ""), update: Boolean(d.update) } };
     default:
       return { pending };
   }

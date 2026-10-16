@@ -7,7 +7,12 @@ import { type Answer, applyEvent, type Emergency, finish, type Hospital, history
 
 import { browserStorage, clearDevice, type KeyValue, loadThreads, messagesOf, recordTurn, saveThreads, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
 
+import { locate, type Location } from "@/lib/location";
+import { isEmpty, loadProfile, type MemorySuggestion, type PetProfile, saveProfile } from "@/lib/profile";
+
 import Conversations from "./Conversations";
+import MemoryCard from "./MemoryCard";
+import ProfileForm from "./ProfileForm";
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
@@ -43,7 +48,7 @@ function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency
           <p className="mt-2 text-sm text-muted">거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.</p>
         </>
       ) : (
-        <p className="mt-1 text-sm text-muted">위치를 알려 주지 않아 가까운 병원을 고를 수 없습니다. 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.</p>
+        <p className="mt-1 text-sm text-muted">아래의 “현재 위치 사용”을 누르면 다음부터 가까운 병원을 여기에 바로 보여 드립니다. 지금은 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.</p>
       )}
     </div>
   );
@@ -115,6 +120,13 @@ export default function Chat() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [draft, setDraft] = useState("");
   const [listOpen, setListOpen] = useState(false);
+  const [profile, setProfile] = useState<PetProfile | null>(null);
+  const [suggestion, setSuggestion] = useState<MemorySuggestion | null>(null);
+  const [location, setLocation] = useState<Location | null>(null);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  // This tab only, like the Streamlit session: facts declined, and "do not offer a profile" once refused.
+  const declined = useRef<string[]>([]);
+  const profileRefused = useRef(false);
   // {thread id: summary of its older turns, as the API last returned it}; this tab only, like the Streamlit page.
   const memories = useRef(new Map<string, Memory>());
   const controller = useRef<AbortController | null>(null);
@@ -126,6 +138,7 @@ export default function Chat() {
     setStorage(found);
     setThreads(loadThreads(found));
     setNotice(takeNotice(found));
+    setProfile(loadProfile(found));
     setLoaded(true);
     return () => controller.current?.abort();
   }, []);
@@ -156,6 +169,32 @@ export default function Chat() {
     setCurrent(null);
     setMessages([]);
     setNotice(false);
+    setProfile(null);
+    setSuggestion(null);
+  }
+
+  function keepProfile(next: PetProfile | null) {
+    saveProfile(storage, next);
+    setProfile(isEmpty(next) ? null : next);
+  }
+
+  function answerSuggestion(save: boolean) {
+    if (!suggestion) return;
+    if (save) keepProfile(suggestion.profile);
+    else if (suggestion.update) declined.current.push(suggestion.summary);
+    else profileRefused.current = true;
+    setSuggestion(null);
+  }
+
+  async function useLocation() {
+    setLocationNote("위치를 확인하는 중입니다…");
+    const found = await locate();
+    if ("location" in found) {
+      setLocation(found.location);
+      setLocationNote("현재 위치를 사용합니다. 응급 안내와 가까운 병원 찾기에 씁니다(저장하지 않음).");
+    } else {
+      setLocationNote(`${found.error} 지역명으로 병원을 검색할 수 있습니다.`);
+    }
   }
 
   async function send(question: string) {
@@ -164,13 +203,25 @@ export default function Chat() {
     setMessages((shown) => [...shown, { role: "user", content: question }]);
     let state = startPending();
     setPending(state);
+    setSuggestion(null);
+    const request = {
+      question,
+      history,
+      memory: { upto: 0, summary: "" },
+      profile: isEmpty(profile) ? null : profile,
+      location,
+      // Until storage is read the profile is a stand-in; a suggestion against it would replace the stored one.
+      suggest_memory: loaded && Boolean(storage) && !(isEmpty(profile) && profileRefused.current),
+      declined_memory: declined.current.slice(-20),
+    };
     let memory = (thread && memories.current.get(thread)) || { upto: 0, summary: "" };
     controller.current = new AbortController();
     try {
-      for await (const event of askChat({ question, history, memory }, controller.current.signal)) {
+      for await (const event of askChat({ ...request, memory }, controller.current.signal)) {
         const next = applyEvent(state, event);
         state = next.pending;
         if (next.memory) memory = next.memory;
+        if (next.suggestion) setSuggestion(next.suggestion);
         setPending(state);
       }
     } catch (error) {
@@ -197,6 +248,7 @@ export default function Chat() {
     void send(question);
   }
 
+  const profileForm = <ProfileForm profile={profile} onSave={keepProfile} />;
   const list = (
     <Conversations
       threads={threads}
@@ -212,7 +264,10 @@ export default function Chat() {
   return (
     <div className="flex flex-1 gap-6">
       <aside className="hidden w-64 shrink-0 md:block" aria-label="대화 기록">
-        <div className="sticky top-4">{list}</div>
+        <div className="sticky top-4 space-y-4">
+          {list}
+          {profileForm}
+        </div>
       </aside>
       <section className="flex min-w-0 flex-1 flex-col">
         <button
@@ -223,7 +278,12 @@ export default function Chat() {
         >
           대화 기록 {threads.length ? `(${threads.length})` : ""}
         </button>
-        {listOpen ? <div className="mb-4 rounded-xl border border-line bg-white p-3 md:hidden">{list}</div> : null}
+        {listOpen ? (
+          <div className="mb-4 space-y-4 rounded-xl border border-line bg-white p-3 md:hidden">
+            {list}
+            {profileForm}
+          </div>
+        ) : null}
         {notice ? (
           <p role="note" className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm">
             {STORAGE_NOTICE}
@@ -250,7 +310,14 @@ export default function Chat() {
               <PendingView pending={pending} />
             </Bubble>
           ) : null}
+          {suggestion && !pending ? <MemoryCard suggestion={suggestion} onSave={() => answerSuggestion(true)} onDismiss={() => answerSuggestion(false)} /> : null}
           <div ref={bottom} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button type="button" onClick={useLocation} className="rounded-lg border border-line bg-white px-3 py-1">
+            📍 {location ? "위치 다시 가져오기" : "현재 위치 사용"}
+          </button>
+          <span className="text-muted">{locationNote ?? "가까운 병원 검색은 위치 사용을 선택한 경우에만 직선거리로 계산합니다."}</span>
         </div>
         <form onSubmit={submit} className="sticky bottom-0 flex gap-2 border-t border-line bg-page py-3">
           <label htmlFor="question" className="sr-only">

@@ -43,6 +43,13 @@ describe("applyEvent", () => {
   });
 });
 
+describe("memory event", () => {
+  it("turns into a suggestion with a checked profile", () => {
+    const got = applyEvent(startPending(), { kind: "memory", data: { profile: { name: "두부", weight_kg: -1 }, new_facts: [], summary: "이름 두부", update: false } });
+    expect(got.suggestion).toEqual({ profile: { name: "두부" }, summary: "이름 두부", update: false });
+  });
+});
+
 describe("finish", () => {
   it("keeps streamed text when the stream broke before the result", () => {
     const { pending } = run([{ kind: "token", data: { text: "부분" } }]);

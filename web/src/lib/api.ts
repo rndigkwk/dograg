@@ -1,5 +1,6 @@
 // Calls to the RagDog API (api/, Cloud Run ragdog-api; docs/adr/0008).
 
+import type { PetProfile } from "./profile";
 import { readEvents, type StreamEvent } from "./sse";
 
 export const API_URL = (process.env.NEXT_PUBLIC_RAGDOG_API_URL ?? "https://ragdog-api-892238791473.asia-northeast3.run.app").replace(/\/$/, "");
@@ -38,6 +39,11 @@ export type ChatRequest = {
   question: string;
   history: Turn[];
   memory: Memory;
+  profile: PetProfile | null;
+  location: [number, number] | null;
+  // Ask for a memory suggestion only once the stored profile is loaded (api/chat.py ChatRequest).
+  suggest_memory: boolean;
+  declined_memory: string[];
 };
 
 // The reasons under a 👎 (src/feedback_store.REASONS; the API refuses any other).
