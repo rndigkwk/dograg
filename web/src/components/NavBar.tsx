@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// The Streamlit app's pages (src/ui.py NAVIGATION_GROUPS), added here as each one moves (ADR-0008 P3).
+// The Streamlit app's pages (src/ui.py NAVIGATION_GROUPS); the logo leads home.
 const LINKS = [
   { href: "/data", label: "📊 데이터 소개" },
   { href: "/chat", label: "💬 질병 문의" },

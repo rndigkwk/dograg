@@ -132,3 +132,19 @@ flowchart LR
   - 따라서 근거 평가가 실행마다 달라지는 잡음이다. API 코드는 같은 `chatbot()`을 같은 설정으로 부른다.
 - 다시 검토할 조건("API 품질이 주간 기준 아래면 P2로 가지 않는다")은 해당하지 않는다고 보고 P2로 간다.
 - 차이: API는 CRAG decision을 돌려주지 않아 partial을 answer로 센다(지표는 같다). 개수만 답한 시설 질문 8개는 장소 목록이 없어 kind를 채점하지 않았다.
+
+## 구현하며 바꾼 것 (P2·P3, 2026-10-16)
+- **화면 주소:** Vercel 프로젝트 `ragdog`(루트 `web/`)입니다.
+  - 정식 주소: https://ragdog-rndigkwks-projects.vercel.app (공개)
+  - 미리보기: PR마다 생기고 Vercel 로그인이 필요합니다.
+- **화면 목록:** `/` 홈, `/data`, `/chat`, `/places`, `/visit-prep`. Streamlit의 다섯 화면을 모두 옮겼습니다.
+- **CORS:** 저장소 변수 `RAGDOG_WEB_ORIGINS`(정식 주소 + `http://localhost:3000`)와 `RAGDOG_WEB_ORIGIN_REGEX`(미리보기)로 정합니다.
+  - 변수를 정하면 기본값 localhost를 대신하므로, localhost를 함께 적습니다.
+- **Next.js 15.5.28 / React 19.1.10:** Vercel이 15.5.4의 보안 권고(React flight RCE 등)로 배포를 막았습니다.
+- **기록:** 대화·반려견 정보는 지금처럼 브라우저(localStorage)에만, Streamlit과 같은 형식으로 둡니다.
+  - 채팅에서 방문 준비 보고서로 넘기는 상담 글은 URL이 아니라 sessionStorage로 넘깁니다(브라우저 기록·서버 로그에 남지 않게).
+- **차트:** plotly 대신 라이브러리 없는 막대입니다(한 색, 값은 막대 끝, 표로 보기). 진료과 비율은 도넛 대신 막대로 그립니다.
+- **지도:** pydeck 대신 Leaflet + OpenStreetMap 타일입니다.
+- **화면 확인:** Playwright 흐름 테스트(데스크톱·모바일, API는 가짜, 모델 호출 0)가 `web-ci.yml`에서 돕니다.
+  - 실제 모델로는 PR마다 질문 1개나 보고서 1번만 확인했습니다.
+- **남은 것:** P4(로그인)와 P5(전환: keep-alive를 새 주소로, Streamlit 서비스 내리기). 그 전에 새 화면으로 주간 회귀를 한 번 돌려 확인합니다.

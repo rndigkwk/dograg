@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="반려견 일러스트">
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#f7e9d2"/>
+      <stop offset="1" stop-color="#dbece8"/>
+    </linearGradient>
+    <radialGradient id="fur">
+      <stop stop-color="#f8d49e"/>
+      <stop offset="1" stop-color="#d49a61"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#background)"/>
+  <circle cx="985" cy="145" r="230" fill="#fff" opacity=".35"/>
+  <circle cx="170" cy="705" r="290" fill="#fff" opacity=".24"/>
+  <ellipse cx="600" cy="700" rx="310" ry="55" fill="#8c715c" opacity=".15"/>
+  <path d="M365 310 Q280 155 355 110 Q475 125 505 270 Z" fill="#a96f45"/>
+  <path d="M835 310 Q920 155 845 110 Q725 125 695 270 Z" fill="#a96f45"/>
+  <path d="M600 165 C405 165 310 310 335 505 C350 655 465 705 600 705 C735 705 850 655 865 505 C890 310 795 165 600 165 Z" fill="url(#fur)"/>
+  <ellipse cx="490" cy="425" rx="24" ry="31" fill="#39332e"/>
+  <ellipse cx="710" cy="425" rx="24" ry="31" fill="#39332e"/>
+  <ellipse cx="600" cy="555" rx="125" ry="95" fill="#f9e8ce"/>
+  <path d="M565 520 Q600 485 635 520 Q635 548 600 550 Q565 548 565 520 Z" fill="#403730"/>
+  <path d="M600 550 Q600 585 565 595 M600 550 Q600 585 635 595" fill="none" stroke="#403730" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="455" cy="505" r="27" fill="#e6a179" opacity=".6"/>
+  <circle cx="745" cy="505" r="27" fill="#e6a179" opacity=".6"/>
+</svg>
