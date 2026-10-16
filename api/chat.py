@@ -36,7 +36,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from src import data_gaps, rate_limit
+from src import auth, data_gaps, rate_limit
 from src.chat_events import find_emergency_hospitals, places_first, progress_message
 from src.health_safety import detect_urgent_sign
 from src.storage.models import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS, PetProfile
@@ -99,8 +99,11 @@ def client_network(request: Request) -> str:
     return rate_limit.forwarded_client(request.headers.get("X-Forwarded-For"), request.client.host if request.client else "")
 
 
-def person_of(client_id: str | None, network: str) -> str:
-    """This browser's random id (the frontend keeps one in localStorage), else its network address."""
+def person_of(client_id: str | None, network: str, authorization: str | None = None) -> str:
+    """Who is asking: the signed-in account (a verified Supabase token, src/auth.py), else this
+    browser's random id (the frontend keeps one in localStorage), else its network address."""
+    if user := auth.user_id(authorization):
+        return f"user:{user}"
     if client_id and CLIENT_ID.fullmatch(client_id):
         return client_id
     return f"network:{network}"
@@ -190,10 +193,11 @@ def memory_event(body: ChatRequest) -> Iterator[str]:
 
 @router.post("/chat")
 def chat(body: ChatRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
-         x_ragdog_check: str | None = Header(default=None)) -> StreamingResponse:
+         x_ragdog_check: str | None = Header(default=None), authorization: str | None = Header(default=None)) -> StreamingResponse:
     network = client_network(request)
     agent = request.headers.get("User-Agent") or ""
     trusted = rate_limit.trusted_check(x_ragdog_check)
-    return StreamingResponse(answer_events(body, person_of(x_ragdog_client, network), network, agent, trusted),
+    person = person_of(x_ragdog_client, network, authorization)
+    return StreamingResponse(answer_events(body, person, network, agent, trusted),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -33,6 +33,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [dependency-groups]

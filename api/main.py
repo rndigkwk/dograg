@@ -14,10 +14,10 @@ deployments of each pull request. Without them only the local Next.js dev server
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 
-from src import settings, tracing
+from src import auth, settings, tracing
 
 LOCAL_WEB = "http://localhost:3000"
 
@@ -59,6 +59,13 @@ def create_app() -> FastAPI:
         """Up and which commit. The frontend calls it when a page opens, so a scaled-to-zero
         instance starts while the guardian is still typing (ADR-0008, decision 2)."""
         return {"status": "ok", "commit": tracing.release()}
+
+    @app.get("/me")
+    def me(authorization: str | None = Header(default=None)) -> dict:
+        """Whether the request's Supabase token is accepted (src/auth.py), and for whom. The caller
+        learns only its own id; the frontend uses it to know its questions are counted by account."""
+        user = auth.user_id(authorization)
+        return {"signed_in": user is not None, "user_id": user}
 
     return app
 

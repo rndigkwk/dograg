@@ -34,6 +34,7 @@ export async function fakeApi(
   const chats: Record<string, unknown>[] = [];
   const gets: string[] = [];
   const posts: { path: string; body: Record<string, unknown> }[] = [];
+  const chatHeaders: Record<string, string>[] = [];
   const feedback: { path: string; body: Record<string, unknown> }[] = [];
   await page.route(`${FAKE_API}/**`, async (route) => {
     const request: Request = route.request();
@@ -43,6 +44,7 @@ export async function fakeApi(
     if (path === "/health") return route.fulfill({ json: { status: "ok", commit: "test" }, headers: cors });
     if (path === "/chat") {
       chats.push(request.postDataJSON());
+      chatHeaders.push(request.headers());
       const events = replies[Math.min(chats.length - 1, replies.length - 1)];
       return route.fulfill({ body: sse(events), headers: { ...cors, "Content-Type": "text/event-stream" } });
     }
@@ -64,7 +66,7 @@ export async function fakeApi(
     }
     return route.fulfill({ status: 404, headers: cors });
   });
-  return { chats, feedback, gets, posts };
+  return { chats, feedback, gets, posts, chatHeaders };
 }
 
 /** Types a question and sends it with Enter. */

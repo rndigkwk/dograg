@@ -73,7 +73,7 @@ const openList = async (page: Page) => {
 test("signed in, conversations are read from and saved to the account, with the user's token", async ({ page }) => {
   await signIn(page);
   const account = await fakeAccount(page, [thread(1)]);
-  await fakeApi(page, [[result("계정에 저장될 답")]]);
+  const api = await fakeApi(page, [[result("계정에 저장될 답")]]);
   await page.goto("/chat");
   await expect(page.getByRole("button", { name: "로그아웃" })).toBeVisible();
   await openList(page);
@@ -87,6 +87,8 @@ test("signed in, conversations are read from and saved to the account, with the 
   expect(write.auth).toBe(`Bearer ${TOKEN}`);
   expect(write.query).toContain("on_conflict=user_id%2Cthread_id");
   expect(write.body).not.toHaveProperty("user_id"); // the database fills it from the token
+  // The API counts this question by account: the token goes with it.
+  expect(api.chatHeaders[0]["authorization"]).toBe(`Bearer ${TOKEN}`);
   // Nothing of the account is written to this browser.
   expect(await page.evaluate(() => localStorage.getItem("ragdog:v1:threads"))).toBeNull();
 });
