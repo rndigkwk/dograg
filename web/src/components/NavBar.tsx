@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 // The Streamlit app's pages (src/ui.py NAVIGATION_GROUPS), added here as each one moves (ADR-0008 P3).
 const LINKS = [
+  { href: "/data", label: "📊 데이터 소개" },
   { href: "/chat", label: "💬 질병 문의" },
   { href: "/places", label: "🏥 시설 찾기" },
 ];
