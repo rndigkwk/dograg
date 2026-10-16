@@ -19,6 +19,7 @@ def merge_findings(current: dict, new: dict) -> dict:
 class State(TypedDict):
     consultation: str                                    # what the guardian wrote
     region: str                                          # area for the hospital search, "" when not given
+    location: list[float] | None                         # [lat, lon] the guardian shared: nearest hospitals first
     profile: str                                         # pet profile text, "" when not given
     urgent: str                                          # urgent-sign notice from src/health_safety.py, "" when none
     ask: bool                                            # may the team ask the guardian before planning (app: yes)
@@ -45,6 +46,7 @@ class ResearchInput(TypedDict):
     task: dict
     consultation: str
     urgent: bool
+    location: list[float] | None
 
 
 class Context(TypedDict):

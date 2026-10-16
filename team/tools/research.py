@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import json
 import threading
+from contextvars import ContextVar
 
 from langchain.tools import tool
 
+from src import places_search
 from src.crag import HEALTH_CANDIDATE_K, evidence_id, grade_documents
 from src.tools import fees, health, places, report
 from src.tools.review import review_evidence
@@ -52,16 +54,26 @@ def search_health_qa(query: str) -> str:
     } for doc in kept])
 
 
+# The guardian's [lat, lon] for this researcher (team/graph/nodes.py researcher sets it around one place
+# task): find_hospitals then lists the nearest hospitals by straight-line distance instead of by name.
+NEAR: ContextVar[tuple[float, float] | None] = ContextVar("visit_prep_near", default=None)
+NEAR_CANDIDATES = 20  # nearest this many, then the emergency ordering, then the first 5
+
+
 @tool
 def find_hospitals(region: str, emergency: bool = False) -> str:
-    """지역(시·군·구 이름)의 동물병원을 공공데이터 시설 DB에서 최대 5곳 찾습니다.
+    """지역(시·군·구 이름)의 동물병원을 공공데이터 시설 DB에서 최대 5곳 찾습니다. 보호자가 현재 위치를
+    알려 주었으면 region 대신 그 위치에서 가까운 순(직선거리)으로 찾습니다.
     emergency=True면 이름에 24시·응급·야간이 들어간 병원을 먼저 보여 줍니다(영업시간 정보는 없음)."""
-    keywords = places.extract_search_parameters(region) or [region.strip()]
-    conditions = " OR ".join("road_address LIKE ? OR lot_address LIKE ?" for _ in keywords)
-    parameters = ["hospital"] + [f"%{keyword}%" for keyword in keywords for _ in range(2)]
-    rows = places.execute_place_sql(
-        f"SELECT {places.RESULT_COLUMNS} FROM place WHERE kind = ? AND ({conditions}) ORDER BY id", parameters,
-    )
+    if near := NEAR.get():
+        rows = places_search.nearest("hospital", *near, limit=NEAR_CANDIDATES)
+    else:
+        keywords = places.extract_search_parameters(region) or [region.strip()]
+        conditions = " OR ".join("road_address LIKE ? OR lot_address LIKE ?" for _ in keywords)
+        parameters = ["hospital"] + [f"%{keyword}%" for keyword in keywords for _ in range(2)]
+        rows = places.execute_place_sql(
+            f"SELECT {places.RESULT_COLUMNS} FROM place WHERE kind = ? AND ({conditions}) ORDER BY id", parameters,
+        )
     night = [row for row in rows if any(word in row["name"] for word in places.EMERGENCY_NAME_WORDS)]
     ordered = (night + [row for row in rows if row not in night]) if emergency else rows
     if not ordered:
@@ -72,6 +84,7 @@ def find_hospitals(region: str, emergency: bool = False) -> str:
         "address": row.get("road_address") or row.get("lot_address"),
         "phone": row.get("phone"),
         "name_says_24h_or_emergency": row in night,
+        **({"distance_km": round(row["distance_km"], 1)} if "distance_km" in row else {}),
     } for row in ordered[:5]])
 
 

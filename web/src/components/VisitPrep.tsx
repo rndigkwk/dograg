@@ -17,6 +17,10 @@ import {
   URGENT,
 } from "@/lib/visitPrep";
 
+import { type Location, locate } from "@/lib/location";
+import { nearby } from "@/lib/places";
+import { REPORT_FILE, saveFile, toDocx, toPlainText } from "@/lib/reportFiles";
+
 import Markdown from "./Markdown";
 import { useRecords } from "./useRecords";
 
@@ -33,17 +37,75 @@ function UrgentNotice() {
   );
 }
 
-function download(report: string) {
-  const url = URL.createObjectURL(new Blob([report], { type: "text/markdown;charset=utf-8" }));
-  const link = Object.assign(document.createElement("a"), { href: url, download: "visit_report.md" });
-  link.click();
-  URL.revokeObjectURL(url);
+/** The report in the format the guardian picks: Word and text open anywhere; Markdown for those who use it. */
+function Downloads({ report }: { report: string }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const button = "rounded-lg border border-line bg-white px-4 py-2 disabled:opacity-40";
+  return (
+    <div className="space-y-1">
+      <p className="text-sm font-semibold">보고서 저장</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          className={button}
+          onClick={async () => {
+            setBusy(true);
+            setFailed(false);
+            try {
+              saveFile(await toDocx(report), `${REPORT_FILE}.docx`);
+            } catch {
+              setFailed(true);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          📄 Word (.docx)
+        </button>
+        <button type="button" className={button} onClick={() => saveFile(new Blob([toPlainText(report)], { type: "text/plain;charset=utf-8" }), `${REPORT_FILE}.txt`)}>
+          📝 텍스트 (.txt)
+        </button>
+        <button type="button" className={button} onClick={() => saveFile(new Blob([report], { type: "text/markdown;charset=utf-8" }), `${REPORT_FILE}.md`)}>
+          Markdown (.md)
+        </button>
+      </div>
+      {failed ? <p role="alert" className="text-sm text-danger">Word 파일을 만들지 못했습니다. 텍스트로 저장해 주세요.</p> : null}
+    </div>
+  );
+}
+
+/** "서울특별시 강남구" from a full road address: the region box shows where "near me" is. */
+function districtOf(address: string | null | undefined): string {
+  return (address ?? "").split(/\s+/).slice(0, 2).join(" ").slice(0, 30);
 }
 
 /** The visit-prep report page (app_pages/visit_prep.py): consultation in, a reviewed report out. */
 export default function VisitPrep() {
   const [consultation, setConsultation] = useState("");
   const [region, setRegion] = useState("");
+  // "현재 위치 사용": the team lists the nearest hospitals by distance (api/visit_prep.py). Not stored.
+  const [location, setLocation] = useState<Location | null>(null);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+
+  async function shareLocation() {
+    setLocationNote("위치를 확인하는 중입니다…");
+    const found = await locate();
+    if (!("location" in found)) {
+      setLocationNote(`${found.error} 지역 이름을 직접 적어 주세요.`);
+      return;
+    }
+    setLocation(found.location);
+    try {
+      // The nearest hospital's address names the district, so the guardian sees where "near me" is.
+      const [closest] = (await nearby("hospital", found.location)).places;
+      if (closest?.address) setRegion(districtOf(closest.address));
+    } catch {
+      // the district name is only shown; the location itself is what the team uses
+    }
+    setLocationNote("현재 위치에서 가까운 동물병원을 직선거리 순으로 찾습니다. 위치는 이 보고서를 만드는 데만 쓰고 저장하지 않습니다.");
+  }
   const [profile, setProfile] = useState("");
   const [answer, setAnswer] = useState("");
   const [run, setRun] = useState<Run | null>(null);
@@ -101,7 +163,7 @@ export default function VisitPrep() {
     const text = consultation.trim();
     if (!text || working) return;
     setAnswer("");
-    void stream("/visit-prep", { consultation: text, region: region.trim(), profile: profile.trim() }, emptyRun());
+    void stream("/visit-prep", { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}) }, emptyRun());
   }
 
   function resume(skip: boolean) {
@@ -128,10 +190,27 @@ export default function VisitPrep() {
           />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm">근처 동물병원을 찾을 지역 (선택)</span>
-            <input value={region} onChange={(event) => setRegion(event.target.value)} maxLength={30} disabled={working} placeholder="예: 강남구" className={field} />
-          </label>
+          <div>
+            <label className="block">
+              <span className="text-sm">근처 동물병원을 찾을 지역 (선택)</span>
+              <input
+                value={region}
+                onChange={(event) => {
+                  setRegion(event.target.value);
+                  setLocation(null); // typed by hand: that area, not the current position
+                  setLocationNote(null);
+                }}
+                maxLength={30}
+                disabled={working}
+                placeholder="예: 강남구"
+                className={field}
+              />
+            </label>
+            <button type="button" disabled={working} onClick={shareLocation} className="mt-1 rounded-lg border border-line bg-white px-3 py-1 text-sm disabled:opacity-40">
+              📍 {location ? "위치 다시 가져오기" : "현재 위치 사용"}
+            </button>
+            {locationNote ? <p className="mt-1 text-xs text-muted">{locationNote}</p> : null}
+          </div>
           <label className="block">
             <span className="text-sm">반려견 정보 (선택)</span>
             <input value={profile} onChange={(event) => setProfile(event.target.value)} maxLength={300} disabled={working} placeholder="예: 말티즈, 4살, 3.2kg" className={field} />
@@ -203,9 +282,7 @@ export default function VisitPrep() {
           <article className="rounded-xl border border-line bg-white p-4">
             <Markdown text={run.result.report} />
           </article>
-          <button type="button" onClick={() => download(run.result!.report)} className="rounded-lg border border-line bg-white px-4 py-2">
-            ⬇ 보고서 내려받기 (.md)
-          </button>
+          <Downloads report={run.result.report} />
         </section>
       ) : null}
     </div>

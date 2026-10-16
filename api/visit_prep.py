@@ -27,7 +27,7 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from api.chat import client_network, event, person_of
 from src import data_gaps, rate_limit, settings, tracing, visit_prep_runs
@@ -55,6 +55,15 @@ class StartRequest(BaseModel):
     consultation: str = Field(min_length=1, max_length=visit_prep_runs.MAX_CONSULTATION_CHARS)
     region: str = Field(default="", max_length=30)
     profile: str = Field(default="", max_length=300)
+    # The guardian's position (the page's "현재 위치 사용"): the nearest hospitals instead of a region's.
+    location: tuple[float, float] | None = None
+
+    @field_validator("location")
+    @classmethod
+    def _in_korea(cls, value):
+        if value is not None and not (33 <= value[0] <= 39 and 124 <= value[1] <= 132):
+            raise ValueError("location is outside Korea")
+        return value
 
 
 class AnswerRequest(BaseModel):
@@ -71,20 +80,22 @@ def _take_report(person: str, now: float) -> bool:
         return True
 
 
-def _run_team(person: str):
+def _run_team(person: str, location: tuple[float, float] | None = None):
     def run_team(consultation, region, profile, run_dir, on_step, *, thread_id, resume=None):
         from team.main import (
             run,  # imported on use: the chat routes do not need the agents
         )
 
-        return run(consultation, region, profile, run_dir=run_dir, on_step=on_step,
+        # A resumed run keeps the location in its saved state; only a new run passes it.
+        return run(consultation, region, profile, location=location, run_dir=run_dir, on_step=on_step,
                    session=tracing.session_id(person), ask=True,
                    checkpointer=visit_prep_runs.team_checkpointer(), thread_id=thread_id, resume=resume)
     return run_team
 
 
 def _stream(person: str, consultation: str, region: str, profile: str, agent: str,
-            pending: dict | None = None, answer: str | None = None) -> Iterator[str]:
+            pending: dict | None = None, answer: str | None = None,
+            location: tuple[float, float] | None = None) -> Iterator[str]:
     data_gaps.REQUEST_AGENT.set(agent)
     if pending is None and detect_urgent_sign(consultation):
         yield event("urgent", {"notice": URGENT})
@@ -102,7 +113,7 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
     def work() -> None:
         try:
             outcome["value"] = visit_prep_runs.generate(
-                consultation, region, profile, run_team=_run_team(person), prepare=visit_prep_runs.prepare_search,
+                consultation, region, profile, run_team=_run_team(person, location), prepare=visit_prep_runs.prepare_search,
                 on_line=lambda line: events.put(event("step", {"line": line})), pending=pending, answer=answer)
         except Exception:  # noqa: BLE001 - reported as one error event
             logger.exception("visit-prep run failed")
@@ -153,7 +164,7 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
         return _refused("limited", {"message": rate_limit.message(decision), "wait_minutes": decision.wait_minutes})
     if not _take_report(person, time.time()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
-    return _response(_stream(person, consultation, body.region.strip(), body.profile.strip(), agent))
+    return _response(_stream(person, consultation, body.region.strip(), body.profile.strip(), agent, location=body.location))
 
 
 @router.post("/{thread_id}/answer")

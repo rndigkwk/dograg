@@ -24,6 +24,7 @@ from team.core.prompts import (
     WRITER_INPUT,
 )
 from team.core.schemas import Clarification, Finding, ReworkStep, VisitPlan
+from team.tools import research
 
 WRITE_WITH_WHAT_EXISTS = ("추가 조사는 이미 한 번 했습니다. 지금 조사 결과만으로 보고서를 쓰고, "
                           "자료에 없는 내용은 '자료로 확인할 수 없음'이라고 적은 뒤 request_review를 부르세요.")
@@ -135,9 +136,9 @@ def planner(state: State) -> dict:
     if any(task["kind"] == "place" for task in state["plan"]):
         # The hospital tool takes only the region, so a second place task returns the same list.
         tasks = [task for task in tasks if task["kind"] != "place"]
-    if not state["plan"] and state["region"] and not any(task["kind"] == "place" for task in tasks):
+    if not state["plan"] and (state["region"] or state.get("location")) and not any(task["kind"] == "place" for task in tasks):
         # The guardian gave an area: the report always lists hospitals there.
-        tasks = tasks[: max_tasks - 1] + [{"kind": "place", "query": state["region"], "angle": "가까운 동물병원"}]
+        tasks = tasks[: max_tasks - 1] + [{"kind": "place", "query": state["region"] or "보호자의 현재 위치", "angle": "가까운 동물병원"}]
     for offset, task in enumerate(tasks, start=1):
         task["task_id"] = f"t{len(state['plan']) + offset}"  # numbered in code so ids never repeat
         task["extra"] = bool(state["plan"])  # added after a rejection or a research request
@@ -154,11 +155,16 @@ def researcher(state: ResearchInput) -> dict:
                                       region=state.get("region") or "없음", profile=state.get("profile") or "없음")
     if task["kind"] == "place":
         # Decided here, not by the model: an urgent consultation lists 24h/emergency names first.
+        if state.get("location"):
+            message += "\n[위치] 보호자가 현재 위치를 알려 주었습니다. find_hospitals는 그 위치에서 가까운 순으로 찾습니다(region은 아무 값이나 됩니다)."
         if state["urgent"]:
             message += "\n[응급] 예. find_hospitals를 emergency=True로 한 번 부르세요."
         else:
             message += "\n[응급] 아니요. find_hospitals를 emergency=False로 한 번 부르세요."
     reask = {}
+    # The hospital tool reads the guardian's location from here (research.NEAR), not from the model:
+    # the coordinates never go through a prompt.
+    near = research.NEAR.set(tuple(state["location"]) if task["kind"] == "place" and state.get("location") else None)
     try:
         result = agent.invoke({"messages": message})
         if result.get("structured_response") is None and not limit_reached(result):
@@ -173,6 +179,8 @@ def researcher(state: ResearchInput) -> dict:
         # here would cancel every researcher of this step and lose their results, so record it.
         print("researcher:", task["task_id"], "실패", type(exc).__name__)
         return {**failed(task, f"{type(exc).__name__}: {exc}"[:300]), **reask}
+    finally:
+        research.NEAR.reset(near)
     finding = result.get("structured_response")
     if finding is None:
         if limit_reached(result):
