@@ -19,7 +19,7 @@
 ## 찾은 문제
 | # | 심각도 | 문제 | 조치 |
 | --- | --- | --- | --- |
-| 1 | 중간 | **Supabase 이메일 가입이 켜져 있음.** Google만 쓰기로 했는데 `/auth/v1/settings`에 `email` 공급자가 켜져 있다(`disable_signup: false`). publishable 키만 있으면 누구나 이메일 가입을 요청할 수 있어, 우리 프로젝트 이름으로 남에게 확인 메일을 보내게 만들 수 있다. 확인 전에는 로그인되지 않는다(`mailer_autoconfirm: false`). Supabase 권고 "Leaked Password Protection Disabled"도 이 때문에 뜬다 | **사용자 작업:** Supabase → Authentication → Sign In / Providers → **Email 끄기**. Google 가입은 그대로 된다 |
+| 1 | 중간 | **Supabase 이메일 가입이 켜져 있음.** Google만 쓰기로 했는데 `/auth/v1/settings`에 `email` 공급자가 켜져 있다(`disable_signup: false`). publishable 키만 있으면 누구나 이메일 가입을 요청할 수 있어, 우리 프로젝트 이름으로 남에게 확인 메일을 보내게 만들 수 있다. 확인 전에는 로그인되지 않는다(`mailer_autoconfirm: false`). Supabase 권고 "Leaked Password Protection Disabled"도 이 때문에 뜬다 | **해결(같은 날):** 사용자가 Email 공급자를 껐다. `/auth/v1/settings`의 공급자가 `google`만 남은 것을 확인 |
 | 2 | 낮음 | 계정 삭제 기능 없음 | **해결(같은 날):** service_role 키 없이 DB 함수 `delete_my_account()`(`scripts/sql/delete_my_account.sql`)로 지운다. 호출자 본인(`auth.uid()`)만 지울 수 있고, 세션·로그인 연결·기록은 cascade로 함께 지워진다. 테스트 8가지(남은 B는 그대로, anon·sub 없는 토큰·API 역할은 못 부름). 키를 두지 않은 이유: service_role은 RLS를 모두 건너뛰는 키라, API 하나가 뚫리면 프로젝트 전체가 뚫린다 |
 
 ## 받아들인 위험 (근거)
@@ -31,5 +31,15 @@
 - **여러 Google 계정으로 한도 늘리기:** 계정마다 시간 10·하루 30번이다. 네트워크 한도(시간 60·하루 200)가 받친다.
 - **세션 수명:** Supabase 기본값을 쓴다(access token 1시간, refresh token 회전). 비활성 만료 설정은 유료 플랜 기능이다.
 
-## 사용자 확인으로 남은 것
-- **계정 기준 한도의 실제 동작:** 로그인한 채 질문 1개 → 로그아웃하고 질문 1개를 하면, `ragdog_rate_limit`에서 두 질문의 사람 해시가 달라야 한다. 로그인 질문은 `user:<id>`, 로그아웃 질문은 브라우저 id다.
+## 배포 뒤 확인한 것
+- **계정 기준 한도:** 같은 브라우저·네트워크에서 로그인 질문 2개는 계정 해시(`73dc…`)로, 로그아웃 질문은 이전과 같은 브라우저 해시(`4a68…`)로 셌다.
+- **계정 삭제 함수:**
+  - 적용 뒤 RLS 11가지와 삭제 8가지가 다시 통과했다(`scripts/check_user_records.py`).
+  - 공개 키로 `/rest/v1/rpc/delete_my_account`를 부르면 `42501 permission denied`다.
+
+## 남은 Supabase 보안 권고 (의도한 것)
+- **"Signed-In Users Can Execute SECURITY DEFINER Function" (`delete_my_account`):** 의도한 설계다.
+  - 로그인 사용자만 부를 수 있고, `auth.uid()` 본인 한 명만 지운다. 입력값이 없어 남을 가리킬 방법이 없다.
+  - `search_path = ''`로 고정했다. 테스트로 B가 남는지 지킨다.
+- **"Leaked Password Protection Disabled":** 비밀번호 로그인을 쓰지 않는다(이메일 공급자 꺼짐, Google만). 해당 없음.
+- **"Extension in Public" (`vector`, `pgroonga`):** 로그인 전 점검에서 받아들인 위험 그대로다.
