@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { HttpError, postStream, warmUp } from "@/lib/api";
-import { loadProfile, profileSummary } from "@/lib/profile";
-import { browserStorage } from "@/lib/store";
+import { profileSummary } from "@/lib/profile";
 import {
   applyVisitEvent,
   emptyRun,
@@ -19,6 +18,7 @@ import {
 } from "@/lib/visitPrep";
 
 import Markdown from "./Markdown";
+import { useRecords } from "./useRecords";
 
 const FAILED = "보고서를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 
@@ -49,12 +49,21 @@ export default function VisitPrep() {
   const [run, setRun] = useState<Run | null>(null);
   const [working, setWorking] = useState(false);
   const controller = useRef<AbortController | null>(null);
+  const { records } = useRecords();
+
+  // The dog's saved profile (the account's when signed in) fills an empty box once it is known.
+  useEffect(() => {
+    if (!records) return;
+    records
+      .profile()
+      .then((saved) => {
+        if (saved) setProfile((typed) => typed || profileSummary(saved).slice(0, 300));
+      })
+      .catch(() => {});
+  }, [records]);
 
   useEffect(() => {
     warmUp();
-    const storage = browserStorage();
-    const saved = loadProfile(storage);
-    if (saved) setProfile(profileSummary(saved).slice(0, 300));
     try {
       const carried = sessionStorage.getItem(HANDOFF_KEY);
       if (carried) {

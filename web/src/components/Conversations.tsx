@@ -6,6 +6,7 @@ export default function Conversations(props: {
   current: string | null;
   busy: boolean; // an answer is being written: switching now would lose it
   status: "loading" | "ready" | "unavailable";
+  where: "device" | "account"; // signed in: the account's records
   onOpen: (id: string | null) => void;
   onDelete: () => void;
   onClear: () => void;
@@ -14,6 +15,7 @@ export default function Conversations(props: {
   return (
     <nav className="space-y-2 text-sm">
       <h2 className="font-bold">대화 기록</h2>
+      <p className="text-xs text-muted">{props.where === "account" ? "계정에 저장됩니다" : "이 브라우저에만 저장됩니다"}</p>
       {status === "loading" ? <p className="text-muted">저장된 대화를 불러오는 중입니다…</p> : null}
       {status === "unavailable" ? <p className="text-muted">이 브라우저에서는 대화가 저장되지 않습니다.</p> : null}
       <button type="button" disabled={busy} onClick={() => props.onOpen(null)} className="w-full rounded-lg border border-accent px-3 py-2 font-semibold text-accent disabled:opacity-40">
@@ -40,7 +42,7 @@ export default function Conversations(props: {
         </button>
       ) : null}
       <button type="button" disabled={busy} onClick={props.onClear} className="w-full rounded-lg px-3 py-2 text-danger hover:bg-danger/5 disabled:opacity-40">
-        이 기기의 기록 모두 지우기
+        {props.where === "account" ? "계정의 기록 모두 지우기" : "이 기기의 기록 모두 지우기"}
       </button>
     </nav>
   );

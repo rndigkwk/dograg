@@ -8,14 +8,16 @@ import { askChat, type Memory, warmUp } from "@/lib/api";
 import { type Answer, applyEvent, type Emergency, finish, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
 
 import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
-import { browserStorage, clearDevice, type KeyValue, loadThreads, messagesOf, recordTurn, saveThreads, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
+import { type AccountRecords, DeviceRecords, moveDeviceToAccount } from "@/lib/records";
+import { messagesOf, recordTurn, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
 
 import { locate, type Location } from "@/lib/location";
-import { isEmpty, loadProfile, type MemorySuggestion, type PetProfile, saveProfile } from "@/lib/profile";
+import { isEmpty, type MemorySuggestion, type PetProfile } from "@/lib/profile";
 
 import Conversations from "./Conversations";
 import MemoryCard from "./MemoryCard";
 import ProfileForm from "./ProfileForm";
+import { useRecords } from "./useRecords";
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
@@ -159,8 +161,11 @@ function askedBefore(messages: Message[], index: number): string | undefined {
 }
 
 export default function Chat() {
-  const [storage, setStorage] = useState<KeyValue | null>(null);
+  const { records, storage } = useRecords();
   const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Signed in with records still on this device: how many, to offer moving them into the account.
+  const [deviceLeft, setDeviceLeft] = useState(0);
   const [notice, setNotice] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
@@ -182,14 +187,67 @@ export default function Chat() {
 
   useEffect(() => {
     warmUp();
-    const found = browserStorage();
-    setStorage(found);
-    setThreads(loadThreads(found));
-    setNotice(takeNotice(found));
-    setProfile(loadProfile(found));
-    setLoaded(true);
     return () => controller.current?.abort();
   }, []);
+
+  // Load whoever's records the page now shows: the account after sign-in, this browser after sign-out.
+  // Nothing of the previous person stays on screen.
+  useEffect(() => {
+    if (!records) return;
+    let stale = false;
+    setLoaded(false);
+    setCurrent(null);
+    setMessages([]);
+    setSuggestion(null);
+    memories.current.clear();
+    Promise.all([records.threads(), records.profile()])
+      .then(async ([loadedThreads, loadedProfile]) => {
+        if (stale) return;
+        setThreads(loadedThreads);
+        setProfile(loadedProfile);
+        setSaveError(null);
+        if (records.where === "device") {
+          setNotice(takeNotice(storage));
+          setDeviceLeft(0);
+        } else {
+          setNotice(false);
+          const device = new DeviceRecords(storage);
+          const [left, leftProfile] = await Promise.all([device.threads(), device.profile()]);
+          if (!stale) setDeviceLeft(left.length + (leftProfile ? 1 : 0));
+        }
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (stale) return;
+        setThreads([]);
+        setProfile(null);
+        setSaveError("계정의 기록을 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.");
+        setLoaded(true);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [records, storage]);
+
+  /** Runs a write to the records; a failure is shown, not thrown (the answer is already on screen). */
+  async function write(action: () => Promise<void>) {
+    try {
+      await action();
+      setSaveError(null);
+    } catch {
+      setSaveError(records?.where === "account" ? "계정에 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." : "이 브라우저에 저장하지 못했습니다.");
+    }
+  }
+
+  async function moveToAccount() {
+    if (!records || records.where !== "account") return;
+    await write(async () => {
+      const kept = await moveDeviceToAccount(new DeviceRecords(storage), records as AccountRecords);
+      setThreads(kept);
+      setProfile(await records.profile());
+      setDeviceLeft(0);
+    });
+  }
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -203,15 +261,20 @@ export default function Chat() {
 
   function remove() {
     const rest = threads.filter((thread) => thread.id !== current);
-    saveThreads(storage, rest);
+    const gone = current;
+    if (records && gone) void write(() => records.save(rest, null, [gone]));
     setThreads(rest);
     setCurrent(null);
     setMessages([]);
   }
 
   function clearAll() {
-    if (!window.confirm("이 브라우저에 저장된 대화와 반려견 정보를 모두 지웁니다. 되돌릴 수 없습니다.")) return;
-    clearDevice(storage);
+    const account = records?.where === "account";
+    const message = account
+      ? "계정에 저장된 대화와 반려견 정보를 서버에서 모두 지웁니다. 되돌릴 수 없습니다."
+      : "이 브라우저에 저장된 대화와 반려견 정보를 모두 지웁니다. 되돌릴 수 없습니다.";
+    if (!records || !window.confirm(message)) return;
+    void write(() => records.clear());
     memories.current.clear();
     setThreads([]);
     setCurrent(null);
@@ -222,7 +285,7 @@ export default function Chat() {
   }
 
   function keepProfile(next: PetProfile | null) {
-    saveProfile(storage, next);
+    if (records) void write(() => records.saveProfile(next));
     setProfile(isEmpty(next) ? null : next);
   }
 
@@ -259,7 +322,7 @@ export default function Chat() {
       profile: isEmpty(profile) ? null : profile,
       location,
       // Until storage is read the profile is a stand-in; a suggestion against it would replace the stored one.
-      suggest_memory: loaded && Boolean(storage) && !(isEmpty(profile) && profileRefused.current),
+      suggest_memory: loaded && records !== null && (records.where === "account" || Boolean(storage)) && !(isEmpty(profile) && profileRefused.current),
       declined_memory: declined.current.slice(-20),
     };
     let memory = (thread && memories.current.get(thread)) || { upto: 0, summary: "" };
@@ -279,7 +342,10 @@ export default function Chat() {
     if (!answer.notice) {
       // Only answers are kept; a refused or failed question is shown but not stored.
       const recorded = recordTurn(threads, thread, question, answer);
-      saveThreads(storage, recorded.threads);
+      const kept = new Set(recorded.threads.map((t) => t.id));
+      const dropped = threads.filter((t) => !kept.has(t.id)).map((t) => t.id); // past the 20 kept
+      const changed = recorded.threads.find((t) => t.id === recorded.id) ?? null;
+      if (records) void write(() => records.save(recorded.threads, changed, dropped));
       setThreads(recorded.threads);
       setCurrent(recorded.id);
       memories.current.set(recorded.id, memory);
@@ -302,7 +368,8 @@ export default function Chat() {
       threads={threads}
       current={current}
       busy={pending !== null}
-      status={!loaded ? "loading" : storage ? "ready" : "unavailable"}
+      status={!loaded ? "loading" : records?.where === "account" || storage ? "ready" : "unavailable"}
+      where={records?.where ?? "device"}
       onOpen={open}
       onDelete={remove}
       onClear={clearAll}
@@ -331,6 +398,27 @@ export default function Chat() {
             {list}
             {profileForm}
           </div>
+        ) : null}
+        {deviceLeft > 0 ? (
+          <div role="region" aria-label="기기 기록 옮기기" className="mb-4 rounded-xl border border-accent/40 bg-white p-3 text-sm">
+            <p>
+              이 브라우저에 로그인 전 기록이 {deviceLeft}개 있습니다. 계정으로 옮길까요? 옮기면 다른 기기에서도 보이고, 이 브라우저의 사본은 지웁니다. 대화는 최근
+              20개까지 남습니다.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={() => void moveToAccount()} className="rounded-lg bg-accent px-3 py-1 font-semibold text-white">
+                계정으로 옮기기
+              </button>
+              <button type="button" onClick={() => setDeviceLeft(0)} className="rounded-lg border border-line px-3 py-1">
+                그대로 두기
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {saveError ? (
+          <p role="alert" className="mb-4 text-sm text-danger">
+            {saveError}
+          </p>
         ) : null}
         {notice ? (
           <p role="note" className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm">
