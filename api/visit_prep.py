@@ -6,9 +6,9 @@
 The same run as the page (src/visit_prep_runs.py): one team at a time on the server, 10-20 model
 calls and one to two minutes per report. ADR-0008 planned a job and polling; one streamed request
 does the same with less to keep (no job table). A run may stop to ask the guardian; it then ends
-with `paused` and its questions, and waits in this server's memory for the answer (30 minutes).
-So the API service must run as one instance (Cloud Run max-instances=1): the answer has to reach
-the server holding the paused run.
+with `paused` and its questions, and waits for the answer for 30 minutes in src/visit_prep_store.py
+(Supabase on the deployed server since 2026-10-16), so the answer may reach any instance (Cloud Run
+max-instances=2). One team at a time is still per instance.
 
 Limits: a report counts as one question for src/rate_limit.py, and each person (browser) gets
 REPORTS_PER_DAY reports (the page gave two per browser session). Answering a paused run is not a

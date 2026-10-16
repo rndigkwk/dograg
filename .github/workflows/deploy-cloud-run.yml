@@ -87,9 +87,10 @@ jobs:
 
       - name: Deploy the API
         # The same image and settings as the app, started as the FastAPI server (api/main.py).
-        # One instance at most: a visit report paused for the guardian's answer waits in that server's
-        # memory (api/visit_prep.py), so the answer must reach the same instance. No session affinity:
-        # the browser calls with fetch and no cookies. 15 minutes per request: a report streams for
+        # Two instances at most (the cost cap, like the app). A visit report paused for the guardian's
+        # answer waits in Supabase (src/visit_prep_store.py, schema visit_prep), so the answer may reach
+        # either instance and survives a deploy. No session affinity: the browser calls with fetch and
+        # no cookies. 15 minutes per request: a report streams for
         # one to two minutes. RAGDOG_WEB_ORIGINS (repository variable) lists the frontend's origins
         # for CORS; until the frontend exists only the local dev server is allowed.
         env:
@@ -109,7 +110,7 @@ jobs:
           [ -n "$WEB_ORIGIN_REGEX" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGIN_REGEX=$WEB_ORIGIN_REGEX"
           gcloud run deploy "$API_SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
             --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
-            --min-instances=0 --max-instances=1 --no-session-affinity --timeout=900 \
+            --min-instances=0 --max-instances=2 --no-session-affinity --timeout=900 \
             --allow-unauthenticated \
             --command=uvicorn --args=api.main:app,--host,0.0.0.0,--port,8080 \
             --set-secrets="$secrets" --set-env-vars="$env_vars"
