@@ -15,11 +15,12 @@ export default function AccountButton() {
 
   if (!session) {
     return (
-      <span className="ml-auto flex shrink-0 items-center gap-2">
+      <span className="flex shrink-0 items-center gap-2">
         {error ? <span role="alert" className="text-xs text-danger">로그인을 시작하지 못했습니다</span> : null}
         <button
           type="button"
           disabled={busy}
+          aria-label="Google로 로그인"
           onClick={async () => {
             setBusy(true);
             setError(false);
@@ -32,7 +33,8 @@ export default function AccountButton() {
           }}
           className="rounded-lg border border-line bg-white px-3 py-1.5 disabled:opacity-40"
         >
-          Google로 로그인
+          <span className="sm:hidden">로그인</span>
+          <span className="hidden sm:inline">Google로 로그인</span>
         </button>
       </span>
     );
@@ -40,7 +42,7 @@ export default function AccountButton() {
 
   const email = session.user.email ?? "로그인됨";
   return (
-    <span className="ml-auto flex shrink-0 items-center gap-2">
+    <span className="flex shrink-0 items-center gap-2">
       <span className="hidden max-w-48 truncate text-muted sm:inline" title={email}>
         {email}
       </span>

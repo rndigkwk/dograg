@@ -17,23 +17,27 @@ export default function NavBar() {
   const path = usePathname();
   return (
     <nav aria-label="메뉴" className="border-b border-line bg-white">
-      <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-4 py-2 text-sm">
-        <Link href="/" className="mr-3 shrink-0 font-bold text-accent">
-          🐾 라그도그
-        </Link>
-        {LINKS.map((link) => {
-          const active = path === link.href || path.startsWith(`${link.href}/`);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={active ? "page" : undefined}
-              className={`shrink-0 rounded-lg px-3 py-1.5 ${active ? "bg-accent/10 font-semibold text-accent" : "text-ink hover:bg-line/50"}`}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
+      {/* The links scroll sideways on a narrow screen; the account button stays outside them, always in view. */}
+      <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 text-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <Link href="/" className="mr-3 shrink-0 font-bold text-accent">
+            🐾 라그도그
+          </Link>
+          {LINKS.map((link) => {
+            const active =
+              path === link.href || path.startsWith(`${link.href}/`);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`shrink-0 rounded-lg px-3 py-1.5 ${active ? "bg-accent/10 font-semibold text-accent" : "text-ink hover:bg-line/50"}`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </div>
         <AccountButton />
       </div>
     </nav>

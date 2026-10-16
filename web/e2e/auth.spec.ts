@@ -31,3 +31,13 @@ test("a failed or unfinished sign-in says so", async ({ page }) => {
   await expect(page.getByRole("alert").filter({ hasText: "로그인하지 못했습니다" })).toBeVisible();
   await expect(page.getByRole("link", { name: "홈으로" })).toHaveAttribute("href", "/");
 });
+
+test("the sign-in button is on screen at every width", async ({ page }) => {
+  for (const path of ["/", "/chat", "/places", "/data", "/visit-prep"]) {
+    await page.goto(path);
+    const button = page.getByRole("button", { name: "Google로 로그인" });
+    await expect(button).toBeInViewport({ ratio: 1 });
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBe(0);
+});
