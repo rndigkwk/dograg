@@ -74,8 +74,8 @@ class ChatGraphTestCase(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(self.log_dir.cleanup)
 
-    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2, crag_reports=False):
-        return run_chat(tools, question, top_k=top_k, crag=crag, crag_reports=crag_reports)
+    def run_chat(self, tools, question="강아지가 구토해요", crag=True, top_k=2, crag_reports=False, **kwargs):
+        return run_chat(tools, question, top_k=top_k, crag=crag, crag_reports=crag_reports, **kwargs)
 
     def log_records(self):
         with open(self.log_path, encoding="utf-8") as file:
@@ -124,6 +124,13 @@ class CragOffTests(ChatGraphTestCase):
         self.assertEqual((result["route"], result["answer"]), ("fee", "진료비 표"))
         tools.retrieve_health.assert_not_called()
         tools.run_sql_search.assert_not_called()
+
+    def test_the_report_page_goes_straight_to_the_reports(self):
+        tools = make_tools(is_fee_question=lambda question: True)  # even a fee-looking question
+        tools.classify_question = Mock(side_effect=AssertionError("no router call from the report page"))
+        result = self.run_chat(tools, question="펫보험 가입률이 얼마야?", force_route="analysis")
+        self.assertEqual((result["route"], result["answer"]), ("analysis", "기존 분석"))
+        tools.fee_answer.assert_not_called()
 
 
 class SelfRagTests(ChatGraphTestCase):

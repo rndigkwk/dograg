@@ -67,6 +67,7 @@ class ChatState(TypedDict, total=False):
     crag: bool  # 건강 상담 CRAG
     crag_reports: bool  # 보고서 CRAG (기본 꺼짐)
     self_rag: bool  # 건강 답변을 근거와 대조해 근거 없는 문장을 한 번 고침 (CHAT_SELF_RAG, 기본 꺼짐)
+    force_route: str  # "analysis": the report page asks the reports directly, no classification call
     # classify
     route: str
     contextual_question: str
@@ -119,6 +120,8 @@ def _report_text(doc) -> str:
 def build_chat_graph(tools):
     def classify(state: ChatState):
         question, history = state["question"], state.get("chat_history")
+        if state.get("force_route") == "analysis":
+            return {"route": "analysis", "contextual_question": question}
         if tools.is_date_question(question):
             return {"route": "date"}
         if tools.is_fee_question(question):
@@ -409,6 +412,7 @@ def run_chat(
     on_token: Callable[[str], None] | None = None,
     on_step: Callable[[str, dict], None] | None = None,
     session_id: str | None = None,
+    force_route: str | None = None,
 ) -> dict[str, Any]:
     """Run the graph once. on_token receives answer text as the model writes it;
     on_step receives (node name, state update) after each node finishes.
@@ -430,7 +434,7 @@ def run_chat(
                 state = _execute(graph, {
                     "question": question, "top_k": top_k, "chat_history": chat_history or [],
                     "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
-                    "self_rag": self_rag,
+                    "self_rag": self_rag, **({"force_route": force_route} if force_route else {}),
                     "trace": [], "rewrite_count": 0,
                 }, on_token, on_step, config={"callbacks": chat_trace.callbacks} if chat_trace.callbacks else None)
         except Exception as exc:
