@@ -1,6 +1,8 @@
 """KURE-v1 for the health search: is it better than the app's fine-tuned ko-sroberta?
 
-    uv run --group tools --with psutil python scripts/compare_kure.py
+    uv run --group tools python scripts/compare_kure.py                         # KURE-v1 as published
+    uv run --group tools python scripts/compare_kure.py --finetuned --dry-run   # judge calls it would need
+    uv run --group tools python scripts/compare_kure.py --finetuned             # + notebooks/kure_finetune_colab.ipynb
 
 nlpai-lab/KURE-v1 (BGE-M3 further trained for Korean retrieval, 1024 dimensions, 8,192 tokens) leads
 the Korean MTEB health task PublicHealthQA among the models of the Day 58 lesson (81.92 vs 73.70 for
@@ -16,13 +18,21 @@ candidates each, RRF, top 3), on the 220 judged questions (short 120, long 100).
 McNemar against the app; new top-3 documents are graded by the same judge. Also the question
 embedding time on this CPU and the process memory after loading KURE-v1 in float.
 Results: output/experiments/kure_v1.json.
+
+--finetuned (2026-10-16) compares KURE-v1 fine-tuned on the app's synthetic queries instead
+(notebooks/kure_finetune_colab.ipynb): the private model blanden77/kure-v1-dograg and its document
+vectors from the private dataset's experiments branch (downloaded when missing). Grades are cached
+(finetuned_embedding_grades.json), so only top-3 documents never graded cost a judge call: the
+script counts those questions first and asks scripts/cost_guard.py; --dry-run stops there. The
+results go to MLflow on DagsHub (experiment health-embedding, scripts/mlflow_tracking.py) unless
+--no-mlflow, and to output/experiments/kure_v1_ft.json.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
-import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -38,6 +48,9 @@ GRADES = PROJECT_DIR / "output" / "experiments" / "finetuned_embedding_grades.js
 KURE_ROWS = PROJECT_DIR / "output" / "experiments" / "kure_v1_rows.npy"
 OUT = PROJECT_DIR / "output" / "experiments" / "kure_v1.json"
 CANDIDATES = 12
+DATA_REPO = "blanden77/dograg-data"
+FINETUNED = {"model": "blanden77/kure-v1-dograg", "rows": PROJECT_DIR / "output" / "experiments" / "kure_v1_ft_rows.npy",
+             "remote_rows": "kure/kure_v1_ft_rows.npy", "out": PROJECT_DIR / "output" / "experiments" / "kure_v1_ft.json"}
 
 
 def mcnemar(a: list[bool], b: list[bool]) -> float:
@@ -55,9 +68,35 @@ def rss_mb() -> int:
     return round(psutil.Process().memory_info().rss / 2**20)
 
 
-def main() -> int:
+def rows_file(path: Path, remote: str) -> Path:
+    if not path.exists():
+        from huggingface_hub import hf_hub_download
+
+        from src import settings
+
+        downloaded = hf_hub_download(DATA_REPO, remote, repo_type="dataset", revision="experiments",
+                                     token=settings.get_setting("HF_TOKEN"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(Path(downloaded).read_bytes())
+    return path
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--finetuned", action="store_true", help="KURE-v1 fine-tuned on our synthetic queries")
+    parser.add_argument("--dry-run", action="store_true", help="count the judge calls and stop")
+    parser.add_argument("--yes", action="store_true", help="go on above scripts/cost_guard.py's threshold")
+    parser.add_argument("--no-mlflow", action="store_true")
+    args = parser.parse_args(argv)
+    if args.finetuned:
+        model_name, rows, out = FINETUNED["model"], rows_file(FINETUNED["rows"], FINETUNED["remote_rows"]), FINETUNED["out"]
+    else:
+        model_name, rows, out = "nlpai-lab/KURE-v1", KURE_ROWS, OUT
+
     import torch
     from sentence_transformers import SentenceTransformer
+
+    from cost_guard import confirm
 
     from relevance_set import judge, judge_model
     from src import resources
@@ -76,13 +115,15 @@ def main() -> int:
     report: dict = {}
 
     app = ExactVectorStore.load(PROJECT_DIR / "data" / "vector_store" / "health", resources.load_health_embeddings())
-    kure_vectors = np.load(KURE_ROWS)[[int(doc_id) for doc_id in app.ids]]  # app order
+    kure_vectors = np.load(rows)[[int(doc_id) for doc_id in app.ids]]  # app order
     bm25 = HealthBM25Index.from_chroma(app, resources.make_health_tokenizer(), token_cache=resources.BM25_TOKEN_CACHE,
                                        tokenizer_version=resources.HEALTH_TOKENIZER_VERSION)
     documents = {d.id: d for d in bm25.documents}
 
     before = rss_mb()
-    kure = SentenceTransformer("nlpai-lab/KURE-v1", device="cpu", token=os.environ.get("HF_TOKEN"))
+    from src import settings
+
+    kure = SentenceTransformer(model_name, device="cpu", token=settings.get_setting("HF_TOKEN"))
     kure.max_seq_length = 1024
     report["kure_float_model_mb"] = rss_mb() - before
 
@@ -109,15 +150,27 @@ def main() -> int:
             tops[set_name].append(row)
     report["query_ms_p50"] = {name: round(float(np.median(v)) * 1000, 1) for name, v in timings.items()}
 
-    judge_llm, answers = judge_model(), resources.load_health_answer_table()
-    hits: dict = {}
+    answers = resources.load_health_answer_table()
+    jobs_by_set: dict = {}
     for set_name, (questions, saved) in sets.items():
-        jobs = []
+        jobs_by_set[set_name] = []
         for i, question in enumerate(questions):
             known = {**saved[i], **extra.get(f"{set_name}:{i}", {})}
             missing = {d.id: d for docs in tops[set_name][i].values() for d in docs if d.id not in known}
             if missing:
-                jobs.append((i, question, attach_health_answers(list(missing.values()), answers)))
+                jobs_by_set[set_name].append((i, question, attach_health_answers(list(missing.values()), answers)))
+    calls = sum(len(jobs) for jobs in jobs_by_set.values())  # one judge call per question with new documents
+    detail = ", ".join(f"{s} {len(j)} questions / {sum(len(x[2]) for x in j)} documents" for s, j in jobs_by_set.items())
+    if args.dry_run:
+        print(f"[dry run] judge calls needed: {calls} ({detail})")
+        return 0
+    if calls and not confirm(f"compare_kure{' --finetuned' if args.finetuned else ''} judge", calls=calls,
+                             detail=detail, yes=args.yes):
+        return 1
+    judge_llm = judge_model() if calls else None
+    hits: dict = {}
+    for set_name, (questions, saved) in sets.items():
+        jobs = jobs_by_set[set_name]
         print(f"{set_name}: grading {sum(len(j[2]) for j in jobs)} new documents", flush=True)
         with ThreadPoolExecutor(8) as pool:
             for (i, _, _), grades in zip(jobs, pool.map(lambda job: judge(judge_llm, job[1], job[2]), jobs)):
@@ -137,9 +190,31 @@ def main() -> int:
             entry["vs_app_p"] = {s: round(mcnemar(base[s], per_set[s]), 3) for s in per_set}
             entry["vs_app_p"]["all"] = round(mcnemar(base["short"] + base["long_useful"], both), 3)
         report["useful@3"][name] = entry
+    report["model"] = model_name
     print(json.dumps(report, ensure_ascii=False, indent=1))
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    if not args.no_mlflow:
+        log_to_mlflow(report, out, finetuned=args.finetuned, judge_calls=calls)
     return 0
+
+
+def log_to_mlflow(report: dict, out: Path, *, finetuned: bool, judge_calls: int) -> None:
+    """The comparison as one run in the health-embedding experiment (the training run is separate)."""
+    import mlflow
+    from mlflow_tracking import start_run
+
+    name = "compare kure-v1-ft vs app" if finetuned else "compare kure-v1 vs app"
+    with start_run("health-embedding", name, tags={"model": report["model"], "questions": "220 (short 120, long 100)",
+                                                   "script": "scripts/compare_kure.py"}):
+        mlflow.log_params({"candidates": CANDIDATES, "fusion": "RRF dense+BM25, top 3", "judge_calls": judge_calls})
+        for system, entry in report["useful@3"].items():
+            key = system.replace(" ", "_")
+            mlflow.log_metrics({f"useful3_{key}_{s}": v for s, v in entry.items() if isinstance(v, float)})
+            for s, p in entry.get("vs_app_p", {}).items():
+                mlflow.log_metric(f"p_{key}_{s}", p)
+        mlflow.log_metrics({f"query_ms_p50_{k}": v for k, v in report["query_ms_p50"].items()})
+        mlflow.log_metric("kure_float_model_mb", report["kure_float_model_mb"])
+        mlflow.log_artifact(str(out))
 
 
 if __name__ == "__main__":

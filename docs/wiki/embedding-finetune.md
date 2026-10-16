@@ -266,6 +266,31 @@ uv run --group tools --with psutil python scripts/compare_kure.py
 - 노트북이 비공개 데이터셋 `experiments` 브랜치에 올린 `kure/kure_v1_rows.npy`를 `output/experiments/`에 받아 둔다.
 - 결과: `output/experiments/kure_v1.json`
 
+## KURE-v1 미세조정 (준비 2026-10-16)
+
+위의 "다시 볼 조건"을 확인한다. 메모리 1GB 제한이 사라졌다(API는 Cloud Run 2GiB). 그래서 모델이 커지는 것보다 **정확도가 오르는지**와 **질문 지연**이 판단 기준이다.
+- **학습:** `notebooks/kure_finetune_colab.ipynb` (`scripts/build_kure_finetune_notebook.py`가 만든다)
+  - 앱 모델 B와 같은 합성 질의(`short` + `detailed`)로 학습하고, dev 300개 상담을 학습에서 뺀다.
+  - 손실은 `CachedMultipleNegativesRankingLoss`다. 배치 64를 유지하되 16개씩 나눠 계산해 T4 메모리에 맞춘다. 학습 길이는 256토큰, 최종 문서 임베딩은 1,024토큰이다.
+  - 모델은 비공개 `blanden77/kure-v1-dograg`, 문서 벡터는 비공개 데이터셋의 `experiments/kure/kure_v1_ft_rows.npy`에 둔다.
+- **기록:** 처음으로 학습을 **MLflow(DagsHub, 실험 `health-embedding`)** 에 남긴다. 남기는 것은 설정, 학습 전·후 dev 점수, 손실 곡선, 학습 시간, GPU 최대 메모리, 결과 파일이다. 로컬 비교도 같은 실험에 별도 실행으로 기록한다(`scripts/mlflow_tracking.py`).
+- **평가:** 위와 같은 220문항, 하이브리드 `useful@3`, McNemar로 앱과 비교한다. 이미 채점한 문서는 다시 채점하지 않는다. 그래서 `--dry-run`으로 judge 호출 수를 먼저 보고, 200번이 넘으면 `scripts/cost_guard.py`가 멈춘다.
+- **바꿀 조건:** 하이브리드 전체가 앱보다 유의하게 높고(p<0.05), 질문 임베딩 지연이 답변 첫 글자 시간에 비해 작아야 한다. 같으면 지금 앱 모델을 유지한다.
+
+```bash
+uv run python scripts/build_kure_finetune_notebook.py
+```
+
+```bash
+uv run --group tools python scripts/compare_kure.py --finetuned --dry-run
+```
+
+```bash
+uv run --group tools python scripts/compare_kure.py --finetuned
+```
+
+- 결과: `output/experiments/kure_v1_ft.json`, MLflow 실행 "compare kure-v1-ft vs app"
+
 ## 다시 돌리기
 
 ```bash

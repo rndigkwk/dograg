@@ -43,6 +43,9 @@ dependencies = [
 # deployment does not install it.
 tools = [
     "sentence-transformers>=3.0",
+    # Experiment tracking on DagsHub's MLflow server (scripts/mlflow_tracking.py, 2026-10-16)
+    "mlflow>=3.4",
+    "psutil>=6",
 ]
 # Opening the notebooks locally (`uv sync --group notebook`); not installed for the app.
 notebook = [
