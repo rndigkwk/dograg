@@ -1,6 +1,7 @@
 """api/places.py: the place page's searches as JSON, on data/places.db (no model calls)."""
 
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -62,3 +63,16 @@ class PlacesApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ApiDocsTests(unittest.TestCase):
+    def test_the_docs_are_hidden_when_deployed(self):
+        from api import main
+        from src import settings
+
+        with patch.object(settings, "deployed", return_value=True), patch.object(settings, "get_setting", return_value=None):
+            client = TestClient(main.create_app())
+            self.assertEqual(client.get("/docs").status_code, 404)
+            self.assertEqual(client.get("/openapi.json").status_code, 404)
+        with patch.object(settings, "deployed", return_value=False):
+            self.assertEqual(TestClient(main.create_app()).get("/openapi.json").status_code, 200)

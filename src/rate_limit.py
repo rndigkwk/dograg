@@ -11,22 +11,31 @@ and times only, closed to the public REST API, rows older than KEEP_HOURS delete
 instance and restart shares the count. Without it (the Streamlit backup on its own Chroma search,
 2026-10-15) or while the database fails, in this process's memory: the same limits, reset when the
 app restarts or sleeps, which is enough to stop someone asking in a loop.
-Counted: a chat question and a visit-prep report. Not counted: local runs, tests and evaluation
-scripts (they call the code, not the page), and the deployment check (src/data_gaps.from_check).
+Counted: a chat question and a visit-prep report. Not counted: local runs, tests and in-process
+evaluation scripts (they call the code, not the page), and requests carrying the check token
+(TRUSTED_CHECK: X-RagDog-Check equal to the secret RAGDOG_CHECK_TOKEN, for API evaluations). Until
+2026-10-16 a user agent containing "RagDogCheck" skipped the limit; anyone can set a user agent, so
+that let any caller ask without limit (docs/security/2026-10-16-pre-login-review.md).
+
+The network is the client address as the proxy saw it: the PROXY_HOPS-th X-Forwarded-For entry from
+the right. The leftmost entries are whatever the caller sent, so reading the first one (as this did
+until 2026-10-16) let a caller pick a new network per question.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import math
 import random
 import secrets
 import threading
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from src import data_gaps, settings
+from src import settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +49,8 @@ _ready = False
 _memory: dict[str, list[datetime]] = {}
 _memory_lock = threading.Lock()
 _PROCESS_SALT = secrets.token_hex(16)  # without a database URL: never stored, changes on restart
+# Set by the API for this request when it carried the check token (trusted_check).
+TRUSTED_CHECK: ContextVar[bool] = ContextVar("ragdog_trusted_check", default=False)
 
 
 @dataclass
@@ -51,6 +62,30 @@ class Decision:
 
 def enabled() -> bool:
     return settings.deployed()
+
+
+def trusted_check(token: str | None) -> bool:
+    """Whether a request's X-RagDog-Check header is the secret RAGDOG_CHECK_TOKEN (none set: never)."""
+    secret = settings.get_setting("RAGDOG_CHECK_TOKEN") or ""
+    return bool(secret and token) and hmac.compare_digest(token.encode(), secret.encode())
+
+
+def proxy_hops() -> int:
+    """How many X-Forwarded-For entries the deployment's own proxies add (Cloud Run: 1)."""
+    try:
+        return max(1, int(settings.get_setting("RAGDOG_PROXY_HOPS") or 1))
+    except ValueError:
+        return 1
+
+
+def forwarded_client(header: str | None, peer: str = "") -> str:
+    """The client address the proxy saw: the proxy_hops()-th X-Forwarded-For entry from the right.
+    Entries to its left came from the caller and are not trusted."""
+    entries = [entry.strip() for entry in (header or "").split(",") if entry.strip()]
+    hops = proxy_hops()
+    if len(entries) >= hops:
+        return entries[-hops]
+    return peer or (entries[0] if entries else "")
 
 
 def _hash(kind: str, value: str) -> str:
@@ -88,13 +123,11 @@ def _check_memory(person_key: str, network_key: str, now: datetime) -> Decision:
 
 
 def client_network() -> str:
-    """The client's address: the first X-Forwarded-For hop (both deployments sit behind a proxy),
-    else Streamlit's peer address; empty outside a Streamlit session."""
+    """The client's address in a Streamlit session (forwarded_client); empty outside one."""
     try:
         import streamlit as st
 
-        forwarded = (st.context.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-        return forwarded or (st.context.ip_address or "")
+        return forwarded_client(st.context.headers.get("X-Forwarded-For"), st.context.ip_address or "")
     except Exception:  # noqa: BLE001 - no Streamlit session
         return ""
 
@@ -116,7 +149,7 @@ def _counts(conn, person: str, network: str, now: datetime) -> list[tuple[int, d
 def check(person: str, network: str | None = None) -> Decision:
     """Count one question for this person and network, or refuse it with the wait."""
     global _ready
-    if not enabled() or data_gaps.from_check():
+    if not enabled() or TRUSTED_CHECK.get():
         return Decision(True)
     network = client_network() if network is None else network
     person_key, network_key = _hash("person", person), _hash("network", network) if network else ""

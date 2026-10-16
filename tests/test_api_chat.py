@@ -81,11 +81,27 @@ class ChatTests(unittest.TestCase):
         with patch.object(rate_limit, "check", return_value=rate_limit.Decision(True)) as check:
             self.post({"question": "기침해요"}, **{"X-Forwarded-For": "203.0.113.5, 35.191.0.1"})
             self.client.post("/chat", json={"question": "기침해요"}, headers={"X-RagDog-Client": "not-an-id"})
-        self.assertEqual(check.call_args_list[0].args, (CLIENT, "203.0.113.5"))
+        # The rightmost entry is the one Cloud Run's front end added; the left ones are the caller's.
+        self.assertEqual(check.call_args_list[0].args, (CLIENT, "35.191.0.1"))
         self.assertTrue(check.call_args_list[1].args[0].startswith("network:"))
 
+    def test_a_forged_forwarded_address_does_not_change_the_network(self):
+        with patch.object(rate_limit, "check", return_value=rate_limit.Decision(True)) as check:
+            for forged in ("1.1.1.1", "2.2.2.2, 3.3.3.3"):
+                self.post({"question": "기침해요"}, **{"X-Forwarded-For": f"{forged}, 198.51.100.20"})
+        self.assertEqual({call.args[1] for call in check.call_args_list}, {"198.51.100.20"})
+
+    def test_only_the_check_token_skips_the_limit(self):
+        # A user agent is the caller's to set: "RagDogCheck" in it skipped the limit until 2026-10-16.
+        seen = []
+        with patch.object(rate_limit, "check", side_effect=lambda *a: seen.append(rate_limit.TRUSTED_CHECK.get()) or rate_limit.Decision(True)),                 patch.object(rate_limit.settings, "get_setting", side_effect=lambda name: "s3cret-token" if name == "RAGDOG_CHECK_TOKEN" else None):
+            events(self.post({"question": "기침해요"}, **{"User-Agent": f"HeadlessChrome {data_gaps.CHECK_AGENT}"}))
+            events(self.post({"question": "기침해요"}, **{"X-RagDog-Check": "wrong"}))
+            events(self.post({"question": "기침해요"}, **{"X-RagDog-Check": "s3cret-token"}))
+        self.assertEqual(seen, [False, False, True])
+
     def test_the_deployment_check_is_known_in_the_worker(self):
-        # rate_limit skips it, and data_gaps (inside the chatbot, on the worker thread) does not record it.
+        # data_gaps (inside the chatbot, on the worker thread) does not record its answers.
         seen = []
         self.chatbot.side_effect = lambda *a, **k: seen.append(data_gaps.from_check()) or fake_chatbot(*a, **k)
         events(self.post({"question": "기침해요"}, **{"User-Agent": f"HeadlessChrome {data_gaps.CHECK_AGENT}"}))

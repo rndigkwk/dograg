@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import time
 from functools import lru_cache
 
 from langchain_core.output_parsers import StrOutputParser
@@ -352,10 +353,20 @@ def _connect() -> sqlite3.Connection:
     return connection
 
 
+# The SQL may come from the model (validate_sql checks its shape, not its cost): a self-join of the
+# place table runs for minutes and returns billions of rows. Each query gets SQL_SECONDS and
+# SQL_MAX_ROWS rows at most (docs/security/2026-10-16-pre-login-review.md).
+SQL_SECONDS = 3.0
+SQL_MAX_ROWS = 1000
+
+
 def execute_place_sql(sql: str, parameters: list | tuple = ()) -> list[dict]:
     connection = _connect()
+    deadline = time.monotonic() + SQL_SECONDS
+    # Called every 10,000 SQLite steps; a true return stops the query (sqlite3.OperationalError: interrupted).
+    connection.set_progress_handler(lambda: time.monotonic() > deadline, 10_000)
     try:
-        return [dict(row) for row in connection.execute(sql, parameters).fetchall()]
+        return [dict(row) for row in connection.execute(sql, parameters).fetchmany(SQL_MAX_ROWS)]
     finally:
         connection.close()
 

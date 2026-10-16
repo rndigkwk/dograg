@@ -25,6 +25,8 @@ from src.storage.models import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 FEEDBACK_PER_HOUR = 60
+# The browser id is the caller's to choose, so a network gets its own cap too (several people may share it).
+FEEDBACK_PER_HOUR_NETWORK = 300
 TRACE_ID = r"^[0-9a-f]{32}$"  # Langfuse trace ids, as /chat returns them
 _sent: dict[str, list[float]] = {}
 _sent_lock = threading.Lock()
@@ -50,13 +52,16 @@ class Review(BaseModel):
 
 
 def _allow(request: Request, client_id: str | None) -> None:
-    person, now = person_of(client_id, client_network(request)), time.time()
+    network = client_network(request)
+    person, now = person_of(client_id, network), time.time()
+    keys = [(person, FEEDBACK_PER_HOUR), (f"network:{network}", FEEDBACK_PER_HOUR_NETWORK)]
     with _sent_lock:
-        recent = [t for t in _sent.get(person, []) if now - t < 3600]
-        if len(recent) >= FEEDBACK_PER_HOUR:
-            _sent[person] = recent
+        recent = {key: [t for t in _sent.get(key, []) if now - t < 3600] for key, _ in keys}
+        if any(len(recent[key]) >= limit for key, limit in keys):
+            _sent.update(recent)
             raise HTTPException(429, "의견을 너무 많이 보냈습니다. 잠시 뒤 다시 보내 주세요.")
-        _sent[person] = [*recent, now]
+        for key, _ in keys:
+            _sent[key] = [*recent[key], now]
 
 
 def _known_reason(reason: str | None) -> None:

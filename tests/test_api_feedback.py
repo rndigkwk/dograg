@@ -57,6 +57,13 @@ class FeedbackApiTests(unittest.TestCase):
                      for _ in range(4)]
         self.assertEqual(codes, [200, 200, 200, 429])
 
+    def test_new_browser_ids_do_not_escape_the_network_cap(self):
+        # The browser id is the caller's to choose; one network still gets FEEDBACK_PER_HOUR_NETWORK.
+        with patch.object(tracing, "record_feedback", return_value=True),                 patch.object(feedback_api, "FEEDBACK_PER_HOUR_NETWORK", 3):
+            codes = [self.client.post("/feedback", json={"trace_id": TRACE, "helpful": True},
+                                      headers={"X-RagDog-Client": f"{n:032x}"}).status_code for n in range(4)]
+        self.assertEqual(codes, [200, 200, 200, 429])
+
     def test_the_reasons_are_the_pages(self):
         self.assertEqual(self.client.get("/feedback/reasons").json(), list(feedback_store.REASONS))
 

@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import sys
+import time
 import unittest
 from contextlib import closing
 from pathlib import Path
@@ -417,3 +418,19 @@ class NightCareTests(unittest.TestCase):
     def test_other_questions_are_unchanged(self):
         self.assertFalse(places.wants_night_care("강남구 동물병원 알려줘"))
         self.assertTrue(places.wants_night_care("밤에 여는 병원 있어?"))
+
+
+class GeneratedSqlLimitTests(unittest.TestCase):
+    """A model-written query is shaped by validate_sql but not bounded in cost (2026-10-16 review)."""
+
+    def test_a_runaway_query_is_stopped_and_rows_are_capped(self):
+        from src.tools import places
+
+        with patch.object(places, "SQL_SECONDS", 0.2):
+            started = time.monotonic()
+            with self.assertRaises(sqlite3.OperationalError):
+                places.execute_place_sql(places.validate_sql(
+                    "SELECT a.id FROM place a JOIN place b JOIN place c WHERE a.name || b.name || c.name = 'x'"))
+            self.assertLess(time.monotonic() - started, 5)
+        rows = places.execute_place_sql("SELECT id FROM place")
+        self.assertEqual(len(rows), places.SQL_MAX_ROWS)
