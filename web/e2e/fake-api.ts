@@ -23,9 +23,11 @@ export function result(answer: string, extra: Record<string, unknown> = {}): Eve
   ];
 }
 
-/** Answers /chat with the next event list in `replies` (the last one repeats), and records the requests. */
-export async function fakeApi(page: Page, replies: Event[][]) {
+/** Answers /chat with the next event list in `replies` (the last one repeats), and records the requests.
+ * `json` answers other GET paths (pathname -> body, or a function of the URL). */
+export async function fakeApi(page: Page, replies: Event[][], json: Record<string, unknown | ((url: URL) => unknown)> = {}) {
   const chats: Record<string, unknown>[] = [];
+  const gets: string[] = [];
   const feedback: { path: string; body: Record<string, unknown> }[] = [];
   await page.route(`${FAKE_API}/**`, async (route) => {
     const request: Request = route.request();
@@ -38,13 +40,19 @@ export async function fakeApi(page: Page, replies: Event[][]) {
       const events = replies[Math.min(chats.length - 1, replies.length - 1)];
       return route.fulfill({ body: sse(events), headers: { ...cors, "Content-Type": "text/event-stream" } });
     }
+    if (request.method() === "GET" && path in json) {
+      const url = new URL(request.url());
+      gets.push(`${path}${url.search}`);
+      const body = json[path];
+      return route.fulfill({ json: typeof body === "function" ? body(url) : body, headers: cors });
+    }
     if (path.startsWith("/feedback")) {
       feedback.push({ path, body: request.postDataJSON() });
       return route.fulfill({ json: { recorded: true, saved: true }, headers: cors });
     }
     return route.fulfill({ status: 404, headers: cors });
   });
-  return { chats, feedback };
+  return { chats, feedback, gets };
 }
 
 /** Types a question and sends it with Enter. */

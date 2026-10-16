@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
+import NavBar from "@/components/NavBar";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +14,10 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <NavBar />
+        {children}
+      </body>
     </html>
   );
 }

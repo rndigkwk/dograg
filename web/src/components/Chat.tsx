@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
@@ -71,11 +72,33 @@ function AnswerView({ answer, question }: { answer: Answer; question?: string })
       ) : null}
       {answer.notice ? null : (
         <>
+          <PlaceLinks rows={answer.hospitalRows ?? []} />
           <Feedback answer={answer} question={question} />
           <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
         </>
       )}
     </>
+  );
+}
+
+/** Under a place answer: each place found, opened on the place page's map (app_pages/rag.py render_hospital_links). */
+function PlaceLinks({ rows }: { rows: Record<string, unknown>[] }) {
+  const places = rows.filter((row) => row.id && row.latitude !== null && row.latitude !== undefined);
+  if (!places.length) return null;
+  return (
+    <section className="mt-3" aria-label="지도에서 위치 보기">
+      <h3 className="mb-1 text-sm font-bold">지도에서 위치 보기</h3>
+      <ul className="space-y-1 text-sm">
+        {places.map((row) => (
+          <li key={String(row.id)}>
+            <Link href={`/places?id=${encodeURIComponent(String(row.id))}`} className="text-accent underline">
+              {String(row.name ?? "장소")}
+            </Link>{" "}
+            <span className="text-muted">{String(row.road_address || row.lot_address || "")}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
