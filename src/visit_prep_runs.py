@@ -63,13 +63,19 @@ def forget_paused_run(thread_id: str) -> None:
     paused_runs().pop(thread_id, None)
 
 
-def forget_expired_runs(now: float | None = None) -> list[str]:
-    """Delete paused runs nobody answered within PAUSED_RUN_TTL_SECONDS; returns their ids."""
+def forget_expired_runs(now: float | None = None, *, delete: bool = True) -> list[str]:
+    """Delete paused runs nobody answered within PAUSED_RUN_TTL_SECONDS; returns their ids.
+
+    delete=False only drops them from this server's list: the API leaves the checkpoints to
+    src/visit_prep_store.py, because another instance may be resuming a run paused here."""
     now = time.time() if now is None else now
     expired = [thread_id for thread_id, paused_at in list(paused_runs().items())
                if now - paused_at > PAUSED_RUN_TTL_SECONDS]
     for thread_id in expired:
-        forget_paused_run(thread_id)
+        if delete:
+            forget_paused_run(thread_id)
+        else:
+            paused_runs().pop(thread_id, None)
     return expired
 
 

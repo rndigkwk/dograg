@@ -6,9 +6,9 @@
 The same run as the page (src/visit_prep_runs.py): one team at a time on the server, 10-20 model
 calls and one to two minutes per report. ADR-0008 planned a job and polling; one streamed request
 does the same with less to keep (no job table). A run may stop to ask the guardian; it then ends
-with `paused` and its questions, and waits in this server's memory for the answer (30 minutes).
-So the API service must run as one instance (Cloud Run max-instances=1): the answer has to reach
-the server holding the paused run.
+with `paused` and its questions, and waits for the answer for 30 minutes in src/visit_prep_store.py
+(Supabase on the deployed server since 2026-10-16), so the answer may reach any instance (Cloud Run
+max-instances=2). One team at a time is still per instance.
 
 Limits: a report counts as one question for src/rate_limit.py, and each person (browser) gets
 REPORTS_PER_DAY reports (the page gave two per browser session). Answering a paused run is not a
@@ -158,7 +158,9 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
 @router.post("/{thread_id}/answer")
 def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_client: str | None = Header(default=None),
            authorization: str | None = Header(default=None)) -> StreamingResponse:
-    visit_prep_runs.forget_expired_runs()  # this server's own list of paused threads
+    # This server's own list only: the store owns the checkpoints, and another instance may be
+    # resuming a run that paused here.
+    visit_prep_runs.forget_expired_runs(delete=False)
     store, now = visit_prep_store.store(), visit_prep_store.now()
     store.expire(now)  # paused runs nobody answered within 30 minutes, with their checkpoints
     person = person_of(x_ragdog_client, client_network(request), authorization)
