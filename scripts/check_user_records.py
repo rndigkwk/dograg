@@ -1,4 +1,5 @@
-"""Check the signed-in users' tables (scripts/sql/user_records.sql) with their RLS test.
+"""Check the signed-in users' tables and account deletion (scripts/sql/user_records.sql,
+delete_my_account.sql) with their tests.
 
     uv run python scripts/check_user_records.py            # tables applied: run the test only
     uv run python scripts/check_user_records.py --dry-run  # create the tables and test them, then roll back
@@ -29,22 +30,29 @@ def statements(name: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--dry-run", action="store_true", help="create the tables inside the rolled-back transaction")
+    parser.add_argument("--dry-run", action="store_true", help="create the tables and functions inside the rolled-back transaction")
     args = parser.parse_args(argv)
-    with psycopg.connect(settings.get_setting("SUPABASE_DB_URL"), autocommit=False) as conn:
-        try:
-            if args.dry_run:
-                conn.execute(statements("user_records.sql"))
-            elif conn.execute("select to_regclass('public.ragdog_user_threads')").fetchone()[0] is None:
-                print("ragdog_user_threads가 없습니다. 먼저 적용하거나 --dry-run으로 확인하세요.")
-                return 1
-            setup, report = statements("user_records_test.sql").rsplit("select case", 1)
-            conn.execute(setup)
-            result, checks = conn.execute("select case" + report).fetchone()
-        finally:
-            conn.rollback()
-    print(f"{result} ({checks} checks)")
-    return 0 if result == "all passed" else 1
+    failed = False
+    # Each pair: what to apply in a dry run, and its test. Each test runs in its own rolled-back transaction.
+    for applied, test in (("user_records.sql", "user_records_test.sql"), ("delete_my_account.sql", "delete_my_account_test.sql")):
+        with psycopg.connect(settings.get_setting("SUPABASE_DB_URL"), autocommit=False) as conn:
+            try:
+                if args.dry_run:
+                    conn.execute(statements("user_records.sql"))
+                    if applied != "user_records.sql":
+                        conn.execute(statements(applied))
+                elif conn.execute("select to_regclass('public.ragdog_user_threads'), to_regprocedure('public.delete_my_account()')").fetchone() != (
+                        "ragdog_user_threads", "delete_my_account()"):
+                    print("표나 함수가 아직 없습니다. 먼저 적용하거나 --dry-run으로 확인하세요.")
+                    return 1
+                setup, report = statements(test).rsplit("select case", 1)
+                conn.execute(setup)
+                result, checks = conn.execute("select case" + report).fetchone()
+            finally:
+                conn.rollback()
+        print(f"{test}: {result} ({checks} checks)")
+        failed |= result != "all passed"
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

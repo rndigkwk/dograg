@@ -39,6 +39,12 @@ async function fakeAccount(page: Page, threads: Row[] = [], profile: Row | null 
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     const body = request.postData() ? request.postDataJSON() : null;
     calls.push({ method: request.method(), table, query: url.search, auth: request.headers()["authorization"] ?? null, body });
+    if (url.pathname.endsWith("/rpc/delete_my_account")) {
+      // The database deletes the caller's account; its rows go with it (on delete cascade).
+      tables.ragdog_user_threads = [];
+      tables.ragdog_user_profile = [];
+      return route.fulfill({ json: true, headers: cors });
+    }
     if (request.method() === "GET") return route.fulfill({ json: tables[table], headers: cors });
     if (request.method() === "POST") {
       const key = table === "ragdog_user_threads" ? "thread_id" : "user_id";
@@ -136,4 +142,27 @@ test("clearing while signed in deletes the account's rows; signing out shows onl
   await expect(page.getByText("이 브라우저에만 저장됩니다").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "계정 대화 3" })).toHaveCount(0);
   expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBeNull(); // the token is gone
+});
+
+test("deleting the account removes it and signs out, after a warning", async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page);
+  const account = await fakeAccount(page, [thread(1)], { name: "보리" });
+  await fakeApi(page, []);
+  await page.goto("/chat");
+  await openList(page);
+  await page.evaluate(() => sessionStorage.setItem("signed-out", "1"));
+  await page.getByRole("button", { name: "계정 삭제" }).filter({ visible: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "계정을 삭제했습니다" })).toBeVisible();
+  expect(dialogs[0]).toContain("되돌릴 수 없습니다");
+  expect(dialogs[0]).toContain("타사 연결");
+  const call = account.calls.find((c) => c.table === "delete_my_account")!;
+  expect(call.method).toBe("POST");
+  expect(call.auth).toBe(`Bearer ${TOKEN}`);
+  await expect(page.getByRole("button", { name: "Google로 로그인" })).toBeVisible();
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 });

@@ -20,7 +20,7 @@
 | # | 심각도 | 문제 | 조치 |
 | --- | --- | --- | --- |
 | 1 | 중간 | **Supabase 이메일 가입이 켜져 있음.** Google만 쓰기로 했는데 `/auth/v1/settings`에 `email` 공급자가 켜져 있다(`disable_signup: false`). publishable 키만 있으면 누구나 이메일 가입을 요청할 수 있어, 우리 프로젝트 이름으로 남에게 확인 메일을 보내게 만들 수 있다. 확인 전에는 로그인되지 않는다(`mailer_autoconfirm: false`). Supabase 권고 "Leaked Password Protection Disabled"도 이 때문에 뜬다 | **사용자 작업:** Supabase → Authentication → Sign In / Providers → **Email 끄기**. Google 가입은 그대로 된다 |
-| 2 | 낮음 | 계정 삭제 기능 없음 | "계정의 기록 모두 지우기"는 대화·반려견 정보 행을 지운다. `auth.users`의 계정(이메일)은 남는다. 지우려면 서버에서 service_role 키가 필요해, 키를 API 비밀로 둘지 사용자가 정한 뒤 만든다. 그때까지는 요청 시 관리자가 대시보드에서 지운다 |
+| 2 | 낮음 | 계정 삭제 기능 없음 | **해결(같은 날):** service_role 키 없이 DB 함수 `delete_my_account()`(`scripts/sql/delete_my_account.sql`)로 지운다. 호출자 본인(`auth.uid()`)만 지울 수 있고, 세션·로그인 연결·기록은 cascade로 함께 지워진다. 테스트 8가지(남은 B는 그대로, anon·sub 없는 토큰·API 역할은 못 부름). 키를 두지 않은 이유: service_role은 RLS를 모두 건너뛰는 키라, API 하나가 뚫리면 프로젝트 전체가 뚫린다 |
 
 ## 받아들인 위험 (근거)
 - **API CORS의 미리보기 정규식** (`^https://ragdog-[a-z0-9-]+-rndigkwks-projects\.vercel\.app$`): 다른 사람이 비슷한 이름의 Vercel 프로젝트를 만들 수 있다면 그 주소도 허용된다.
