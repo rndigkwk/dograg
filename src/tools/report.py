@@ -180,9 +180,37 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
     report_db = resources.load_report_vector_db()
     if report_db is None:
         return []
-    found = retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k + 8,
-                            candidate_k=REPORT_CANDIDATE_K)
+    index = resources.load_report_bm25_index()
+    sources = named_reports(question)
+    if len(sources) >= 2:
+        # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") gets pages from
+        # each: ranked together, one report filled every slot and the other's figure went missing
+        # (r03: 복지실태 p.170 "1일 평균 5.1시간" never reached the answer). No extra model call.
+        found = retrieve_hybrid(report_db, index, question, top_k=MULTI_REPORT_CANDIDATES,
+                                candidate_k=MULTI_REPORT_CANDIDATES)
+        clean = [doc for doc in found if not is_front_or_back_matter(doc)]
+        share = max(1, k // len(sources))
+        return [doc for source in sources
+                for doc in by_page([d for d in clean if d.metadata.get("source") == source], share)]
+    found = retrieve_hybrid(report_db, index, question, top_k=k + 8, candidate_k=REPORT_CANDIDATE_K)
     return by_page([doc for doc in found if not is_front_or_back_matter(doc)], k)
+
+
+# How guardians name each report in a question; a question naming two or more is searched per report.
+REPORT_NAMES = {
+    "data/source/2025 한국 반려동물 보고서.pdf": ("KB", "한국 반려동물 보고서"),
+    "data/source/반려동물 복지실태와 개선과제.pdf": ("복지실태", "복지 실태"),
+    "data/source/반려동물 산업 조사체계 진단 및 실태조사.pdf": ("산업 조사", "조사체계"),
+    "data/source/반려동물+의료보험서비스+시장+진단+및+개선방안+연구_고은희_강하영.pdf": (
+        "의료·보험", "의료보험", "의료 보험", "보험서비스", "동물병원 소비자"),
+    "data/source/반려동물+장묘서비스+이용+실태조사_온라인거래조사팀.pdf": ("장묘",),
+}
+MULTI_REPORT_CANDIDATES = 40
+
+
+def named_reports(question: str) -> list[str]:
+    """The report sources a question names, in REPORT_NAMES order."""
+    return [source for source, names in REPORT_NAMES.items() if any(name in question for name in names)]
 
 
 def by_page(docs: list, k: int) -> list:

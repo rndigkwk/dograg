@@ -34,6 +34,20 @@ class FrontBackMatterTests(unittest.TestCase):
         kept = report.by_page(docs, 2)
         self.assertEqual([d.page_content for d in kept], ["77쪽 PDF", "77쪽 OCR 12.8%", "78쪽"])
 
+    def test_reports_named_in_a_question(self):
+        self.assertEqual(len(report.named_reports("KB 2025와 2024 복지실태 보고서에서 혼자 있는 시간은?")), 2)
+        self.assertEqual(len(report.named_reports("장묘서비스 불만 유형은?")), 1)
+        self.assertEqual(report.named_reports("반려동물 월평균 양육비는?"), [])
+
+    def test_a_question_naming_two_reports_gets_pages_from_each(self):
+        kb, welfare = list(report.REPORT_NAMES)[:2]
+        docs = [chunk(f"KB {n}", "KB", n) for n in range(10, 18)] + [chunk("복지 170", "복지", 170)]
+        for doc in docs:
+            doc.metadata["source"] = kb if doc.page_content.startswith("KB") else welfare
+        with patch.object(report.resources, "load_report_vector_db", return_value=object()),                 patch.object(report.resources, "load_report_bm25_index", return_value=object()),                 patch("src.hybrid_retrieval.retrieve_hybrid", return_value=docs):
+            found = report.search_reports_hybrid("KB 2025와 복지실태 보고서의 혼자 있는 시간", k=6)
+        self.assertEqual([d.page_content for d in found], ["KB 10", "KB 11", "KB 12", "복지 170"])
+
     def test_the_search_skips_them_and_still_returns_k(self):
         docs = [chunk("목차··· a··· b··· c"), *[chunk(f"본문 {i}", page=i + 10) for i in range(8)]]
         with patch.object(report.resources, "load_report_vector_db", return_value=object()), \
