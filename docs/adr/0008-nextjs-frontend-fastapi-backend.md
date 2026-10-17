@@ -1,6 +1,6 @@
 # ADR-0008: 화면을 Next.js로, 앱 로직을 FastAPI로 나누고, 로그인은 Supabase Auth + RLS로
 
-- **상태:** 제안 (2026-10-15). 화면을 Next.js로 옮기는 것은 소유자가 정했다("포트폴리오 가치", 수업 요건 없음). 아래 구조와 단계는 이 문서의 제안이다. 아래 "정할 것"에 답이 오면 채택한다.
+- **상태:** 채택 (2026-10-15 제안, 2026-10-18 정리). P1~P4를 구현해 운영 중이다(<https://ragdog-rndigkwks-projects.vercel.app>). P5(옛 Streamlit 주소 정리)는 새 주소로 일주일 지난 2026-10-23 이후 소유자와 정한다. 아래 "정할 것"은 소유자가 모두 정했다(맨 아래 "소유자 결정").
 - **이전 기록:** 마지막 Streamlit 버전은 `streamlit-backup` 브랜치(보호됨)와 `streamlit-final` 태그(337b3df)에 고정했다. 그 버전은 Streamlit Cloud 백업 앱에서 자체 Chroma 검색으로 돈다([docker-deployment.md](../docker-deployment.md)).
 
 ## 맥락
@@ -149,3 +149,9 @@ flowchart LR
 - **화면 확인:** Playwright 흐름 테스트(데스크톱·모바일, API는 가짜, 모델 호출 0)가 `web-ci.yml`에서 돕니다.
   - 실제 모델로는 PR마다 질문 1개나 보고서 1번만 확인했습니다.
 - **남은 것:** P4(로그인)와 P5(전환: keep-alive를 새 주소로, Streamlit 서비스 내리기). 그 전에 새 화면으로 주간 회귀를 한 번 돌려 확인합니다.
+
+## 소유자 결정 (2026-10-15~16)
+1. **화면 배포처:** Vercel(무료 플랜, 비상업). Vercel GitHub 앱을 설치해 main 병합 때 자동 배포한다.
+2. **API 냉시동:** 최소 0개로 둔다(비용). 배포 점검과 keep-alive가 확인한다. 최대 인스턴스는 멈춘 실행을 Supabase로 옮긴 뒤 2개로 올렸다(2026-10-16).
+3. **로그인 범위:** Google만. Supabase의 이메일 공급자는 껐다.
+4. **저장소 구조:** 같은 저장소에 `web/`과 `api/`.

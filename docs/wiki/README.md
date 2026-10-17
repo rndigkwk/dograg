@@ -10,8 +10,8 @@
 | [data.md](data.md) | 데이터 출처, 규모, 품질 감사 결과, 라벨 문제 |
 | [places-data.md](places-data.md) | 반려동물 시설 DB: 공공데이터 6종 정제, 출처 간 중복 판단, 종류 판별 규칙 |
 | [vet-fees.md](vet-fees.md) | 지역별 진료비: 정부 조사 통계 수집·검증, 챗봇 진료비 경로, 방문 보고서 진료비 근거 |
-| [retrieval-experiments.md](retrieval-experiments.md) | 건강 RAG 검색 실험: Dense → 재정렬(기각) → Dense+BM25 RRF(채택), 답변 유사도 평가 |
-| [embedding-finetune.md](embedding-finetune.md) | 건강 검색 임베딩 미세조정: 합성 질의 생성, Colab T4 학습, 짧은 질문 `useful@3` 0.625 → 0.800 |
+| [retrieval-experiments.md](retrieval-experiments.md) | 검색 실험: Dense → 재정렬(기각) → Dense+BM25 RRF(채택), 벡터 저장소 비교, 보고서 근거 품질(목차·참고문헌 제외, KB 보고서 OCR, 같은 쪽 한 자리, 두 보고서 질문은 보고서마다) |
+| [embedding-finetune.md](embedding-finetune.md) | 건강 검색 임베딩 미세조정: 합성 질의 생성, Colab T4 학습, 짧은 질문 `useful@3` 0.625 → 0.800. KURE-v1 미세조정 비교(앱 유지)와 MLflow 기록 |
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
 | [judge-validation.md](judge-validation.md) | LLM 판사 검증(Day 60): 다시 묻기·순서 뒤집기·다른 판사 비교, 길이·권위 편향과 양방향 판정, 사람 판정 성적표 |
@@ -19,10 +19,13 @@
 | [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 운영 설정(태그·release), 실험·정기 회귀 평가 |
 | [eval-coverage.md](eval-coverage.md) | 평가 범위표(Day 60): 질문 유형·진료과별 평가 질문 수, 1개 이하인 빈칸(치과 0, 보고서 보류 2, 범위 밖 라우팅 1) |
 | [visit-prep-team.md](visit-prep-team.md) | 멀티에이전트 방문 준비 보고서 팀: 상담 12개 실험(기준선 → 개선), 실패 처리와 장애 주입, 배포 장애 기록 |
-| [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 |
+| [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 (Streamlit 시기 기록) |
+| [cloud-run.md](cloud-run.md) | Cloud Run 이원화: 컨테이너 배포 기록, 설정과 이유, 첫 방문 대기 |
 | [lecture-review.md](lecture-review.md) | Day 46~56 교안 기법별 적용·테스트·미적용 정리 (어떻게, 결과, 이유) |
 | [../curriculum-fit.md](../curriculum-fit.md) | Day 58~79 수업 중 이 프로젝트에 쓸 만한 것, 가드레일 경량 대안과 현재 상태, 일반 대화 기능 검토 |
-| [../adr/](../adr/README.md) | 아키텍처 결정 기록(ADR): 임베딩, 검색 전략, 공유 DB, 리랭커. 결정마다 다시 검토할 조건 |
+| [../adr/](../adr/README.md) | 아키텍처 결정 기록(ADR) 9개: 임베딩, 검색 전략, 저장소, 리랭커, 지역, Next.js·FastAPI 전환, 상담 기억. 결정마다 다시 검토할 조건 |
+| [../security/](../security/README.md) | 보안 정리: 무엇을 어디에 두나, 인증·RLS·한도·개인정보, 점검 기록 |
+| [../course-assignment.md](../course-assignment.md) | 수업 과제 검사용 정리(보관): 멀티에이전트 요구사항 대응, 교안 Day 46~56 적용 표 |
 
 ## 작성 규칙
 

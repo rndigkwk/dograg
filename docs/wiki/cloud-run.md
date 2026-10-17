@@ -70,7 +70,7 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
 | --- | --- | --- |
 | 메모리 / CPU | 2GiB / 1 | 측정 최고 1.06GiB |
 | 최소 / 최대 인스턴스 | 0 / 2 | 쓰지 않을 때 요금 없음. 최대 2개가 비용 상한 |
-| session affinity | 켬 | 방문 보고서의 되묻기 단계는 멈춘 실행을 서버 메모리에 둔다. 같은 브라우저는 같은 인스턴스로 보내야 한다 |
+| session affinity | 켬 | Streamlit은 탭마다 웹소켓 세션을 서버에 둔다. 같은 브라우저는 같은 인스턴스로 보내야 한다(멈춘 방문 보고서 실행은 2026-10-16부터 Supabase) |
 | 요청 시간 제한 | 3600초 | Streamlit은 탭마다 웹소켓을 열어 둔다 |
 | CPU boost | 켬 | 새로 켜질 때 모델·색인 로딩을 빠르게 |
 | Langfuse 환경 | `cloudrun` | Streamlit Cloud(`production`)와 트레이스를 나눠 본다 |
