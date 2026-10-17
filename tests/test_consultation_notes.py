@@ -26,7 +26,7 @@ class NotesContextTests(unittest.TestCase):
     def test_dated_lines_and_old_ones_marked(self):
         text = health.notes_context([note("2026-10-10", " 설사 이틀째, 이틀 넘으면 병원 "), note("2026-08-01", "귀 긁음")],
                                     today=date(2026, 10, 17))
-        self.assertEqual(text, "- 2026-10-10: 설사 이틀째, 이틀 넘으면 병원\n- 2026-08-01 (오래된 기록): 귀 긁음")
+        self.assertEqual(text, "- 2026-10-10 (7일 전): 설사 이틀째, 이틀 넘으면 병원\n- 2026-08-01 (77일 전, 오래된 기록): 귀 긁음")
 
     def test_kept_within_the_budget(self):
         notes = [note("2026-10-10", "가" * 300) for _ in range(6)]

@@ -110,7 +110,11 @@ def main(argv: list[str] | None = None) -> int:
         text = answer(case, with_note)
         verdict = judge.invoke([("system", JUDGE), ("user", f"[노트 {case['note'][0]}]\n{case['note'][1]}\n\n"
                                                              f"[질문]\n{case['question']}\n\n[답변]\n{text}")])
-        return {"id": case["id"], "related": case["related"], "with_note": with_note, "answer": text, **verdict.model_dump()}
+        old = (TODAY - date.fromisoformat(case["note"][0])).days > 30
+        # Counted, not judged: the judge passed a week-old note called "old" (2026-10-17).
+        says_old = "오래된 기록" in text or "오래된 상담" in text or "오래돼" in text
+        return {"id": case["id"], "related": case["related"], "with_note": with_note, "answer": text,
+                "note_is_old": old, "says_old": says_old, **verdict.model_dump()}
 
     with patch.object(health, "notes_context", lambda notes, today=None: real_context(notes, today or TODAY)):
         with ThreadPoolExecutor(4) as pool:
@@ -128,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         "invents_history_with_note": share(with_note, "invents_history"),
         "invents_history_without_note": share([r for r in rows if not r["with_note"]], "invents_history"),
         "fits_good_with_note": share(with_note, "fits", "good"),
+        "age_right_related": round(sum(r["note_is_old"] == r["says_old"] for r in related) / len(related), 3),
         "judge_model": JUDGE_MODEL,
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
