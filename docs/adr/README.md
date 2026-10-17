@@ -15,5 +15,5 @@
 | [0005](0005-no-reranker.md) | 리랭커를 쓰지 않음 | 채택 |
 | [0006](0006-cloud-run-region-seoul.md) | Cloud Run 지역은 서울 유지 (us-central1과 한국에서 비교: 답변 완료 8.6 대 9.4초) | 채택 |
 | [0007](0007-search-in-supabase.md) | 벡터·키워드 검색을 Supabase(pgvector + PGroonga)로. 앱 최고 메모리 910 → 442MB, 검색 품질 같음. 장애 시 로컬 검색, float16 저장. Streamlit Cloud 최고 702MB | 채택 |
-| [0008](0008-nextjs-frontend-fastapi-backend.md) | 화면은 Next.js(Vercel), 앱 로직은 FastAPI(Cloud Run)로 나누고 로그인은 Supabase Auth + RLS. 단계 P1 API → P2 질병 문의 → P3 나머지 화면 → P4 로그인 → P5 전환 | 제안 |
+| [0008](0008-nextjs-frontend-fastapi-backend.md) | 화면은 Next.js(Vercel), 앱 로직은 FastAPI(Cloud Run)로 나누고 로그인은 Supabase Auth + RLS. 단계 P1 API → P2 질병 문의 → P3 나머지 화면 → P4 로그인 → P5 전환 | 채택 (P5 남음) |
 | [0009](0009-consultation-memory.md) | 지난 상담 기억은 보호자가 고른 "상담 노트"(300자, 최대 30개)를 사용자 계정 테이블(RLS)에 두고, 새 질문에 브라우저가 최근 5개를 보냄. 기본 꺼짐, 보기·지우기 화면 | 채택 |

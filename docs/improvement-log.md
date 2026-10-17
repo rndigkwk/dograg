@@ -1,6 +1,6 @@
 # 개선 기록: 측정 → 수정 → 검증
 
-라그도그는 2026-09-28부터 10-12까지 PR 96개로 다듬었습니다. 이 문서는 그중 **문제를 숫자로 찾고, 고치고, 다시 재서 확인한** 사례를 모은 것입니다. 효과가 없어 **넣지 않은** 실험도 함께 남겼습니다. 기능별 설계와 이유는 [design.md](design.md)에, 실험의 자세한 기록은 [wiki/](wiki/)에 있습니다.
+라그도그는 2026-09-28부터 10-18까지 PR 200여 개로 다듬었습니다(10-13 이후는 아래 9절). 이 문서는 그중 **문제를 숫자로 찾고, 고치고, 다시 재서 확인한** 사례를 모은 것입니다. 효과가 없어 **넣지 않은** 실험도 함께 남겼습니다. 기능별 설계와 이유는 [design.md](design.md)에, 실험의 자세한 기록은 [wiki/](wiki/)에 있습니다.
 
 ## 어떻게 쟀나
 
@@ -110,6 +110,23 @@
 - **채점기 라벨 보정 (#85):** 구 값이 없을 때 앱이 시·도 값으로 답하는 경우를 채점기가 오답으로 셌다. 앱이 맞았다. 고치기 전 숫자도 보정한 채점기로 다시 쟀다.
 - **실패 사유 오기 (#86):** API의 미완료 응답을 코드가 "호출 상한"으로 기록하고 있었다. 사유를 바로 적게 고쳐서 #93의 원인 조사가 가능해졌다.
 
+## 9. 2026-10-13~18: 검색 이전, 화면·API 분리, 로그인, 보고서 근거
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| ADR-0007 | 앱 메모리가 무료 한도(약 1GB)에 붙어 있었다 | 앱 최고 메모리 910 → **442MB**, 검색 품질 같음 | 벡터·키워드 검색을 Supabase(pgvector halfvec + PGroonga)로, 장애 시 로컬 대체 |
+| ADR-0008 (#160~#173) | 화면과 로직이 Streamlit 한 프로세스에 묶여 로그인·RLS를 붙이기 어려웠다 | 같은 품질 세트로 API 경로 확인 | Next.js(Vercel) + FastAPI(Cloud Run, SSE) 분리, Google 로그인 + RLS |
+| 보안 점검 | User-Agent·`X-Forwarded-For` 위조로 질문 한도 우회 2건 | 배포 뒤 같은 공격 재시험: 막힘 | 비밀 헤더 토큰, 오른쪽 프록시 값, 위조 토큰 7종 거부 확인 ([보안](security/README.md)) |
+| [#182](https://github.com/rndigkwk/dograg/pull/182), [#184](https://github.com/rndigkwk/dograg/pull/184) | 멈춘 방문 준비 실행이 서버 메모리에만 있어 인스턴스 1개 고정, 재배포 때 사라짐 | 다른 연결 풀에서 이어 가기 확인, 운영에서 멈춤→답→보고서 확인 | Supabase `visit_prep` Postgres 체크포인터(30분), 인스턴스 최대 2 |
+| [#190](https://github.com/rndigkwk/dograg/pull/190) | 큰 한국어 임베딩(KURE-v1)을 미세조정하면 나을까 | 하이브리드 0.805 vs 앱 0.809(p=1.0), 질문 임베딩 8배 느림 | **바꾸지 않음**. 학습과 비교를 MLflow(DagsHub)에 기록 |
+| [#192](https://github.com/rndigkwk/dograg/pull/192) | 보고서 근거에 목차·참고문헌이 섞이고, 답이 목차의 쪽수를 인용 | 섞인 페이지 5 → 0(18문항), 정답 페이지 16/18 그대로 | 목차·참고문헌 조각 70개 제외, 근거 머리표의 쪽수만 인용 |
+| [#198](https://github.com/rndigkwk/dograg/pull/198) | KB 보고서는 숫자를 전용 글꼴로 넣어 PDF 텍스트에서 숫자가 빠졌다(112쪽 중 91쪽) | "펫보험 가입률" 오답 → 정답, 전체 15/18 유지 | OCR 조각 147개 추가(data-v5), 근거에 "스캔 글(OCR)" 표시(#199) |
+| [#201](https://github.com/rndigkwk/dograg/pull/201) | 같은 쪽의 PDF·OCR 조각이 상위 근거 6자리 중 7자리(18문항 합)를 겹쳐 차지 | 정답 15 → 16/18, 오답 0 | 근거를 조각 6개가 아니라 쪽 6개로 셈 |
+| [#202](https://github.com/rndigkwk/dograg/pull/202), [#203](https://github.com/rndigkwk/dograg/pull/203) | 두 보고서를 함께 물으면 한 보고서가 근거를 독차지. 로컬에서 고친 것이 **운영 검색(PGroonga)에서는 틀림** | r03: 부분 정답 3회 → 정답 3/3(운영 검색 기준) | 보고서마다 주제어로 그 보고서 안에서만 찾기. 검색 변경은 운영 검색으로도 잼 |
+| [#194](https://github.com/rndigkwk/dograg/pull/194), [#195](https://github.com/rndigkwk/dograg/pull/195) | 지난 상담을 기억하되 보호자가 통제해야 한다(ADR-0009) | 관련 노트 반영 6/6, 무관 노트 끌어옴 0/4. 판사가 놓친 날짜 오판 3/6 → 6/6 | 버튼으로 만드는 상담 노트(RLS, 기본 꺼짐), 경과일을 프롬프트에 적어 넣음 |
+
+- **이 기간의 교훈 두 가지:** (1) 판사 점수가 만점이어도 답을 직접 읽어야 한다(노트 날짜 오판). (2) 검색 수정은 로컬과 운영 검색 엔진이 달라 운영 검색으로도 재야 한다(#202 → #203).
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -210,3 +227,110 @@
 | [94](https://github.com/rndigkwk/dograg/pull/94) | 2026-10-12 | docs: 두 배포가 공유 DB 없이 도는 이유 (상태를 어디에 두나) |
 | [95](https://github.com/rndigkwk/dograg/pull/95) | 2026-10-12 | fix: "3곳 알려줘"에 10곳이 나오던 문제 (개수 평가 11/18 → 18/18) |
 | [96](https://github.com/rndigkwk/dograg/pull/96) | 2026-10-12 | fix: 앞선 질문이 새 주제의 검색을 망치던 문제 (holdout 주제 전환 0.38 → 1.0) |
+| [97](https://github.com/rndigkwk/dograg/pull/97) | 2026-10-12 | docs: 개선 기록(측정 → 수정 → 검증)과 기능별 설계 문서 |
+| [98](https://github.com/rndigkwk/dograg/pull/98) | 2026-10-12 | fix: 시설 단어 없는 시설 후속 질문을 건강 검색 맥락에서 제외 |
+| [99](https://github.com/rndigkwk/dograg/pull/99) | 2026-10-12 | fix: 건강 답변이 아는 내용부터 쓰고, 없는 부분은 뒤에 밝힘 |
+| [100](https://github.com/rndigkwk/dograg/pull/100) | 2026-10-12 | perf: Langfuse 이벤트 줄이기 (로컬 평가 추적 끔, LangChain 군더더기 span 제외) |
+| [101](https://github.com/rndigkwk/dograg/pull/101) | 2026-10-12 | fix: 다른 보호자의 상담 사례를 지금 보호자의 병력처럼 쓰지 않기 |
+| [102](https://github.com/rndigkwk/dograg/pull/102) | 2026-10-12 | fix: 답변 중에는 입력창 닫기 (새 질문이 진행 중인 답을 끊던 문제) |
+| [103](https://github.com/rndigkwk/dograg/pull/103) | 2026-10-12 | eval: 가드레일 현재 상태 측정 (수업 전 기준선, 수정 없음) |
+| [104](https://github.com/rndigkwk/dograg/pull/104) | 2026-10-12 | docs: 앞으로 배울 내용(Day 58~79) 중 이 프로젝트에 쓸 만한 것 |
+| [105](https://github.com/rndigkwk/dograg/pull/105) | 2026-10-12 | fix: "며칠 전부터"가 든 건강 질문에 오늘 날짜로 답하던 문제 |
+| [106](https://github.com/rndigkwk/dograg/pull/106) | 2026-10-12 | fix: 일반 대화를 모델 대신 고정 문구로 (ChatGPT 사칭·범위 밖 수행 제거) |
+| [107](https://github.com/rndigkwk/dograg/pull/107) | 2026-10-13 | docs: curriculum-fit에 #105·#106 적용 결과 반영 |
+| [108](https://github.com/rndigkwk/dograg/pull/108) | 2026-10-13 | docs: 아키텍처 결정 기록(ADR) 소급 작성 |
+| [109](https://github.com/rndigkwk/dograg/pull/109) | 2026-10-13 | eval: 벡터 저장소 비교 (Day 58 교안 방식) + ADR-0003 제안 |
+| [110](https://github.com/rndigkwk/dograg/pull/110) | 2026-10-13 | docs: 임베딩 결정을 네 축 점수로 다시 정리 (Day 58 방식, 새 측정 없음) |
+| [111](https://github.com/rndigkwk/dograg/pull/111) | 2026-10-13 | feat: 메모리 안 전수 검색 저장소 + ADR-0003 확정 (앱 최고 메모리 991 → 910MB) |
+| [112](https://github.com/rndigkwk/dograg/pull/112) | 2026-10-13 | eval: 질문 유형별 검색 전략 측정 (Day 58 3-3) — 라우터 불필요 |
+| [113](https://github.com/rndigkwk/dograg/pull/113) | 2026-10-13 | eval: pgvector 서울 리전 재측정, ADR-0004 거절, ADR-0003 유지 |
+| [114](https://github.com/rndigkwk/dograg/pull/114) | 2026-10-13 | eval: Supabase(pgvector + PGroonga) 검색 측정 — 앱 메모리 910 → 442MB (ADR-0007 제안), 지역은 서울 유지 (ADR-0006) |
+| [115](https://github.com/rndigkwk/dograg/pull/115) | 2026-10-13 | eval: 기본 임베딩 비교 — multilingual-e5-small vs ko-sroberta |
+| [116](https://github.com/rndigkwk/dograg/pull/116) | 2026-10-13 | eval: 건강 상담 글 128토큰 잘림 — 길이 늘리기·청킹 비교 (지금 유지) |
+| [117](https://github.com/rndigkwk/dograg/pull/117) | 2026-10-13 | feat: Supabase 검색 준비 — 장애 시 로컬 검색으로 넘어가기, float16 저장 (ADR-0007) |
+| [118](https://github.com/rndigkwk/dograg/pull/118) | 2026-10-13 | deploy: Cloud Run에 Supabase 검색 연결 + 질문별 메모리 기록 (#117 병합 뒤 커밋) |
+| [119](https://github.com/rndigkwk/dograg/pull/119) | 2026-10-13 | docs: ADR-0007 채택 — 두 배포 Supabase 검색 확인, ADR-0003 대체됨 |
+| [120](https://github.com/rndigkwk/dograg/pull/120) | 2026-10-13 | feat: Supabase 장애 대비 검색을 가볍게 — Chroma·Kiwi 없이 (장애 중 최고 1,226 → 738MB) |
+| [121](https://github.com/rndigkwk/dograg/pull/121) | 2026-10-13 | eval: KURE-v1 건강 검색 비교 — 지금 모델 유지 (하이브리드 0.809 대 0.723) |
+| [122](https://github.com/rndigkwk/dograg/pull/122) | 2026-10-13 | docs: 128토큰 잘림이 덜 아픈 이유를 측정대로 고침 + 건강 검색이 임베딩하는 범위 |
+| [123](https://github.com/rndigkwk/dograg/pull/123) | 2026-10-13 | ops: 배포 점검에 건강 질문 추가 + Supabase 검색 확인 (무료 프로젝트 일시 정지 방지) |
+| [124](https://github.com/rndigkwk/dograg/pull/124) | 2026-10-13 | fix: 개인정보를 모델에 보내기 전에 가리기 (OpenAI로 나감 8/8 → 0/8) |
+| [125](https://github.com/rndigkwk/dograg/pull/125) | 2026-10-13 | fix: 건강 답변이 질문에 끼워 넣은 지시를 따르지 않게 (주입 dev 3/4 → 4/4) |
+| [126](https://github.com/rndigkwk/dograg/pull/126) | 2026-10-13 | fix: 감사 인사 단어 보강 (새 holdout 감사 1/6 → 6/6) |
+| [127](https://github.com/rndigkwk/dograg/pull/127) | 2026-10-13 | ops: 배포가 옛 커밋으로 남으면 점검이 실패하게 (Streamlit 재부팅 필요 감지) |
+| [128](https://github.com/rndigkwk/dograg/pull/128) | 2026-10-13 | docs: Langfuse 사용량 다시 측정 — 다음 주기 월 1만 5천 안팎 예상 |
+| [129](https://github.com/rndigkwk/dograg/pull/129) | 2026-10-14 | ops: 주간 회귀 기준을 품질 지표와 운영 경보로 나누기 (세트마다 품질 5개 이하) |
+| [130](https://github.com/rndigkwk/dograg/pull/130) | 2026-10-14 | eval: 건강 답변 정확도(수의사 답 대조)를 측정하고 주간 회귀 품질 지표로 추가 |
+| [131](https://github.com/rndigkwk/dograg/pull/131) | 2026-10-14 | fix: 긴 건강 상담글이 키워드 하나로 시설 검색·일반 대화·보고서로 가던 문제 (holdout 28/461 → 1/461) |
+| [132](https://github.com/rndigkwk/dograg/pull/132) | 2026-10-14 | ci: 답변 경로를 바꾸는 PR에만 품질 검사 (CRAG 60 + 라우팅 36) |
+| [133](https://github.com/rndigkwk/dograg/pull/133) | 2026-10-14 | fix: Supabase 표를 공개 REST API에서 닫기 (RLS 켜기, 공개 역할 권한 회수) |
+| [134](https://github.com/rndigkwk/dograg/pull/134) | 2026-10-15 | feat: 👎에 이유 고르기 + 동의하면 질문·답변을 개인정보 가려 저장 (운영 중 평가 입력) |
+| [135](https://github.com/rndigkwk/dograg/pull/135) | 2026-10-15 | feat: 자료에 없던 주제 모으기 (답변 속 '자료에 없다' 문장, 배포 앱만, 개인정보 가림) |
+| [136](https://github.com/rndigkwk/dograg/pull/136) | 2026-10-15 | fix: 배포 확인용 질문은 자료 빈칸 표에서 빼기 |
+| [137](https://github.com/rndigkwk/dograg/pull/137) | 2026-10-15 | eval: 판사 모델 이름을 결과에 남기고, 판사가 바뀌면 주간 기준을 실패로 |
+| [138](https://github.com/rndigkwk/dograg/pull/138) | 2026-10-15 | eval: LLM 판사 검증 (다시 묻기·순서·다른 판사·편향, 사람 판정 성적표) |
+| [139](https://github.com/rndigkwk/dograg/pull/139) | 2026-10-15 | eval: 평가 범위표 (치과 0문항, 보고서 보류 2, 범위 밖 라우팅 1) |
+| [140](https://github.com/rndigkwk/dograg/pull/140) | 2026-10-15 | ops: 주간 회귀·배포 확인 결과를 Supabase에 쌓아 추세 보기 |
+| [141](https://github.com/rndigkwk/dograg/pull/141) | 2026-10-15 | feat: 자동 기억 (건강 질문 속 새 진단·약·수술·체중을 기억할지 제안) |
+| [142](https://github.com/rndigkwk/dograg/pull/142) | 2026-10-15 | fix: 간식·사료·산책 같은 일상 돌봄 질문을 건강 답변으로 보내기 |
+| [143](https://github.com/rndigkwk/dograg/pull/143) | 2026-10-15 | fix: 자동 기억이 '두부'처럼 음식 이름인 반려견도 알아보게 |
+| [144](https://github.com/rndigkwk/dograg/pull/144) | 2026-10-15 | fix: 저장된 프로필을 읽기 전에는 기억 제안을 띄우지 않기 |
+| [145](https://github.com/rndigkwk/dograg/pull/145) | 2026-10-15 | feat: 질문 횟수 제한 (한 사람 시간당 10번, 하루 30번) |
+| [146](https://github.com/rndigkwk/dograg/pull/146) | 2026-10-15 | ops: 평가 스크립트가 예상 모델 호출 수를 보여 주고 200번을 넘으면 멈추기 |
+| [147](https://github.com/rndigkwk/dograg/pull/147) | 2026-10-15 | fix: 보호자 이름과 구/군 없는 주소도 가리기 |
+| [148](https://github.com/rndigkwk/dograg/pull/148) | 2026-10-15 | ops: 👎 대화를 보고 평가 세트 후보로 내보내는 스크립트 |
+| [149](https://github.com/rndigkwk/dograg/pull/149) | 2026-10-15 | ops: main은 Cloud Run에만 배포, Streamlit Cloud는 고정된 백업만 |
+| [150](https://github.com/rndigkwk/dograg/pull/150) | 2026-10-15 | chore: 실수로 들어간 dev container 폴더 지우기 |
+| [151](https://github.com/rndigkwk/dograg/pull/151) | 2026-10-15 | ops: 앱 표는 없을 때만 만들고 잠그기 (앱 전용 DB 계정 준비) |
+| [152](https://github.com/rndigkwk/dograg/pull/152) | 2026-10-15 | docs: ADR-0008 (채택) Next.js 화면 + FastAPI 백엔드 + Supabase Auth/RLS |
+| [153](https://github.com/rndigkwk/dograg/pull/153) | 2026-10-15 | feat: API 뼈대 (ADR-0008 P1) — /health와 CORS |
+| [154](https://github.com/rndigkwk/dograg/pull/154) | 2026-10-15 | feat: POST /chat 답변 스트리밍 (ADR-0008 P1) |
+| [155](https://github.com/rndigkwk/dograg/pull/155) | 2026-10-15 | feat: GET /places 시설 검색 API (ADR-0008 P1) |
+| [156](https://github.com/rndigkwk/dograg/pull/156) | 2026-10-15 | feat: GET /stats/overview 데이터 소개 수치 API (ADR-0008 P1) |
+| [157](https://github.com/rndigkwk/dograg/pull/157) | 2026-10-15 | feat: POST /visit-prep 방문 준비 보고서 스트리밍 (ADR-0008 P1) |
+| [158](https://github.com/rndigkwk/dograg/pull/158) | 2026-10-15 | feat: /chat 기억 제안 이벤트와 POST /feedback (ADR-0008 P1) |
+| [159](https://github.com/rndigkwk/dograg/pull/159) | 2026-10-15 | ops: API를 별도 Cloud Run 서비스 ragdog-api로 배포 (ADR-0008 P1) |
+| [160](https://github.com/rndigkwk/dograg/pull/160) | 2026-10-15 | eval: 배포된 API로 CRAG·라우팅 품질 확인 (ADR-0008 P1) |
+| [161](https://github.com/rndigkwk/dograg/pull/161) | 2026-10-15 | feat(web): Next.js 채팅 화면과 답변 스트리밍 (ADR-0008 P2-1) |
+| [162](https://github.com/rndigkwk/dograg/pull/162) | 2026-10-15 | feat(web): 답변 아래 근거와 피드백 (ADR-0008 P2-2) |
+| [163](https://github.com/rndigkwk/dograg/pull/163) | 2026-10-16 | feat(web): 대화 기록을 브라우저에 저장 (ADR-0008 P2-3a) |
+| [164](https://github.com/rndigkwk/dograg/pull/164) | 2026-10-16 | feat(web): 반려견 프로필, 기억 제안, 현재 위치 (ADR-0008 P2-3b) |
+| [165](https://github.com/rndigkwk/dograg/pull/165) | 2026-10-16 | test(web): Playwright 화면 흐름 + Vercel 연결 (ADR-0008 P2-4) |
+| [166](https://github.com/rndigkwk/dograg/pull/166) | 2026-10-16 | feat(web): 상단 메뉴와 시설 찾기 화면 (ADR-0008 P3-1) |
+| [167](https://github.com/rndigkwk/dograg/pull/167) | 2026-10-16 | feat(web): 데이터 소개 화면과 막대 차트 (ADR-0008 P3-2) |
+| [168](https://github.com/rndigkwk/dograg/pull/168) | 2026-10-16 | feat(web): 방문 준비 보고서 화면 (ADR-0008 P3-3) |
+| [169](https://github.com/rndigkwk/dograg/pull/169) | 2026-10-16 | feat(web): 홈 화면, Streamlit 다섯 화면 이전 완료 (ADR-0008 P3-4) |
+| [170](https://github.com/rndigkwk/dograg/pull/170) | 2026-10-16 | security: 로그인 전 보안 점검과 질문 한도 우회 차단 |
+| [171](https://github.com/rndigkwk/dograg/pull/171) | 2026-10-16 | feat(db): 로그인 사용자 기록 표와 RLS (ADR-0008 P4-1) |
+| [172](https://github.com/rndigkwk/dograg/pull/172) | 2026-10-16 | feat(web): Supabase Auth Google 로그인 (ADR-0008 P4-2) |
+| [173](https://github.com/rndigkwk/dograg/pull/173) | 2026-10-16 | fix(web): 좁은 화면에서 로그인 버튼이 안 보이던 문제 |
+| [174](https://github.com/rndigkwk/dograg/pull/174) | 2026-10-16 | feat(web): 시설 지도 마우스 휠 확대·축소 |
+| [175](https://github.com/rndigkwk/dograg/pull/175) | 2026-10-16 | feat(web): 로그인하면 기록을 계정에 저장 (ADR-0008 P4-3) |
+| [176](https://github.com/rndigkwk/dograg/pull/176) | 2026-10-16 | feat: 로그인 사용자는 계정 기준으로 질문 한도 (ADR-0008 P4-4) |
+| [177](https://github.com/rndigkwk/dograg/pull/177) | 2026-10-16 | docs(security): 로그인 뒤 보안 점검 결과 |
+| [178](https://github.com/rndigkwk/dograg/pull/178) | 2026-10-16 | feat: 관리자 키 없이 계정 삭제 (DB 함수) |
+| [179](https://github.com/rndigkwk/dograg/pull/179) | 2026-10-16 | feat: 방문 준비 보고서 현재 위치 기반 병원 + Word·텍스트 저장 |
+| [180](https://github.com/rndigkwk/dograg/pull/180) | 2026-10-16 | docs(security): 로그인 점검 후속 결과 |
+| [181](https://github.com/rndigkwk/dograg/pull/181) | 2026-10-16 | docs: 교안 재검토 (메모리·서버 저장 제약 해제 후, Day 57~61 추가) |
+| [182](https://github.com/rndigkwk/dograg/pull/182) | 2026-10-16 | feat(api): 방문 준비 보고서의 멈춘 실행을 Supabase에 저장 |
+| [183](https://github.com/rndigkwk/dograg/pull/183) | 2026-10-16 | fix(api): visit_prep 스키마가 없으면 메모리 저장소로 돌아가기 |
+| [184](https://github.com/rndigkwk/dograg/pull/184) | 2026-10-16 | ops(api): API 인스턴스를 최대 2개로 |
+| [185](https://github.com/rndigkwk/dograg/pull/185) | 2026-10-16 | feat(ml): KURE-v1 미세조정 노트북과 MLflow(DagsHub) 기록 |
+| [186](https://github.com/rndigkwk/dograg/pull/186) | 2026-10-16 | feat(ml): 이전 임베딩 비교를 MLflow 기준선으로 |
+| [187](https://github.com/rndigkwk/dograg/pull/187) | 2026-10-16 | feat(web): 지역별 진료비 탭 (시도 그래프, 시군구 표) |
+| [188](https://github.com/rndigkwk/dograg/pull/188) | 2026-10-16 | fix(ml): KURE-v1 미세조정을 T4 메모리에 맞추기 |
+| [189](https://github.com/rndigkwk/dograg/pull/189) | 2026-10-16 | feat(web): PDF 보고서 분석 탭 |
+| [190](https://github.com/rndigkwk/dograg/pull/190) | 2026-10-16 | docs(ml): KURE-v1 미세조정 결과 — 앱 모델 유지 |
+| [191](https://github.com/rndigkwk/dograg/pull/191) | 2026-10-17 | ci(eval): 주간 회귀 평가를 MLflow(DagsHub)에도 기록 |
+| [192](https://github.com/rndigkwk/dograg/pull/192) | 2026-10-17 | fix(report): 보고서 근거에서 목차·참고문헌 페이지 빼기 |
+| [193](https://github.com/rndigkwk/dograg/pull/193) | 2026-10-17 | docs(adr): ADR-0009 지난 상담 기억 (상담 노트) 채택 |
+| [194](https://github.com/rndigkwk/dograg/pull/194) | 2026-10-17 | feat: 지난 상담 기억 — 상담 노트 (ADR-0009) |
+| [195](https://github.com/rndigkwk/dograg/pull/195) | 2026-10-17 | fix(notes): 지난 상담 기록에 경과일을 적어 날짜 오판 막기 |
+| [196](https://github.com/rndigkwk/dograg/pull/196) | 2026-10-17 | docs(security): 보안 정리 문서 (현재 상태 + 10-17 점검) |
+| [197](https://github.com/rndigkwk/dograg/pull/197) | 2026-10-17 | feat: 피드백·데이터 공백 기록 3년 뒤 자동 삭제 |
+| [198](https://github.com/rndigkwk/dograg/pull/198) | 2026-10-17 | feat(report): KB 보고서의 사라진 숫자를 OCR로 보완 (data-v5) |
+| [199](https://github.com/rndigkwk/dograg/pull/199) | 2026-10-17 | feat(report): OCR로 읽은 근거에 '스캔 글(OCR)' 표시 |
+| [200](https://github.com/rndigkwk/dograg/pull/200) | 2026-10-17 | feat(notes): 노트 30개가 차면 모델 호출 없이 기억 화면으로 안내 |
+| [201](https://github.com/rndigkwk/dograg/pull/201) | 2026-10-17 | fix(report): 같은 쪽의 PDF·OCR 조각은 근거 한 자리로 |
+| [202](https://github.com/rndigkwk/dograg/pull/202) | 2026-10-17 | fix(report): 두 보고서를 묻는 질문은 보고서마다 근거 찾기 |
+| [203](https://github.com/rndigkwk/dograg/pull/203) | 2026-10-17 | fix(report): 두 보고서 질문은 보고서마다 주제어로 찾기 (운영 검색 기준) |
