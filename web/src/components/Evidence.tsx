@@ -1,4 +1,4 @@
-import { consultation, reportPage, type Row } from "@/lib/evidence";
+import { consultation, reportPage, type Row, SCANNED_NOTE } from "@/lib/evidence";
 
 import Markdown from "./Markdown";
 
@@ -14,7 +14,11 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
             const page = reportPage(row, index);
             return (
               <li key={index} className="rounded-lg border border-line p-3">
-                <p className="font-semibold">{page.title}</p>
+                <p className="font-semibold">
+                  {page.title}
+                  {page.scanned ? <span className="ml-2 rounded bg-warn/15 px-1.5 py-0.5 text-xs font-normal text-warn-strong">스캔 글(OCR)</span> : null}
+                </p>
+                {page.scanned ? <p className="mt-0.5 text-xs text-muted">{SCANNED_NOTE}</p> : null}
                 <details className="mt-1 text-sm">
                   <summary className="cursor-pointer text-muted">{page.preview || "내용 없음"}</summary>
                   <p className="mt-2 whitespace-pre-wrap">{page.excerpt}</p>

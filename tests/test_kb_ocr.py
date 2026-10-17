@@ -18,5 +18,18 @@ class CleanOcrTests(unittest.TestCase):
         self.assertEqual(clean_ocr(text), text)
 
 
+class ScannedEvidenceTests(unittest.TestCase):
+    def test_ocr_chunks_are_marked_and_pdf_chunks_unchanged(self):
+        from types import SimpleNamespace
+
+        from src.report_evidence import report_evidence_from_docs
+
+        meta = {"title": "2025 한국 반려동물 보고서", "page": 77, "source": "data/source/2025 한국 반려동물 보고서.pdf"}
+        rows = report_evidence_from_docs([SimpleNamespace(page_content="12.8%", metadata={**meta, "text_source": "ocr"}),
+                                          SimpleNamespace(page_content="년와비교해", metadata=meta)])
+        self.assertTrue(rows[0]["scanned"])
+        self.assertNotIn("scanned", rows[1])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,12 @@ describe("reportPage", () => {
       title: "근거 1 · 2025 한국 반려동물 보고서 · 페이지 확인 불가",
       preview: "짧은 글 줄",
       excerpt: "짧은  글\n줄",
+      scanned: false,
     });
+  });
+
+  it("marks text read from the page image", () => {
+    expect(reportPage({ excerpt: "12.8%", page: 77, scanned: true }, 0).scanned).toBe(true);
+    expect(reportPage({ excerpt: "12.8%", page: 77, scanned: "true" }, 0).scanned).toBe(false);
   });
 });

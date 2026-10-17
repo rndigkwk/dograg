@@ -159,7 +159,10 @@ def render_report_evidence(evidence_rows: list[dict], key: str) -> None:
         page = row.get("page")
         title = row.get("title") or "2025 한국 반려동물 보고서"
         with st.container(border=True):
-            st.markdown(f"**근거 {index} · {title} · 페이지 {page if page else '확인 불가'}**")
+            scanned = " · 스캔 글(OCR)" if row.get("scanned") else ""
+            st.markdown(f"**근거 {index} · {title} · 페이지 {page if page else '확인 불가'}{scanned}**")
+            if scanned:
+                st.caption("보고서 그림 속 숫자를 스캔(OCR)으로 읽은 글이라 글자가 틀릴 수 있어요. 원문 페이지로 확인하세요.")
             st.caption(excerpt_preview(row.get("excerpt", "")))
             if not st.toggle("자세히 보기", key=f"report_evidence_{key}_{index}"):
                 continue

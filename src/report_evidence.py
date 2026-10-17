@@ -35,7 +35,12 @@ def report_evidence_from_docs(docs: list) -> list[dict]:
         title = doc.metadata.get("title") or PurePosixPath(source).stem
         # Some titles come from download file names: "반려동물+장묘서비스+..._작성자".
         title = title.replace("+", " ").split("_")[0].strip()
-        result.append({"page": page, "excerpt": doc.page_content.strip(), "source": source, "title": title})
+        row = {"page": page, "excerpt": doc.page_content.strip(), "source": source, "title": title}
+        if doc.metadata.get("text_source") == "ocr":
+            # Read from the page image (scripts/add_kb_ocr_chunks.py): the screens say so, since
+            # OCR misreads some characters ("68 > KBB8*I").
+            row["scanned"] = True
+        result.append(row)
     return result
 
 
