@@ -63,6 +63,9 @@ def save_review(*, question: str, answer: str, reason: str | None, route: str | 
                 f"insert into {TABLE} (trace_id, route, reason, question, answer, evidence) values (%s, %s, %s, %s, %s, %s)",
                 [trace_id, route, reason, mask_pii(question)[:MAX_TEXT], str(answer)[:MAX_TEXT],
                  json.dumps(evidence or [], ensure_ascii=False)])
+            from src.supabase_store import expire_old_rows
+
+            expire_old_rows(conn)  # 3-year retention (scripts/sql/retention.sql)
         return True
     except Exception:  # noqa: BLE001 - feedback must never break the chat page
         logger.warning("feedback review not saved", exc_info=True)
