@@ -1,5 +1,5 @@
 """Check the signed-in users' tables and account deletion (scripts/sql/user_records.sql,
-delete_my_account.sql, user_notes.sql) with their tests.
+delete_my_account.sql, user_notes.sql) and the 3-year retention (retention.sql) with their tests.
 
     uv run python scripts/check_user_records.py            # tables applied: run the test only
     uv run python scripts/check_user_records.py --dry-run  # create the tables and test them, then roll back
@@ -36,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
     # Each pair: what to apply in a dry run, its test, and the object that shows it was applied.
     pairs = (("user_records.sql", "user_records_test.sql", "select to_regclass('public.ragdog_user_threads')::text"),
              ("delete_my_account.sql", "delete_my_account_test.sql", "select to_regprocedure('public.delete_my_account()')::text"),
-             ("user_notes.sql", "user_notes_test.sql", "select to_regclass('public.ragdog_user_notes')::text"))
+             ("user_notes.sql", "user_notes_test.sql", "select to_regclass('public.ragdog_user_notes')::text"),
+             ("retention.sql", "retention_test.sql", "select to_regprocedure('public.ragdog_expire_old_rows()')::text"))
     for applied, test, exists in pairs:
         with psycopg.connect(settings.get_setting("SUPABASE_DB_URL"), autocommit=False) as conn:
             try:

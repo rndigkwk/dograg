@@ -216,6 +216,26 @@ def table_exists(conn, table: str) -> bool:
     return conn.execute("select to_regclass(%s)", [f"public.{table}"]).fetchone()[0] is not None
 
 
+_expired_on: str | None = None  # the day this process last asked the database to expire old rows
+
+
+def expire_old_rows(conn, today: str | None = None) -> None:
+    """Once a day per process: delete feedback and data-gap rows older than 3 years
+    (scripts/sql/retention.sql; the app role cannot delete them itself). Never raises: before the
+    function is applied, or when it fails, the rows just stay until the next day's try."""
+    global _expired_on
+    from datetime import date
+
+    today = today or date.today().isoformat()
+    if _expired_on == today:
+        return
+    _expired_on = today
+    try:
+        conn.execute("select public.ragdog_expire_old_rows()")
+    except Exception:  # noqa: BLE001 - retention must never break the write it rides on
+        logger.warning("old feedback and data-gap rows not expired", exc_info=True)
+
+
 def lock_from_data_api(conn, table: str) -> None:
     """Keep a table out of Supabase's public REST API. Tables in the public schema are granted to
     the anon and authenticated roles by default, and without row level security anyone with the

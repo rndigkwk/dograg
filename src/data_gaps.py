@@ -85,7 +85,7 @@ def rows_for(result: dict) -> list[tuple[str, str, str | None]]:
 
 
 def _insert(rows: list[tuple[str, str, str | None]]) -> None:
-    from src.supabase_store import connector, lock_from_data_api, table_exists
+    from src.supabase_store import connector, expire_old_rows, lock_from_data_api, table_exists
 
     try:
         with connector(settings.get_setting("SUPABASE_DB_URL"))() as conn:
@@ -99,6 +99,7 @@ def _insert(rows: list[tuple[str, str, str | None]]) -> None:
                 _ready.set()
             with conn.cursor() as cursor:
                 cursor.executemany(f"insert into {TABLE} (route, kind, sentence) values (%s, %s, %s)", rows)
+            expire_old_rows(conn)  # 3-year retention (scripts/sql/retention.sql)
     except Exception:  # noqa: BLE001 - collecting gaps must never affect the chat
         logger.warning("data gaps not saved", exc_info=True)
 
