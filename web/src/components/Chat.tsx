@@ -14,8 +14,13 @@ import { messagesOf, recordTurn, STORAGE_NOTICE, takeNotice, type Thread } from 
 import { locate, type Location } from "@/lib/location";
 import { isEmpty, type MemorySuggestion, type PetProfile } from "@/lib/profile";
 
+import { type ChatNote, forChat, listNotes, notesEnabled } from "@/lib/notes";
+import { supabase } from "@/lib/supabase";
+
+import { useAuth } from "./AuthProvider";
 import Conversations from "./Conversations";
 import MemoryCard from "./MemoryCard";
+import NoteSaver from "./NoteSaver";
 import ProfileForm from "./ProfileForm";
 import { useRecords } from "./useRecords";
 import { deleteAccount } from "@/lib/supabase";
@@ -60,7 +65,7 @@ function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency
   );
 }
 
-function AnswerView({ answer, question }: { answer: Answer; question?: string }) {
+function AnswerView({ answer, question, threadId, onNoteSaved }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void }) {
   return (
     <>
       {answer.urgent ? <UrgentBox {...answer.urgent} /> : null}
@@ -78,7 +83,12 @@ function AnswerView({ answer, question }: { answer: Answer; question?: string })
       {answer.notice ? null : (
         <>
           <PlaceLinks rows={answer.hospitalRows ?? []} />
-          {question && answer.route === "rag" && !answer.abstained ? <VisitPrepLink question={question} /> : null}
+          {question && answer.route === "rag" && !answer.abstained ? (
+            <>
+              <VisitPrepLink question={question} />
+              <NoteSaver question={question} answer={answer.content} threadId={threadId ?? null} onSaved={onNoteSaved} />
+            </>
+          ) : null}
           <Feedback answer={answer} question={question} />
           <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
         </>
@@ -163,6 +173,11 @@ function askedBefore(messages: Message[], index: number): string | undefined {
 
 export default function Chat() {
   const { records, storage } = useRecords();
+  const { session } = useAuth();
+  // The latest saved consultation notes, sent with each question while "지난 상담 기억" is on (ADR-0009).
+  const [chatNotes, setChatNotes] = useState<ChatNote[]>([]);
+  const [notesVersion, setNotesVersion] = useState(0);
+  const notesOn = records?.where === "account" && notesEnabled(session);
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [accountNote, setAccountNote] = useState<string | null>(null);
@@ -250,6 +265,20 @@ export default function Chat() {
       setDeviceLeft(0);
     });
   }
+
+  useEffect(() => {
+    if (!notesOn) {
+      setChatNotes([]);
+      return;
+    }
+    let stale = false;
+    listNotes(supabase())
+      .then((notes) => !stale && setChatNotes(forChat(notes)))
+      .catch(() => !stale && setChatNotes([]));
+    return () => {
+      stale = true;
+    };
+  }, [notesOn, notesVersion]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -340,6 +369,7 @@ export default function Chat() {
       // Until storage is read the profile is a stand-in; a suggestion against it would replace the stored one.
       suggest_memory: loaded && records !== null && (records.where === "account" || Boolean(storage)) && !(isEmpty(profile) && profileRefused.current),
       declined_memory: declined.current.slice(-20),
+      ...(notesOn && chatNotes.length ? { notes: chatNotes } : {}),
     };
     let memory = (thread && memories.current.get(thread)) || { upto: 0, summary: "" };
     controller.current = new AbortController();
@@ -459,7 +489,7 @@ export default function Chat() {
               {message.role === "user" ? (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               ) : (
-                <AnswerView answer={message} question={askedBefore(messages, index)} />
+                <AnswerView answer={message} question={askedBefore(messages, index)} threadId={current} onNoteSaved={() => setNotesVersion((v) => v + 1)} />
               )}
             </Bubble>
           ))}

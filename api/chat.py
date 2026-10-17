@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field, field_validator
 from src import auth, data_gaps, rate_limit
 from src.chat_events import find_emergency_hospitals, places_first, progress_message
 from src.health_safety import detect_urgent_sign
+from src.pii import mask_pii
 from src.storage.models import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS, PetProfile
 from src.tools.health import DEFAULT_RAG_TOP_K, MAX_RAG_TOP_K, MIN_RAG_TOP_K
 
@@ -62,6 +63,20 @@ class Memory(BaseModel):
     summary: str = Field(default="", max_length=MAX_ANSWER_CHARS)
 
 
+class Note(BaseModel):
+    """A consultation note the guardian saved in their account (ADR-0009), as the browser sends it."""
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    text: str = Field(min_length=1, max_length=300)
+
+    @field_validator("date")
+    @classmethod
+    def _a_real_date(cls, value: str) -> str:
+        from datetime import date
+
+        date.fromisoformat(value)  # ValueError -> 422
+        return value
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
     history: list[Turn] = Field(default_factory=list, max_length=MAX_TURNS)
@@ -77,6 +92,8 @@ class ChatRequest(BaseModel):
     # "report": the report page (web /reports) asks the five PDF reports directly, without the
     # classification call; anything else is classified as usual.
     route: Literal["report"] | None = None
+    # The latest notes, sent only when a signed-in guardian turned "지난 상담 기억" on (ADR-0009).
+    notes: list[Note] = Field(default_factory=list, max_length=5)
 
     @field_validator("question")
     @classmethod
@@ -156,7 +173,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
             outcome["result"] = chatbot(body.question, top_k=body.top_k, chat_history=chat_history,
                                         location=body.location, pet_profile=body.profile,
                                         on_token=on_token, on_step=on_step, session_id=person,
-                                        force_route="analysis" if body.route == "report" else None)
+                                        force_route="analysis" if body.route == "report" else None,
+                                        notes=[Note(date=n.date, text=mask_pii(n.text)) for n in body.notes])
         except Exception:  # noqa: BLE001 - reported to the browser as one error event
             logger.exception("chat failed")
             outcome["error"] = True

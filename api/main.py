@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
     from api.chat import router as chat_router
     from api.feedback import router as feedback_router
     from api.fees import router as fees_router
+    from api.memory import router as memory_router
     from api.places import router as places_router
     from api.stats import router as stats_router
     from api.visit_prep import router as visit_prep_router
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(feedback_router)
     app.include_router(fees_router)
+    app.include_router(memory_router)
     app.include_router(places_router)
     app.include_router(stats_router)
     app.include_router(visit_prep_router)
