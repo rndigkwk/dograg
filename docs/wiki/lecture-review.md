@@ -141,10 +141,10 @@ ADR-0007·0008로 사정이 바뀌었다.
 | 58 · 임베딩 선택, 검색 전략·벡터 저장소 선정과 ADR | ✅ | 질문 유형별 측정으로 하이브리드를 골랐다([retrieval-experiments.md](retrieval-experiments.md)). 짧은 질문용 미세조정은 0.625 → 0.800이다([embedding-finetune.md](embedding-finetune.md)). 저장소는 Supabase pgvector halfvec + PGroonga이고, 결정은 ADR-0007에 남겼다. 재측정 항목은 위 표 |
 | 59 · RAGAS: Faithfulness, Answer Correctness, Context Precision·Recall | ✅ / 🔜 | Faithfulness·Answer Correctness는 쓴다(주간 기준 `answer_correctness ≥ 0.25`). 검색 쪽은 정답 페이지·`useful@3`으로 잰다. Context Recall/Precision을 주간 평가에 더하면 점수가 떨어졌을 때 검색 문제인지 생성 문제인지 바로 가를 수 있다(모델 호출 증가) |
 | 60 · LLM-as-Judge, 편향, 판사 점검, DeepEval | ✅ / 🔜 | 판사 편향 점검과 사람 라벨 대조를 진행 중이다([judge-validation.md](judge-validation.md)). 부록의 "판사 점수로 프롬프트 개선"은 판사 성적표가 나온 뒤에 한다 |
-| 61 · MLflow 평가 기록, 기준선과 CI 회귀 게이트 | ✅ / 🔜 | 기준선과 CI 게이트는 쓴다(`scripts/check_regression.py`, 주간 회귀·PR 품질 검사, `ragdog_eval_history`). MLflow 추적 서버(DagsHub 연결됨)에 평가 실행과 임베딩 학습을 기록하는 것이 다음이다 |
+| 61 · MLflow 평가 기록, 기준선과 CI 회귀 게이트 | ✅ | 기준선과 CI 게이트는 쓴다(`scripts/check_regression.py`, 주간 회귀·PR 품질 검사, `ragdog_eval_history`). MLflow(DagsHub)에 임베딩 학습·비교(실험 `health-embedding`, 2026-10-16~17)와 주간 회귀 평가(실험 `regression-weekly`, `scripts/log_regression_mlflow.py`, secret `DAGSHUB_TOKEN`)를 기록한다. 판정과 추세의 원본은 그대로 Supabase `ragdog_eval_history`다 |
 
 ### 순서
 1. 방문 보고서 체크포인트를 Postgres로 옮기고 이어 하기를 붙인다(Day 51·56).
-2. 평가·학습 기록을 MLflow로 옮긴다(Day 61).
+2. 평가·학습 기록을 MLflow로 옮긴다(Day 61). **적용함(2026-10-16~17)**
 3. 지난 상담 기억을 설계한다(Day 52): 동의, 보기, 지우기.
 4. 측정이 필요한 것: 리랭킹 API(Day 48), Context Recall(Day 59). KURE-v1 미세조정(Day 58)은 2026-10-17에 재서 앱 모델을 유지했다.
