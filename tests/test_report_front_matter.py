@@ -28,6 +28,12 @@ class FrontBackMatterTests(unittest.TestCase):
         self.assertFalse(report.is_front_or_back_matter(table))
         self.assertFalse(report.is_front_or_back_matter(body))
 
+    def test_a_pages_pdf_and_ocr_chunks_share_one_slot(self):
+        kb = "반려동물 보고서"
+        docs = [chunk("77쪽 PDF", kb, 77), chunk("77쪽 OCR 12.8%", kb, 77), chunk("78쪽", kb, 78), chunk("79쪽", kb, 79)]
+        kept = report.by_page(docs, 2)
+        self.assertEqual([d.page_content for d in kept], ["77쪽 PDF", "77쪽 OCR 12.8%", "78쪽"])
+
     def test_the_search_skips_them_and_still_returns_k(self):
         docs = [chunk("목차··· a··· b··· c"), *[chunk(f"본문 {i}", page=i + 10) for i in range(8)]]
         with patch.object(report.resources, "load_report_vector_db", return_value=object()), \
@@ -35,7 +41,7 @@ class FrontBackMatterTests(unittest.TestCase):
                 patch("src.hybrid_retrieval.retrieve_hybrid", return_value=docs) as search:
             found = report.search_reports_hybrid("장묘 불만 유형", k=6)
         self.assertEqual([doc.metadata["page"] for doc in found], [10, 11, 12, 13, 14, 15])
-        self.assertEqual(search.call_args.kwargs["top_k"], 10)
+        self.assertEqual(search.call_args.kwargs["top_k"], 14)
 
 
 if __name__ == "__main__":

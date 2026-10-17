@@ -180,9 +180,22 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
     report_db = resources.load_report_vector_db()
     if report_db is None:
         return []
-    found = retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k + 4,
+    found = retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k + 8,
                             candidate_k=REPORT_CANDIDATE_K)
-    return [doc for doc in found if not is_front_or_back_matter(doc)][:k]
+    return by_page([doc for doc in found if not is_front_or_back_matter(doc)], k)
+
+
+def by_page(docs: list, k: int) -> list:
+    """The first k pages in rank order, with every found chunk of each. A KB page has a PDF chunk
+    (exact wording) and an OCR chunk (its figures, scripts/add_kb_ocr_chunks.py); counted apart,
+    the two filled 7 of the 18 questions' top-6 slots and pushed out another report's page (r03)."""
+    pages: list = []
+    for doc in docs:
+        page = (doc.metadata.get("source"), doc.metadata.get("page"))
+        if page not in pages:
+            pages.append(page)
+    keep = set(pages[:k])
+    return [doc for doc in docs if (doc.metadata.get("source"), doc.metadata.get("page")) in keep]
 
 
 def search_reports(question: str, queries: list[str] | None = None) -> list:
