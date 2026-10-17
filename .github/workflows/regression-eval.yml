@@ -6,6 +6,7 @@ name: Weekly regression evaluation
 # fails when a score crosses its limit (scripts/check_regression.py).
 # Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY,
 # LANGFUSE_BASE_URL and HF_TOKEN (read access to the private data, src/private_data.py).
+# Optional DAGSHUB_TOKEN: each run is also logged to MLflow on DagsHub (scripts/log_regression_mlflow.py).
 # One run costs about 60 chatbot answers and 12 team runs (~200 model calls).
 on:
   schedule:
@@ -29,6 +30,7 @@ jobs:
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
       LANGFUSE_TRACING_ENVIRONMENT: ci
       HF_HUB_OFFLINE: "0"  # the runner downloads the ONNX embedding model once
     steps:
@@ -93,6 +95,13 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           RAGDOG_EVAL_HISTORY: "1"
         run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
+
+      - name: Log to MLflow (DagsHub)
+        # The same scores as experiment "regression-weekly", one child run per set, for the weekly
+        # charts. Also after a failed check (that week matters most); never fails the job itself.
+        if: always()
+        run: |
+          uv run --no-project --python 3.12 --with "mlflow-skinny>=3.4" --with python-dotenv             python scripts/log_regression_mlflow.py "$RUN_NAME" crag routing visit answer
 
       - name: Keep the item-level results
         if: always()

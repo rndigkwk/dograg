@@ -5,8 +5,8 @@
         mlflow.log_metric("useful3_all", 0.81)
 
 Server: https://dagshub.com/rndigkwk/dograg.mlflow (user rndigkwk). The password is a DagsHub
-token: MLFLOW_TRACKING_PASSWORD, or `dagshub` in .env (the name it was saved under). Nothing is
-printed about it. --local logs to output/mlflow.db (artifacts in output/mlartifacts) instead,
+token: MLFLOW_TRACKING_PASSWORD, DAGSHUB_TOKEN (GitHub Actions), or `dagshub` in .env (the name it
+was saved under). Nothing is printed about it. --local logs to output/mlflow.db (artifacts in output/mlartifacts) instead,
 for trying a script without the server.
 
     uv run --group tools python scripts/mlflow_tracking.py --check   # can we reach the server?
@@ -39,7 +39,9 @@ def configure(local: bool = False) -> str:
         return LOCAL_URI
     os.environ.setdefault("MLFLOW_TRACKING_URI", TRACKING_URI)
     if os.environ["MLFLOW_TRACKING_URI"].startswith("https://dagshub.com/"):
-        token = os.environ.get("MLFLOW_TRACKING_PASSWORD") or settings.get_setting("dagshub")
+        # MLFLOW_TRACKING_PASSWORD, DAGSHUB_TOKEN (the GitHub Actions secret) or `dagshub` in .env
+        token = (os.environ.get("MLFLOW_TRACKING_PASSWORD") or os.environ.get("DAGSHUB_TOKEN")
+                 or settings.get_setting("dagshub"))
         if not token:
             raise SystemExit("No DagsHub token: set MLFLOW_TRACKING_PASSWORD or `dagshub` in .env, or use --local.")
         os.environ.setdefault("MLFLOW_TRACKING_USERNAME", USERNAME)
