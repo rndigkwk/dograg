@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -100,6 +102,7 @@ REPORT_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
 검색 자료만 근거로 분석 결과를 작성하세요. 아래 분석 항목은 2025 한국 반려동물 보고서의 목차 기준입니다.
 분석 항목에 해당하는 수치, 차이, 추이를 우선 정리하고, 자료에 없는 수치나 원인은 추측하지 마세요.
 검색 자료가 부족하면 부족한 부분을 명시하세요. 답변에는 분석 대상, 핵심 결과, 근거 보고서명과 페이지를 포함하세요.
+페이지는 각 검색 자료 머리표의 "페이지 N"을 그대로 쓰세요. 본문에 인쇄된 쪽 번호나 목차의 숫자는 화면의 근거 목록과 달라 쓰지 마세요.
 검색 데이터 밖 내용은 말하지 마세요.
 
 [분석 항목]
@@ -150,6 +153,21 @@ def analyze_report(question: str) -> dict:
 
 
 REPORT_CANDIDATE_K = 20
+# A table of contents line ends in a dot leader ("소비자 불만 현황······· 14"); three or more in a
+# chunk make it a contents page. A reference list opens with its heading.
+_DOT_LEADER = re.compile(r"[·…]{3,}|\.{5,}")
+_REFERENCES_HEADING = re.compile(r"참\s*고\s*문\s*헌")
+
+
+def is_front_or_back_matter(doc) -> bool:
+    """Contents and reference-list chunks: they name every topic, so the keyword search ranks them
+    high, but they hold no figures, and the model then cites a contents page's page numbers
+    (2026-10-17: "p.14" from 장묘 보고서 page 2, a reference page among the evidence). 76 of the
+    1,193 report chunks (docs/wiki/retrieval-experiments.md)."""
+    text = doc.page_content
+    title = str(doc.metadata.get("title") or "").replace("+", " ").split("_")[0]
+    head = " ".join(text.split())[:120].replace(title, "", 1)
+    return len(_DOT_LEADER.findall(text)) >= 3 or bool(_REFERENCES_HEADING.search(head[:40]))
 
 
 def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list:
@@ -162,8 +180,9 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
     report_db = resources.load_report_vector_db()
     if report_db is None:
         return []
-    return retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k,
-                           candidate_k=REPORT_CANDIDATE_K)
+    found = retrieve_hybrid(report_db, resources.load_report_bm25_index(), question, top_k=k + 4,
+                            candidate_k=REPORT_CANDIDATE_K)
+    return [doc for doc in found if not is_front_or_back_matter(doc)][:k]
 
 
 def search_reports(question: str, queries: list[str] | None = None) -> list:
