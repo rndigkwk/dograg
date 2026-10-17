@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { askNote } from "@/lib/api";
-import { addNote, cleanNote, NOTE_MAX_CHARS, notesEnabled, setNotesEnabled } from "@/lib/notes";
+import { addNote, cleanNote, countNotes, isNotesFull, MAX_NOTES, NOTE_MAX_CHARS, notesEnabled, setNotesEnabled } from "@/lib/notes";
 import { supabase } from "@/lib/supabase";
 
 import { useAuth } from "./AuthProvider";
 
-type Step = { kind: "idle" } | { kind: "writing" } | { kind: "edit"; text: string } | { kind: "saving"; text: string } | { kind: "saved" } | { kind: "error"; message: string; text?: string };
+type Step = { kind: "idle" } | { kind: "full" } | { kind: "writing" } | { kind: "edit"; text: string } | { kind: "saving"; text: string } | { kind: "saved" } | { kind: "error"; message: string; text?: string };
 
 /** Under a health answer, for a signed-in guardian: "이 상담 기억하기" (ADR-0009). The API writes a short
  * note (one model call); the guardian edits or cancels it before it is saved to their account. The
@@ -24,6 +24,10 @@ export default function NoteSaver({ question, answer, threadId, onSaved }: { que
   async function write() {
     setStep({ kind: "writing" });
     try {
+      if ((await countNotes(supabase())) >= MAX_NOTES) {
+        setStep({ kind: "full" }); // no model call for a note that cannot be saved
+        return;
+      }
       const { note } = await askNote(question, answer);
       setStep({ kind: "edit", text: note });
     } catch (error) {
@@ -40,8 +44,9 @@ export default function NoteSaver({ question, answer, threadId, onSaved }: { que
       if (!enabled && useIt) await setNotesEnabled(supabase(), true);
       setStep({ kind: "saved" });
       onSaved?.();
-    } catch {
-      setStep({ kind: "error", message: "저장하지 못했습니다. 기록은 30개까지라, 많다면 기억 화면에서 지운 뒤 다시 시도해 주세요.", text: note });
+    } catch (error) {
+      if (isNotesFull(error)) setStep({ kind: "full" });
+      else setStep({ kind: "error", message: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.", text: note });
     }
   }
 
@@ -50,6 +55,17 @@ export default function NoteSaver({ question, answer, threadId, onSaved }: { que
       <button type="button" onClick={() => void write()} className="mt-3 ml-2 rounded-lg border border-line px-3 py-1 text-sm">
         🗂 이 상담 기억하기
       </button>
+    );
+  }
+  if (step.kind === "full") {
+    return (
+      <p role="alert" className="mt-3 text-sm">
+        기록이 {MAX_NOTES}개로 가득 찼어요.{" "}
+        <Link href="/memory" className="text-accent underline">
+          기억 화면에서 지운 뒤
+        </Link>{" "}
+        다시 시도해 주세요.
+      </p>
     );
   }
   if (step.kind === "writing") return <p role="status" className="mt-3 text-sm text-muted">기록을 정리하는 중입니다…</p>;

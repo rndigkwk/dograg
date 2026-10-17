@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanNote, forChat, type Note, noteDate, notesEnabled } from "./notes";
+import { cleanNote, forChat, isNotesFull, type Note, noteDate, notesEnabled } from "./notes";
 
 const note = (id: string, created_at: string, text = `노트 ${id}`): Note => ({ id, note: text, created_at, thread_id: null });
 
@@ -22,6 +22,12 @@ describe("notes", () => {
   it("keep one line of at most 300 characters", () => {
     expect(cleanNote("  설사\n이틀째  ")).toBe("설사 이틀째");
     expect(cleanNote("가".repeat(400))).toHaveLength(300);
+  });
+
+  it("know the database's refusal of a 31st note", () => {
+    expect(isNotesFull({ code: "23514", message: "too many notes" })).toBe(true);
+    expect(isNotesFull({ code: "23514", message: "new row violates check constraint" })).toBe(false);
+    expect(isNotesFull(new Error("network"))).toBe(false);
   });
 
   it("dates as YYYY-MM-DD", () => {
