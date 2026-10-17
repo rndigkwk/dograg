@@ -473,7 +473,13 @@ BM25 우선은 holdout에서 5문항 얻고 3문항 잃었다. 방향은 일관�
 | 근거에 섞인 목차·참고문헌 (보고서 탭 추천 질문 11개) | 3 | 0 |
 
 - 정답 페이지를 놓친 질문은 없었다. 결과: `output/experiments/report_front_back_filter.json`
-- 답변 품질(정답 대조)은 아직 재지 않았다. `scripts/evaluate_report_pages.py compare --variants chunks --repeats 1`로 잴 수 있고, 답변 18개와 채점 18개로 모델 호출 약 36번이다.
+- **답변 품질** (`scripts/evaluate_report_pages.py compare --variants hybrid --repeats 1`, 모델 호출 36번, 2026-10-17)
+  - 정답 14, 부분 2, 오답 1, 보류 1로 0.778이다. 근거에 정답 페이지가 든 비율은 0.889였다.
+  - 2026-10-09 하이브리드 기록은 36회 중 정답 30회(0.833)였다. 이번은 1회씩이라 문항 하나가 0.056이다.
+  - 걸러 내기로 근거가 달라진 질문은 4개뿐이다(r01, r05, r08, r11). r01·r05·r11은 정답이었고, r08은 수치는 모두 맞았지만 단위를 "명" 대신 "마리"로 써서 부분 정답이 됐다.
+  - 오답 r04(펫보험 가입률)는 걸러 내기와 관계가 없다. 걸러 내기 전에도 정답 페이지(KB 82쪽)가 상위 10개에 없었다. 10-09 이후 검색 결과가 달라진 별도 문제라 따로 본다.
+  - 보류였던 r03(혼자 있는 시간 비교)은 이번에 정답이었다.
+  - 결과: `output/report_pages_eval.json`, 이전 기록은 `output/report_pages_eval_before_filter.json`
 
 ## 다음에 해볼 만한 것
 
