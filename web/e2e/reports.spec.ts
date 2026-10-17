@@ -4,7 +4,10 @@ import { fakeApi, result } from "./fake-api";
 
 const ANSWER = result("펫보험 가입률은 2023년 11.9%에서 2025년 15.2%로 올랐습니다.", {
   route: "analysis",
-  evidence_rows: [{ title: "2025 한국 반려동물 보고서", page: 74, excerpt: "펫보험 가입률 15.2%", source: "data/source/kb.pdf" }],
+  evidence_rows: [
+    { title: "2025 한국 반려동물 보고서", page: 74, excerpt: "펫보험 가입률 15.2%", source: "data/source/kb.pdf" },
+    { title: "2025 한국 반려동물 보고서", page: 77, excerpt: "가입률은 12.8%로", source: "data/source/kb.pdf", scanned: true },
+  ],
 });
 
 test("the report page sends questions straight to the reports and shows the page evidence", async ({ page }) => {
@@ -18,6 +21,9 @@ test("the report page sends questions straight to the reports and shows the page
   await expect(first).toContainText("15.2%");
   await expect(first.getByText("근거 1 · 2025 한국 반려동물 보고서 · 페이지 74")).toBeVisible();
   expect(api.chats[0]).toMatchObject({ route: "report", history: [], profile: null, suggest_memory: false });
+  // Text read from the page image says so; the PDF text does not.
+  await expect(first.getByText("스캔 글(OCR)")).toHaveCount(1);
+  await expect(first.getByText(/스캔\(OCR\)으로 읽은 글이라/)).toBeVisible();
 
   // A chosen report names itself in the question.
   await page.getByRole("button", { name: /^2025 한국 반려동물 보고서/ }).click();
