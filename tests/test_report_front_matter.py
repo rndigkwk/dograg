@@ -41,12 +41,24 @@ class FrontBackMatterTests(unittest.TestCase):
 
     def test_a_question_naming_two_reports_gets_pages_from_each(self):
         kb, welfare = list(report.REPORT_NAMES)[:2]
-        docs = [chunk(f"KB {n}", "KB", n) for n in range(10, 18)] + [chunk("복지 170", "복지", 170)]
-        for doc in docs:
-            doc.metadata["source"] = kb if doc.page_content.startswith("KB") else welfare
-        with patch.object(report.resources, "load_report_vector_db", return_value=object()),                 patch.object(report.resources, "load_report_bm25_index", return_value=object()),                 patch("src.hybrid_retrieval.retrieve_hybrid", return_value=docs):
-            found = report.search_reports_hybrid("KB 2025와 복지실태 보고서의 혼자 있는 시간", k=6)
-        self.assertEqual([d.page_content for d in found], ["KB 10", "KB 11", "KB 12", "복지 170"])
+
+        def search(db, index, query, top_k, candidate_k, where):
+            name = "KB" if where["source"] == kb else "복지"
+            pages = range(10, 18) if name == "KB" else (170, 169, 1, 2)
+            return [chunk(f"{name} {n}", name, n) for n in pages]
+
+        with patch.object(report.resources, "load_report_vector_db", return_value=object()), \
+                patch.object(report.resources, "load_report_bm25_index", return_value=object()), \
+                patch("src.hybrid_retrieval.retrieve_hybrid", side_effect=search) as hybrid:
+            found = report.search_reports_hybrid("KB 2025와 2024 복지실태 보고서에서 혼자 있는 시간을 각각 알려주세요", k=6)
+        self.assertEqual([d.page_content for d in found], ["KB 10", "KB 11", "KB 12", "복지 170", "복지 169", "복지 1"])
+        self.assertEqual({c.kwargs["where"]["source"] for c in hybrid.call_args_list}, {kb, welfare})
+        self.assertEqual(hybrid.call_args.args[2], "혼자 있는 시간을")  # the topic, not the report names
+
+    def test_the_topic_drops_names_years_and_asks(self):
+        self.assertEqual(report.report_topic("KB 2025와 2024 복지실태 보고서에서 반려동물이 혼자 있는 하루 평균 시간을 각각 알려주세요."),
+                         "반려동물이 혼자 있는 하루 평균 시간을")
+        self.assertIn("동물병원 소비자", report.report_topic("동물병원 소비자가 낸 가격과 KB 2025의 펫보험 가입률을 정리해 줘"))
 
     def test_the_search_skips_them_and_still_returns_k(self):
         docs = [chunk("목차··· a··· b··· c"), *[chunk(f"본문 {i}", page=i + 10) for i in range(8)]]

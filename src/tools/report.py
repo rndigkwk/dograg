@@ -183,15 +183,18 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
     index = resources.load_report_bm25_index()
     sources = named_reports(question)
     if len(sources) >= 2:
-        # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") gets pages from
-        # each: ranked together, one report filled every slot and the other's figure went missing
-        # (r03: 복지실태 p.170 "1일 평균 5.1시간" never reached the answer). No extra model call.
-        found = retrieve_hybrid(report_db, index, question, top_k=MULTI_REPORT_CANDIDATES,
-                                candidate_k=MULTI_REPORT_CANDIDATES)
-        clean = [doc for doc in found if not is_front_or_back_matter(doc)]
+        # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") is searched in
+        # each report on its topic words: ranked together one report filled every slot, and the
+        # report names, years and "각각 알려주세요" pulled cover pages ahead of the figure (r03:
+        # 복지실태 p.169-170 "1일 평균 5.1시간" missed on Supabase until searched this way). No model call.
+        topic = report_topic(question)
         share = max(1, k // len(sources))
-        return [doc for source in sources
-                for doc in by_page([d for d in clean if d.metadata.get("source") == source], share)]
+        found = []
+        for source in sources:
+            mine = retrieve_hybrid(report_db, index, topic, top_k=k + 8, candidate_k=REPORT_CANDIDATE_K,
+                                   where={"source": source})
+            found += by_page([doc for doc in mine if not is_front_or_back_matter(doc)], share)
+        return found
     found = retrieve_hybrid(report_db, index, question, top_k=k + 8, candidate_k=REPORT_CANDIDATE_K)
     return by_page([doc for doc in found if not is_front_or_back_matter(doc)], k)
 
@@ -205,7 +208,17 @@ REPORT_NAMES = {
         "의료·보험", "의료보험", "의료 보험", "보험서비스", "동물병원 소비자"),
     "data/source/반려동물+장묘서비스+이용+실태조사_온라인거래조사팀.pdf": ("장묘",),
 }
-MULTI_REPORT_CANDIDATES = 40
+_TOPIC_NOISE = re.compile(r"\b20\d\d(년)?(와|과|의|에서)?|(보고서|실태조사)(와|과|의|에서)?|각각|비교하고|묶어서|정리해 ?줘|알려 ?주세요")
+
+
+def report_topic(question: str) -> str:
+    """The question without what names the reports (names, years, "보고서", "각각 알려주세요"): what
+    to look for inside each report. A name that is also a topic ("동물병원 소비자") stays."""
+    for names in REPORT_NAMES.values():
+        for name in sorted(names, key=len, reverse=True):
+            if name != "동물병원 소비자":
+                question = question.replace(name, " ")
+    return " ".join(_TOPIC_NOISE.sub(" ", question).split()).strip(" ,.") or question
 
 
 def named_reports(question: str) -> list[str]:
