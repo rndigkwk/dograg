@@ -34,6 +34,20 @@ export async function listNotes(client: SupabaseClient): Promise<Note[]> {
   }));
 }
 
+/** How many notes the account keeps (asked before a note is written: a full account would spend a
+ * model call on a note it cannot save). */
+export async function countNotes(client: SupabaseClient): Promise<number> {
+  const { count, error } = await client.from("ragdog_user_notes").select("note_id", { count: "exact", head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** The database's refusal of a 31st note (scripts/sql/user_notes.sql: check_violation, "too many notes"). */
+export function isNotesFull(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  return e?.code === "23514" && /too many notes/.test(e.message ?? "");
+}
+
 /** Saves a note (user_id is filled and checked by the database). Refused past 30: delete one first. */
 export async function addNote(client: SupabaseClient, note: string, threadId: string | null): Promise<void> {
   const { error } = await client.from("ragdog_user_notes").insert({ note: cleanNote(note), thread_id: threadId });

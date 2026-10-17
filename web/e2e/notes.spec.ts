@@ -36,6 +36,8 @@ async function fakeAccount(page: Page, notes: Row[] = [], metadata: Row = {}) {
     const table = url.pathname.split("/").pop()!;
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     if (request.method() === "GET") return route.fulfill({ json: tables[table] ?? [], headers: cors });
+    // count: "exact", head: true -> PostgREST answers HEAD with the count in Content-Range.
+    if (request.method() === "HEAD") return route.fulfill({ status: 200, headers: { ...cors, "Access-Control-Expose-Headers": "Content-Range", "Content-Range": `*/${(tables[table] ?? []).length}` } });
     const body = request.postData() ? request.postDataJSON() : null;
     writes.push({ method: request.method(), table, body, auth: request.headers()["authorization"] ?? null });
     if (request.method() === "POST") {
@@ -95,6 +97,29 @@ test("a signed-in guardian keeps a consultation as a note, and the next question
   await ask(page, "또 설사해요");
   await expect.poll(() => api.chats.length).toBe(2);
   expect(api.chats[1].notes).toEqual([{ date: expect.stringMatching(/^2026-10-1[78]$/), text: `${NOTE} 사료 바꾼 뒤 시작.` }]);
+});
+
+test("a full account (30 notes) is sent to the memory page, without writing a note", async ({ page }) => {
+  const full = Array.from({ length: 30 }, (_, i) => ({
+    note_id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+    note: `기록 ${i + 1}`,
+    created_at: "2026-10-10T03:00:00Z",
+    thread_id: null,
+  }));
+  await signIn(page, { consultation_notes: true });
+  await fakeAccount(page, full, { consultation_notes: true });
+  await fakeApi(page, [[result("설사가 이틀 넘으면 병원에 가세요.", { route: "rag" })]]);
+  let written = 0;
+  await page.route(`${FAKE_API}/memory/note`, (route) => {
+    written += 1;
+    return route.fulfill({ status: 500, headers: cors });
+  });
+  await page.goto("/chat");
+  await ask(page, "보리가 이틀째 설사해요");
+  await page.getByRole("button", { name: "🗂 이 상담 기억하기" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "기록이 30개로 가득 찼어요." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "기억 화면에서 지운 뒤" })).toHaveAttribute("href", "/memory");
+  expect(written).toBe(0);
 });
 
 test("the memory page shows the notes, deletes one or all, and turns the memory off", async ({ page }) => {
