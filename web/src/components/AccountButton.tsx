@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { signInWithGoogle, signOut } from "@/lib/supabase";
@@ -43,6 +44,9 @@ export default function AccountButton() {
   const email = session.user.email ?? "로그인됨";
   return (
     <span className="flex shrink-0 items-center gap-2">
+      <Link href="/memory" className="rounded-lg px-2 py-1.5 text-ink hover:bg-line/50" title="지난 상담 기억">
+        🗂<span className="hidden sm:inline"> 기억</span>
+      </Link>
       <span className="hidden max-w-48 truncate text-muted sm:inline" title={email}>
         {email}
       </span>

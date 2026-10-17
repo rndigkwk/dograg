@@ -24,6 +24,7 @@ def chatbot(
     on_step=None,
     session_id: str | None = None,
     force_route: str | None = None,
+    notes: list | None = None,
 ) -> dict[str, Any]:
     """질문을 분류한 뒤 rag, sql, analysis, 또는 도구 없는 일반 응답을 LangGraph로 실행합니다.
 
@@ -53,6 +54,7 @@ def chatbot(
         on_step=on_step,
         session_id=session_id,
         force_route=force_route,
+        notes=notes,
     )
     data_gaps.record(result)  # what the material did not cover (deployments only, src/data_gaps.py)
     return result

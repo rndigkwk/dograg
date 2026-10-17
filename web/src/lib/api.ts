@@ -55,6 +55,8 @@ export type ChatRequest = {
   declined_memory: string[];
   // "report": the report page asks the five PDF reports directly (api/chat.py ChatRequest.route).
   route?: "report";
+  // The latest consultation notes, only when a signed-in guardian turned them on (ADR-0009, lib/notes.ts).
+  notes?: { date: string; text: string }[];
 };
 
 // The reasons under a 👎 (src/feedback_store.REASONS; the API refuses any other).
@@ -101,6 +103,17 @@ export async function sendReview(review: {
   }).catch(() => null);
   if (!response?.ok) return false;
   return Boolean((await response.json()).saved);
+}
+
+/** POST /memory/note: a 2-3 sentence note of this consultation, for the guardian to edit and save
+ * (ADR-0009). Signed-in only; one model call, counted like a question. Throws with the API's message. */
+export async function askNote(question: string, answer: string): Promise<{ note: string; date: string }> {
+  const response = await fetch(`${API_URL}/memory/note`, { method: "POST", headers: await headers(), body: JSON.stringify({ question, answer }) });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(typeof detail?.detail === "string" ? detail.detail : "기록을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+  }
+  return response.json();
 }
 
 /** POST /chat: each event of the answer as it arrives. Throws on a refused request. */
