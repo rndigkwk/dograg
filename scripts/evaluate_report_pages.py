@@ -15,10 +15,16 @@ This compares, on the 18 answerable report questions of tests/data/crag_eval_que
     uv run python scripts/evaluate_report_pages.py references   # reference answers from the gold pages
     uv run python scripts/evaluate_report_pages.py compare --repeats 2
     uv run python scripts/evaluate_report_pages.py compare --variants chunks compressed compressed12
+    uv run python scripts/evaluate_report_pages.py compare --set holdout --variants hybrid --repeats 1
 
 References are written by a model reading only the gold page(s) and saved to
 tests/data/report_reference_answers.json (review them; they are the yardstick). Each answer is
 then graded against its reference: correct, partial, wrong, or abstained.
+
+--set holdout uses tests/data/report_holdout_questions.json instead: 12 questions written on
+2026-10-18, after the report search changes, and kept out of rule tuning (two reports asked without
+their names, KB figures only the OCR chunks hold, single reports). Their references were written by
+hand from the page images, so `references` leaves them alone.
 """
 
 from __future__ import annotations
@@ -41,13 +47,17 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
 QUESTIONS = PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"
+HOLDOUT = PROJECT_DIR / "tests" / "data" / "report_holdout_questions.json"
 REFERENCES = PROJECT_DIR / "tests" / "data" / "report_reference_answers.json"
-OUT = PROJECT_DIR / "output" / "report_pages_eval.json"
+OUT = {"dev": PROJECT_DIR / "output" / "report_pages_eval.json",
+       "holdout": PROJECT_DIR / "output" / "report_holdout_eval.json"}
 PAGE_CHARS = 6000
 OVERLAP = 200
 
 
-def answerable_items() -> list[dict]:
+def answerable_items(question_set: str = "dev") -> list[dict]:
+    if question_set == "holdout":
+        return json.loads(HOLDOUT.read_text(encoding="utf-8"))["items"]
     items = json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"]
     return [item for item in items if item["group"] == "report_answerable"]
 
@@ -130,9 +140,11 @@ def references() -> None:
         out.append({"id": item["id"], "question": item["question"], "gold_pages": item["gold_pages"],
                     "answerable": ref.answerable, "reference": ref.answer})
         print(item["id"], ref.answerable, ref.answer[:150], flush=True)
+    written = {row["id"] for row in out}
+    kept = [row for row in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"] if row["id"] not in written]
     REFERENCES.write_text(json.dumps({"description": "Reference answers written from the gold pages only "
                                       "(scripts/evaluate_report_pages.py references); reviewed by hand.",
-                                      "items": out}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+                                      "items": out + kept}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 
 def as_pages(db, docs: list) -> list:
@@ -161,6 +173,14 @@ def has_gold(docs: list, item: dict) -> bool:
     """Is one of the question's gold pages among the docs? (metadata source is a path)"""
     gold = {(name, page) for name, page in item["gold_pages"]}
     return any((Path(str(doc.metadata.get("source", ""))).name, doc.metadata.get("page")) in gold for doc in docs)
+
+
+def has_every_gold_report(docs: list, item: dict) -> bool:
+    """Does every report the gold pages come from have one of its gold pages among the docs? A question
+    about two reports answered from one of them can still pass has_gold."""
+    found = {(Path(str(doc.metadata.get("source", ""))).name, doc.metadata.get("page")) for doc in docs}
+    return all(any((name, page) in found for name, page in item["gold_pages"] if name == report)
+               for report in {name for name, _ in item["gold_pages"]})
 
 
 # --- variants measured and not adopted (experiment 13) -------------------------------------
@@ -234,12 +254,12 @@ def with_neighbors(report_db, docs: list) -> list:
 
 
 
-def compare(repeats: int, workers: int, variants: list[str]) -> None:
+def compare(repeats: int, workers: int, variants: list[str], question_set: str = "dev") -> None:
     from src import resources
     from src.tools import report
 
     refs = {item["id"]: item for item in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"]}
-    items = [item for item in answerable_items() if refs[item["id"]]["answerable"]]
+    items = [item for item in answerable_items(question_set) if refs[item["id"]]["answerable"]]
     grader = model("medium").with_structured_output(Grade)
     extractor = model("low").with_structured_output(Extraction)
     with tempfile.TemporaryDirectory(prefix="ragdog-pages-", ignore_cleanup_errors=True) as directory:
@@ -283,7 +303,7 @@ def compare(repeats: int, workers: int, variants: list[str]) -> None:
                     "seconds": round(seconds, 1), "compress_seconds": round(compress_seconds, 1),
                     "context_chars": sum(len(d.page_content) for d in docs), "verbatim": verbatim,
                     "search_seconds": round(search_seconds.get((item["id"], variant.removesuffix("_window")), 0.0), 2),
-                    "gold_in_context": has_gold(docs, item)}
+                    "gold_in_context": has_gold(docs, item), "every_report_in_context": has_every_gold_report(docs, item)}
 
         jobs = [(item, variant, r) for r in range(repeats) for item in items for variant in variants]
         with ThreadPoolExecutor(workers) as pool:
@@ -298,19 +318,21 @@ def compare(repeats: int, workers: int, variants: list[str]) -> None:
             "context_chars_mean": round(statistics.mean(row["context_chars"] for row in mine)),
             "answer_seconds_p50": statistics.median(row["seconds"] for row in mine),
             "gold_in_context": round(sum(row["gold_in_context"] for row in mine) / len(mine), 3),
+            "every_report_in_context": round(sum(row["every_report_in_context"] for row in mine) / len(mine), 3),
             "search_seconds_p50": statistics.median(row["search_seconds"] for row in mine),
         }
         if variant.startswith("compressed"):
             summary[variant]["verbatim_mean"] = round(statistics.mean(row["verbatim"] for row in mine), 3)
             summary[variant]["compress_seconds_p50"] = statistics.median(row["compress_seconds"] for row in mine)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"summary": summary, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+    OUT[question_set].parent.mkdir(parents=True, exist_ok=True)
+    OUT[question_set].write_text(json.dumps({"summary": summary, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("references", "compare"))
+    parser.add_argument("--set", dest="question_set", choices=("dev", "holdout"), default="dev")
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--variants", nargs="+", default=["chunks", "pages"],
@@ -318,7 +340,8 @@ def main() -> int:
                                  "hybrid_window"))
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    references() if args.command == "references" else compare(args.repeats, args.workers, args.variants)
+    references() if args.command == "references" else compare(args.repeats, args.workers, args.variants,
+                                                               args.question_set)
     return 0
 
 
