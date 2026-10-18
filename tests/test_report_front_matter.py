@@ -55,6 +55,35 @@ class FrontBackMatterTests(unittest.TestCase):
         self.assertEqual({c.kwargs["where"]["source"] for c in hybrid.call_args_list}, {kb, welfare})
         self.assertEqual(hybrid.call_args.args[2], "혼자 있는 시간을")  # the topic, not the report names
 
+    def test_a_question_asking_reports_apart_without_names(self):
+        self.assertTrue(report.asks_several_reports("펫보험 가입률은 보고서마다 몇 %로 나오나요?"))
+        self.assertTrue(report.asks_several_reports("혼자 있는 시간을 보고서들에서 찾아 비교해 주세요."))
+        self.assertTrue(report.asks_several_reports("여러 보고서의 양육비를 정리해 줘"))
+        self.assertFalse(report.asks_several_reports("KB 2025 보고서에서 반려가구 수는?"))
+        self.assertEqual(report.report_topic("혼자 있는 하루 평균 시간을 보고서들에서 찾아 비교해 주세요."),
+                         "혼자 있는 하루 평균 시간을")
+        self.assertEqual(report.report_topic("펫보험 가입률은 보고서마다 몇 %로 나오나요?"), "펫보험 가입률은 몇 %로 나오나요?")
+
+    def test_unnamed_reports_are_the_leading_three_of_the_overall_ranking(self):
+        kb, welfare, industry, medical, funeral = report.REPORT_NAMES
+
+        def search(db, index, query, top_k, candidate_k, where=None):
+            if where is None:  # the overall ranking picks the reports
+                return [chunk("목차··· a··· b··· c", page=2)] + [
+                    SimpleNamespace(page_content=f"{s} {n}", metadata={"source": s, "page": n, "title": ""})
+                    for s, n in ((industry, 179), (kb, 77), (industry, 180), (medical, 61), (welfare, 1), (funeral, 6))]
+            return [SimpleNamespace(page_content=f"{where['source']} {n}", metadata={"source": where["source"], "page": n,
+                                                                                      "title": ""}) for n in (1, 2, 3)]
+
+        with patch.object(report.resources, "load_report_vector_db", return_value=object()), \
+                patch.object(report.resources, "load_report_bm25_index", return_value=object()), \
+                patch("src.hybrid_retrieval.retrieve_hybrid", side_effect=search) as hybrid:
+            found = report.search_reports_hybrid("펫보험 가입률은 보고서마다 몇 %로 나오나요?", k=6)
+        searched = [c.kwargs["where"]["source"] for c in hybrid.call_args_list if c.kwargs.get("where")]
+        self.assertEqual(searched, [industry, kb, medical])
+        self.assertEqual(len(found), 6)
+        self.assertEqual(hybrid.call_args_list[0].args[2], "펫보험 가입률은 몇 %로 나오나요?")
+
     def test_the_topic_drops_names_years_and_asks(self):
         self.assertEqual(report.report_topic("KB 2025와 2024 복지실태 보고서에서 반려동물이 혼자 있는 하루 평균 시간을 각각 알려주세요."),
                          "반려동물이 혼자 있는 하루 평균 시간을")
