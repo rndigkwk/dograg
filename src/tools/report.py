@@ -183,13 +183,15 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
     index = resources.load_report_bm25_index()
     sources = named_reports(question)
     if len(sources) < 2 and asks_several_reports(question):
-        sources = leading_reports(report_db, index, report_topic(question))
-    if len(sources) >= 2:
+        sources = leading_reports(report_db, index, with_report_terms(report_topic(question)))
+    if sources:
         # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") is searched in
         # each report on its topic words: ranked together one report filled every slot, and the
         # report names, years and "각각 알려주세요" pulled cover pages ahead of the figure (r03:
         # 복지실태 p.169-170 "1일 평균 5.1시간" missed on Supabase until searched this way). No model call.
-        topic = report_topic(question)
+        # A question naming one report is searched in that report only (h07: KB p.16 out of the top 6
+        # among all five reports, 4th within KB on Supabase), on the question without the name.
+        topic = with_report_terms(report_topic(question) if len(sources) >= 2 else without_report_name(question))
         share = max(1, k // len(sources))
         found = []
         for source in sources:
@@ -197,7 +199,7 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
                                    where={"source": source})
             found += by_page([doc for doc in mine if not is_front_or_back_matter(doc)], share)
         return found
-    found = retrieve_hybrid(report_db, index, question, top_k=k + 8, candidate_k=REPORT_CANDIDATE_K)
+    found = retrieve_hybrid(report_db, index, with_report_terms(question), top_k=k + 8, candidate_k=REPORT_CANDIDATE_K)
     return by_page([doc for doc in found if not is_front_or_back_matter(doc)], k)
 
 
@@ -228,6 +230,27 @@ def report_topic(question: str) -> str:
     return " ".join(_TOPIC_NOISE.sub(" ", question).split()).strip(" ,.") or question
 
 
+# Guardians' words for what the reports call otherwise; the report's word is added to the query, no
+# model call. h03 "직접 땅에 묻은" found KB's "직접 매장" (p.68, 70) only with 매장 added; h07
+# "키우고 싶은" found "양육 희망" (p.16). Checked beyond those two on five everyday questions (e01-e05).
+REPORT_TERMS = [
+    (re.compile(r"땅에 묻|묻어 ?주|묻었|묻은"), "매장"),
+    (re.compile(r"세상을 떠난|떠나보낸|무지개다리|죽은 (반려|강아지|고양이)"), "장례 펫로스"),
+    (re.compile(r"키우고 싶|키울 생각|기르고 싶|입양하고 싶"), "양육 희망 양육 계획"),
+    (re.compile(r"키우는 (집|가구|가정)|기르는 (집|가구|가정)"), "반려가구 양육 가구"),
+    (re.compile(r"병원비"), "진료비 치료비"),
+    (re.compile(r"혼자 (두|남)"), "혼자 있는 시간"),
+    (re.compile(r"강아지"), "반려견"),
+    (re.compile(r"고양이"), "반려묘"),
+    (re.compile(r"보험(을|에)? ?(들|든)"), "보험 가입"),
+]
+
+
+def with_report_terms(query: str) -> str:
+    added = [term for pattern, term in REPORT_TERMS if pattern.search(query) and term not in query]
+    return " ".join([query, *added])
+
+
 def asks_several_reports(question: str) -> bool:
     return bool(_SEVERAL_REPORTS.search(question))
 
@@ -245,6 +268,21 @@ def leading_reports(report_db, index, topic: str) -> list[str]:
         if source not in order and not is_front_or_back_matter(doc):
             order.append(source)
     return order[:LEADING_REPORTS]
+
+
+# Longer forms a guardian writes the names in; stripped before REPORT_NAMES' short ones.
+_FULL_NAMES = ("산업 조사체계", "의료·보험서비스", "의료보험서비스", "장묘서비스 이용 실태조사", "장묘서비스", "한국 반려동물 보고서")
+
+
+def without_report_name(question: str) -> str:
+    """A question naming one report, without the name and "보고서에서": the report is the search's
+    filter. Only whole words go ("장묘 실태조사에서", not the 장묘 in "동물장묘업체"), and years stay
+    ("2013년과 2022년에" is what h12 asks for); report_topic drops both, for two-report questions."""
+    names = [*_FULL_NAMES, *sorted({n for ns in REPORT_NAMES.values() for n in ns}, key=len, reverse=True)]
+    for name in names:
+        question = re.sub(rf"(?<![가-힣]){re.escape(name)}(?:\s*20\d\d)?(?:(?:와|과|의|에서|은|는|이|가)(?![가-힣]))?", " ", question)
+    question = re.sub(r"(보고서|실태조사)(?:에서|의|와|과)?(?![가-힣])", " ", question)
+    return " ".join(question.split()) or question
 
 
 def named_reports(question: str) -> list[str]:

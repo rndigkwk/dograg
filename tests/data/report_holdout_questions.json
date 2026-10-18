@@ -1,7 +1,7 @@
 {
  "version": 1,
  "created": "2026-10-18",
- "note": "Report holdout: 12 questions written after the report search changes of 2026-10-17/18 and kept out of rule tuning. multi_unnamed asks about two reports without naming them; kb_ocr needs figures only the KB OCR chunks hold (the PDF text lost them); single asks one named report. Gold pages and the references in report_reference_answers.json were checked by hand against the page images.",
+ "note": "Report holdout: 12 questions written after the report search changes of 2026-10-17/18 and kept out of rule tuning. multi_unnamed asks about two reports without naming them; kb_ocr needs figures only the KB OCR chunks hold (the PDF text lost them); single asks one named report. Gold pages and the references in report_reference_answers.json were checked by hand against the page images. everyday (e01-e05, added the same day after the h03/h07 fix): guardians' words the reports put otherwise (키우는 집, 땅에 묻, 떠나보낸, 혼자 남, 보험에 든), written to check the REPORT_TERMS list beyond the two questions it was made from. h03's gold also gained 복지실태 p.164 (표 4-73, 인근 땅에 매립 38.1%).",
  "items": [
   {
    "id": "h01",
@@ -87,6 +87,10 @@
     [
      "반려동물 산업 조사체계 진단 및 실태조사.pdf",
      244
+    ],
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     164
     ]
    ]
   },
@@ -228,6 +232,95 @@
     [
      "반려동물+장묘서비스+이용+실태조사_온라인거래조사팀.pdf",
      10
+    ]
+   ]
+  },
+  {
+   "id": "e01",
+   "group": "report_holdout",
+   "kind": "everyday",
+   "expected": "answer",
+   "question": "KB 보고서에서 반려동물을 키우는 집은 몇 가구인가요?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     2
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     4
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     12
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     14
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     32
+    ]
+   ]
+  },
+  {
+   "id": "e02",
+   "group": "report_holdout",
+   "kind": "everyday",
+   "expected": "answer",
+   "question": "복지실태 보고서에서 지금 키우는 반려동물이 죽으면 땅에 묻겠다는 비율은?",
+   "gold_pages": [
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     165
+    ]
+   ]
+  },
+  {
+   "id": "e03",
+   "group": "report_holdout",
+   "kind": "everyday",
+   "expected": "answer",
+   "question": "KB 보고서에서 반려동물을 떠나보낸 경험이 있는 반려가구 비율은?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     3
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     84
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     92
+    ]
+   ]
+  },
+  {
+   "id": "e04",
+   "group": "report_holdout",
+   "kind": "everyday",
+   "expected": "answer",
+   "question": "복지실태 보고서에서 고양이가 집에 혼자 남는 시간은 하루 평균 몇 시간인가요?",
+   "gold_pages": [
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     170
+    ]
+   ]
+  },
+  {
+   "id": "e05",
+   "group": "report_holdout",
+   "kind": "everyday",
+   "expected": "answer",
+   "question": "산업 조사체계 보고서에서 고양이 보험에 든 비율은 몇 %인가요?",
+   "gold_pages": [
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     179
     ]
    ]
   }
