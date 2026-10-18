@@ -21,8 +21,8 @@ class ReportHoldoutTests(unittest.TestCase):
     def test_every_question_has_a_reference_and_gold_pages(self):
         items = json.loads(HOLDOUT.read_text(encoding="utf-8"))["items"]
         refs = {row["id"]: row for row in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"]}
-        self.assertEqual(len(items), 12)
-        self.assertEqual(len({item["id"] for item in items}), 12)
+        self.assertEqual(len(items), 17)
+        self.assertEqual(len({item["id"] for item in items}), 17)
         for item in items:
             self.assertTrue(item["gold_pages"], item["id"])
             self.assertTrue(refs[item["id"]]["reference"], item["id"])

@@ -51,7 +51,9 @@ class OpenAIEmbeddingSwitchTests(unittest.TestCase):
             report.analyze_report("반려동물 장묘 서비스 불만 유형")
             report.search_reports("입양비와 생활비 비교", ["입양비", "생활비"])
         queries = [call.args[0] for call in db.similarity_search.call_args_list]
-        self.assertEqual(queries, ["반려동물 장묘 서비스 불만 유형", "입양비", "생활비"])
+        # "장묘" names a report: that report is searched alone, on the question without its name.
+        self.assertEqual(queries, ["반려동물 서비스 불만 유형", "입양비", "생활비"])
+        self.assertEqual(db.similarity_search.call_args_list[0].kwargs["filter"]["source"], list(report.REPORT_NAMES)[4])
         self.assertEqual([call.args[0] for call in keywords.search.call_args_list], queries)
 
     def test_report_search_without_key_explains_requirement(self):
