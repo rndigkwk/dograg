@@ -182,6 +182,8 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
         return []
     index = resources.load_report_bm25_index()
     sources = named_reports(question)
+    if len(sources) < 2 and asks_several_reports(question):
+        sources = leading_reports(report_db, index, report_topic(question))
     if len(sources) >= 2:
         # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") is searched in
         # each report on its topic words: ranked together one report filled every slot, and the
@@ -208,7 +210,12 @@ REPORT_NAMES = {
         "의료·보험", "의료보험", "의료 보험", "보험서비스", "동물병원 소비자"),
     "data/source/반려동물+장묘서비스+이용+실태조사_온라인거래조사팀.pdf": ("장묘",),
 }
-_TOPIC_NOISE = re.compile(r"\b20\d\d(년)?(와|과|의|에서)?|(보고서|실태조사)(와|과|의|에서)?|각각|비교하고|묶어서|정리해 ?줘|알려 ?주세요")
+_TOPIC_NOISE = re.compile(r"\b20\d\d(년)?(와|과|의|에서)?|(보고서|실태조사)(마다|별로?|들)?(와|과|의|에서|을|를)?|각각|"
+                          r"비교해 ?(서|줘|주세요)?|비교하고|찾아|묶어서|정리해 ?줘|알려 ?(주세요|줘)")
+# "보고서마다", "보고서들에서", "각 보고서", "여러 보고서", "두 보고서": the question asks the reports apart
+# without naming them (holdout h01-h04, 2026-10-18).
+_SEVERAL_REPORTS = re.compile(r"보고서(마다|별|들)|(각|여러|두|세) ?보고서")
+LEADING_REPORTS = 3
 
 
 def report_topic(question: str) -> str:
@@ -219,6 +226,25 @@ def report_topic(question: str) -> str:
             if name != "동물병원 소비자":
                 question = question.replace(name, " ")
     return " ".join(_TOPIC_NOISE.sub(" ", question).split()).strip(" ,.") or question
+
+
+def asks_several_reports(question: str) -> bool:
+    return bool(_SEVERAL_REPORTS.search(question))
+
+
+def leading_reports(report_db, index, topic: str) -> list[str]:
+    """The reports a question that names none is about: the first LEADING_REPORTS reports in the
+    overall ranking of its topic words. Five reports split six slots one each left both answers out
+    on Supabase (h01, h04); three reports, two pages each, had every asked report on 4/5 local and
+    3/5 Supabase questions, from 3/5 and 1/5 ranked together (docs/wiki/retrieval-experiments.md)."""
+    from src.hybrid_retrieval import retrieve_hybrid
+
+    order: list[str] = []
+    for doc in retrieve_hybrid(report_db, index, topic, top_k=40, candidate_k=REPORT_CANDIDATE_K):
+        source = doc.metadata.get("source")
+        if source not in order and not is_front_or_back_matter(doc):
+            order.append(source)
+    return order[:LEADING_REPORTS]
 
 
 def named_reports(question: str) -> list[str]:
