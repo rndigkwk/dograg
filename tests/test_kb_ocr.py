@@ -1,4 +1,4 @@
-"""scripts/add_kb_ocr_chunks.py: the OCR clean-up keeps figures and fixes only the two known misreads."""
+"""scripts/add_kb_ocr_chunks.py: the OCR clean-up keeps figures and fixes only the known misreads."""
 
 import sys
 import unittest
@@ -12,9 +12,15 @@ class CleanOcrTests(unittest.TestCase):
     def test_year_and_percent_point_misreads(self):
         self.assertEqual(clean_ocr("202314 가입률과 비교해 20234 대비"), "2023년 가입률과 비교해 2023년 대비")
         self.assertEqual(clean_ocr("증가했고(7.8%0), 1%0도"), "증가했고(7.8%p), 1%p도")
+        self.assertEqual(clean_ocr("202344 말 기준, 202444 미국에서"), "2023년 말 기준, 2024년 미국에서")
+        self.assertEqual(clean_ocr("소폭(2.2%00) 감소, (+4.9%00),"), "소폭(2.2%p) 감소, (+4.9%p),")
+
+    def test_a_dropped_decimal_point_goes_back(self):
+        self.assertEqual(clean_ocr("'메모리얼스톤'(124%으로, 반려가구(826%) +313%p"),
+                         "'메모리얼스톤'(12.4%으로, 반려가구(82.6%) +31.3%p")
 
     def test_figures_stay(self):
-        text = "12.8%로 2024년 말 591만 가구, 2023 1월, 14.6%, 2014년, 26.7%"
+        text = "12.8%로 2024년 말 591만 가구, 2023 1월, 14.6%, 2014년, 26.7%, 사료로 100%변경, 30190%, 1,234%"
         self.assertEqual(clean_ocr(text), text)
 
 
