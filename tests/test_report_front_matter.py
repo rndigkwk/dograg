@@ -101,6 +101,17 @@ class FrontBackMatterTests(unittest.TestCase):
         self.assertEqual(hybrid.call_args.kwargs["where"], {"source": kb})
         self.assertEqual(hybrid.call_args.args[2], "반려묘를 키우고 싶은 비율은? 양육 희망 양육 계획")
 
+    def test_supabase_report_keywords_come_from_the_in_memory_bm25(self):
+        bm25 = object()
+        report.resources.load_report_bm25_index.clear()
+        try:
+            with patch.object(report.resources, "search_backend", return_value="supabase"), \
+                    patch.object(report.resources, "create_embedding_model", return_value=object()), \
+                    patch.object(report.resources, "load_fallback_report_index", return_value=bm25):
+                self.assertIs(report.resources.load_report_bm25_index(), bm25)
+        finally:
+            report.resources.load_report_bm25_index.clear()
+
     def test_the_topic_drops_names_years_and_asks(self):
         self.assertEqual(report.report_topic("KB 2025와 2024 복지실태 보고서에서 반려동물이 혼자 있는 하루 평균 시간을 각각 알려주세요."),
                          "반려동물이 혼자 있는 하루 평균 시간을")
