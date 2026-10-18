@@ -91,7 +91,7 @@ class FrontBackMatterTests(unittest.TestCase):
 
     def test_one_named_report_is_searched_alone_without_its_name(self):
         self.assertEqual(report.without_report_name("장묘 실태조사에서 등록된 동물장묘업체 수는 2013년과 2022년에 각각 몇 곳인가요?"),
-                         "등록된 동물장묘업체 수는 2013년과 2022년에 각각 몇 곳인가요?")
+                         "등록된 동물장묘업체 수는 2013년과 2022년에 각각")  # the question ending goes too
         self.assertEqual(report.without_report_name("산업 조사체계 보고서에서 앞으로의 장례 방법은?"), "앞으로의 장례 방법은?")
         kb = next(iter(report.REPORT_NAMES))
         with patch.object(report.resources, "load_report_vector_db", return_value=object()), \

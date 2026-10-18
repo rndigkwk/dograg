@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from add_kb_ocr_chunks import clean_ocr  # noqa: E402
+from add_kb_ocr_chunks import OCR_CORRECTIONS, clean_ocr, correct_ocr
 
 
 class CleanOcrTests(unittest.TestCase):
@@ -18,6 +18,14 @@ class CleanOcrTests(unittest.TestCase):
     def test_a_dropped_decimal_point_goes_back(self):
         self.assertEqual(clean_ocr("'메모리얼스톤'(124%으로, 반려가구(826%) +313%p"),
                          "'메모리얼스톤'(12.4%으로, 반려가구(82.6%) +31.3%p")
+
+    def test_checked_figures_are_corrected_once_per_page(self):
+        self.assertEqual(correct_ocr(7, "만지기(59.2%;, 반려견"), "만지기(39.2%;, 반려견")
+        self.assertEqual(correct_ocr(14, "2025년 말\n대비 589만 1 fu\n196만 0.5%"), "2023년 말 대비 585만 1,196만 0.3%")
+        self.assertEqual(correct_ocr(5, "59.2%"), "59.2%")  # only the checked page
+        with self.assertRaises(ValueError):  # a correction that no longer matches is caught
+            correct_ocr(7, "39.2%")
+        self.assertEqual(sorted(OCR_CORRECTIONS), [7, 14, 77])
 
     def test_figures_stay(self):
         text = "12.8%로 2024년 말 591만 가구, 2023 1월, 14.6%, 2014년, 26.7%, 사료로 100%변경, 30190%, 1,234%"
