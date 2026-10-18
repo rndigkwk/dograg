@@ -3,6 +3,7 @@
     uv run python scripts/add_kb_ocr_chunks.py --dry-run          # pages, chunks, embedding tokens
     uv run python scripts/add_kb_ocr_chunks.py --local            # data/chroma_db + data/vector_store
     uv run python scripts/add_kb_ocr_chunks.py --supabase         # ragdog_report (admin SUPABASE_DB_URL)
+    uv run python scripts/add_kb_ocr_chunks.py --local --replace  # drop the stored OCR chunks first (clean_ocr changed)
 
 Reads data/source/kb_report_ocr.json (scripts/ocr_kb_report.py) and, for each page marked
 needs_ocr, splits the OCR text like the original ingestion (1,000 characters, 200 overlap) into
@@ -10,6 +11,8 @@ extra chunks next to the page's PDF chunks, which stay as they are (their wordin
 OCR misreads). The metadata is the page's own plus text_source "ocr", so the evidence shows the same
 report and page. One embedding call per chunk batch (text-embedding-3-small, as the stored vectors);
 no chat model calls. Chunks already present (same id) are skipped, so each target can be filled once.
+With --replace the target's OCR chunks (text_source "ocr") are deleted first and written again: a
+clean_ocr change shifts the chunk boundaries, so the ids no longer match the old pieces.
 """
 
 from __future__ import annotations
@@ -43,15 +46,23 @@ def page_metadata() -> dict[int, dict]:
     return pages
 
 
-# Tesseract's two most common misreads in this report: the 년 after a year read as "14" or "4"
-# ("202314 가입률" for "2023년 가입률") and %p read as "%0" ("7.8%0"). Other misreads stay; the
-# page's PDF chunks keep the exact wording next to these.
-YEAR_NYEON = re.compile(r"\b(20[0-3]\d)(?:14|4)(?=[\s,.)(]|$)")
-PERCENT_POINT = re.compile(r"(\d)%0(?!\d)")
+# Tesseract's common misreads in this report (counted in its 91 OCR pages, 2026-10-17/18):
+# - the 년 after a year read as "14", "44" or "4": "202314 가입률", "202344 말 기준" (7) for "2023년 …"
+# - %p read as "%0" or "%00": "(7.8%0)", "(2.2%00)" (2)
+# - the decimal point dropped from a share: "(124%)" for 12.4%, "(826%)" for 82.6% (12). A share
+#   of 101-999% is impossible here, so the point goes back before the last digit; 100% stays. One
+#   checked against the page image had another digit misread too ("592%" for 39.2%): the point is
+#   right, the digit stays wrong.
+# Other misreads stay ("2025년 11.9%" for 2023년, "589만" for 585만); the page's PDF chunks keep the
+# exact wording next to these.
+YEAR_NYEON = re.compile(r"\b(20[0-3]\d)(?:44|14|4)(?=[\s,.)(]|$)")
+PERCENT_POINT = re.compile(r"(\d)%00?(?!\d)")
+DROPPED_POINT = re.compile(r"(?<![\d.,])(?!100%)([1-9]\d)(\d)%")
 
 
 def clean_ocr(text: str) -> str:
-    return PERCENT_POINT.sub(r"\1%p", YEAR_NYEON.sub(r"\1년", text))
+    text = YEAR_NYEON.sub(r"\1년", text)
+    return DROPPED_POINT.sub(r"\1.\2%", PERCENT_POINT.sub(r"\1%p", text))
 
 
 def ocr_chunks() -> list[dict]:
@@ -80,6 +91,25 @@ def embed(texts: list[str]) -> np.ndarray:
     return np.asarray(model.embed_documents(texts), dtype=np.float32)
 
 
+def drop_local_ocr() -> None:
+    """Remove the OCR chunks from the exact store and the source Chroma database."""
+    from src import resources
+
+    rows = [json.loads(line) for line in (STORE / "documents.jsonl").open(encoding="utf-8")]
+    keep = [i for i, row in enumerate(rows) if row["metadata"].get("text_source") != "ocr"]
+    np.save(STORE / "vectors.npy", np.load(STORE / "vectors.npy")[keep])
+    with (STORE / "documents.jsonl").open("w", encoding="utf-8") as file:
+        for i in keep:
+            file.write(json.dumps(rows[i], ensure_ascii=False) + "\n")
+    import chromadb
+
+    collection = chromadb.PersistentClient(path=str(resources.SOURCE_CHROMA_DIR)).get_collection(resources.REPORT_COLLECTION_NAME)
+    old = collection.get(where={"text_source": "ocr"})["ids"]
+    if old:
+        collection.delete(ids=old)
+    print(f"exact store: {len(rows) - len(keep)} OCR chunks removed; chroma: {len(old)} removed")
+
+
 def add_local(chunks: list[dict], vectors: np.ndarray) -> None:
     from src import resources
 
@@ -106,12 +136,15 @@ def add_local(chunks: list[dict], vectors: np.ndarray) -> None:
     print(f"chroma: {len(todo)} added, {len(chunks) - len(todo)} already there")
 
 
-def add_supabase(chunks: list[dict], vectors: np.ndarray) -> None:
+def add_supabase(chunks: list[dict], vectors: np.ndarray, replace: bool = False) -> None:
     from src import resources, settings
     from src.supabase_store import connector
 
     table = resources.SUPABASE_REPORT_TABLE
     with connector(settings.get_setting("SUPABASE_DB_URL"))() as conn:
+        if replace:
+            removed = conn.execute(f"delete from {table} where metadata->>'text_source' = 'ocr'").rowcount
+            print(f"supabase {table}: {removed} OCR chunks removed")
         present = {row[0] for row in conn.execute(f"select id from {table} where id = any(%s)", [[c["id"] for c in chunks]]).fetchall()}
         todo = [i for i, c in enumerate(chunks) if c["id"] not in present]
         for i in todo:
@@ -126,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--supabase", action="store_true")
+    parser.add_argument("--replace", action="store_true", help="delete the target's OCR chunks first")
     args = parser.parse_args(argv)
     chunks = ocr_chunks()
     pages = sorted({c["metadata"]["page"] for c in chunks})
@@ -134,9 +168,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     vectors = embed([c["text"] for c in chunks])
     if args.local:
+        if args.replace:
+            drop_local_ocr()
         add_local(chunks, vectors)
     if args.supabase:
-        add_supabase(chunks, vectors)
+        add_supabase(chunks, vectors, replace=args.replace)
     return 0
 
 
