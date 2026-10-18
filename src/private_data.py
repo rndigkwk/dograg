@@ -38,7 +38,8 @@ REPO_ID = "blanden77/dograg-data"
 #            "202344", %p as "%00", a share's dropped decimal point; add_kb_ocr_chunks.py --replace)
 #   data-v7  2026-10-18 + seven OCR figures corrected by hand on KB p.7, 14, 77 after checking the page
 #            images (add_kb_ocr_chunks.OCR_CORRECTIONS; "59.2%" for 39.2% on p.7)
-REVISION = "data-v7"
+#   data-v8  2026-10-18 + two more on KB p.28 (39.2% read as 59.2% again, 43.9% as 45.9%)
+REVISION = "data-v8"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"

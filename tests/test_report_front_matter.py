@@ -64,7 +64,7 @@ class FrontBackMatterTests(unittest.TestCase):
                          "혼자 있는 하루 평균 시간을")
         self.assertEqual(report.report_topic("펫보험 가입률은 보고서마다 몇 %로 나오나요?"), "펫보험 가입률은 몇 %로 나오나요?")
 
-    def test_unnamed_reports_are_the_leading_three_of_the_overall_ranking(self):
+    def test_unnamed_reports_are_the_leading_four_of_the_overall_ranking(self):
         kb, welfare, industry, medical, funeral = report.REPORT_NAMES
 
         def search(db, index, query, top_k, candidate_k, where=None):
@@ -80,8 +80,8 @@ class FrontBackMatterTests(unittest.TestCase):
                 patch("src.hybrid_retrieval.retrieve_hybrid", side_effect=search) as hybrid:
             found = report.search_reports_hybrid("펫보험 가입률은 보고서마다 몇 %로 나오나요?", k=6)
         searched = [c.kwargs["where"]["source"] for c in hybrid.call_args_list if c.kwargs.get("where")]
-        self.assertEqual(searched, [industry, kb, medical])
-        self.assertEqual(len(found), 6)
+        self.assertEqual(searched, [industry, kb, medical, welfare])
+        self.assertEqual(len(found), 8)  # two pages each
         self.assertEqual(hybrid.call_args_list[0].args[2], "펫보험 가입률은 몇 %로 나오나요?")
 
     def test_guardians_words_gain_the_reports_word(self):

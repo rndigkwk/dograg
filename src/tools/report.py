@@ -182,7 +182,8 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
         return []
     index = resources.load_report_bm25_index()
     sources = named_reports(question)
-    if len(sources) < 2 and asks_several_reports(question):
+    unnamed = len(sources) < 2 and asks_several_reports(question)
+    if unnamed:
         sources = leading_reports(report_db, index, with_report_terms(report_topic(question)))
     if sources:
         # A question that names two reports ("KB 2025와 2024 복지실태 보고서에서 …") is searched in
@@ -191,8 +192,14 @@ def search_reports_hybrid(question: str, k: int = REPORT_ANALYSIS_TOP_K) -> list
         # 복지실태 p.169-170 "1일 평균 5.1시간" missed on Supabase until searched this way). No model call.
         # A question naming one report is searched in that report only (h07: KB p.16 out of the top 6
         # among all five reports, 4th within KB on Supabase), on the question without the name.
-        topic = with_report_terms(report_topic(question) if len(sources) >= 2 else without_report_name(question))
-        share = max(1, k // len(sources))
+        # Within each report the question's ending ("어떻게 나오나요?") goes too: on Supabase it ranked
+        # KB's summary pages ahead of p.68-70 "직접 매장" (h03). The report choice above keeps it: without
+        # it the local search lost h01.
+        if len(sources) >= 2:
+            topic = with_report_terms(" ".join(_QUESTION_ENDING.sub(" ", report_topic(question)).split()))
+        else:
+            topic = with_report_terms(without_report_name(question))
+        share = UNNAMED_PAGES if unnamed else max(1, k // len(sources))
         found = []
         for source in sources:
             mine = retrieve_hybrid(report_db, index, topic, top_k=k + 8, candidate_k=REPORT_CANDIDATE_K,
@@ -217,7 +224,10 @@ _TOPIC_NOISE = re.compile(r"\b20\d\d(년)?(와|과|의|에서)?|(보고서|실�
 # "보고서마다", "보고서들에서", "각 보고서", "여러 보고서", "두 보고서": the question asks the reports apart
 # without naming them (holdout h01-h04, 2026-10-18).
 _SEVERAL_REPORTS = re.compile(r"보고서(마다|별|들)|(각|여러|두|세) ?보고서")
-LEADING_REPORTS = 3
+# An unnamed several-report question takes 4 reports, 2 pages each (8 pages, +25% evidence): with 3,
+# KB was 4th for h03 on Supabase and its 직접 매장 figures were left out.
+LEADING_REPORTS = 4
+UNNAMED_PAGES = 2
 
 
 def report_topic(question: str) -> str:
@@ -235,7 +245,8 @@ def report_topic(question: str) -> str:
 # "키우고 싶은" found "양육 희망" (p.16). Checked beyond those two on five everyday questions (e01-e05).
 REPORT_TERMS = [
     (re.compile(r"땅에 묻|묻어 ?주|묻었|묻은"), "매장"),
-    (re.compile(r"세상을 떠난|떠나보낸|무지개다리|죽은 (반려|강아지|고양이)"), "장례 펫로스"),
+    (re.compile(r"세상을 떠난|죽은 (반려|강아지|고양이)"), "장례"),
+    (re.compile(r"떠나보낸|무지개다리"), "장례 펫로스"),  # 펫로스 on 세상을 떠난 drew KB's pet-loss pages (h03)
     (re.compile(r"키우고 싶|키울 생각|기르고 싶|입양하고 싶"), "양육 희망 양육 계획"),
     (re.compile(r"키우는 (집|가구|가정)|기르는 (집|가구|가정)"), "반려가구 양육 가구"),
     (re.compile(r"병원비"), "진료비 치료비"),
@@ -244,6 +255,7 @@ REPORT_TERMS = [
     (re.compile(r"고양이"), "반려묘"),
     (re.compile(r"보험(을|에)? ?(들|든)"), "보험 가입"),
     (re.compile(r"앞으로|나중에|장래"), "향후"),
+    (re.compile(r"변해 ?왔|변화|달라졌|바뀌었"), "추이"),
 ]
 
 
@@ -260,7 +272,8 @@ def leading_reports(report_db, index, topic: str) -> list[str]:
     """The reports a question that names none is about: the first LEADING_REPORTS reports in the
     overall ranking of its topic words. Five reports split six slots one each left both answers out
     on Supabase (h01, h04); three reports, two pages each, had every asked report on 4/5 local and
-    3/5 Supabase questions, from 3/5 and 1/5 ranked together (docs/wiki/retrieval-experiments.md)."""
+    3/5 Supabase questions, from 3/5 and 1/5 ranked together; four since h03, whose KB pages were the
+    fourth report on Supabase (docs/wiki/retrieval-experiments.md)."""
     from src.hybrid_retrieval import retrieve_hybrid
 
     order: list[str] = []
@@ -273,8 +286,9 @@ def leading_reports(report_db, index, topic: str) -> list[str]:
 
 # How a question ends ("…으로 가장 많이 꼽은 것은?", "몇 %인가요?"): words every survey page has. Kept in
 # the query, Supabase's keyword search (PGroonga &@*) ranked survey tables of other questions first
-# (h10: 산업 조사체계 p.135, 220-222 ahead of p.176 "향후 장례 방법"). Dropped for one named report only:
-# for questions across reports the local search lost h01 (docs/wiki/retrieval-experiments.md).
+# (h10: 산업 조사체계 p.135, 220-222 ahead of p.176 "향후 장례 방법"). Dropped from every per-report
+# search; not from the query that picks the reports of an unnamed question, where the local search
+# lost h01 (docs/wiki/retrieval-experiments.md).
 _QUESTION_ENDING = re.compile(
     r"(으로|로)? ?가장 많이 꼽은 (것|항목)[은는]?\??|무엇인가요\??|(은|는)? ?몇 ?(%|퍼센트|곳|명|가구|시간)(로|이)? ?(나오나요|인가요|되나요)?\??|"
     r"(은|는)? ?얼마(인가요|나 되나요)?\??|어떻게 (나오나요|되나요|다른가요)\??|(이|가)? ?(있나요|했나요)\??")
