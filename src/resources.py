@@ -239,9 +239,11 @@ def load_report_bm25_index():
     if search_backend() == "supabase":
         if create_embedding_model() is None:
             return None
-        from src.supabase_store import PgroongaIndex
-
-        return _supabase(PgroongaIndex, SUPABASE_REPORT_TABLE, load_fallback_report_index)
+        # The report keyword half is the in-memory bigram BM25 over the exact store, not PGroonga: the
+        # reports are 1,340 chunks (1.5 s to build, 34 MB, 5 ms a query), and PGroonga's &@* ranked
+        # other survey tables first where BM25 found the page (h04: 산업 조사체계 p.50; holdout
+        # 16 -> 17/17, dev 17/18 kept; docs/wiki/retrieval-experiments.md). Dense stays on Supabase.
+        return load_fallback_report_index()
     return load_local_report_bm25_index()
 
 
