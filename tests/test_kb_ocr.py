@@ -25,7 +25,7 @@ class CleanOcrTests(unittest.TestCase):
         self.assertEqual(correct_ocr(5, "59.2%"), "59.2%")  # only the checked page
         with self.assertRaises(ValueError):  # a correction that no longer matches is caught
             correct_ocr(7, "39.2%")
-        self.assertEqual(sorted(OCR_CORRECTIONS), [7, 14, 77])
+        self.assertEqual(sorted(OCR_CORRECTIONS), [7, 14, 28, 77])
 
     def test_figures_stay(self):
         text = "12.8%로 2024년 말 591만 가구, 2023 1월, 14.6%, 2014년, 26.7%, 사료로 100%변경, 30190%, 1,234%"

@@ -61,11 +61,13 @@ DROPPED_POINT = re.compile(r"(?<![\d.,])(?!100%)([1-9]\d)(\d)%")
 
 
 # Figures the OCR misread digit by digit, which no rule can tell: checked one by one against the page
-# images of the pages a holdout answer quoted them from (2026-10-18; h08 answered "59.2%" from p.7).
+# images of the pages a holdout answer quoted them from (2026-10-18; h08 answered "59.2%" from p.7,
+# which p.28 repeats).
 # Matched with any whitespace between the words, each exactly once on its page.
 OCR_CORRECTIONS: dict[int, list[tuple[str, str]]] = {
     7: [("59.2%", "39.2%")],
     14: [("2025년 말 대비", "2023년 말 대비"), ("589만", "585만"), ("1 fu 196만", "1,196만"), ("0.5%", "0.3%")],
+    28: [("59.2%", "39.2%"), ("45.9%", "43.9%")],
     77: [("2025년 11.9%", "2023년 11.9%"), ("15.79%", "15.7%")],
 }
 
