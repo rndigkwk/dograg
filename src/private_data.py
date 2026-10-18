@@ -36,7 +36,9 @@ REPO_ID = "blanden77/dograg-data"
 #            (scripts/ocr_kb_report.py, scripts/add_kb_ocr_chunks.py), in Chroma and the exact store
 #   data-v6  2026-10-18 the same OCR chunks rebuilt with three more misread rules (2023년 read as
 #            "202344", %p as "%00", a share's dropped decimal point; add_kb_ocr_chunks.py --replace)
-REVISION = "data-v6"
+#   data-v7  2026-10-18 + seven OCR figures corrected by hand on KB p.7, 14, 77 after checking the page
+#            images (add_kb_ocr_chunks.OCR_CORRECTIONS; "59.2%" for 39.2% on p.7)
+REVISION = "data-v7"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"

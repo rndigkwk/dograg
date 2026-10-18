@@ -60,6 +60,24 @@ PERCENT_POINT = re.compile(r"(\d)%00?(?!\d)")
 DROPPED_POINT = re.compile(r"(?<![\d.,])(?!100%)([1-9]\d)(\d)%")
 
 
+# Figures the OCR misread digit by digit, which no rule can tell: checked one by one against the page
+# images of the pages a holdout answer quoted them from (2026-10-18; h08 answered "59.2%" from p.7).
+# Matched with any whitespace between the words, each exactly once on its page.
+OCR_CORRECTIONS: dict[int, list[tuple[str, str]]] = {
+    7: [("59.2%", "39.2%")],
+    14: [("2025년 말 대비", "2023년 말 대비"), ("589만", "585만"), ("1 fu 196만", "1,196만"), ("0.5%", "0.3%")],
+    77: [("2025년 11.9%", "2023년 11.9%"), ("15.79%", "15.7%")],
+}
+
+
+def correct_ocr(page: int, text: str) -> str:
+    for wrong, right in OCR_CORRECTIONS.get(page, []):
+        text, count = re.subn(r"\s+".join(map(re.escape, wrong.split())), right, text)
+        if count != 1:
+            raise ValueError(f"OCR correction {wrong!r} matched {count} times on page {page}")
+    return text
+
+
 def clean_ocr(text: str) -> str:
     text = YEAR_NYEON.sub(r"\1년", text)
     return DROPPED_POINT.sub(r"\1.\2%", PERCENT_POINT.sub(r"\1%p", text))
@@ -74,7 +92,7 @@ def ocr_chunks() -> list[dict]:
     base = page_metadata()
     chunks = []
     for page in sorted(int(p) for p, v in data["pages"].items() if v["needs_ocr"]):
-        text = clean_ocr(data["pages"][str(page)]["ocr"])
+        text = correct_ocr(page, clean_ocr(data["pages"][str(page)]["ocr"]))
         for index, piece in enumerate(splitter.split_text(text)):
             meta = {**base[page], "text_source": "ocr", "ocr_method": data["method"], "chunk_index": index,
                     "text_sha256": hashlib.sha256(piece.encode("utf-8")).hexdigest()}

@@ -243,6 +243,7 @@ REPORT_TERMS = [
     (re.compile(r"강아지"), "반려견"),
     (re.compile(r"고양이"), "반려묘"),
     (re.compile(r"보험(을|에)? ?(들|든)"), "보험 가입"),
+    (re.compile(r"앞으로|나중에|장래"), "향후"),
 ]
 
 
@@ -270,6 +271,13 @@ def leading_reports(report_db, index, topic: str) -> list[str]:
     return order[:LEADING_REPORTS]
 
 
+# How a question ends ("…으로 가장 많이 꼽은 것은?", "몇 %인가요?"): words every survey page has. Kept in
+# the query, Supabase's keyword search (PGroonga &@*) ranked survey tables of other questions first
+# (h10: 산업 조사체계 p.135, 220-222 ahead of p.176 "향후 장례 방법"). Dropped for one named report only:
+# for questions across reports the local search lost h01 (docs/wiki/retrieval-experiments.md).
+_QUESTION_ENDING = re.compile(
+    r"(으로|로)? ?가장 많이 꼽은 (것|항목)[은는]?\??|무엇인가요\??|(은|는)? ?몇 ?(%|퍼센트|곳|명|가구|시간)(로|이)? ?(나오나요|인가요|되나요)?\??|"
+    r"(은|는)? ?얼마(인가요|나 되나요)?\??|어떻게 (나오나요|되나요|다른가요)\??|(이|가)? ?(있나요|했나요)\??")
 # Longer forms a guardian writes the names in; stripped before REPORT_NAMES' short ones.
 _FULL_NAMES = ("산업 조사체계", "의료·보험서비스", "의료보험서비스", "장묘서비스 이용 실태조사", "장묘서비스", "한국 반려동물 보고서")
 
@@ -282,6 +290,7 @@ def without_report_name(question: str) -> str:
     for name in names:
         question = re.sub(rf"(?<![가-힣]){re.escape(name)}(?:\s*20\d\d)?(?:(?:와|과|의|에서|은|는|이|가)(?![가-힣]))?", " ", question)
     question = re.sub(r"(보고서|실태조사)(?:에서|의|와|과)?(?![가-힣])", " ", question)
+    question = _QUESTION_ENDING.sub(" ", question)
     return " ".join(question.split()) or question
 
 
