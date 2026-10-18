@@ -1,0 +1,235 @@
+{
+ "version": 1,
+ "created": "2026-10-18",
+ "note": "Report holdout: 12 questions written after the report search changes of 2026-10-17/18 and kept out of rule tuning. multi_unnamed asks about two reports without naming them; kb_ocr needs figures only the KB OCR chunks hold (the PDF text lost them); single asks one named report. Gold pages and the references in report_reference_answers.json were checked by hand against the page images.",
+ "items": [
+  {
+   "id": "h01",
+   "group": "report_holdout",
+   "kind": "multi_unnamed",
+   "expected": "answer",
+   "question": "펫보험(반려동물보험) 가입률은 보고서마다 몇 %로 나오나요?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     82
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     77
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     76
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     6
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     3
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     179
+    ]
+   ]
+  },
+  {
+   "id": "h02",
+   "group": "report_holdout",
+   "kind": "multi_unnamed",
+   "expected": "answer",
+   "question": "반려동물이 보호자 없이 혼자 있는 하루 평균 시간을 보고서들에서 찾아 비교해 주세요.",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     42
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     50
+    ],
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     170
+    ],
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     169
+    ]
+   ]
+  },
+  {
+   "id": "h03",
+   "group": "report_holdout",
+   "kind": "multi_unnamed",
+   "expected": "answer",
+   "question": "세상을 떠난 반려동물을 직접 땅에 묻은 비율은 보고서마다 어떻게 나오나요?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     70
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     68
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     4
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     175
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     244
+    ]
+   ]
+  },
+  {
+   "id": "h04",
+   "group": "report_holdout",
+   "kind": "multi_unnamed",
+   "expected": "answer",
+   "question": "국내 반려동물 양육 가구 비율이 어떻게 변해 왔는지 보고서들을 비교해 알려 주세요.",
+   "gold_pages": [
+    [
+     "반려동물 복지실태와 개선과제.pdf",
+     29
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     36
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     50
+    ]
+   ]
+  },
+  {
+   "id": "h05",
+   "group": "report_holdout",
+   "kind": "kb_ocr",
+   "expected": "answer",
+   "question": "KB 2025 보고서에서 2024년 말 기준 반려인 수와 총인구 대비 비중, 전년 대비 증가 폭은?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     14
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     2
+    ]
+   ]
+  },
+  {
+   "id": "h06",
+   "group": "report_holdout",
+   "kind": "kb_ocr",
+   "expected": "answer",
+   "question": "KB 2025 보고서에서 월평균 양육비 중 식비 비중은 얼마이고 이전 조사보다 얼마나 늘었나요?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     63
+    ]
+   ]
+  },
+  {
+   "id": "h07",
+   "group": "report_holdout",
+   "kind": "kb_ocr",
+   "expected": "answer",
+   "question": "KB 2025 보고서에서 반려동물을 키우고 싶은 비반려가구 중 반려묘를 원하는 비율과 지난 조사 대비 변화는?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     16
+    ]
+   ]
+  },
+  {
+   "id": "h08",
+   "group": "report_holdout",
+   "kind": "kb_ocr",
+   "expected": "answer",
+   "question": "KB 2025 보고서에서 반려인이 겪은 비반려인의 펫티켓 위반 중 '허락 없이 만지기' 비율은?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     7
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     28
+    ]
+   ]
+  },
+  {
+   "id": "h09",
+   "group": "report_holdout",
+   "kind": "single",
+   "expected": "answer",
+   "question": "의료·보험서비스 보고서에서 양육자의 몇 %가 동물병원 진료비에 부담을 느낀다고 했나요?",
+   "gold_pages": [
+    [
+     "반려동물+의료보험서비스+시장+진단+및+개선방안+연구_고은희_강하영.pdf",
+     30
+    ]
+   ]
+  },
+  {
+   "id": "h10",
+   "group": "report_holdout",
+   "kind": "single",
+   "expected": "answer",
+   "question": "산업 조사체계 보고서에서 양육자가 앞으로의 반려동물 장례 방법으로 가장 많이 꼽은 것은?",
+   "gold_pages": [
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     176
+    ],
+    [
+     "반려동물 산업 조사체계 진단 및 실태조사.pdf",
+     244
+    ]
+   ]
+  },
+  {
+   "id": "h11",
+   "group": "report_holdout",
+   "kind": "single",
+   "expected": "answer",
+   "question": "KB 2025 보고서에서 반려동물보험 시장 활성화를 위한 최우선 과제로 꼽힌 것과 그 비율은?",
+   "gold_pages": [
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     82
+    ],
+    [
+     "2025 한국 반려동물 보고서.pdf",
+     79
+    ]
+   ]
+  },
+  {
+   "id": "h12",
+   "group": "report_holdout",
+   "kind": "single",
+   "expected": "answer",
+   "question": "장묘 실태조사에서 등록된 동물장묘업체 수는 2013년과 2022년에 각각 몇 곳인가요?",
+   "gold_pages": [
+    [
+     "반려동물+장묘서비스+이용+실태조사_온라인거래조사팀.pdf",
+     10
+    ]
+   ]
+  }
+ ]
+}
