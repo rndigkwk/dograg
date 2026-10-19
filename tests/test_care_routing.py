@@ -35,6 +35,11 @@ class CareRoutingTests(unittest.TestCase):
                          "노견이 요즘 계단을 못 올라가는데 집에서 뭘 해 줘야 하나요?"):
             self.assertEqual(self.route(question), ("rag", False), question)
 
+    def test_reporting_a_death_is_a_health_question_even_with_where(self):
+        self.assertEqual(self.route("반려견 사망 신고는 어디에 하나요?"), ("rag", False))
+        self.assertEqual(self.route("키우던 개가 떠난 지 한 달인데 아직도 너무 슬퍼요"), ("rag", False))
+        self.assertEqual(self.route("근처 반려동물 장례식장 어디 있어?")[0], "sql")
+
     def test_funeral_homes_and_funeral_figures_stay_where_they_were(self):
         self.assertEqual(self.route("강남구 반려동물 장례식장 알려줘")[0], "sql")
         self.assertEqual(self.route("강아지 장례 비용 얼마예요?"), ("analysis", False))
