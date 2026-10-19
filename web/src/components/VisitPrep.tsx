@@ -18,9 +18,12 @@ import {
 } from "@/lib/visitPrep";
 
 import { type Location, locate } from "@/lib/location";
+import { forChat, listNotes, type Note, NOTES_PER_QUESTION, noteDate, notesEnabled } from "@/lib/notes";
+import { supabase } from "@/lib/supabase";
 import { nearby } from "@/lib/places";
 import { REPORT_FILE, saveFile, toDocx, toPlainText } from "@/lib/reportFiles";
 
+import { useAuth } from "./AuthProvider";
 import Markdown from "./Markdown";
 import { useRecords } from "./useRecords";
 
@@ -76,6 +79,25 @@ function Downloads({ report }: { report: string }) {
   );
 }
 
+/** Saved consultation notes (ADR-0009) the guardian may add to this report: the latest few, none
+ * ticked until chosen. Only a signed-in guardian with "지난 상담 기억" on sees them. */
+function NotePicker({ notes, chosen, onToggle, disabled }: { notes: Note[]; chosen: Set<string>; onToggle: (id: string) => void; disabled: boolean }) {
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-sm font-semibold">지난 상담 기록 넣기 (선택)</legend>
+      {notes.map((note) => (
+        <label key={note.id} className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={chosen.has(note.id)} onChange={() => onToggle(note.id)} disabled={disabled} className="mt-1" />
+          <span>
+            <span className="text-muted">{noteDate(note.created_at)}</span> {note.note}
+          </span>
+        </label>
+      ))}
+      <p className="text-xs text-muted">고른 기록만 이 보고서를 만드는 데 씁니다. 같은 증상이 되풀이되는지 보는 데 참고합니다.</p>
+    </fieldset>
+  );
+}
+
 /** "서울특별시 강남구" from a full road address: the region box shows where "near me" is. */
 function districtOf(address: string | null | undefined): string {
   return (address ?? "").split(/\s+/).slice(0, 2).join(" ").slice(0, 30);
@@ -112,6 +134,33 @@ export default function VisitPrep() {
   const [working, setWorking] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const { records } = useRecords();
+  const { session } = useAuth();
+  const notesOn = records?.where === "account" && notesEnabled(session);
+  const [savedNotes, setSavedNotes] = useState<Note[]>([]);
+  const [chosenNotes, setChosenNotes] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!notesOn) {
+      setSavedNotes([]);
+      return;
+    }
+    let stale = false;
+    listNotes(supabase())
+      .then((notes) => !stale && setSavedNotes(notes.slice(0, NOTES_PER_QUESTION)))
+      .catch(() => !stale && setSavedNotes([]));
+    return () => {
+      stale = true;
+    };
+  }, [notesOn]);
+
+  function toggleNote(id: string) {
+    setChosenNotes((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // The dog's saved profile (the account's when signed in) fills an empty box once it is known.
   useEffect(() => {
@@ -163,7 +212,12 @@ export default function VisitPrep() {
     const text = consultation.trim();
     if (!text || working) return;
     setAnswer("");
-    void stream("/visit-prep", { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}) }, emptyRun());
+    const notes = forChat(savedNotes.filter((note) => chosenNotes.has(note.id)));
+    void stream(
+      "/visit-prep",
+      { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}), ...(notes.length ? { notes } : {}) },
+      emptyRun(),
+    );
   }
 
   function resume(skip: boolean) {
@@ -216,6 +270,7 @@ export default function VisitPrep() {
             <input value={profile} onChange={(event) => setProfile(event.target.value)} maxLength={300} disabled={working} placeholder="예: 말티즈, 4살, 3.2kg" className={field} />
           </label>
         </div>
+        {savedNotes.length ? <NotePicker notes={savedNotes} chosen={chosenNotes} onToggle={toggleNote} disabled={working} /> : null}
         <button type="submit" disabled={working || !consultation.trim()} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white disabled:opacity-40">
           📝 방문 준비 보고서 만들기
         </button>

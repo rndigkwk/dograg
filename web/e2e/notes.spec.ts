@@ -156,3 +156,31 @@ test("signed out, no note button and the memory page asks to sign in", async ({ 
   await page.goto("/memory");
   await expect(page.getByText("지난 상담 기억은 로그인한 경우에만 쓸 수 있습니다.", { exact: false })).toBeVisible();
 });
+
+test("a guardian picks saved notes for a visit-prep report; none go unless ticked", async ({ page }) => {
+  await signIn(page, { consultation_notes: true });
+  await fakeAccount(page, [
+    { note_id: "00000000-0000-4000-8000-000000000002", note: "설사 재발. 사료 바꾼 뒤 시작.", created_at: "2026-10-12T03:00:00Z", thread_id: null },
+    { note_id: "00000000-0000-4000-8000-000000000001", note: "귀를 자꾸 긁음.", created_at: "2026-09-01T03:00:00Z", thread_id: null },
+  ], { consultation_notes: true });
+  const api = await fakeApi(page, [], {}, { "/visit-prep": [["result", { report: "# 방문 준비 보고서", passed: true, status: "검수 통과", round: 0, steps: [], urgent: false, seconds: 30, answered: false }]] });
+  await page.goto("/visit-prep");
+
+  const picker = page.getByRole("group", { name: "지난 상담 기록 넣기 (선택)" });
+  await expect(picker.getByRole("checkbox")).toHaveCount(2);
+  for (const box of await picker.getByRole("checkbox").all()) await expect(box).not.toBeChecked();
+  await picker.getByRole("checkbox", { name: /설사 재발/ }).check();
+  await page.getByLabel("상담 내용").fill("보리가 또 설사를 해요");
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect.poll(() => api.posts.length).toBe(1);
+  expect(api.posts[0].body).toMatchObject({ consultation: "보리가 또 설사를 해요", notes: [{ date: "2026-10-12", text: "설사 재발. 사료 바꾼 뒤 시작." }] });
+});
+
+test("without the setting the report page shows no notes", async ({ page }) => {
+  await signIn(page);
+  await fakeAccount(page, [{ note_id: "00000000-0000-4000-8000-000000000001", note: "귀를 자꾸 긁음.", created_at: "2026-09-01T03:00:00Z", thread_id: null }]);
+  await fakeApi(page, []);
+  await page.goto("/visit-prep");
+  await expect(page.getByLabel("상담 내용")).toBeVisible();
+  await expect(page.getByRole("group", { name: "지난 상담 기록 넣기 (선택)" })).toHaveCount(0);
+});

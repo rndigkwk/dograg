@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 
 from src import resources
-from src.health_safety import detect_urgent_sign
+from src.health_safety import detect_urgent_sign, todays_text
 
 MAX_CONSULTATION_CHARS = 500
 PAUSED_RUN_TTL_SECONDS = 30 * 60
@@ -151,5 +151,5 @@ def generate(consultation: str, region: str, profile: str, *, run_team, prepare=
     run_status = status_of(state)
     seconds = round(time.perf_counter() - started) + (pending["seconds"] if pending else 0)
     return {"paused": False, "report": report, "passed": run_status == config.PASSED, "status": run_status,
-            "round": state["round"], "steps": steps, "urgent": bool(detect_urgent_sign(consultation)),
+            "round": state["round"], "steps": steps, "urgent": bool(detect_urgent_sign(todays_text(consultation))),
             "seconds": seconds, "answered": bool(pending and answer)}

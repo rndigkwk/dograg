@@ -59,6 +59,26 @@ class VisitPrepApiTests(unittest.TestCase):
         self.assertNotIn("[qa-5250]", result["report"])  # evidence ids become readable citations
         self.assertEqual(self.team.calls, [("말티즈가 설사를 해요", "강남구", "말티즈, 4살")])
 
+    def test_chosen_notes_reach_the_team_after_the_consultation(self):
+        from datetime import date, timedelta
+
+        week_ago = (date.today() - timedelta(days=7)).isoformat()
+        notes = [{"date": week_ago, "text": "설사로 병원에서 정장제를 받음. 연락처 010-1234-5678"},
+                 {"date": "2026-08-01", "text": "경련이 한 번 있었음"}]
+        got = events(self.start(notes=notes))
+        consultation = self.team.calls[0][0]
+        self.assertTrue(consultation.startswith("말티즈가 설사를 해요\n\n[보호자가 고른 지난 상담 기록"))
+        self.assertIn(f"- {week_ago} (7일 전): 설사로 병원에서 정장제를 받음.", consultation)
+        self.assertNotIn("010-1234-5678", consultation)  # masked as in chat
+        # An old note's urgent word is not today's emergency.
+        self.assertNotIn("urgent", [kind for kind, _ in got])
+        self.assertFalse(got[-1][1]["urgent"])
+
+    def test_without_notes_the_consultation_is_as_typed(self):
+        events(self.start())
+        self.assertEqual(self.team.calls[0][0], "말티즈가 설사를 해요")
+        self.assertEqual(self.start(notes=[{"date": "x", "text": "a"}]).status_code, 422)
+
     def test_urgent_consultations_warn_first(self):
         got = events(self.start("강아지가 경련을 하고 쓰러졌어요"))
         self.assertEqual(got[0], ("urgent", {"notice": visit_api.URGENT}))

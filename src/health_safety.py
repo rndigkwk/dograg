@@ -56,6 +56,16 @@ def _in_past_sentence(question: str, start: int) -> bool:
     return bool(PAST.search(question[sentence_start:start]))
 
 
+# A visit-prep consultation may carry saved notes the guardian chose after this heading
+# (api/visit_prep.py with_notes). An urgent sign in an old note is not today's emergency.
+SAVED_NOTES_HEADING = "[보호자가 고른 지난 상담 기록: 같은 증상이 되풀이되는지 참고만 하고, 지금 상태로 단정하지 마세요]"
+
+
+def todays_text(consultation: str) -> str:
+    """The guardian's own text of a consultation, without the saved notes appended to it."""
+    return consultation.split(SAVED_NOTES_HEADING, 1)[0].rstrip()
+
+
 def detect_urgent_sign(question: str) -> str | None:
     for pattern in URGENT_PATTERNS:
         for match in re.finditer(pattern, question):
