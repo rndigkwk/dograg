@@ -25,6 +25,7 @@
 | [../curriculum-fit.md](../curriculum-fit.md) | Day 58~79 수업 중 이 프로젝트에 쓸 만한 것, 가드레일 경량 대안과 현재 상태, 일반 대화 기능 검토 |
 | [../adr/](../adr/README.md) | 아키텍처 결정 기록(ADR) 9개: 임베딩, 검색 전략, 저장소, 리랭커, 지역, Next.js·FastAPI 전환, 상담 기억. 결정마다 다시 검토할 조건 |
 | [../security/](../security/README.md) | 보안 정리: 무엇을 어디에 두나, 인증·RLS·한도·개인정보, 점검 기록 |
+| [../slo.md](../slo.md) | 서비스 수준 목표: 오류율·지연 p95·보류율·질문당 비용, 매주 확인과 실패 알림(이슈) |
 | [../course-assignment.md](../course-assignment.md) | 수업 과제 검사용 정리(보관): 멀티에이전트 요구사항 대응, 교안 Day 46~56 적용 표 |
 
 ## 작성 규칙
