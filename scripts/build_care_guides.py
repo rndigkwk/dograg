@@ -47,6 +47,14 @@ GUIDES = {
     "반려동물과의_이별_리플릿.pdf": ("반려동물과의 이별, 미리 알고 함께 준비합니다", 1542, "vision"),
     "행동지도_윤리_가이드라인.pdf": ("건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인", 1454, "text"),
 }
+# Public-licence guides (공공누리 제1유형, source credited) kept in the repository as text, one page each:
+# file in data/public_guides: (title, organization, original page). Lines starting with "#" or "- " are
+# the file's own header (title, source, licence) and are not searched.
+PUBLIC_DIR = PROJECT_DIR / "data" / "public_guides"
+PUBLIC_GUIDES = {
+    "mafra_summer_2026-06-16.md": ("함께여서 더 특별한 반려동물과의 여름나기", "농림축산식품부",
+                                   "https://www.mafra.go.kr/bbs/home/792/578176/artclView.do"),
+}
 
 VISION_PROMPT = (
     "이 이미지는 반려동물 보호자 교육 자료의 한 쪽입니다. 쪽에 쓰인 글을 읽는 순서대로 그대로 옮겨 적으세요. "
@@ -139,10 +147,16 @@ def main(argv: list[str] | None = None) -> int:
                 chunks.append({"id": f"{Path(name).stem}-p{number}-{part}", "title": title, "page": number,
                                "organization": ORGANIZATION, "url": BOARD.format(post), "text": piece,
                                "context": context})
+    for name, (title, organization, url) in PUBLIC_GUIDES.items():
+        lines = (PUBLIC_DIR / name).read_text(encoding="utf-8").splitlines()
+        text = "\n".join(line for line in lines if not line.startswith(("#", "- ")))
+        for part, (piece, context) in enumerate(chunks_of(text)):
+            chunks.append({"id": f"{Path(name).stem}-p1-{part}", "title": title, "page": 1,
+                           "organization": organization, "url": url, "text": piece, "context": context})
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "chunks.json").write_text(json.dumps(chunks, ensure_ascii=False, indent=1), encoding="utf-8")
     np.save(args.out / "vectors.npy", embed([chunk["text"] for chunk in chunks]))
-    for title, *_ in GUIDES.values():
+    for title, *_ in [*GUIDES.values(), *PUBLIC_GUIDES.values()]:
         print(f"{title}: {sum(c['title'] == title for c in chunks)} chunks")
     print(f"{len(chunks)} chunks -> {args.out / 'chunks.json'}")
     return 0

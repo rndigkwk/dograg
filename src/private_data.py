@@ -41,7 +41,9 @@ REPO_ID = "blanden77/dograg-data"
 #   data-v8  2026-10-18 + two more on KB p.28 (39.2% read as 59.2% again, 43.9% as 45.9%)
 #   data-v9  2026-10-19 + the care guides of 동물사랑배움터 (data/care_guides, scripts/build_care_guides.py):
 #            four PDFs, the page transcriptions, the pieces and their vectors
-REVISION = "data-v9"
+#   data-v10 2026-10-19 + the 농림축산식품부 summer press release (data/public_guides, 공공누리 제1유형) in the
+#            care-guide pieces and vectors
+REVISION = "data-v10"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"
