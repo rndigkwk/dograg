@@ -251,6 +251,15 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual(result["safety_notice"], "응급")  # the urgent-sign check still runs
         self.assertEqual(self.log_records()[-1]["decision"], "incorrect")
 
+    def test_a_health_question_about_another_animal_is_declined_before_the_search(self):
+        tools = make_tools(other_species=lambda question: "페럿")
+        result = self.run_chat(tools, question="페럿이 계속 설사를 해요")
+        tools.retrieve_health.assert_not_called()
+        tools.review_evidence.assert_not_called()
+        self.assertTrue(result["abstained"])
+        self.assertIn("반려견 사례뿐이라 페럿의 건강 질문", result["answer"])
+        self.assertIn("찾지 않았습니다", result["answer"])
+
     def test_a_question_near_the_material_goes_on_as_before(self):
         tools = make_tools(health_top_similarity=Mock(return_value=0.62))
         result = self.run_chat(tools)
