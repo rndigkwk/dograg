@@ -83,6 +83,13 @@ class BuildTests(unittest.TestCase):
         self.assertEqual([len(p) for p, _ in pairs], [240, 240, 240])  # starts 0, 180, 360
         self.assertTrue(all(len(c) == min(build.CONTEXT_CHARS, len(text)) for _, c in pairs))
 
+    def test_a_window_ends_and_starts_at_sentence_boundaries(self):
+        text = "첫 문장입니다. 둘째 문장은 길게 이어집니다. 신고하는 곳: 온라인은 정부24에서 합니다. 끝."
+        cut = text.index("온라인") + 1  # a window that would end inside the third sentence
+        window = build.sentence_window(text, text.index("둘째") + 2, cut)
+        self.assertTrue(window.startswith("둘째"), window)
+        self.assertTrue(window.endswith("정부24에서 합니다."), window)
+
     def test_a_short_page_is_one_piece(self):
         self.assertEqual(build.chunks_of("짧은 쪽"), [("짧은 쪽", "짧은 쪽")])
 

@@ -61,8 +61,18 @@ VISION_PROMPT = (
     "제목, 본문, 표, 그림 속 글을 모두 포함하고, 그림만 있는 부분은 건너뜁니다. "
     "없는 글을 지어내거나 요약하지 말고, 읽을 수 없는 글자는 [?]로 적으세요. 옮긴 글만 답하세요."
 )
-# Misreadings found when checking the transcriptions against the page images.
-OCR_CORRECTIONS = {("반려견_공공예절_교육.pdf", 10): [("위모관리", "외모관리")]}
+# Misreadings found when checking the transcriptions against the page images, and boxes whose layout the
+# transcription flattened: the leaflet's "where to report" boxes read "온라인 신고 국가동물보호 정보시스템 정부24
+# 방문 신고 • 소유자의 주소지 …", and the answer to "반려견 사망 신고는 어디에 하나요?" said the material did not
+# say where (production, 2026-10-19). Written out as the image shows them.
+OCR_CORRECTIONS = {
+    ("반려견_공공예절_교육.pdf", 10): [("위모관리", "외모관리")],
+    ("반려동물과의_이별_리플릿.pdf", 2): [(
+        "온라인 신고\n국가동물보호\n정보시스템\n정부24\n\n방문 신고\n• 소유자의 주소지\n관할 시·군·구청 방문",
+        ("신고하는 곳: 온라인 신고는 국가동물보호정보시스템 또는 정부24에서 하고, "
+         "방문 신고는 소유자의 주소지 관할 시·군·구청에 방문해서 합니다."),
+    )],
+}
 _DOT_LEADER = re.compile(r"[·…]{3,}|\.{5,}")
 
 
@@ -75,6 +85,23 @@ def read_page_image(client, page, model: str) -> str:
     return response.choices[0].message.content.strip()
 
 
+_SENTENCE_END = re.compile(r"(?<=[.!?。])\s|(?<=다\.)|(?<=요\.)")
+END_REACH, START_REACH = 200, 100  # how far a window may grow to end or start at a sentence boundary
+
+
+def sentence_window(text: str, lo: int, hi: int) -> str:
+    """text[lo:hi], its end moved on to the end of the sentence it cuts (at most END_REACH further) and its
+    start back to after a sentence end (at most START_REACH earlier, else as it was). A window cut mid-sentence
+    left "신고하는 곳: 온" as the leaflet's last words, and the answer said the place was not given."""
+    if hi < len(text):
+        end = _SENTENCE_END.search(text, hi, min(len(text), hi + END_REACH))
+        hi = end.end() if end else hi
+    if lo > 0:
+        before = [m.end() for m in _SENTENCE_END.finditer(text, max(0, lo - START_REACH), lo + 1)]
+        lo = before[-1] if before else lo
+    return text[lo:hi].strip()
+
+
 def chunks_of(text: str) -> list[tuple[str, str]]:
     """(piece, its context) pairs over one page's text."""
     text = " ".join(text.split())
@@ -82,7 +109,7 @@ def chunks_of(text: str) -> list[tuple[str, str]]:
     while True:
         middle = start + CHUNK_CHARS // 2
         lo = max(0, min(middle - CONTEXT_CHARS // 2, len(text) - CONTEXT_CHARS))
-        pairs.append((text[start:start + CHUNK_CHARS], text[lo:lo + CONTEXT_CHARS]))
+        pairs.append((text[start:start + CHUNK_CHARS], sentence_window(text, lo, lo + CONTEXT_CHARS)))
         if start + CHUNK_CHARS >= len(text):
             return pairs
         start += CHUNK_CHARS - OVERLAP

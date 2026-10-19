@@ -43,7 +43,9 @@ REPO_ID = "blanden77/dograg-data"
 #            four PDFs, the page transcriptions, the pieces and their vectors
 #   data-v10 2026-10-19 + the 농림축산식품부 summer press release (data/public_guides, 공공누리 제1유형) in the
 #            care-guide pieces and vectors
-REVISION = "data-v10"
+#   data-v11 2026-10-19 the care-guide windows end and start at sentences, and the leaflet's "where to report"
+#            boxes written out (build_care_guides.sentence_window, OCR_CORRECTIONS)
+REVISION = "data-v11"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"
