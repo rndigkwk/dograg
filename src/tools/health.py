@@ -201,6 +201,27 @@ def format_rag_context(retrieved_docs):
 HEALTH_SIMILARITY_FLOOR = 0.4
 
 
+# The health material is dog consultations only. A health question about another animal is declined
+# before the search: the evidence grader decided such questions both ways from dog cases (u16 "페럿이
+# 계속 설사를 해요" passed 3 baseline runs, then failed 3 of 4; u12, u13 wobbled too, 2026-10-19).
+# The animal counts as the patient only right before a particle or at the start ("닭이 기침을 해요",
+# "토끼 이빨이 …"); food ("닭고기 알레르기", "오리 간식") and a question that also names the dog stay.
+OTHER_ANIMALS = ("고양이", "냥이", "앵무새", "거북이", "햄스터", "금붕어", "물고기", "열대어", "송아지", "돼지",
+                 "병아리", "오리", "도마뱀", "이구아나", "토끼", "페럿", "기니피그", "고슴도치", "다람쥐", "염소", "닭", "뱀")
+_ANIMAL = "|".join(sorted(OTHER_ANIMALS, key=len, reverse=True))
+_OTHER_ANIMAL = re.compile(rf"^\s*(?:우리\s*(?:집\s*)?)?({_ANIMAL})(?=\s|[이가는은의도를을]|한테|에게|랑)"
+                           rf"|(?<![가-힣])({_ANIMAL})(?:이|가|는|은|의|도|를|을|한테|에게|랑)(?![가-힣])")
+_DOG_WORDS = re.compile(r"강아지|반려견|애견|댕댕|멍멍|견종|노견|노령견|성견|퍼피|(?<![가-힣\d])개(?=가|는|를|도|랑|와|한테|의|\s|$)")
+
+
+def other_species(question: str) -> str | None:
+    """The other animal a health question is about, or None (a dog, or nothing said)."""
+    if _DOG_WORDS.search(question):
+        return None
+    match = _OTHER_ANIMAL.search(question)
+    return (match.group(1) or match.group(2)) if match else None
+
+
 def health_top_similarity(search_query) -> float | None:
     """Cosine similarity of the nearest health document, or None when it cannot be measured."""
     db = resources.load_vector_db()

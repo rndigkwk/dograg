@@ -104,6 +104,8 @@ def abstain_message(state: dict) -> str:
     searched = f"{ABSTAIN_SEARCHED[kind]}에서 질문과 가까운 {reviewed}건을 근거로 쓸 수 있는지 하나씩 확인했습니다"
     if rewrites:
         searched += f"(검색어를 바꿔 {rewrites}번 더 찾음)"
+    if state.get("off_topic"):  # declined before the search (another animal, or nothing near): say why
+        searched = f"{ABSTAIN_SEARCHED[kind]}를 근거로 쓸 수 없는 질문이라 찾지 않았습니다"
     lines = [HEALTH_ABSTAIN if kind == "rag" else REPORT_ABSTAIN, "", f"- **찾아본 것:** {searched}."]
     feedback = " ".join(str(state.get("feedback") or "").split())
     if feedback:
@@ -243,19 +245,33 @@ def build_chat_graph(tools):
             filters = tools.infer_rag_filters(state["contextual_question"], profile=state.get("pet_profile"))
         query = state.get("search_query") or state["contextual_question"]
         if not state.get("rewrite_count") and not state.get("documents"):
+            animal = _other_species(state["question"])
+            if animal:
+                entry = {"step": "health_species", "decision": "incorrect"}
+                return {"filters": filters, "search_query": query, "documents": [], "off_topic": True,
+                        "decision": "incorrect", "trace": [*state.get("trace", []), entry],
+                        "feedback": f"건강 상담 자료는 반려견 사례뿐이라 {animal}의 건강 질문에는 답할 근거가 없습니다. "
+                                    f"{animal}을(를) 진료하는 동물병원(특수동물 진료)에 문의해 주세요."}
             # The first search of a question far from every consultation: declined without the grader
             # and the rewrite (two model calls) instead of answering from unrelated cases.
             similarity = _top_similarity(query)
             if isinstance(similarity, float) and similarity < HEALTH_SIMILARITY_FLOOR:
                 entry = {"step": "health_floor", "similarity": round(similarity, 3), "decision": "incorrect"}
                 return {"filters": filters, "search_query": query, "documents": [], "off_topic": True,
-                        "decision": "incorrect", "trace": [*state.get("trace", []), entry]}
+                        "decision": "incorrect", "trace": [*state.get("trace", []), entry],
+                        "feedback": "질문과 가까운 상담 사례가 없었습니다(가장 가까운 사례도 기준보다 멀었습니다)."}
         found = tools.retrieve_health(query, k=max(HEALTH_CANDIDATE_K, state["top_k"]), filters=filters)
         return {
             "filters": filters,
             "search_query": query,
             "documents": merge_documents(state.get("documents", []), found),
         }
+
+    def _other_species(question: str) -> str | None:
+        try:
+            return tools.other_species(question)
+        except AttributeError:  # a toolset without it (tests): no rule
+            return None
 
     def _top_similarity(query: str) -> float | None:
         try:
