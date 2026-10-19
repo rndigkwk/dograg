@@ -42,6 +42,23 @@ test("a report pauses for the guardian's answer, then comes back reviewed", asyn
   }
 });
 
+test("printing gives the report alone, ready to save as a PDF", async ({ page }) => {
+  await fakeApi(page, [], {}, { "/visit-prep": [["result", REPORT]] });
+  await page.goto("/visit-prep");
+  await page.getByLabel("상담 내용").fill("말티즈가 이틀째 설사를 해요");
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect(page.getByRole("button", { name: /인쇄 · PDF로 저장/ })).toBeVisible();
+
+  await page.emulateMedia({ media: "print" });
+  const copy = page.locator("#print-root");
+  await expect(copy).toBeVisible();
+  await expect(copy).toContainText("설사가 이틀째입니다.");
+  await expect(copy).toContainText("수의사의 진료를 대신하지 않습니다");
+  await expect(page.getByLabel("상담 내용")).toBeHidden(); // the form, the menu and the buttons stay off paper
+  await expect(page.getByRole("button", { name: /인쇄 · PDF로 저장/ })).toBeHidden();
+  await page.screenshot({ path: test.info().outputPath("print.png"), fullPage: true });
+});
+
 test("an urgent consultation warns first; a busy server and an expired pause say so", async ({ page }) => {
   await fakeApi(page, [], {}, {
     "/visit-prep": [["urgent", { notice: "응급" }], ["paused", { thread_id: "old", questions: ["언제부터였나요?"] }]],
