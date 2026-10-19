@@ -29,6 +29,19 @@ class CareRoutingTests(unittest.TestCase):
         self.assertEqual(self.route("반려견 비만 비율 통계 알려줘"), ("analysis", False))
         self.assertEqual(self.route("건강검진 받는 가구 비중이 어때?"), ("analysis", False))
 
+    def test_old_age_death_and_grief_go_to_the_health_answer(self):
+        for question in ("강아지가 죽으면 사체는 어떻게 처리해야 하나요?", "강아지를 떠나보내고 너무 힘든데 어떻게 해야 할까요?",
+                         "펫로스 때문에 잠을 못 자겠어요", "강아지 장례는 어떤 절차로 치르나요?",
+                         "노견이 요즘 계단을 못 올라가는데 집에서 뭘 해 줘야 하나요?"):
+            self.assertEqual(self.route(question), ("rag", False), question)
+
+    def test_funeral_homes_and_funeral_figures_stay_where_they_were(self):
+        self.assertEqual(self.route("강남구 반려동물 장례식장 알려줘")[0], "sql")
+        self.assertEqual(self.route("강아지 장례 비용 얼마예요?"), ("analysis", False))
+        self.assertEqual(self.route("반려동물 장례비는 보통 얼마나 들어?"), ("analysis", False))
+        self.assertEqual(self.route("KB 보고서에서 반려동물을 떠나보낸 경험이 있는 반려가구 비율은?"), ("analysis", False))
+        self.assertEqual(self.route("복지실태 보고서에서 지금 키우는 반려동물이 죽으면 땅에 묻겠다는 비율은?"), ("analysis", False))
+
     def test_not_about_a_dog_stays_with_the_model(self):
         self.assertEqual(self.route("오늘 저녁 메뉴 추천해 줘"), ("model", True))
 

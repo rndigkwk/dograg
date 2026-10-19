@@ -201,8 +201,10 @@ def is_symptom_and_place_request(question: str) -> bool:
 # Report topics that are also everyday questions about one's own dog: "강아지 비만인지 어떻게 알아요?",
 # "건강검진은 몇 살부터?" went to the report analysis by keyword (tests/data/care_routing_questions.json).
 # They take the analysis shortcut only with a statistics word; otherwise the model decides.
-CARE_AND_REPORT_TOPICS = ("비만", "건강검진")
+CARE_AND_REPORT_TOPICS = ("비만", "건강검진", "펫로스", "펫로스증후군", "장례")
 STATISTICS_WORDS = ("보고서", "통계", "비율", "비중", "평균", "현황", "추이", "조사", "%", "퍼센트", "몇명", "몇 명", "가구")
+# A funeral's cost is a report figure ("강아지 장례 비용 얼마예요?"); its steps are the guardian's own matter.
+FIGURE_WORDS = {"장례": ("비용", "얼마", "가격")}
 
 
 # Everyday care of the dog: the model router sent "새 간식을 사려는데 어떤 걸 고르면 좋을까요?" to none
@@ -210,19 +212,29 @@ STATISTICS_WORDS = ("보고서", "통계", "비율", "비중", "평균", "현황
 # "로또 번호 뽑아 줘" to rag), so care words decide by rule, before the model, unless places are asked.
 CARE_WORDS = ("간식", "사료", "개껌", "산책", "배변", "목욕", "빗질", "발톱", "장난감", "하네스", "목줄", "노즈워크",
               "훈련", "짖")
+# Old age, a death, what to do after it and grief (2026-10-19): the care guides answer them
+# (src/tools/care_guides.py), but "강아지가 죽으면 사체는 어떻게 처리해야 하나요?" went to sql, "강아지를 떠나보내고
+# 너무 힘든데" to none and "펫로스", "장례" to the report. Words from tests/data/care_routing_questions.json loss_dev.
+LOSS_WORDS = ("사체", "사망", "죽으면", "죽었", "죽은", "떠나보내", "무지개다리", "펫로스", "장례", "노견", "노령견")
 # "산책하기 좋은 공원 어디 있어?" asks for a place even without a facility word: the model decides.
 PLACE_HINTS = ("어디", "근처", "주소", "위치", "가까운")
 
 
 def has_care_topic(normalized_question: str) -> bool:
-    return (any(word in normalized_question for word in CARE_WORDS)
-            and not any(word in normalized_question for word in PLACE_HINTS))
+    if any(word in normalized_question for word in PLACE_HINTS):
+        return False
+    if any(word in normalized_question for word in CARE_WORDS):
+        return True
+    # "보고서에서 반려동물을 떠나보낸 경험이 있는 반려가구 비율은?" is a report question.
+    return (any(word in normalized_question for word in LOSS_WORDS)
+            and not any(word.replace(" ", "") in normalized_question for word in STATISTICS_WORDS))
 
 
 def has_report_topic_in(normalized_question: str) -> bool:
     hits = [k for k in report.REPORT_ANALYSIS_KEYWORDS if k.replace(" ", "") in normalized_question]
     if hits and all(hit in CARE_AND_REPORT_TOPICS for hit in hits):
-        return any(word.replace(" ", "") in normalized_question for word in STATISTICS_WORDS)
+        figures = [*STATISTICS_WORDS, *(word for hit in hits for word in FIGURE_WORDS.get(hit, ()))]
+        return any(word.replace(" ", "") in normalized_question for word in figures)
     return bool(hits)
 
 
