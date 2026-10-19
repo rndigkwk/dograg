@@ -166,6 +166,12 @@ export default function VisitPrep() {
     void stream("/visit-prep", { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}) }, emptyRun());
   }
 
+  function retryRun() {
+    if (!run?.retry || working) return;
+    // The same run goes on from its last finished step: its steps so far stay.
+    void stream(`/visit-prep/${encodeURIComponent(run.retry.threadId)}/retry`, {}, { ...run, retry: null, notice: null });
+  }
+
   function resume(skip: boolean) {
     if (!run?.paused || working) return;
     const { threadId } = run.paused;
@@ -239,6 +245,12 @@ export default function VisitPrep() {
         <p role={run.notice.kind === "error" ? "alert" : "status"} className={run.notice.kind === "error" ? "text-danger" : "text-warn-strong"}>
           {run.notice.message}
         </p>
+      ) : null}
+
+      {run?.retry && !working ? (
+        <button type="button" onClick={retryRun} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white">
+          ↻ 이어서 만들기
+        </button>
       ) : null}
 
       {run?.paused ? (

@@ -27,12 +27,14 @@ export type Run = {
   steps: string[];
   urgent: boolean;
   paused: { threadId: string; questions: string[] } | null;
+  // A run that stopped on an error and may go on from its last finished step (api/visit_prep.py retry).
+  retry: { threadId: string } | null;
   result: Report | null;
   // busy (another report is running), limited (question or report limit), error: shown as is
   notice: { kind: "busy" | "limited" | "error"; message: string } | null;
 };
 
-export const emptyRun = (): Run => ({ steps: [], urgent: false, paused: null, result: null, notice: null });
+export const emptyRun = (): Run => ({ steps: [], urgent: false, paused: null, retry: null, result: null, notice: null });
 
 export function applyVisitEvent(run: Run, { kind, data }: StreamEvent): Run {
   const d = data as Record<string, unknown>;
@@ -45,9 +47,10 @@ export function applyVisitEvent(run: Run, { kind, data }: StreamEvent): Run {
       return { ...run, paused: { threadId: String(d.thread_id), questions: (d.questions as string[]) ?? [] } };
     case "result":
       return { ...run, paused: null, result: d as unknown as Report };
+    case "error":
+      return { ...run, retry: d.thread_id ? { threadId: String(d.thread_id) } : null, notice: { kind, message: String(d.message ?? "") } };
     case "busy":
     case "limited":
-    case "error":
       return { ...run, notice: { kind, message: String(d.message ?? "") } };
     default:
       return run;

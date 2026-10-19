@@ -2,6 +2,7 @@
 
     POST /visit-prep                      {consultation, region?, profile?} -> step* · paused | result
     POST /visit-prep/{thread_id}/answer   {answer} ("" to skip)              -> step* · result
+    POST /visit-prep/{thread_id}/retry    {}                                  -> step* · paused | result
 
 The same run as the page (src/visit_prep_runs.py): one team at a time on the server, 10-20 model
 calls and one to two minutes per report. ADR-0008 planned a job and polling; one streamed request
@@ -13,7 +14,11 @@ max-instances=2). One team at a time is still per instance.
 Limits: a report counts as one question for src/rate_limit.py, and each person (browser) gets
 REPORTS_PER_DAY reports (the page gave two per browser session). Answering a paused run is not a
 new report. Events: urgent {notice} · step {line} · paused {thread_id, questions} · result {...} ·
-busy {message} · limited {message, wait_minutes} · error {message}.
+busy {message} · limited {message, wait_minutes} · error {message, thread_id?}.
+
+A run that fails (a model or search error mid-run) keeps its checkpoints: the error event carries
+its thread_id, and POST .../retry goes on from the last finished step (team/main.py retry), for
+MAX_RETRIES tries within the same 30 minutes as a pause. A retry is not a new report.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ import contextvars
 import logging
 import queue
 import threading
+import uuid
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -29,7 +35,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from api.chat import client_network, event, person_of
-from src import data_gaps, rate_limit, settings, tracing, visit_prep_runs, visit_prep_store
+from src import (
+    data_gaps,
+    rate_limit,
+    settings,
+    tracing,
+    visit_prep_runs,
+    visit_prep_store,
+)
 from src.health_safety import detect_urgent_sign
 from team.core.config import MAX_ANSWER_CHARS
 
@@ -41,6 +54,9 @@ REPORTS_PER_DAY = 2
 URGENT = "응급 징후가 의심됩니다. 보고서를 기다리지 말고 지금 가까운 동물병원에 연락하세요."
 BUSY = "다른 사용자의 보고서를 만드는 중입니다. 1~2분 뒤에 다시 시도해 주세요."
 FAILED = "보고서를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요."
+FAILED_RETRY = "보고서를 만들다 멈췄습니다. 30분 안에 '이어서 만들기'를 누르면 끝낸 단계부터 이어서 만듭니다."
+NOT_FAILED = "이어서 만들 보고서가 없습니다. 다시 만들어 주세요."
+MAX_RETRIES = 2  # each try is 10-20 model calls that the report limit does not count
 REPORTS_USED = f"방문 준비 보고서는 하루 {REPORTS_PER_DAY}번까지 만들 수 있습니다. 내일 다시 만들어 주세요."
 
 # Report counts, the runs waiting for an answer and their owners live in src/visit_prep_store.py:
@@ -71,7 +87,7 @@ def _take_report(person: str, now: float) -> bool:
 
 
 def _run_team(person: str, location: tuple[float, float] | None = None):
-    def run_team(consultation, region, profile, run_dir, on_step, *, thread_id, resume=None):
+    def run_team(consultation, region, profile, run_dir, on_step, *, thread_id, resume=None, retry=False):
         from team.main import (
             run,  # imported on use: the chat routes do not need the agents
         )
@@ -79,13 +95,13 @@ def _run_team(person: str, location: tuple[float, float] | None = None):
         # A resumed run keeps the location in its saved state; only a new run passes it.
         return run(consultation, region, profile, location=location, run_dir=run_dir, on_step=on_step,
                    session=tracing.session_id(person), ask=True,
-                   checkpointer=visit_prep_runs.team_checkpointer(), thread_id=thread_id, resume=resume)
+                   checkpointer=visit_prep_runs.team_checkpointer(), thread_id=thread_id, resume=resume, retry=retry)
     return run_team
 
 
 def _stream(person: str, consultation: str, region: str, profile: str, agent: str,
             pending: dict | None = None, answer: str | None = None,
-            location: tuple[float, float] | None = None) -> Iterator[str]:
+            location: tuple[float, float] | None = None, retry: bool = False) -> Iterator[str]:
     data_gaps.REQUEST_AGENT.set(agent)
     if pending is None and detect_urgent_sign(consultation):
         yield event("urgent", {"notice": URGENT})
@@ -98,12 +114,18 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
         return
     events: queue.Queue = queue.Queue()
     outcome: dict = {}
+    thread_id = pending["thread_id"] if pending else uuid.uuid4().hex
+    lines: list[str] = []  # this try's progress, kept with a failed run
+
+    def on_line(line: str) -> None:
+        lines.append(line)
+        events.put(event("step", {"line": line}))
 
     def work() -> None:
         try:
             outcome["value"] = visit_prep_runs.generate(
                 consultation, region, profile, run_team=_run_team(person, location), prepare=visit_prep_runs.prepare_search,
-                on_line=lambda line: events.put(event("step", {"line": line})), pending=pending, answer=answer)
+                on_line=on_line, pending=pending, answer=answer, retry=retry, thread_id=thread_id)
         except Exception:  # noqa: BLE001 - reported as one error event
             logger.exception("visit-prep run failed")
         finally:
@@ -115,7 +137,16 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
         yield item
     value = outcome.get("value")
     if value is None:
-        yield event("error", {"message": FAILED})
+        tries = (pending or {}).get("retries", 0) + (1 if retry else 0)
+        if tries >= MAX_RETRIES:
+            visit_prep_store.store().checkpointer().delete_thread(thread_id)  # no more tries: its checkpoints go now
+            yield event("error", {"message": FAILED})
+            return
+        steps = [*(pending or {}).get("steps", []), *lines] or [visit_prep_runs.PREPARED]
+        failed = {"failed": True, "thread_id": thread_id, "consultation": consultation, "region": region,
+                  "profile": profile, "steps": steps, "seconds": (pending or {}).get("seconds", 0), "retries": tries}
+        visit_prep_store.store().save_paused(thread_id, person, failed, visit_prep_store.now())
+        yield event("error", {"message": FAILED_RETRY, "thread_id": thread_id})
     elif value["paused"]:
         visit_prep_store.store().save_paused(value["thread_id"], person, value, visit_prep_store.now())
         yield event("paused", {"thread_id": value["thread_id"], "questions": value["questions"]})
@@ -167,6 +198,27 @@ def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_clien
     pending = store.take_paused(thread_id, person, now)  # the owner's, once
     if pending is None:  # unknown, expired (30 minutes), already answered, or someone else's run
         raise HTTPException(404, "답변을 기다리는 보고서가 없습니다. 다시 만들어 주세요.")
+    if pending.get("failed"):  # a failed run is continued, not answered
+        store.put_back(thread_id, person, pending, pending.get("paused_at", now))
+        raise HTTPException(409, "멈춘 보고서입니다. '이어서 만들기'를 눌러 주세요.")
     agent = request.headers.get("User-Agent") or ""
     return _response(_stream(person, pending["consultation"], pending["region"], pending["profile"], agent,
                              pending=pending, answer=body.answer.strip()))
+
+
+@router.post("/{thread_id}/retry")
+def retry(thread_id: str, request: Request, x_ragdog_client: str | None = Header(default=None),
+          authorization: str | None = Header(default=None)) -> StreamingResponse:
+    """Go on with the owner's failed run from its last finished step."""
+    visit_prep_runs.forget_expired_runs(delete=False)
+    store, now = visit_prep_store.store(), visit_prep_store.now()
+    store.expire(now)
+    person = person_of(x_ragdog_client, client_network(request), authorization)
+    pending = store.take_paused(thread_id, person, now)
+    if pending is None or not pending.get("failed"):
+        if pending is not None:  # a pause waiting for its answer: leave it
+            store.put_back(thread_id, person, pending, pending.get("paused_at", now))
+        raise HTTPException(404, NOT_FAILED)
+    agent = request.headers.get("User-Agent") or ""
+    return _response(_stream(person, pending["consultation"], pending["region"], pending["profile"], agent,
+                             pending=pending, retry=True))
