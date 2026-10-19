@@ -66,7 +66,8 @@ def check_git() -> tuple[bool, str]:
     run("git", "fetch", "-q", "origin", "main")
     branch = run("git", "rev-parse", "--abbrev-ref", "HEAD")
     head, remote = run("git", "rev-parse", "HEAD"), run("git", "rev-parse", "origin/main")
-    dirty = run("git", "status", "--porcelain", "--", "src", "scripts", "api")
+    # Changed tracked files only: new files nobody committed (another session's) are not the release.
+    dirty = run("git", "status", "--porcelain", "--untracked-files=no", "--", "src", "scripts", "api")
     ok = branch == "main" and head == remote and not dirty
     return ok, f"branch {branch}, HEAD {head[:8]}, origin/main {remote[:8]}" + (", uncommitted changes" if dirty else "")
 
