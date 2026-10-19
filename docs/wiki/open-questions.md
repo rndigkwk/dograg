@@ -19,7 +19,7 @@
 - 관련도 임계값이 없어서, 범위 밖 질문에도 근거 k건이 붙는다([safety-and-evidence.md](safety-and-evidence.md)).
 - ~~BM25 색인 구축이 앱 콜드 스타트를 수 분 늦춘다.~~ 2026-10-05 토큰 캐시와 백그라운드 워밍업으로 해결. 로컬 첫 질문 165초 이상 → 8초([deployment-resources.md](deployment-resources.md)).
 - RRF 동점(검증 질문의 79%에서 상위 4건 안에 발생)을 운영 코드가 문서 ID 문자열 순으로 처리한다. 사실상 임의 순서다. BM25 우선이 holdout에서 순증 2문항으로 약간 낫다([retrieval-experiments.md](retrieval-experiments.md) 실험 4).
-- 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다.
+- 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다. → 리랭킹 API 측정 스크립트(`scripts/evaluate_rerank_api.py`, Cohere·Jina)를 준비했다(2026-10-19). 점수가 매겨진 후보 묶음 안에서 다시 순위를 매겨 공정하게 비교한다. API 키(사용자가 발급)가 생기면 잰다.
 - 기본 관리 질문 30개 중 7개는 핵심을 답하지 못한다(2026-10-10). 대부분 자료 구성이 원인이다. 일상 관리 사실이 다른 상담의 답변 속에만 있거나 아예 없다. 답변 글 검색이나 공개 관리 지침 추가를 검토할 만하다([retrieval-experiments.md](retrieval-experiments.md) "기본 관리 질문 30개"). 답의 첫 문장이 "자료에 없다"로 시작하던 문제는 2026-10-12에 프롬프트로 고쳤다([safety-and-evidence.md](safety-and-evidence.md) "아는 것을 먼저"). 자료에 없는 사실 자체는 그대로다.
 - 건강 컬렉션(ko-sroberta)과 보고서 컬렉션(bge-m3)의 임베딩 모델이 다르다. 건강 컬렉션도 bge-m3로 바꿀 때의 효과는 측정하지 않았다.
 
