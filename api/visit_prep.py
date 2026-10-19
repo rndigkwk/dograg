@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field, field_validator
 from api.chat import Note, client_network, event, person_of
 from src import (
     data_gaps,
+    model_outage,
     rate_limit,
     settings,
     tracing,
@@ -140,8 +141,9 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
             outcome["value"] = visit_prep_runs.generate(
                 consultation, region, profile, run_team=_run_team(person, location), prepare=visit_prep_runs.prepare_search,
                 on_line=on_line, pending=pending, answer=answer, retry=retry, thread_id=thread_id)
-        except Exception:  # noqa: BLE001 - reported as one error event
+        except Exception as error:  # noqa: BLE001 - reported as one error event
             logger.exception("visit-prep run failed")
+            outcome["quota"] = model_outage.is_quota_error(error)
         finally:
             visit_prep_runs.team_lock().release()
             events.put(None)
@@ -150,6 +152,11 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
     while (item := events.get()) is not None:
         yield item
     value = outcome.get("value")
+    if value is None and outcome.get("quota"):
+        # The provider out of quota: going on within 30 minutes would fail the same way (src/model_outage.py).
+        visit_prep_store.store().checkpointer().delete_thread(thread_id)
+        yield event("error", {"message": model_outage.PAUSED})
+        return
     if value is None:
         tries = (pending or {}).get("retries", 0) + (1 if retry else 0)
         if tries >= MAX_RETRIES:
