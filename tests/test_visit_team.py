@@ -406,6 +406,43 @@ class AskGuardianTests(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         self.assertFalse(runs[0]["paused"])
 
+    def test_a_failed_run_goes_on_from_its_last_checkpoint(self):
+        """retry=True (api/visit_prep.py .../retry): the writer failed once; the second run goes on from
+        the last finished step, so planning and research are not done again."""
+        from langgraph.checkpoint.memory import InMemorySaver
+
+        from team import main as team_main
+
+        failures = [RuntimeError("model call failed")]
+
+        class FailingOnceWriter(FakeWriter):
+            def invoke(self, payload):
+                if failures:
+                    raise failures.pop()
+                return super().invoke(payload)
+
+        tasks = [VisitTask(kind="health", query="설사", angle="a")]
+        planned = []
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        common = {"checkpointer": InMemorySaver(), "thread_id": "visit-retry", "run_dir": Path(directory.name)}
+        with patch.object(config, "llm", return_value=FakeLLM(tasks, ())), patch.object(config, "review_llm"), \
+                patch.object(nodes, "create_researcher", side_effect=FakeResearcher), \
+                patch.object(nodes, "build_judge", side_effect=judge_with([])), \
+                patch.object(nodes, "build_verifier"), patch.object(nodes, "recheck_unsupported", return_value=0), \
+                patch.object(nodes, "PLANNER_INPUT", _Recorder(nodes.PLANNER_INPUT, planned)), \
+                patch.object(team_main, "create_writer", side_effect=FailingOnceWriter), \
+                patch.object(team_main.tracing, "client", return_value=None):
+            with self.assertRaises(RuntimeError):
+                team_main.run("말티즈가 설사를 해요", **common)
+            steps = []
+            state = team_main.run("말티즈가 설사를 해요", retry=True, on_step=lambda node, update: steps.append(node), **common)
+        self.assertTrue(state["review"]["passed"])
+        self.assertEqual(len(planned), 1)  # planned once, before the failure
+        self.assertNotIn("planner", steps)
+        self.assertNotIn("researcher", steps)
+        self.assertIn("writer", steps)
+
     def test_urgent_consultations_and_runs_without_asking_never_call_the_model(self):
         llm = SimpleNamespace(with_structured_output=lambda schema: self.fail("clarify called the model"))
         with patch.object(config, "llm", return_value=llm):

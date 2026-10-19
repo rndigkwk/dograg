@@ -10,6 +10,7 @@ Moved from the page unchanged (2026-10-15, ADR-0008).
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 import threading
 import time
@@ -109,47 +110,78 @@ def prepare_search() -> None:
     resources.load_report_bm25_index()
 
 
+RUN_DIR_PREFIX = "ragdog-visit-"
+STALE_RUN_DIR_SECONDS = 60 * 60  # src/visit_prep_store.py drops a crashed run's checkpoints after an hour
+
+
+def run_folder(thread_id: str) -> Path:
+    """A run's working folder (the draft report the reviewer reads), kept until the run ends, so a
+    failed run continued on this server finds its draft. On another instance it is missing and the
+    writer drafts again (the reviewer sends a missing report back to it)."""
+    folder = Path(tempfile.gettempdir()) / f"{RUN_DIR_PREFIX}{thread_id}"
+    folder.mkdir(exist_ok=True)
+    return folder
+
+
+def sweep_run_folders(now: float | None = None) -> None:
+    """Remove the folders of runs that failed and were never continued."""
+    now = time.time() if now is None else now
+    for folder in Path(tempfile.gettempdir()).glob(f"{RUN_DIR_PREFIX}*"):
+        try:
+            if now - folder.stat().st_mtime > STALE_RUN_DIR_SECONDS:
+                shutil.rmtree(folder, ignore_errors=True)
+        except OSError:
+            continue
+
+
 def generate(consultation: str, region: str, profile: str, *, run_team, prepare=prepare_search, on_line=None,
-             pending: dict | None = None, answer: str | None = None) -> dict:
+             pending: dict | None = None, answer: str | None = None, retry: bool = False,
+             thread_id: str | None = None) -> dict:
     """Run the team in a temporary folder and keep only the report text and its status.
 
     run_team(consultation, region, profile, run_dir, on_step, thread_id=, resume=) runs the graph
     (the page and the API pass their own, with their session). The first call may return
     {"paused": True, ...} with the questions; the second passes that pending run and the answer
-    ("" to skip), and the same thread resumes from the question. on_line gets each progress line."""
+    ("" to skip), and the same thread resumes from the question. on_line gets each progress line.
+    retry=True with a failed run's record (pending) goes on from its last checkpoint. thread_id names
+    a new run (the API keeps it to offer the retry); one is made when not given."""
     from team.core import config
     from team.core.citations import readable_report
     from team.graph.nodes import run_status as status_of
 
     started = time.perf_counter()
-    thread_id = pending["thread_id"] if pending else uuid.uuid4().hex
+    thread_id = pending["thread_id"] if pending else (thread_id or uuid.uuid4().hex)
+    sweep_run_folders()
     prepare()
     steps = list(pending["steps"]) if pending else [PREPARED]
     if not pending and on_line:
         on_line(PREPARED)
-    with tempfile.TemporaryDirectory(prefix="ragdog-visit-", ignore_cleanup_errors=True) as directory:
-        run_dir = Path(directory)
+    run_dir = run_folder(thread_id)  # kept if the run fails (run_folder), removed when it ends
 
-        def show(node: str, update: dict) -> None:
-            line = step_line(node, update)
-            if line:
-                steps.append(line)
-                if on_line:
-                    on_line(line)
+    def show(node: str, update: dict) -> None:
+        line = step_line(node, update)
+        if line:
+            steps.append(line)
+            if on_line:
+                on_line(line)
 
+    if retry:
+        state = run_team(consultation, region, profile, run_dir, show, thread_id=thread_id, resume=None, retry=True)
+    else:
         state = run_team(consultation, region, profile, run_dir, show, thread_id=thread_id,
                          resume=answer if pending else None)
-        if state["paused"]:
-            remember_paused_run(thread_id)
-            return {"paused": True, "thread_id": thread_id, "questions": state["questions"],
-                    "consultation": consultation, "region": region, "profile": profile, "steps": steps,
-                    "seconds": round(time.perf_counter() - started)}
-        # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
-        report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
-                                 state.get("findings") or {})
+    if state["paused"]:
+        remember_paused_run(thread_id)
+        return {"paused": True, "thread_id": thread_id, "questions": state["questions"],
+                "consultation": consultation, "region": region, "profile": profile, "steps": steps,
+                "seconds": round(time.perf_counter() - started)}
+    # The saved report cites evidence ids for the reviewer; people get ①② and a source list.
+    report = readable_report((run_dir / config.REPORT_FILE).read_text(encoding="utf-8"),
+                             state.get("findings") or {})
+    shutil.rmtree(run_dir, ignore_errors=True)
     forget_paused_run(thread_id)
     run_status = status_of(state)
     seconds = round(time.perf_counter() - started) + (pending["seconds"] if pending else 0)
     return {"paused": False, "report": report, "passed": run_status == config.PASSED, "status": run_status,
             "round": state["round"], "steps": steps, "urgent": bool(detect_urgent_sign(consultation)),
-            "seconds": seconds, "answered": bool(pending and answer)}
+            "seconds": seconds, "answered": bool(pending and answer and not retry)}

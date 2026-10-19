@@ -22,6 +22,12 @@ describe("applyVisitEvent", () => {
     expect(run([{ kind: "busy", data: { message: "다른 사용자의 보고서를 만드는 중입니다." } }]).notice).toEqual({ kind: "busy", message: "다른 사용자의 보고서를 만드는 중입니다." });
     expect(run([{ kind: "limited", data: { message: "하루 2번", wait_minutes: null } }]).notice?.kind).toBe("limited");
   });
+
+  it("an error with a thread id can go on; one without cannot", () => {
+    const stopped = run([{ kind: "step", data: { line: "증상을 조사했습니다" } }, { kind: "error", data: { message: "멈췄습니다", thread_id: "t9" } }]);
+    expect(stopped).toMatchObject({ retry: { threadId: "t9" }, notice: { kind: "error", message: "멈췄습니다" }, steps: ["증상을 조사했습니다"] });
+    expect(run([{ kind: "error", data: { message: "실패" } }]).retry).toBeNull();
+  });
 });
 
 describe("outcomeLine", () => {
