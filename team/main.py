@@ -21,7 +21,7 @@ from pathlib import Path
 from langgraph.types import Command
 
 from src import tracing
-from src.health_safety import detect_urgent_sign
+from src.health_safety import detect_urgent_sign, todays_text
 from src.run_log import question_fingerprint
 from team.agents.workers import create_writer
 from team.core import config
@@ -62,7 +62,7 @@ def run(consultation: str, region: str = "", profile: str = "", *, location: tup
         inputs = {
             "consultation": consultation, "region": region, "profile": profile,
             "location": list(location) if location else None,
-            "urgent": detect_urgent_sign(consultation) or "", "ask": ask, "questions": [],
+            "urgent": detect_urgent_sign(todays_text(consultation)) or "", "ask": ask, "questions": [],
             "plan": [], "findings": {}, "failures": {}, "reasks": {}, "outcome": "", "round": 0, "draft": "",
             "review": None, "feedback": "", "instruction": "",
         }

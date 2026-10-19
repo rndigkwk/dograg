@@ -1,6 +1,6 @@
 """POST /visit-prep: the visit-prep report as a stream of progress events (ADR-0008, P1).
 
-    POST /visit-prep                      {consultation, region?, profile?} -> step* · paused | result
+    POST /visit-prep                      {consultation, region?, profile?, notes?} -> step* · paused | result
     POST /visit-prep/{thread_id}/answer   {answer} ("" to skip)              -> step* · result
     POST /visit-prep/{thread_id}/retry    {}                                  -> step* · paused | result
 
@@ -34,7 +34,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from api.chat import client_network, event, person_of
+from api.chat import Note, client_network, event, person_of
 from src import (
     data_gaps,
     rate_limit,
@@ -43,7 +43,9 @@ from src import (
     visit_prep_runs,
     visit_prep_store,
 )
-from src.health_safety import detect_urgent_sign
+from src.health_safety import SAVED_NOTES_HEADING, detect_urgent_sign, todays_text
+from src.pii import mask_pii
+from src.tools.health import notes_context
 from team.core.config import MAX_ANSWER_CHARS
 
 logger = logging.getLogger(__name__)
@@ -69,6 +71,8 @@ class StartRequest(BaseModel):
     profile: str = Field(default="", max_length=300)
     # The guardian's position (the page's "현재 위치 사용"): the nearest hospitals instead of a region's.
     location: tuple[float, float] | None = None
+    # Saved consultation notes the guardian ticked for this report (ADR-0009; none unless chosen).
+    notes: list[Note] = Field(default_factory=list, max_length=5)
 
     @field_validator("location")
     @classmethod
@@ -80,6 +84,16 @@ class StartRequest(BaseModel):
 
 class AnswerRequest(BaseModel):
     answer: str = Field(default="", max_length=MAX_ANSWER_CHARS)
+
+
+def with_notes(consultation: str, notes: list[Note]) -> str:
+    """The consultation the team reads: the guardian's text, then the notes they chose, with each
+    note's age written out (src/tools/health.notes_context) and personal details masked as in chat.
+    The urgent-sign check reads the guardian's own text only."""
+    if not notes:
+        return consultation
+    masked = [Note(date=note.date, text=mask_pii(note.text)) for note in notes]
+    return f"{consultation}\n\n{SAVED_NOTES_HEADING}\n{notes_context(masked)}"
 
 
 def _take_report(person: str, now: float) -> bool:
@@ -103,7 +117,7 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
             pending: dict | None = None, answer: str | None = None,
             location: tuple[float, float] | None = None, retry: bool = False) -> Iterator[str]:
     data_gaps.REQUEST_AGENT.set(agent)
-    if pending is None and detect_urgent_sign(consultation):
+    if pending is None and detect_urgent_sign(todays_text(consultation)):
         yield event("urgent", {"notice": URGENT})
     if not visit_prep_runs.team_lock().acquire(blocking=False):
         if pending is not None:  # still waiting: the guardian can send the answer again
@@ -183,7 +197,8 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
     visit_prep_store.store().expire(visit_prep_store.now())
     if not _take_report(person, visit_prep_store.now()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
-    return _response(_stream(person, consultation, body.region.strip(), body.profile.strip(), agent, location=body.location))
+    return _response(_stream(person, with_notes(consultation, body.notes), body.region.strip(), body.profile.strip(), agent,
+                             location=body.location))
 
 
 @router.post("/{thread_id}/answer")
