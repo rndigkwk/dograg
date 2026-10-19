@@ -10,7 +10,13 @@ from types import SimpleNamespace
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 
-from evaluate_report_pages import HOLDOUT, REFERENCES, has_every_gold_report, has_gold
+from evaluate_report_pages import (
+    HOLDOUT,
+    REFERENCES,
+    expected_verdict,
+    has_every_gold_report,
+    has_gold,
+)
 
 
 def doc(name, page):
@@ -21,10 +27,10 @@ class ReportHoldoutTests(unittest.TestCase):
     def test_every_question_has_a_reference_and_gold_pages(self):
         items = json.loads(HOLDOUT.read_text(encoding="utf-8"))["items"]
         refs = {row["id"]: row for row in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"]}
-        self.assertEqual(len(items), 17)
-        self.assertEqual(len({item["id"] for item in items}), 17)
+        self.assertEqual(len(items), 23)
+        self.assertEqual(len({item["id"] for item in items}), 23)
         for item in items:
-            self.assertTrue(item["gold_pages"], item["id"])
+            self.assertEqual(bool(item["gold_pages"]), item["expected"] == "answer", item["id"])
             self.assertTrue(refs[item["id"]]["reference"], item["id"])
             self.assertEqual(refs[item["id"]]["gold_pages"], item["gold_pages"], item["id"])
         unnamed = [item for item in items if item["kind"] == "multi_unnamed"]
@@ -38,6 +44,13 @@ class ReportHoldoutTests(unittest.TestCase):
         self.assertTrue(has_gold(one_report, item))
         self.assertFalse(has_every_gold_report(one_report, item))
         self.assertTrue(has_every_gold_report([doc("KB.pdf", 50), doc("복지.pdf", 170)], item))
+
+
+    def test_a_question_the_reports_cannot_answer_is_right_when_declined(self):
+        abstain = {"expected": "abstain"}
+        self.assertEqual(expected_verdict(abstain, "abstained"), "correct")
+        self.assertEqual(expected_verdict(abstain, "wrong"), "wrong")
+        self.assertEqual(expected_verdict({"expected": "answer"}, "abstained"), "abstained")
 
 
 if __name__ == "__main__":

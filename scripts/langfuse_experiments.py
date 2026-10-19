@@ -2,12 +2,13 @@
 
     uv run python scripts/langfuse_experiments.py upload                     # create/refresh datasets
     uv run python scripts/langfuse_experiments.py run crag --name effort-low  # 60 questions, real model
-    uv run python scripts/langfuse_experiments.py run routing --name rules    # 36 questions
+    uv run python scripts/langfuse_experiments.py run routing --name rules    # 41 questions
     uv run python scripts/langfuse_experiments.py run visit --name baseline   # 12 consultations, visit-prep team
 
 Datasets (item ids are fixed, so uploading again updates items instead of adding):
 - ragdog-crag-60: tests/data/crag_eval_questions.json. Expected: answer or abstain.
-- ragdog-place-routing-36: tests/data/place_routing_questions.json. Expected: route and kind.
+- ragdog-place-routing-36: tests/data/place_routing_questions.json (41 since 2026-10-19; the dataset
+  name stays so its earlier runs stay comparable). Expected: route and kind.
 - ragdog-visit-prep-12: tests/data/visit_prep_consultations.json. Expected: urgent flag, and
   whether the consultation is about a dog (review should pass) or another species.
 

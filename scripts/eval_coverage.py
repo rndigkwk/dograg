@@ -12,7 +12,9 @@ how that one question is worded, so it is the next place to add questions. Three
    the number of health questions in the sets that use consultation rows. A department with many
    documents and almost no questions is a blind spot of the health numbers.
 3. With --gaps: the words that recur in what the deployed answers said was missing
-   (ragdog_data_gaps, src/data_gaps.py) and how many evaluation questions mention each.
+   (ragdog_data_gaps, src/data_gaps.py) and how many evaluation questions mention each, and the
+   consented 👎 answers by route and reason (ragdog_feedback). The monthly "Evaluation review" issue
+   (.github/workflows/eval-review-monthly.yml) asks for this run; questions are added by hand.
 """
 
 from __future__ import annotations
@@ -115,6 +117,10 @@ def gap_table(sets: dict[str, list[dict]], top: int) -> list[str]:
         return ["SUPABASE_DB_URL이 없어 건너뜀"]
     with psycopg.connect(url) as conn:
         rows = conn.execute("select sentence from ragdog_data_gaps where sentence is not null").fetchall()
+        # Consented 👎 answers (src/feedback_store.py): how many, by route and reason. The texts stay
+        # in the database; a question worth adding is written into a set by hand.
+        feedback = conn.execute("select coalesce(route, '-'), coalesce(reason, '-'), count(*) from ragdog_feedback "
+                                "group by 1, 2 order by 3 desc").fetchall()
     words: Counter = Counter()
     for (sentence,) in rows:
         words.update({w for w in WORD.findall(sentence) if w not in STOP_WORDS})
@@ -123,6 +129,8 @@ def gap_table(sets: dict[str, list[dict]], top: int) -> list[str]:
     for word, count in words.most_common(top):
         stem = re.escape(word[:2])
         lines.append(f"| {word} | {count} | {sum(bool(re.search(stem, t)) for t in texts)} |")
+    lines += ["", f"👎 피드백 {sum(n for _, _, n in feedback)}개", "", "| 경로 | 이유 | 개수 |", "| --- | --- | ---: |"]
+    lines += [f"| {route} | {reason} | {n} |" for route, reason, n in feedback]
     return lines
 
 
