@@ -22,6 +22,23 @@
   - 평가 46문항에서는 지침 때문에 토큰이 약 33% 늘었다([retrieval-experiments](wiki/retrieval-experiments.md)). 운영에서 그 비용이 쓸모만큼인지 이 값으로 본다.
   - 그 전 기록에는 `guide_count`가 없어서 빼고 센다.
 
+## 평가와 운영의 OpenAI 키 나누기 (2026-10-19)
+
+2026-10-19에는 평가와 운영이 같은 OpenAI 프로젝트를 써서, 평가에 쓴 비용 때문에 운영 챗봇이 멈췄다. 키는 이미 세 곳에서 따로 읽는다. 코드를 바꿀 필요 없이 넣는 키만 나누면 된다.
+
+| 쓰는 곳 | 키를 읽는 곳 | 넣을 키 |
+| --- | --- | --- |
+| 운영 API (Cloud Run) | GCP Secret Manager `OPENAI_API_KEY` (`deploy-cloud-run.yml`) | **운영 프로젝트** 키 |
+| CI: 병합 게이트, 주간 회귀 | GitHub 저장소 secret `OPENAI_API_KEY` (`pr-quality.yml`, `regression-eval.yml`) | **평가 프로젝트** 키 |
+| 로컬 평가·스크립트 | `.env`의 `OPENAI_API_KEY` | **평가 프로젝트** 키 |
+
+**순서 (소유자):**
+1. OpenAI 대시보드에서 평가용 프로젝트(예: `ragdog-eval`)를 만들고, 그 프로젝트에 따로 사용 한도를 정한다.
+2. 그 프로젝트의 키를 GitHub 저장소 secret `OPENAI_API_KEY`와 로컬 `.env`에 넣는다.
+3. 운영 프로젝트의 키는 GCP Secret Manager에만 둔다.
+
+이렇게 나누면 평가 한도가 떨어져도 운영 답변은 계속된다. 반대로 운영 한도가 떨어지면 챗봇은 위의 검색 결과 보기로 넘어간다.
+
 ## 알림
 
 `.github/workflows/alert-on-failure.yml`이 main에서 아래 워크플로가 실패하면 이슈를 연다. 같은 워크플로의 이슈가 열려 있으면 새로 열지 않고 댓글을 단다.
