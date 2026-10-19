@@ -1,0 +1,97 @@
+name: Roll back the API
+
+# Sends the API's traffic (service ragdog-api) to an earlier revision, or back to the latest one.
+# Cloud Run keeps every deployed revision, so a bad release is undone in seconds without a rebuild:
+# Actions > Roll back the API > Run workflow.
+#   revision empty  -> the revision deployed before the one serving now
+#   revision NAME   -> that revision (gcloud run revisions list --service ragdog-api)
+#   to_latest true  -> undo a rollback: the newest revision serves again
+# A rollback pins the traffic; the next "Deploy to Cloud Run" sends it back to the new revision
+# (--to-latest there). The check at the end waits until /health reports the target's commit.
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revision to serve (empty: the one before the current)"
+        required: false
+        default: ""
+      to_latest:
+        description: "Serve the latest revision again instead"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloud-run  # never at the same time as a deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ragdog-511311
+  REGION: asia-northeast3
+  API_SERVICE: ragdog-api
+  DEPLOYER: github-deployer@ragdog-511311.iam.gserviceaccount.com
+
+jobs:
+  rollback:
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3.0.1
+
+      - name: Move the traffic
+        env:
+          REVISION: ${{ inputs.revision }}
+          TO_LATEST: ${{ inputs.to_latest }}
+        run: |
+          gcloud config set project "$PROJECT_ID" --quiet
+          serving="$(gcloud run services describe "$API_SERVICE" --region="$REGION" \
+            --format='value(status.traffic[0].revisionName)')"
+          echo "### Before: $serving" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TO_LATEST" = true ]; then
+            gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
+            target="$(gcloud run services describe "$API_SERVICE" --region="$REGION" \
+              --format='value(status.latestReadyRevisionName)')"
+          else
+            target="$REVISION"
+            if [ -z "$target" ]; then
+              # Revisions newest first; the first one older than the serving one.
+              target="$(gcloud run revisions list --service="$API_SERVICE" --region="$REGION" \
+                --sort-by='~metadata.creationTimestamp' --format='value(metadata.name)' \
+                | awk -v s="$serving" 'found {print; exit} $0 == s {found = 1}')"
+            fi
+            if [ -z "$target" ]; then
+              echo "::error::No revision older than $serving"
+              exit 1
+            fi
+            gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-revisions="$target=100"
+          fi
+          echo "target=$target" >> "$GITHUB_ENV"
+          echo "### After: $target" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the API serves the target
+        run: |
+          # The revision's commit is its LANGFUSE_RELEASE, which /health reports.
+          commit="$(gcloud run revisions describe "$target" --region="$REGION" --format=json \
+            | jq -r '.spec.containers[0].env[] | select(.name == "LANGFUSE_RELEASE") | .value')"
+          url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
+          for attempt in $(seq 1 30); do
+            body="$(curl -s "$url/health" || true)"
+            if [ -n "$commit" ] && echo "$body" | grep -q "\"commit\":\"$commit\""; then
+              echo "### $url/health: commit ${commit::7} (attempt $attempt)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url/health did not report ${commit:-the target's commit} (last: $body)"
+          exit 1
