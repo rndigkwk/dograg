@@ -86,6 +86,13 @@ class BuildTests(unittest.TestCase):
     def test_a_short_page_is_one_piece(self):
         self.assertEqual(build.chunks_of("짧은 쪽"), [("짧은 쪽", "짧은 쪽")])
 
+    def test_every_public_guide_is_in_the_repository_with_its_licence_and_source(self):
+        for name, (title, organization, url) in build.PUBLIC_GUIDES.items():
+            text = (build.PUBLIC_DIR / name).read_text(encoding="utf-8")
+            self.assertIn("공공누리 제1유형", text, name)
+            self.assertIn(url, text, name)
+            self.assertTrue(url.startswith("https://"), name)
+
     def test_contents_pages_are_found(self):
         self.assertTrue(build.is_contents_page("가. 필요성····· 2\n1. 기본자세····· 2\n2. 환경····· 4"))
         self.assertFalse(build.is_contents_page("반려견의 발톱은 2~3주 주기로 손질합니다."))
