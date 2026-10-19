@@ -215,9 +215,19 @@ CARE_WORDS = ("간식", "사료", "개껌", "산책", "배변", "목욕", "빗�
 # Old age, a death, what to do after it and grief (2026-10-19): the care guides answer them
 # (src/tools/care_guides.py), but "강아지가 죽으면 사체는 어떻게 처리해야 하나요?" went to sql, "강아지를 떠나보내고
 # 너무 힘든데" to none and "펫로스", "장례" to the report. Words from tests/data/care_routing_questions.json loss_dev.
-LOSS_WORDS = ("사체", "사망", "죽으면", "죽었", "죽은", "떠나보내", "무지개다리", "펫로스", "장례", "노견", "노령견")
+LOSS_WORDS = ("사체", "사망", "죽으면", "죽었", "죽은", "떠나보내", "떠난지", "떠났", "무지개다리", "펫로스", "장례",
+              "노견", "노령견")
+# After a death the guardian asks where to report it ("반려견 사망 신고는 어디에 하나요?"): an office, not a
+# facility to look up, so "어디" does not make it a place question (loss_holdout, 2026-10-19).
+LOSS_PROCEDURE_WORDS = ("신고", "말소", "등록")
 # "산책하기 좋은 공원 어디 있어?" asks for a place even without a facility word: the model decides.
 PLACE_HINTS = ("어디", "근처", "주소", "위치", "가까운")
+
+
+def asks_about_loss_procedure(normalized_question: str) -> bool:
+    return (any(word in normalized_question for word in LOSS_WORDS)
+            and any(word in normalized_question for word in LOSS_PROCEDURE_WORDS)
+            and not any(word.replace(" ", "") in normalized_question for word in STATISTICS_WORDS))
 
 
 def has_care_topic(normalized_question: str) -> bool:
@@ -259,6 +269,8 @@ def classify_question(question: str, chat_history=None) -> str:
         return "rag"
     if (has_care_topic(normalized_question) and not has_report_topic and not mentions_hospital
             and not asks_for_places(question) and not is_long_post(question)):
+        return "rag"
+    if asks_about_loss_procedure(normalized_question) and not mentions_hospital and not is_long_post(question):
         return "rag"
     long_post = is_long_post(question)
     # A long post that names a hospital is a health story ("동물병원에서 진단을 받았는데 어떻게

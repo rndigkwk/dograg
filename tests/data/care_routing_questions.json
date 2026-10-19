@@ -1,5 +1,5 @@
 {
- "description": "Routing of everyday dog-care questions (2026-10-15), written before the fix. '새 간식을 사려는데 어떤 걸 고르면 좋을까요?' was routed to none (out of scope) and got the service menu instead of an answer. Questions about the user's dog's food, treats, walks, grooming, habits and care belong to rag (the health answer path, which abstains when the material has nothing); questions that are not about a dog stay none. scripts/evaluate_care_routing.py. holdout was looked at while fixing the router wording (c-h16, c-h17 went to rag after the first change), so its items carry informed_fix; holdout2 was written after that and before the second change. loss_dev and loss_holdout (2026-10-19) were written before the loss rule, after the care-guide evaluation sent '강아지가 죽으면 사체는 어떻게 처리해야 하나요?' to sql and '강아지를 떠나보내고 너무 힘든데 어떻게 해야 할까요?' to none: old age, death, aftercare and grief go to rag (the care guides answer them), while finding a funeral home stays sql and funeral statistics analysis. loss_holdout was not looked at while choosing the rule's words.",
+ "description": "Routing of everyday dog-care questions (2026-10-15), written before the fix. '새 간식을 사려는데 어떤 걸 고르면 좋을까요?' was routed to none (out of scope) and got the service menu instead of an answer. Questions about the user's dog's food, treats, walks, grooming, habits and care belong to rag (the health answer path, which abstains when the material has nothing); questions that are not about a dog stay none. scripts/evaluate_care_routing.py. holdout was looked at while fixing the router wording (c-h16, c-h17 went to rag after the first change), so its items carry informed_fix; holdout2 was written after that and before the second change. loss_dev and loss_holdout (2026-10-19) were written before the loss rule, after the care-guide evaluation sent '강아지가 죽으면 사체는 어떻게 처리해야 하나요?' to sql and '강아지를 떠나보내고 너무 힘든데 어떻게 해야 할까요?' to none: old age, death, aftercare and grief go to rag (the care guides answer them), while finding a funeral home stays sql and funeral statistics analysis. loss_holdout was not looked at while choosing the rule's words. loss_holdout2 (2026-10-19) was written before fixing loss_holdout's two misses ('떠난 지 한 달', '사망 신고는 어디에'), which had been seen; the fix is judged on loss_holdout2.",
  "items": [
   {
    "id": "c-d01",
@@ -438,6 +438,54 @@
    "split": "loss_holdout",
    "expected": "rag",
    "question": "강아지가 죽기 전에 보이는 증상이 있나요?"
+  },
+  {
+   "id": "l-h2-01",
+   "split": "loss_holdout2",
+   "expected": "rag",
+   "question": "우리 개가 지난주에 떠났어요. 마음이 너무 아파요"
+  },
+  {
+   "id": "l-h2-02",
+   "split": "loss_holdout2",
+   "expected": "rag",
+   "question": "반려견이 떠난 뒤로 아무것도 못 하겠어요"
+  },
+  {
+   "id": "l-h2-03",
+   "split": "loss_holdout2",
+   "expected": "rag",
+   "question": "강아지 사망하면 동물등록 말소는 어디서 하나요?"
+  },
+  {
+   "id": "l-h2-04",
+   "split": "loss_holdout2",
+   "expected": "rag",
+   "question": "개가 죽었을 때 신고는 어디로 해야 해요?"
+  },
+  {
+   "id": "l-h2-05",
+   "split": "loss_holdout2",
+   "expected": "rag",
+   "question": "노견이 잘 걷지 못하는데 산책은 어떻게 해야 하나요?"
+  },
+  {
+   "id": "l-h2-06",
+   "split": "loss_holdout2",
+   "expected": "sql",
+   "question": "근처 반려동물 장례식장 어디 있어?"
+  },
+  {
+   "id": "l-h2-07",
+   "split": "loss_holdout2",
+   "expected": "sql",
+   "question": "강아지가 떠났는데 부천 동물 장례식장 추천해줘"
+  },
+  {
+   "id": "l-h2-08",
+   "split": "loss_holdout2",
+   "expected": "analysis",
+   "question": "반려동물이 죽은 뒤 장례 방법 통계 보여줘"
   }
  ]
 }
