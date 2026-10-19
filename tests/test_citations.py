@@ -32,6 +32,12 @@ class NumberCitationTests(unittest.TestCase):
         self.assertEqual(labels[0], "보고서 「반려동물 의료보험서비스」 68쪽: 진료비 게시 항목은 20종")
         self.assertEqual(labels[1], "조사 t1 요약: 구토 사례 요약")
 
+    def test_a_care_guide_is_labelled_with_its_guide_and_page(self):
+        findings = {"t4": {"summary": "노령기", "key_points": [
+            {"fact": "미끄럼 방지와 짧은 산책", "evidence_id": "careguide-반려동물과의+이별,+미리+알고+함께+준비합니다-p2"}]}}
+        _, sources = number_citations("돌봄 [careguide-반려동물과의+이별,+미리+알고+함께+준비합니다-p2]", findings)
+        self.assertEqual(sources[0][2], "동물사랑배움터 돌봄 지침 「반려동물과의 이별, 미리 알고 함께 준비합니다」 2쪽: 미끄럼 방지와 짧은 산책")
+
     def test_links_and_unknown_brackets_stay_as_written(self):
         report = "[시설 찾기](https://example.com) [참고] [qa-9999] [qa-5250]"
         numbered, sources = number_citations(report, FINDINGS)

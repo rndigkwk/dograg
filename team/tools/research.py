@@ -15,7 +15,7 @@ from langchain.tools import tool
 
 from src import places_search
 from src.crag import HEALTH_CANDIDATE_K, evidence_id, grade_documents
-from src.tools import fees, health, places, report
+from src.tools import care_guides, fees, health, places, report
 from src.tools.review import review_evidence
 
 # Researchers run in parallel threads (Send). The search indexes (Kiwi tokenizer, BM25,
@@ -30,22 +30,36 @@ def _dumps(items: list[dict]) -> str:
 
 
 def _health_text(doc) -> str:
+    if care_guides.is_guide(doc):
+        return f"지침 「{doc.metadata.get('title', '')}」 {doc.metadata.get('page', '?')}쪽: {doc.metadata.get('piece', '')}"
     return f"질문: {doc.page_content}\n답변: {doc.metadata.get('qa.output', '')}"
+
+
+def _guide_item(doc) -> dict:
+    """A care guide piece (src/tools/care_guides.py); its id carries the guide and page like a report's."""
+    title, page = doc.metadata.get("title", ""), doc.metadata.get("page", "?")
+    return {
+        "evidence_id": f"careguide-{title.replace(' ', '+')}-p{page}",
+        "source": f"{doc.metadata.get('organization', '')} 「{title}」 {page}쪽",
+        "excerpt": doc.page_content[:EXCERPT_CHARS],
+    }
 
 
 @tool
 def search_health_qa(query: str) -> str:
     """반려견 건강 상담 Q&A(AI Hub, 19,206건)에서 증상 하나에 맞는 상담 사례를 찾습니다.
-    하이브리드 검색 뒤 근거 평가로 질문에 쓸모 있는 사례만 남깁니다."""
+    노령기 돌봄, 발톱·빗질 같은 일상 관리, 재난 대비, 이별 뒤 절차는 동물사랑배움터 돌봄 지침에서도 찾습니다.
+    하이브리드 검색 뒤 근거 평가로 질문에 쓸모 있는 사례와 지침만 남깁니다."""
     filters = health.infer_rag_filters(query)
     with _SEARCH_LOCK:
         docs = health.retrieve_health(query, k=HEALTH_CANDIDATE_K, filters=filters)
+        docs += care_guides.retrieve_care_guides(query)
     kept, decision, _ = grade_documents(
         lambda question, context: review_evidence("health", question, context), query, docs, _health_text,
     )
     if not kept:
         return _dumps([{"note": "이 증상에 쓸 수 있는 상담 근거를 찾지 못했습니다.", "decision": decision}])
-    return _dumps([{
+    return _dumps([_guide_item(doc) if care_guides.is_guide(doc) else {
         "evidence_id": f"qa-{evidence_id(doc)}",
         "life_stage": doc.metadata.get("meta.lifeCycle"),
         "department": doc.metadata.get("meta.department"),
