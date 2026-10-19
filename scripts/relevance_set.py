@@ -6,6 +6,12 @@ the question's. Experiment 8 found those labels agree with the questions' own te
 
     uv run python scripts/relevance_set.py build      # 100 questions: candidate pools + LLM grades
     uv run python scripts/relevance_set.py evaluate   # metrics for the saved rankings
+    uv run python scripts/relevance_set.py build --department 치과   # every row of one department
+    uv run python scripts/relevance_set.py evaluate --department 치과
+
+--department builds a separate set from every validation row of that department
+(tests/data/health_relevance_<department>.json): the random 100 had no 치과 question, since the
+validation set has only 10 of them (docs/wiki/eval-coverage.md).
 
 For 100 validation questions (data/df_val.csv, fixed seed) the pool is every candidate the
 hybrid search fuses (Dense 12 + BM25 12, up to 24 unique) plus the top 3 of the old filtered
@@ -88,7 +94,16 @@ def judge(model, question: str, docs: list) -> dict[str, int]:
     return {str(doc.id): grades[i] for i, doc in enumerate(docs) if i in grades}
 
 
-def sample_rows(rows) -> list[int]:
+DEPARTMENT_SLUGS = {"치과": "dental", "안과": "eye", "피부과": "skin", "내과": "internal", "외과": "surgery"}
+
+
+def set_path(department: str | None) -> Path:
+    return SET_PATH if not department else SET_PATH.with_name(f"health_relevance_{DEPARTMENT_SLUGS[department]}.json")
+
+
+def sample_rows(rows, department: str | None = None) -> list[int]:
+    if department:
+        return [i for i in range(len(rows)) if str(rows.loc[i, "meta.department"]).strip() == department]
     return sorted(random.Random(SEED).sample(range(len(rows)), SAMPLE_SIZE))
 
 
@@ -100,7 +115,7 @@ def open_search(directory: str):
     return resources.load_vector_db(), resources.load_health_bm25_index(), resources.load_health_answer_table()
 
 
-def build(workers: int) -> None:
+def build(workers: int, department: str | None = None) -> None:
     import pandas as pd
 
     from src.health_answers import attach_health_answers
@@ -108,7 +123,7 @@ def build(workers: int) -> None:
     from src.tools import health
 
     rows = pd.read_csv(PROJECT_DIR / "data" / "df_val.csv").fillna("")
-    picked = sample_rows(rows)
+    picked = sample_rows(rows, department)
     pools = []
     with tempfile.TemporaryDirectory(prefix="ragdog-relevance-", ignore_cleanup_errors=True) as directory:
         db, index, answers = open_search(directory)
@@ -132,13 +147,15 @@ def build(workers: int) -> None:
             "doc_labels": {str(d.id): {field: str(d.metadata.get(field)) for field in FIELDS} for d in docs},
             "rankings": {"hybrid": fused, "hybrid_old_filters": filtered},
         })
-    SET_PATH.write_text(json.dumps({
-        "description": "Health retrieval relevance set: LLM-graded candidate pools for 100 validation questions "
+    path = set_path(department)
+    scope = f"every {department} validation question ({len(items)})" if department else "100 validation questions"
+    path.write_text(json.dumps({
+        "description": f"Health retrieval relevance set: LLM-graded candidate pools for {scope} "
                        "(scripts/relevance_set.py). Grades: 2 directly useful, 1 partly, 0 not useful.",
         "seed": SEED, "judge": {"model": JUDGE_MODEL, "prompt_version": 1, "reasoning_effort": JUDGE_EFFORT},
         "items": items,
     }, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    print(f"saved {len(items)} questions, {sum(len(i['grades']) for i in items)} graded candidates -> {SET_PATH}")
+    print(f"saved {len(items)} questions, {sum(len(i['grades']) for i in items)} graded candidates -> {path}")
 
 
 def metrics(items: list[dict], ranking_of) -> dict:
@@ -160,12 +177,12 @@ def metrics(items: list[dict], ranking_of) -> dict:
             "judged_share": round(judged / shown, 3) if shown else 0.0}
 
 
-def load_items() -> list[dict]:
-    return json.loads(SET_PATH.read_text(encoding="utf-8"))["items"]
+def load_items(department: str | None = None) -> list[dict]:
+    return json.loads(set_path(department).read_text(encoding="utf-8"))["items"]
 
 
-def evaluate() -> None:
-    items = load_items()
+def evaluate(department: str | None = None) -> None:
+    items = load_items(department)
     for name in ("hybrid", "hybrid_old_filters"):
         print(name, metrics(items, lambda item, name=name: item["rankings"][name]))
     # Upper bound: the best 3 of the judged pool, i.e. what a perfect reranker could reach.
@@ -177,14 +194,16 @@ def main() -> int:
     parser.add_argument("command", choices=("build", "evaluate"))
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
+    parser.add_argument("--department", choices=tuple(DEPARTMENT_SLUGS), help="every validation row of one department")
     args = parser.parse_args()
     if args.command == "build":
         from cost_guard import confirm
 
-        if not confirm("relevance_set build", SAMPLE_SIZE, "one judge call per question", args.yes):
+        calls = 10 if args.department == "치과" else SAMPLE_SIZE  # 치과 has 10 rows; others are larger
+        if not confirm("relevance_set build", calls, "one judge call per question", args.yes):
             return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    build(args.workers) if args.command == "build" else evaluate()
+    build(args.workers, args.department) if args.command == "build" else evaluate(args.department)
     return 0
 
 

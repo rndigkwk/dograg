@@ -1,0 +1,43 @@
+name: Evaluation review
+
+# On the 1st of each month, opens an issue that asks for the evaluation review: what the deployed
+# answers said was missing (ragdog_data_gaps) and the consented 👎 answers (ragdog_feedback) against
+# what the evaluation sets cover. The data stays in Supabase, so the review runs on the owner's
+# machine (scripts/eval_coverage.py --gaps); this only keeps the loop from being forgotten.
+on:
+  schedule:
+    - cron: "0 0 1 * *"  # 1st of the month, 09:00 KST
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the monthly review issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          month="$(date -u +%Y-%m)"
+          title="평가 세트 점검 $month"
+          gh label create eval-review --color 1D76DB --description "Monthly evaluation review" 2>/dev/null || true
+          if gh issue list --label eval-review --state all --search "in:title \"$title\"" --json title \
+              --jq "map(select(.title == \"$title\")) | length" | grep -qx 0; then
+            gh issue create --title "$title" --label eval-review --body "$(cat <<'BODY'
+          운영에서 모인 자료를 평가 세트와 대조합니다.
+
+          - [ ] `uv run python scripts/eval_coverage.py --gaps`
+            - 자료 빈칸(ragdog_data_gaps)에 자주 나오는데 평가 질문이 0인 낱말
+            - 👎 피드백(ragdog_feedback)이 몰린 경로와 이유
+          - [ ] 옮길 만한 주제가 있으면 질문을 손으로 써서 세트에 넣는다
+            - 건강: `tests/data/crag_eval_questions.json`(비공개) 또는 관련도 세트
+            - 보고서: `tests/data/report_holdout_questions.json`
+            - 라우팅: `tests/data/place_routing_questions.json`
+          - [ ] 평가 세트를 바꿨다면 주간 기준(`scripts/check_regression.py`)을 다시 잰다
+          - [ ] `uv run python scripts/slo_report.py --days 31`로 지난달 서비스 수준을 본다
+          BODY
+          )"
+          fi

@@ -1,5 +1,5 @@
 {
-  "description": "Place search routing set (2026-10-07). route: expected router output; kind: expected place kind for sql questions, null otherwise. The negatives use place words in health, report or small-talk questions.",
+  "description": "Place search routing set (2026-10-07). route: expected router output; kind: expected place kind for sql questions, null otherwise. The negatives use place words in health, report or small-talk questions. neg-11..15 (2026-10-19): out of scope, four with a place or health word about people, and thanks.",
   "items": [
     {"id": "hos-01", "route": "sql", "kind": "hospital", "question": "강남구 동물병원 알려줘"},
     {"id": "hos-02", "route": "sql", "kind": "hospital", "question": "마포구에 있는 동물병원 주소 알려줘"},
@@ -36,6 +36,11 @@
     {"id": "neg-07", "route": "analysis", "kind": null, "question": "반려동물 장묘 서비스 이용 실태를 알려줘"},
     {"id": "neg-08", "route": "analysis", "kind": null, "question": "보고서에서 동물병원 진료비 평균은 얼마야?"},
     {"id": "neg-09", "route": "analysis", "kind": null, "question": "반려동물 장례비는 보통 얼마나 들어?"},
-    {"id": "neg-10", "route": "none", "kind": null, "question": "안녕하세요 반가워요"}
+    {"id": "neg-10", "route": "none", "kind": null, "question": "안녕하세요 반가워요"},
+    {"id": "neg-11", "route": "none", "kind": null, "question": "주말에 서울에서 데이트하기 좋은 카페 추천해줘"},
+    {"id": "neg-12", "route": "none", "kind": null, "question": "사람 감기에 잘 듣는 약국 약 알려줘"},
+    {"id": "neg-13", "route": "none", "kind": null, "question": "오늘 코스피 지수 어때?"},
+    {"id": "neg-14", "route": "none", "kind": null, "question": "파이썬으로 리스트 정렬하는 법 알려줘"},
+    {"id": "neg-15", "route": "none", "kind": null, "question": "고마워요, 덕분에 도움 많이 됐어요"}
   ]
 }

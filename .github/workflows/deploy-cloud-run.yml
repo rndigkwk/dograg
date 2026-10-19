@@ -114,6 +114,9 @@ jobs:
             --allow-unauthenticated \
             --command=uvicorn --args=api.main:app,--host,0.0.0.0,--port,8080 \
             --set-secrets="$secrets" --set-env-vars="$env_vars"
+          # After a rollback (rollback-api.yml) the traffic stays pinned to the old revision; a
+          # deploy sends it back to the new one.
+          gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
 
       - name: Check the deployed service
         run: |
