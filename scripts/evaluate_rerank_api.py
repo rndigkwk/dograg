@@ -25,6 +25,7 @@ import os
 import statistics
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -79,8 +80,15 @@ def rerank(provider: str, key: str, question: str, documents: list[str]) -> list
     body = json.dumps({"model": model, "query": question, "documents": documents, "top_n": len(documents)}).encode()
     request = urllib.request.Request(url, data=body, headers={"Authorization": f"Bearer {key}",
                                                               "Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        results = json.loads(response.read())["results"]
+    for attempt in range(6):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                results = json.loads(response.read())["results"]
+            break
+        except urllib.error.HTTPError as error:  # trial keys allow about 10 rerank calls a minute
+            if error.code != 429 or attempt == 5:
+                raise
+            time.sleep(float(error.headers.get("Retry-After") or 15 * (attempt + 1)))
     return [result["index"] for result in sorted(results, key=lambda r: -r["relevance_score"])]
 
 
@@ -88,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--provider", choices=tuple(PROVIDERS), default="cohere")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--pause", type=float, default=7.0, help="seconds between calls (trial keys: ~10 a minute)")
     args = parser.parse_args(argv)
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from src import settings
@@ -98,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{calls} API calls, {chars:,} characters sent ({', '.join(f'{k} {len(v)}' for k, v in built.items())})")
     if args.dry_run:
         return 0
-    key = settings.get_setting(PROVIDERS[args.provider][0])
+    # The key under its usual name, or under the provider's own name (.env keeps "cohere" lowercase, as "dagshub").
+    key = settings.get_setting(PROVIDERS[args.provider][0]) or settings.get_setting(args.provider)
     if not key:
         raise SystemExit(f"{PROVIDERS[args.provider][0]} is needed in .env")
     report = {"provider": args.provider, "model": PROVIDERS[args.provider][2]}
@@ -108,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             started = time.perf_counter()
             order = rerank(args.provider, key, question, texts)
             seconds.append(time.perf_counter() - started)
+            time.sleep(args.pause)
             rankings[item["row"]] = [ids[i] for i in order]
         items = [item for item, *_ in pool]
         report[name] = {
