@@ -241,6 +241,22 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertEqual(result["evidence_rows"], [])
         self.assertEqual(result["safety_notice"], "응급")
 
+    def test_a_question_far_from_every_consultation_is_declined_without_the_grader(self):
+        tools = make_tools(health_top_similarity=Mock(return_value=0.31))
+        result = self.run_chat(tools, question="강아지가 숨을 못 쉬어요")
+        tools.retrieve_health.assert_not_called()
+        tools.review_evidence.assert_not_called()
+        tools.rewrite_search_query.assert_not_called()
+        self.assertTrue(result["abstained"])
+        self.assertEqual(result["safety_notice"], "응급")  # the urgent-sign check still runs
+        self.assertEqual(self.log_records()[-1]["decision"], "incorrect")
+
+    def test_a_question_near_the_material_goes_on_as_before(self):
+        tools = make_tools(health_top_similarity=Mock(return_value=0.62))
+        result = self.run_chat(tools)
+        tools.review_evidence.assert_called_once()
+        self.assertEqual(result["answer"], "생성 답변")
+
     def test_partial_evidence_answers_without_rewrite_or_note(self):
         tools = make_tools(review_evidence=Mock(return_value=review(["a"], False)))
         result = self.run_chat(tools)

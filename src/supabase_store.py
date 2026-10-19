@@ -110,6 +110,17 @@ class PgVectorStore(_Table):
             self._vector_type = "halfvec" if kind.startswith("halfvec") else "vector"
         return self._vector_type
 
+    def top_similarity(self, query: str) -> float:
+        """Cosine similarity of the nearest document (pgvector's <=> is the cosine distance)."""
+        vector = "[" + ",".join(f"{x:.6f}" for x in self.embeddings.embed_query(query)) + "]"
+
+        def work(conn):
+            cast = self._column_type(conn)
+            return conn.execute(f"select 1 - (embedding <=> %s::{cast}) from {self.table} "
+                                f"order by embedding <=> %s::{cast} limit 1", [vector, vector]).fetchone()[0]
+
+        return float(self._run(work))
+
     def similarity_search(self, query: str, k: int = 4, filter: dict | None = None) -> list[Document]:  # noqa: A002 - Chroma's name
         vector = "[" + ",".join(f"{x:.6f}" for x in self.embeddings.embed_query(query)) + "]"
         condition, params = where_sql(filter)
@@ -181,6 +192,9 @@ class FallbackVectorStore(_Fallback):
 
     def similarity_search(self, query: str, k: int = 4, filter: dict | None = None) -> list[Document]:  # noqa: A002 - Chroma's name
         return self._call("similarity_search", query, k=k, filter=filter)
+
+    def top_similarity(self, query: str) -> float:
+        return self._call("top_similarity", query)
 
 
 class FallbackIndex(_Fallback):

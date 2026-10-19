@@ -50,6 +50,12 @@ class ExactVectorStore:
             self._filter_masks[key] = np.array([matches_metadata_filter(m, where) for m in self.metadatas])
         return self._filter_masks[key]
 
+    def top_similarity(self, query: str) -> float:
+        """Cosine similarity of the nearest document (the vectors are normalized)."""
+        vector = np.asarray(self.embeddings.embed_query(query), dtype=np.float32)
+        vector /= np.linalg.norm(vector) or 1.0
+        return float((self.vectors @ vector).max())
+
     def similarity_search(self, query: str, k: int = 4, filter: dict | None = None) -> list[Document]:  # noqa: A002 - Chroma's name
         vector = np.asarray(self.embeddings.embed_query(query), dtype=np.float32)
         vector /= np.linalg.norm(vector) or 1.0

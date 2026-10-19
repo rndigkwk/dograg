@@ -31,6 +31,7 @@ from src.crag import (
 )
 from src.pii import mask_history, mask_pii
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
+from src.tools.health import HEALTH_SIMILARITY_FLOOR
 
 HEALTH_ABSTAIN = (
     "검색된 상담 자료에서 이 질문에 답할 근거를 찾지 못해 답변을 드리지 않았습니다. "
@@ -80,6 +81,7 @@ class ChatState(TypedDict, total=False):
     decision: Literal["", "correct", "ambiguous", "incorrect"]
     feedback: str
     rewrite_count: int
+    off_topic: bool  # the nearest health consultation is below HEALTH_SIMILARITY_FLOOR
     trace: list[dict]
     # 결과
     answer: str
@@ -240,6 +242,14 @@ def build_chat_graph(tools):
         if filters is None:
             filters = tools.infer_rag_filters(state["contextual_question"], profile=state.get("pet_profile"))
         query = state.get("search_query") or state["contextual_question"]
+        if not state.get("rewrite_count") and not state.get("documents"):
+            # The first search of a question far from every consultation: declined without the grader
+            # and the rewrite (two model calls) instead of answering from unrelated cases.
+            similarity = _top_similarity(query)
+            if isinstance(similarity, float) and similarity < HEALTH_SIMILARITY_FLOOR:
+                entry = {"step": "health_floor", "similarity": round(similarity, 3), "decision": "incorrect"}
+                return {"filters": filters, "search_query": query, "documents": [], "off_topic": True,
+                        "decision": "incorrect", "trace": [*state.get("trace", []), entry]}
         found = tools.retrieve_health(query, k=max(HEALTH_CANDIDATE_K, state["top_k"]), filters=filters)
         return {
             "filters": filters,
@@ -247,7 +257,15 @@ def build_chat_graph(tools):
             "documents": merge_documents(state.get("documents", []), found),
         }
 
+    def _top_similarity(query: str) -> float | None:
+        try:
+            return tools.health_top_similarity(query)
+        except AttributeError:  # a toolset without it (tests): no floor
+            return None
+
     def health_grade(state: ChatState):
+        if state.get("off_topic"):
+            return {}
         return _grade(state, "health", _health_text)
 
     def route_after_health_grade(state: ChatState) -> str:
@@ -255,6 +273,8 @@ def build_chat_graph(tools):
         # 근거가 전혀 없을 때만 검색어를 다시 써서 한 번 더 찾고, 그래도 없으면 보류합니다.
         if state.get("documents"):
             return "health_generate"
+        if state.get("off_topic"):
+            return "abstain"
         if state.get("rewrite_count", 0) < MAX_REWRITES:
             return "health_rewrite"
         return "abstain"
