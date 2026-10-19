@@ -134,7 +134,7 @@ def make_baseline(set_name: str, run_names: list[str]) -> dict:
 def gate_rows(set_name: str, result: dict, baseline: dict) -> tuple[list[str], bool]:
     """Checks 1, 3 and 4 against the baseline (check 2 is the LIMITS rows)."""
     rows, ok = [], True
-    items = {item["id"]: item for item in result["items"]}
+    items = {item["id"]: item for item in result.get("items") or [] if isinstance(item, dict) and "id" in item}
     missing = sorted(set(baseline["ids"]) - items.keys())
     extra = sorted(items.keys() - set(baseline["ids"]))
     broken = sorted(i for i, item in items.items() if not item_complete(set_name, item))
