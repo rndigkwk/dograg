@@ -121,6 +121,20 @@ class ChatTests(unittest.TestCase):
             got = events(self.post({"question": "기침해요"}))
         self.assertEqual(got, [("error", {"message": chat_api.FAILED})])
 
+    def test_an_exhausted_model_quota_shows_the_search_without_an_answer(self):
+        class RateLimitError(Exception):
+            pass
+
+        self.chatbot.side_effect = RateLimitError("Error code: 429 - insufficient_quota project_spend_limit_exceeded")
+        found = {"answer": "한도 안내", "route": "rag", "evidence_rows": [{"kind": "care_guide"}], "hospital_rows": [],
+                 "safety_notice": None, "abstained": False, "trace_id": None, "degraded": True}
+        with self.assertLogs("api.chat", level="ERROR"),                 patch("src.model_outage.search_only_result", return_value=found) as search:
+            got = events(self.post({"question": "강아지 발톱은 얼마 만에 깎아요?"}))
+        self.assertEqual([kind for kind, _ in got], ["result"])
+        self.assertTrue(got[0][1]["degraded"])
+        self.assertEqual(got[0][1]["evidence_rows"], [{"kind": "care_guide"}])
+        search.assert_called_once_with("강아지 발톱은 얼마 만에 깎아요?", 3)
+
     def test_a_memory_suggestion_comes_after_the_result_when_asked(self):
         from src.storage.models import PetProfile
         from src.tools.profile import MemorySuggestion
