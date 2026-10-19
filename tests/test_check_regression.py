@@ -160,6 +160,21 @@ class MergeGateTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("실패 1 (b)", rows)
 
+    def test_a_failed_stable_question_that_passes_its_rechecks_is_a_wobble(self):
+        ok, rows = self.gate(routing_run({"a": True, "b": False, "c": True}, 0.97))
+        self.assertFalse(ok)
+        self.assertEqual(json.loads((self.dir / "routing_pr_regressed.json").read_text(encoding="utf-8")), ["b"])
+        (self.dir / "routing_pr_recheck.json").write_text(json.dumps({"b": [True, True]}), encoding="utf-8")
+        ok, rows = self.gate(routing_run({"a": True, "b": False, "c": True}, 0.97))
+        self.assertTrue(ok, rows)
+        self.assertIn("실패 0, 재확인 통과 1 (b)", rows)
+
+    def test_a_failed_stable_question_that_fails_a_recheck_is_a_regression(self):
+        (self.dir / "routing_pr_recheck.json").write_text(json.dumps({"b": [True, False]}), encoding="utf-8")
+        ok, rows = self.gate(routing_run({"a": True, "b": False, "c": True}, 0.97))
+        self.assertFalse(ok)
+        self.assertIn("실패 1 (b)", rows)
+
     def test_a_set_without_a_baseline_gets_the_absolute_limits_only(self):
         (self.dir / "answer_other.json").write_text(
             json.dumps({"run_scores": {"answer_correctness": 0.3}, "judge_model": "gpt-6-luna"}), encoding="utf-8")

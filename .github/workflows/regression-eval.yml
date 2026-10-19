@@ -94,7 +94,20 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           RAGDOG_EVAL_HISTORY: "1"
+        id: compare
+        continue-on-error: true  # the recheck below decides when only stable questions failed
         run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
+
+      - name: Recheck the stable questions that failed
+        # As in pr-quality.yml: a stable question that passes two more runs was the grader's wobble.
+        if: steps.compare.outcome == 'failure'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RAGDOG_EVAL_HISTORY: "1"
+        run: |
+          .venv/bin/python scripts/recheck_items.py crag "$RUN_NAME"
+          .venv/bin/python scripts/recheck_items.py routing "$RUN_NAME"
+          .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
 
       - name: Log to MLflow (DagsHub)
         # The same scores as experiment "regression-weekly", one child run per set, for the weekly
