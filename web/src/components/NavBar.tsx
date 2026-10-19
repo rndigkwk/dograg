@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/places", label: "🏥 시설 찾기" },
   { href: "/fees", label: "💰 지역별 진료비" },
   { href: "/visit-prep", label: "📝 방문 준비 보고서" },
+  { href: "/care", label: "📅 관리 일정" },
   { href: "/reports", label: "📚 보고서 분석" },
 ];
 
