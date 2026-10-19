@@ -23,6 +23,7 @@ FIXED_SOURCES = {
 CITATION_RUN = re.compile(r"(?:[ \t]*\[[^\[\]\n]{1,160}\](?!\())+")
 CITATION = re.compile(r"\[([^\[\]\n]{1,160})\]")
 REPORT_ID = re.compile(r"report-(.+)-p(\d+|\?)$")
+CARE_GUIDE_ID = re.compile(r"careguide-(.+)-p(\d+|\?)$")  # team/tools/research.py _guide_item
 FACT_CHARS = 70
 
 
@@ -48,6 +49,9 @@ def source_labels(findings: dict) -> dict[str, str]:
             if report := REPORT_ID.match(evidence_id):
                 title, page = report.groups()
                 labels[evidence_id] = f"보고서 「{title.replace('+', ' ')}」 {page}쪽: {fact}"
+            elif guide := CARE_GUIDE_ID.match(evidence_id):
+                title, page = guide.groups()
+                labels[evidence_id] = f"동물사랑배움터 돌봄 지침 「{title.replace('+', ' ')}」 {page}쪽: {fact}"
             elif evidence_id.startswith("qa-"):
                 labels[evidence_id] = f"비슷한 건강 상담 사례 (AI Hub {evidence_id}): {fact}"
             elif evidence_id.startswith("hospital-"):
