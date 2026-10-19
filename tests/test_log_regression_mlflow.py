@@ -18,9 +18,10 @@ class LogRegressionTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.dir = Path(folder.name)
-        patcher = patch.object(check_regression, "RESULTS_DIR", self.dir)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for patcher in (patch.object(check_regression, "RESULTS_DIR", self.dir),
+                        patch.object(check_regression, "BASELINE_DIR", self.dir)):  # the limits only, no baseline
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def write(self, set_name, scores, **extra):
         (self.dir / f"{set_name}_ci-test.json").write_text(json.dumps({"run_scores": scores, "items": [1, 2], **extra}),
