@@ -84,6 +84,10 @@ KIND_KEYWORDS = (
 )
 AMBIGUOUS_KIND_WORDS = (("pharmacy", "약국"), ("grooming", "미용"), ("pet_friendly", "카페"), ("pet_friendly", "펜션"))
 PLACE_SEARCH_WORDS = ("근처", "가까운", "어디", "찾아", "목록", "주소", "위치", "몇곳", "몇군데", "몇개", "추천")
+# "카페", "펜션" are where people go too ("데이트하기 좋은 카페 추천해줘" went to the place search,
+# 2026-10-19): with a search word they count only when the question is about a pet as well.
+PEOPLE_PLACE_WORDS = ("카페", "펜션")
+PET_WORDS = ("강아지", "반려", "애견", "펫", "댕댕", "동반", "데려", "같이갈", "함께갈")
 LOCATION_ALIASES = {alias: name for alias, name in SIDO_ALIASES.items() if alias.endswith(("시", "도"))}
 # "3곳", "3곳만", "세 곳", "두 군데", "4개": the number of places asked for. "만" is not required
 # ("마포구 동물병원 3곳 알려줘" listed 10, 2026-10-12). "개월", "마리", "층", "시" are not place counts,
@@ -115,7 +119,7 @@ def place_kind(question: str) -> str | None:
         return "hospital"
     if any(word in compact for word in PLACE_SEARCH_WORDS):
         for kind, word in AMBIGUOUS_KIND_WORDS:
-            if word in compact:
+            if word in compact and (word not in PEOPLE_PLACE_WORDS or any(pet in compact for pet in PET_WORDS)):
                 return kind
     return None
 

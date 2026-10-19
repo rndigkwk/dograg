@@ -175,6 +175,15 @@ def has_gold(docs: list, item: dict) -> bool:
     return any((Path(str(doc.metadata.get("source", ""))).name, doc.metadata.get("page")) in gold for doc in docs)
 
 
+def expected_verdict(item: dict, verdict: str) -> str:
+    """A question the reports cannot answer (expected "abstain", holdout a01-a06) is answered right when
+    the answer says the report does not have it: the judge calls that abstained, or correct against a
+    reference that says so. A figure given anyway is wrong; a decline with a guess beside it partial."""
+    if item.get("expected") != "abstain":
+        return verdict
+    return "correct" if verdict in ("abstained", "correct") else verdict
+
+
 def has_every_gold_report(docs: list, item: dict) -> bool:
     """Does every report the gold pages come from have one of its gold pages among the docs? A question
     about two reports answered from one of them can still pass has_gold."""
@@ -259,7 +268,8 @@ def compare(repeats: int, workers: int, variants: list[str], question_set: str =
     from src.tools import report
 
     refs = {item["id"]: item for item in json.loads(REFERENCES.read_text(encoding="utf-8"))["items"]}
-    items = [item for item in answerable_items(question_set) if refs[item["id"]]["answerable"]]
+    items = [item for item in answerable_items(question_set)
+             if refs[item["id"]]["answerable"] or item.get("expected") == "abstain"]
     grader = model("medium").with_structured_output(Grade)
     extractor = model("low").with_structured_output(Extraction)
     with tempfile.TemporaryDirectory(prefix="ragdog-pages-", ignore_cleanup_errors=True) as directory:
@@ -299,7 +309,8 @@ def compare(repeats: int, workers: int, variants: list[str], question_set: str =
                             "partial: 일부만 맞거나 일부 빠짐. wrong: 틀린 수치·사실을 말함. abstained: 자료에 없다며 답하지 않음.")),
                 ("user", f"[질문]\n{item['question']}\n\n[정답]\n{refs[item['id']]['reference']}\n\n[답변]\n{answer}"),
             ])
-            return {"id": item["id"], "variant": variant, "verdict": grade.verdict, "reason": grade.reason,
+            return {"id": item["id"], "variant": variant, "verdict": expected_verdict(item, grade.verdict),
+                    "judge_verdict": grade.verdict, "reason": grade.reason,
                     "seconds": round(seconds, 1), "compress_seconds": round(compress_seconds, 1),
                     "context_chars": sum(len(d.page_content) for d in docs), "verbatim": verbatim,
                     "search_seconds": round(search_seconds.get((item["id"], variant.removesuffix("_window")), 0.0), 2),
