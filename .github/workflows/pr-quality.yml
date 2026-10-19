@@ -38,9 +38,11 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'quality-check') }}
-          # Routing (router, places), prompts, abstaining, the graph and its entry, search stores and models, input masking, small talk.
+          # Routing (router, places), prompts, abstaining, the graph and its entry, search stores and models, input masking, small talk,
+          # the care guides (2026-10-19), and the private data's revision: a new revision changes the material the answers
+          # stand on with no answer-path code change (#236, care-guide windows and a corrected leaflet, skipped this check).
           ANSWER_PATH: >-
-            ^src/(tools/(router|places|health|report|general)\.py|crag\.py|chat_graph\.py|chatbot\.py|resources\.py|supabase_store\.py|hybrid_retrieval\.py|pii\.py)$
+            ^src/(tools/(router|places|health|report|general|care_guides)\.py|crag\.py|chat_graph\.py|chatbot\.py|resources\.py|supabase_store\.py|hybrid_retrieval\.py|pii\.py|private_data\.py)$
         run: |
           changed="$(git diff --name-only "$BASE" "$HEAD")"
           hits="$(printf '%s\n' "$changed" | grep -E "$ANSWER_PATH" || true)"

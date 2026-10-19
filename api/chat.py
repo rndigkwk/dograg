@@ -36,7 +36,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from src import auth, data_gaps, rate_limit
+from src import auth, data_gaps, model_outage, rate_limit
 from src.chat_events import find_emergency_hospitals, places_first, progress_message
 from src.health_safety import detect_urgent_sign
 from src.pii import mask_pii
@@ -175,9 +175,11 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
                                         on_token=on_token, on_step=on_step, session_id=person,
                                         force_route="analysis" if body.route == "report" else None,
                                         notes=[Note(date=n.date, text=mask_pii(n.text)) for n in body.notes])
-        except Exception:  # noqa: BLE001 - reported to the browser as one error event
+        except Exception as error:  # noqa: BLE001 - reported to the browser as one error event
             logger.exception("chat failed")
             outcome["error"] = True
+            # The provider out of quota (2026-10-19): show what the search finds, without an answer.
+            outcome["quota"] = model_outage.is_quota_error(error) and not streamed
         finally:
             events.put(None)
 
@@ -185,6 +187,9 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     threading.Thread(target=contextvars.copy_context().run, args=(work,), name="chat", daemon=True).start()
     while (item := events.get()) is not None:
         yield item
+    if outcome.get("quota"):
+        yield event("result", {**model_outage.search_only_result(body.question, body.top_k), "memory": memory})
+        return
     if outcome.get("error"):
         yield event("error", {"message": FAILED})
         return

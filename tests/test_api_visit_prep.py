@@ -172,6 +172,17 @@ class VisitPrepApiTests(unittest.TestCase):
         events(self.start())  # the retry was not a new report: the second of the day is still there
         self.assertEqual(events(self.start())[-1][0], "limited")
 
+    def test_an_exhausted_model_quota_says_so_and_offers_no_retry(self):
+        class RateLimitError(Exception):
+            pass
+
+        def out_of_quota(*args, **kwargs):
+            raise RateLimitError("Error code: 429 - insufficient_quota")
+
+        with patch.object(visit_api, "_run_team", return_value=out_of_quota), self.assertLogs("api.visit_prep", level="ERROR"):
+            got = events(self.start())
+        self.assertEqual(got[-1], ("error", {"message": visit_api.model_outage.PAUSED}))
+
     def test_a_paused_run_is_not_retried(self):
         self.team.questions = ["언제부터였나요?"]
         thread_id = events(self.start())[-1][1]["thread_id"]
