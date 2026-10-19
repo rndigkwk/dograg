@@ -448,6 +448,8 @@ def _run_record(fingerprint, crag, crag_reports, started, error, state, usage) -
             rewrite_count=state.get("rewrite_count", 0),
             abstained=state.get("abstained", False),
             evidence_count=len(state.get("evidence_rows") or []),
+            # Care guides among the evidence (src/tools/care_guides.py), for the weekly report's guide share.
+            guide_count=sum(row.get("kind") == "care_guide" for row in state.get("evidence_rows") or []),
             trace=state.get("trace", []),
             token_usage=summarize_usage(usage.usage_metadata),
         )

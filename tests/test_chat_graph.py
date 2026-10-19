@@ -268,6 +268,7 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertFalse(result["abstained"])
         self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["g1"])
         self.assertEqual(result["evidence_rows"][0]["kind"], "care_guide")
+        self.assertEqual(self.log_records()[-1]["guide_count"], 1)  # the weekly report's guide share
 
     def test_a_care_guide_does_not_take_a_consultations_place(self):
         guide = doc("g1", kind="care_guide", title="윤리 가이드라인", page=39)

@@ -100,8 +100,26 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
         "rag_p95_s": percentile(seconds(rag), 0.95),
         "report_p95_s": percentile(seconds(reports), 0.95),
         "rag_abstain_rate": sum(bool(r.get("abstained")) for r in rag) / len(rag) if rag else None,
+        **guide_use(rag, seconds),
         "cost_per_question_usd": sum(r["cost"] for r in records) / len(records) if records else None,
         "cost_total_usd": sum(r["cost"] for r in records),
+    }
+
+
+def guide_use(rag: list[dict], seconds) -> dict:
+    """How many answered health questions used a care guide (run record guide_count, 2026-10-19), and
+    their cost and p50 against those without. Older records have no guide_count and are left out."""
+    counted = [r for r in rag if "guide_count" in r and not r.get("abstained")]
+    used = [r for r in counted if r["guide_count"]]
+    unused = [r for r in counted if not r["guide_count"]]
+    mean_cost = lambda rows: sum(r["cost"] for r in rows) / len(rows) if rows else None
+    return {
+        "rag_answered_with_guide_count": len(counted),
+        "rag_guide_rate": len(used) / len(counted) if counted else None,
+        "rag_cost_with_guide_usd": mean_cost(used),
+        "rag_cost_without_guide_usd": mean_cost(unused),
+        "rag_p50_with_guide_s": percentile(seconds(used), 0.5),
+        "rag_p50_without_guide_s": percentile(seconds(unused), 0.5),
     }
 
 
@@ -145,6 +163,11 @@ def main(argv: list[str] | None = None) -> int:
           f"p50 {fmt(summary['p50_s'])} s  rag p95 {fmt(summary['rag_p95_s'])} s  report p95 {fmt(summary['report_p95_s'])} s")
     print(f"  rag abstained {fmt(summary['rag_abstain_rate'] and summary['rag_abstain_rate'] * 100)}%  "
           f"cost/question ${fmt(summary['cost_per_question_usd'], 4)}  total ${fmt(summary['cost_total_usd'], 3)}")
+    if summary["rag_guide_rate"] is not None:
+        print(f"  care guides in {fmt(summary['rag_guide_rate'] * 100)}% of {summary['rag_answered_with_guide_count']} answered "
+              f"health questions; cost ${fmt(summary['rag_cost_with_guide_usd'], 4)} with, "
+              f"${fmt(summary['rag_cost_without_guide_usd'], 4)} without; "
+              f"p50 {fmt(summary['rag_p50_with_guide_s'])} s with, {fmt(summary['rag_p50_without_guide_s'])} s without")
     if summary["questions"] < MIN_QUESTIONS:
         print(f"  fewer than {MIN_QUESTIONS} questions: not judged")
     for line in failed:
