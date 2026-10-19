@@ -15,6 +15,21 @@ ME = "0123456789abcdef0123456789abcdef"
 SOMEONE_ELSE = "fedcba9876543210fedcba9876543210"
 
 
+class FlakyTeam:
+    """Fails its first `failures` calls, then runs as the fake team; records the retries."""
+
+    def __init__(self, team, failures):
+        self.team, self.failures, self.retries = team, failures, []
+
+    def __call__(self, *args, thread_id, resume=None, retry=False):
+        if retry:
+            self.retries.append((thread_id, retry))
+        if self.failures:
+            self.failures -= 1
+            raise RuntimeError("model call failed")
+        return self.team(*args, thread_id=thread_id, resume=resume)
+
+
 def events(response) -> list[tuple[str, dict]]:
     out = []
     for block in response.text.strip().split("\n\n"):
@@ -132,9 +147,45 @@ class VisitPrepApiTests(unittest.TestCase):
         with patch.object(visit_api, "_run_team", return_value=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))), \
                 self.assertLogs("api.visit_prep", level="ERROR"):
             got = events(self.start())
-        self.assertEqual(got[-1], ("error", {"message": visit_api.FAILED}))
+        kind, data = got[-1]
+        self.assertEqual((kind, data["message"]), ("error", visit_api.FAILED_RETRY))
+        self.assertRegex(data["thread_id"], r"^[0-9a-f]{32}$")
         self.assertTrue(visit_prep_runs.team_lock().acquire(blocking=False))
         visit_prep_runs.team_lock().release()
+
+    def retry(self, thread_id, who=ME):
+        return self.client.post(f"/visit-prep/{thread_id}/retry", headers={"X-RagDog-Client": who})
+
+    def test_a_failed_run_goes_on_from_its_checkpoint_without_a_new_report(self):
+        team = FlakyTeam(self.team, failures=1)
+        with patch.object(visit_api, "_run_team", return_value=team), self.assertLogs("api.visit_prep", level="ERROR"):
+            first = events(self.start())
+        thread_id = first[-1][1]["thread_id"]
+        self.assertEqual(self.retry(thread_id, who=SOMEONE_ELSE).status_code, 404)  # the owner's only
+        self.assertEqual(self.answer(thread_id, "어제부터요").status_code, 409)  # continued, not answered
+        with patch.object(visit_api, "_run_team", return_value=team):
+            got = events(self.retry(thread_id))
+        self.assertEqual(got[-1][0], "result")
+        self.assertFalse(got[-1][1]["answered"])
+        self.assertEqual(team.retries, [(thread_id, True)])  # the same thread, from its checkpoint
+        self.assertEqual(self.retry(thread_id).status_code, 404)  # once it ended there is nothing to go on with
+        events(self.start())  # the retry was not a new report: the second of the day is still there
+        self.assertEqual(events(self.start())[-1][0], "limited")
+
+    def test_a_paused_run_is_not_retried(self):
+        self.team.questions = ["언제부터였나요?"]
+        thread_id = events(self.start())[-1][1]["thread_id"]
+        self.assertEqual(self.retry(thread_id).status_code, 404)
+        self.assertEqual(events(self.answer(thread_id, "어제부터요"))[-1][0], "result")  # the pause still waits
+
+    def test_retries_stop_after_the_last_try(self):
+        team = FlakyTeam(self.team, failures=10)
+        with patch.object(visit_api, "_run_team", return_value=team), self.assertLogs("api.visit_prep", level="ERROR"):
+            thread_id = events(self.start())[-1][1]["thread_id"]
+            for _ in range(visit_api.MAX_RETRIES - 1):
+                self.assertEqual(events(self.retry(thread_id))[-1][1].get("thread_id"), thread_id)
+            self.assertEqual(events(self.retry(thread_id))[-1], ("error", {"message": visit_api.FAILED}))
+        self.assertEqual(self.retry(thread_id).status_code, 404)
 
     def test_the_guardian_location_goes_to_the_team(self):
         events(self.start(location=[37.4939633, 127.0448504]))

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { HttpError, postStream, warmUp } from "@/lib/api";
 import { profileSummary } from "@/lib/profile";
@@ -73,6 +74,9 @@ function Downloads({ report }: { report: string }) {
         <button type="button" className={button} onClick={() => saveFile(new Blob([report], { type: "text/markdown;charset=utf-8" }), `${REPORT_FILE}.md`)}>
           Markdown (.md)
         </button>
+        <button type="button" className={button} onClick={() => window.print()}>
+          🖨️ 인쇄 · PDF로 저장
+        </button>
       </div>
       {failed ? <p role="alert" className="text-sm text-danger">Word 파일을 만들지 못했습니다. 텍스트로 저장해 주세요.</p> : null}
     </div>
@@ -95,6 +99,35 @@ function NotePicker({ notes, chosen, onToggle, disabled }: { notes: Note[]; chos
       ))}
       <p className="text-xs text-muted">고른 기록만 이 보고서를 만드는 데 씁니다. 같은 증상이 되풀이되는지 보는 데 참고합니다.</p>
     </fieldset>
+  );
+}
+
+/** The report's print copy: the date and how it was made, then the report, outside the page so that printing
+ * (globals.css: only #print-root prints) gives the report alone. The browser's print dialog also
+ * saves it as a PDF, to take to the hospital or send ahead. */
+function PrintReport({ report, outcome }: { report: string; outcome: string }) {
+  const [root, setRoot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const element = document.createElement("div");
+    element.id = "print-root";
+    document.body.appendChild(element);
+    setRoot(element);
+    return () => element.remove();
+  }, []);
+  if (!root) return null;
+  const today = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  return createPortal(
+    <div className="space-y-3 text-[11pt] leading-relaxed">
+      {/* The report opens with its own title; the header adds when and how it was made. */}
+      <p className="border-b border-line pb-2 text-sm text-muted">
+        {today} · 라그도그 · {outcome}
+      </p>
+      <Markdown text={report} />
+      <p className="border-t border-line pt-2 text-xs text-muted">
+        이 보고서는 공개 상담 사례와 자료로 만든 참고용 정리이며 수의사의 진료를 대신하지 않습니다.
+      </p>
+    </div>,
+    root,
   );
 }
 
@@ -220,6 +253,12 @@ export default function VisitPrep() {
     );
   }
 
+  function retryRun() {
+    if (!run?.retry || working) return;
+    // The same run goes on from its last finished step: its steps so far stay.
+    void stream(`/visit-prep/${encodeURIComponent(run.retry.threadId)}/retry`, {}, { ...run, retry: null, notice: null });
+  }
+
   function resume(skip: boolean) {
     if (!run?.paused || working) return;
     const { threadId } = run.paused;
@@ -296,6 +335,12 @@ export default function VisitPrep() {
         </p>
       ) : null}
 
+      {run?.retry && !working ? (
+        <button type="button" onClick={retryRun} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white">
+          ↻ 이어서 만들기
+        </button>
+      ) : null}
+
       {run?.paused ? (
         <section aria-label="보호자 질문" className="space-y-3 rounded-xl border border-accent/40 bg-white p-4">
           <p className="font-semibold">보고서를 더 정확하게 만들기 위해 몇 가지 여쭤볼게요</p>
@@ -338,6 +383,8 @@ export default function VisitPrep() {
             <Markdown text={run.result.report} />
           </article>
           <Downloads report={run.result.report} />
+          <p className="text-xs text-muted">인쇄 창에서 대상(프린터)을 &quot;PDF로 저장&quot;으로 고르면 PDF 파일로 저장됩니다.</p>
+          <PrintReport report={run.result.report} outcome={outcomeLine(run.result)} />
         </section>
       ) : null}
     </div>

@@ -58,3 +58,23 @@ body {
   border: 1px solid var(--color-line);
   padding: 0.25em 0.5em;
 }
+
+/* Printing the visit-prep report (components/VisitPrep.tsx PrintReport): only the report's own
+   print copy, rendered into #print-root, goes on paper or into "PDF로 저장". */
+#print-root {
+  display: none;
+}
+@media print {
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+  #print-root {
+    display: block;
+  }
+  body {
+    background: #fff;
+  }
+  @page {
+    margin: 15mm;
+  }
+}

@@ -33,7 +33,8 @@ from team.graph.nodes import failed_kinds, fallback_kinds, run_status
 def run(consultation: str, region: str = "", profile: str = "", *, location: tuple[float, float] | None = None,
         run_dir: Path | None = None,
         on_step: Callable[[str, dict], None] | None = None, session: str | None = None,
-        ask: bool = False, checkpointer=None, thread_id: str | None = None, resume: str | None = None) -> dict:
+        ask: bool = False, checkpointer=None, thread_id: str | None = None, resume: str | None = None,
+        retry: bool = False) -> dict:
     """Run the team once. run_dir defaults to a new output/visit_prep/<time>/ folder;
     on_step(node, update) is called as each node finishes (the app shows progress with it).
     With Langfuse on, the run is one `visit-prep` trace (tag `visit-prep`, the app's hashed
@@ -41,13 +42,22 @@ def run(consultation: str, region: str = "", profile: str = "", *, location: tup
 
     ask=True lets the team stop before planning to ask the guardian (needs a checkpointer and
     a thread_id). The run then returns with "questions" and "paused": True; call run again with
-    the same checkpointer and thread_id and resume=<the answer> ("" to skip) to finish it."""
+    the same checkpointer and thread_id and resume=<the answer> ("" to skip) to finish it.
+
+    retry=True goes on with a run that failed, from its last checkpoint (the same checkpointer and
+    thread_id): finished steps are not run again. With no checkpoint it starts from the beginning."""
     if run_dir is None:
         run_dir = OUTPUT_DIR / datetime.now(UTC).astimezone().strftime("%Y%m%d_%H%M%S")
         run_dir.mkdir(parents=True)
         print("산출물 폴더:", run_dir)
+    graph = build_graph(checkpointer)
+    run_config = {"recursion_limit": 40}
+    if thread_id is not None:
+        run_config["configurable"] = {"thread_id": thread_id}
     if resume is not None:
         inputs = Command(resume=resume)
+    elif retry and thread_id is not None and graph.get_state(run_config).values:
+        inputs = None  # LangGraph: go on from the last checkpoint
     else:
         inputs = {
             "consultation": consultation, "region": region, "profile": profile,
@@ -56,17 +66,14 @@ def run(consultation: str, region: str = "", profile: str = "", *, location: tup
             "plan": [], "findings": {}, "failures": {}, "reasks": {}, "outcome": "", "round": 0, "draft": "",
             "review": None, "feedback": "", "instruction": "",
         }
-    run_config = {"recursion_limit": 40}
-    if thread_id is not None:
-        run_config["configurable"] = {"thread_id": thread_id}
     state, paused = None, False
     visits: dict[str, int] = {}
     started = time.perf_counter()
     with tracing.run_trace("visit-prep", question_fingerprint(consultation), session=session, tags=["visit-prep"],
                            metadata={"region_given": bool(region), "location_given": bool(location), "profile_given": bool(profile),
-                                     "resumed": resume is not None}) as trace:
+                                     "resumed": resume is not None, "retried": retry}) as trace:
         try:
-            for mode, chunk in build_graph(checkpointer).stream(
+            for mode, chunk in graph.stream(
                 inputs,
                 context={"run_dir": run_dir, "writer": create_writer(run_dir)},
                 config={**run_config, "callbacks": trace.callbacks},
