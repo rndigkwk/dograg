@@ -1,6 +1,6 @@
 name: Weekly regression evaluation
 
-# Runs the CRAG answer/abstain set (60), the place routing set (36) and the visit-prep team set
+# Runs the CRAG answer/abstain set (60), the place routing set (41) and the visit-prep team set
 # (12 consultations, with node visit counts) as Langfuse experiments with real model calls, scores
 # 100 health answers against the vets' answers (Answer Correctness), then
 # fails when a score crosses its limit (scripts/check_regression.py).
