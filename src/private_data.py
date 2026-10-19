@@ -39,7 +39,9 @@ REPO_ID = "blanden77/dograg-data"
 #   data-v7  2026-10-18 + seven OCR figures corrected by hand on KB p.7, 14, 77 after checking the page
 #            images (add_kb_ocr_chunks.OCR_CORRECTIONS; "59.2%" for 39.2% on p.7)
 #   data-v8  2026-10-18 + two more on KB p.28 (39.2% read as 59.2% again, 43.9% as 45.9%)
-REVISION = "data-v8"
+#   data-v9  2026-10-19 + the care guides of 동물사랑배움터 (data/care_guides, scripts/build_care_guides.py):
+#            four PDFs, the page transcriptions, the pieces and their vectors
+REVISION = "data-v9"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"
@@ -56,6 +58,8 @@ PRIVATE_PATTERNS = (
     "data/finetune/queries.jsonl",
     # Collected from animalclinicfee.or.kr, which states no terms of use: kept private until it does.
     "data/vet_fees/vet_fees.csv",
+    # Education material of 농림수산식품교육문화정보원 with no KOGL mark (src/tools/care_guides.py).
+    "data/care_guides/*",
     "tests/data/crag_eval_questions.json",
     "notebooks/outputs/rag_answer_similarity_eval_results.csv",
 )

@@ -31,6 +31,7 @@ from src.crag import (
 )
 from src.pii import mask_history, mask_pii
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
+from src.tools.care_guides import GUIDE_K, is_guide
 from src.tools.health import HEALTH_SIMILARITY_FLOOR
 
 HEALTH_ABSTAIN = (
@@ -115,7 +116,16 @@ def abstain_message(state: dict) -> str:
 
 
 def _health_text(doc) -> str:
+    if is_guide(doc):
+        return f"지침 「{doc.metadata.get('title', '')}」 {doc.metadata.get('page', '?')}쪽: {doc.metadata.get('piece', doc.page_content)}"
     return f"질문: {doc.page_content}\n답변: {doc.metadata.get('qa.output', '')}"
+
+
+def answer_documents(documents: list, top_k: int) -> list:
+    """The kept consultations up to top_k, then the kept care guides up to GUIDE_K: a guide does not
+    take a consultation's place, nor the other way round."""
+    return ([doc for doc in documents if not is_guide(doc)][:top_k]
+            + [doc for doc in documents if is_guide(doc)][:GUIDE_K])
 
 
 def _report_text(doc) -> str:
@@ -252,20 +262,29 @@ def build_chat_graph(tools):
                         "decision": "incorrect", "trace": [*state.get("trace", []), entry],
                         "feedback": f"건강 상담 자료는 반려견 사례뿐이라 {animal}의 건강 질문에는 답할 근거가 없습니다. "
                                     f"{animal}을(를) 진료하는 동물병원(특수동물 진료)에 문의해 주세요."}
-            # The first search of a question far from every consultation: declined without the grader
-            # and the rewrite (two model calls) instead of answering from unrelated cases.
+            # The first search of a question far from every consultation and every care guide: declined
+            # without the grader and the rewrite (two model calls) instead of answering from unrelated cases.
+            guides = _care_guides(query)
             similarity = _top_similarity(query)
-            if isinstance(similarity, float) and similarity < HEALTH_SIMILARITY_FLOOR:
+            if isinstance(similarity, float) and similarity < HEALTH_SIMILARITY_FLOOR and not guides:
                 entry = {"step": "health_floor", "similarity": round(similarity, 3), "decision": "incorrect"}
                 return {"filters": filters, "search_query": query, "documents": [], "off_topic": True,
                         "decision": "incorrect", "trace": [*state.get("trace", []), entry],
                         "feedback": "질문과 가까운 상담 사례가 없었습니다(가장 가까운 사례도 기준보다 멀었습니다)."}
+        else:
+            guides = _care_guides(query)
         found = tools.retrieve_health(query, k=max(HEALTH_CANDIDATE_K, state["top_k"]), filters=filters)
         return {
             "filters": filters,
             "search_query": query,
-            "documents": merge_documents(state.get("documents", []), found),
+            "documents": merge_documents(state.get("documents", []), [*found, *guides]),
         }
+
+    def _care_guides(query: str) -> list:
+        try:
+            return tools.retrieve_care_guides(query)
+        except AttributeError:  # a toolset without it (tests): no guides
+            return []
 
     def _other_species(question: str) -> str | None:
         try:
@@ -312,7 +331,7 @@ def build_chat_graph(tools):
         }
 
     def health_generate(state: ChatState):
-        docs = state["documents"][: state["top_k"]]
+        docs = answer_documents(state["documents"], state["top_k"])
         question = state["question"]
         if state.get("place_answer"):
             # The places are listed above this answer. Given the whole question the model also
@@ -332,7 +351,7 @@ def build_chat_graph(tools):
     def health_review(state: ChatState):
         # A separate node so the first answer's streamed tokens are not mixed with the rewrite.
         answer, record = tools.review_health_answer(
-            state["question"], state["documents"][: state["top_k"]], state["answer"])
+            state["question"], answer_documents(state["documents"], state["top_k"]), state["answer"])
         entry = {"step": "health_review", **record}
         return {"answer": answer, "trace": [*state.get("trace", []), entry]}
 

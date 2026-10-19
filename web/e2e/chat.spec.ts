@@ -41,6 +41,29 @@ test("a question streams into an answer with evidence and feedback", async ({ pa
   expect(api.feedback[2].body).toMatchObject({ question: "말티즈가 이틀째 설사를 해요", reason: "근거가 부족해요", route: "rag" });
 });
 
+test("a care guide shows among the evidence with its source and link", async ({ page }) => {
+  await fakeApi(page, [
+    [
+      result("동물사랑배움터의 「행동지도 윤리 가이드라인」에 따르면 발톱은 2~3주 주기로 손질합니다.", {
+        evidence_rows: [
+          { kind: "care_guide", title: "건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인", page: 39,
+            organization: "농림수산식품교육문화정보원 동물사랑배움터", url: "https://apms.epis.or.kr/home/kor/board.do?menuPos=16&act=detail&idx=1454",
+            piece: "반려견의 발톱은 2~3주 주기로 한 번씩 손질해 주며" },
+          { "meta.lifeCycle": "성견", "meta.department": "외과", "meta.disease": "기타", "qa.output": "발톱을 짧게 유지하세요." },
+        ],
+      }),
+    ],
+  ]);
+  await page.goto("/chat");
+  await ask(page, "강아지 발톱은 얼마 만에 깎아 줘야 해요?");
+
+  await page.getByText("지침 1 · 건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인 · 39쪽").click();
+  await expect(page.getByText("반려견의 발톱은 2~3주 주기로 한 번씩 손질해 주며")).toBeVisible();
+  await expect(page.getByText(/출처: 농림수산식품교육문화정보원 동물사랑배움터/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "원문 보기" })).toHaveAttribute("href", /apms\.epis\.or\.kr.*idx=1454/);
+  await expect(page.getByText("1. 성견 / 외과 / 기타")).toBeVisible(); // the consultation keeps its own number
+});
+
 test("an urgent warning comes before the answer, with the nearest hospitals", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 37.5, longitude: 127.03 });

@@ -1,0 +1,21 @@
+{
+ "description": "Everyday care questions the 동물사랑배움터 guides cover (2026-10-19), written before measuring the care-guide search (src/tools/care_guides.py). 'guide' names the guide and page holding the answer, checked in the page text. Caveat: GUIDE_FLOOR was chosen on 12 probe questions, and g01, g02, g04, g12, g15 and g16 are close to six of them, so those six are not independent of the floor. 'expected' is answer for all. Run with scripts/evaluate_crag.py --questions like basic_care_questions.json, scored by reading whether the answer gives the fact and names the guide.",
+ "items": [
+  {"id": "g01", "group": "disaster", "expected": "answer", "guide": "재난 대응 가이드라인 p.2", "question": "재난에 대비해서 강아지 물건은 뭘 챙겨 둬야 하나요?"},
+  {"id": "g02", "group": "disaster", "expected": "answer", "guide": "재난 대응 가이드라인 p.3", "question": "지진이 나서 대피할 때 강아지는 어떻게 데리고 가야 해요?"},
+  {"id": "g03", "group": "disaster", "expected": "answer", "guide": "재난 대응 가이드라인 p.2", "question": "강아지가 먹는 약이 있는데 재난 대비로 어떻게 준비하나요?"},
+  {"id": "g04", "group": "loss", "expected": "answer", "guide": "이별 리플릿 p.2", "question": "강아지가 죽으면 사체는 어떻게 처리해야 하나요?"},
+  {"id": "g05", "group": "loss", "expected": "answer", "guide": "이별 리플릿 p.2", "question": "반려견이 죽으면 동물등록은 언제까지 변경신고해야 해요?"},
+  {"id": "g06", "group": "loss", "expected": "answer", "guide": "이별 리플릿 p.2", "question": "노견이 되면 어떤 변화가 생기고 보호자는 뭘 도와줘야 하나요?"},
+  {"id": "g07", "group": "loss", "expected": "answer", "guide": "이별 리플릿 p.1", "question": "강아지를 떠나보내고 너무 힘든데 어떻게 해야 할까요?"},
+  {"id": "g08", "group": "etiquette", "expected": "answer", "guide": "공공예절 교육 p.3", "question": "강아지 산책 나갈 때 꼭 챙겨야 하는 건 뭐예요?"},
+  {"id": "g09", "group": "etiquette", "expected": "answer", "guide": "공공예절 교육 p.6", "question": "산책하다 낯선 개를 만나면 인사시켜도 되나요?"},
+  {"id": "g10", "group": "etiquette", "expected": "answer", "guide": "공공예절 교육 p.10", "question": "강아지 빗질은 어떤 빗으로 어떻게 해야 해요?"},
+  {"id": "g11", "group": "etiquette", "expected": "answer", "guide": "공공예절 교육 p.9", "question": "강아지가 발이나 귀 만지는 걸 싫어하는데 어떻게 익숙하게 하나요?"},
+  {"id": "g12", "group": "care", "expected": "answer", "guide": "윤리 가이드라인 p.39", "question": "강아지 발톱은 얼마 만에 깎아 줘야 해요?"},
+  {"id": "g13", "group": "care", "expected": "answer", "guide": "윤리 가이드라인 p.40", "question": "강아지 구충제는 몇 개월마다 먹여야 하나요?"},
+  {"id": "g14", "group": "care", "expected": "answer", "guide": "윤리 가이드라인 p.40", "question": "기초 접종을 다 맞은 뒤에는 추가 접종을 언제 하나요?"},
+  {"id": "g15", "group": "training", "expected": "answer", "guide": "윤리 가이드라인 p.93", "question": "산책할 때 다른 사람이나 개를 보고 짖으면 어떻게 훈련하나요?"},
+  {"id": "g16", "group": "training", "expected": "answer", "guide": "윤리 가이드라인 p.12-13", "question": "강아지 훈련할 때 때리거나 혼내도 되나요?"}
+ ]
+}
