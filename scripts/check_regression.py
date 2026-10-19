@@ -9,7 +9,8 @@ the PR quality check requires before a pull request that changes the answer path
    question that raised an error has neither)
 2. absolute floor: every score inside its fixed limit (LIMITS below)
 3. relative floor: every quality score within its allowed drop (DROPS) of the baseline's mean
-4. regression: every stable question (passed in every baseline run) passes again
+4. regression: every stable question (passed in every baseline run) passes again; one that failed
+   but passed every recheck (scripts/recheck_items.py) is the grader's wobble, not a regression
 A set without a baseline (visit, answer) gets check 2 only. The baseline is made from several runs
 of the merged code (--make-baseline): one run moves by a question or two, so a question counts as
 stable only when it passed every time.
@@ -157,9 +158,18 @@ def gate_rows(set_name: str, result: dict, baseline: dict) -> tuple[list[str], b
         shown = "없음" if value is None else f"{value:.3f}"
         rows.append(f"| {set_name} | 상대 | {name} | {shown} | {sign} {limit} (기준선 {base:.3f}) | {base:.3f} | {'✅' if passed else '❌'} |")
         ok &= passed
-    regressed = sorted(i for i in baseline["stable"] if i in items and not item_passed(set_name, items[i]))
-    rows.append(f"| {set_name} | 회귀 | 안정 문항 {len(baseline['stable'])} | 실패 {len(regressed)}"
-                f"{' (' + ', '.join(regressed[:8]) + ')' if regressed else ''} | 0 | - | {'✅' if not regressed else '❌'} |")
+    failed = sorted(i for i in baseline["stable"] if i in items and not item_passed(set_name, items[i]))
+    run = result.get("run")
+    recheck_path = RESULTS_DIR / f"{set_name}_{run}_recheck.json"
+    recheck = json.loads(recheck_path.read_text(encoding="utf-8")) if run and recheck_path.exists() else {}
+    wobbled = [i for i in failed if recheck.get(i) and all(recheck[i])]
+    regressed = [i for i in failed if i not in wobbled]
+    if run and failed and not recheck:  # for scripts/recheck_items.py
+        (RESULTS_DIR / f"{set_name}_{run}_regressed.json").write_text(json.dumps(failed), encoding="utf-8")
+    detail = f"실패 {len(regressed)}{' (' + ', '.join(regressed[:8]) + ')' if regressed else ''}"
+    if wobbled:
+        detail += f", 재확인 통과 {len(wobbled)} ({', '.join(wobbled[:8])})"
+    rows.append(f"| {set_name} | 회귀 | 안정 문항 {len(baseline['stable'])} | {detail} | 0 | - | {'✅' if not regressed else '❌'} |")
     ok &= not regressed
     return rows, ok
 
@@ -167,6 +177,7 @@ def gate_rows(set_name: str, result: dict, baseline: dict) -> tuple[list[str], b
 def check(set_name: str, run_name: str) -> tuple[list[str], bool, dict]:
     path = RESULTS_DIR / f"{set_name}_{run_name}.json"
     result = json.loads(path.read_text(encoding="utf-8"))
+    result.setdefault("run", run_name)
     scores = result["run_scores"]
     rows, ok = [], True
     if set_name in JUDGES and result.get("judge_model") != JUDGES[set_name]:

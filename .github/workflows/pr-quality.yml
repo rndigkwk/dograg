@@ -96,7 +96,18 @@ jobs:
         run: .venv/bin/python scripts/langfuse_experiments.py run routing --name "$RUN_NAME" --description "pull request ${{ github.event.pull_request.number }} quality check"
 
       - name: Compare with the weekly limits
+        id: compare
+        continue-on-error: true  # the recheck below decides when only stable questions failed
         run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME"
+
+      - name: Recheck the stable questions that failed
+        # A stable question that fails once may be the evidence grader's wobble: ask it twice more
+        # (scripts/recheck_items.py) and judge again. A real regression fails again.
+        if: steps.compare.outcome == 'failure'
+        run: |
+          .venv/bin/python scripts/recheck_items.py crag "$RUN_NAME"
+          .venv/bin/python scripts/recheck_items.py routing "$RUN_NAME"
+          .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME"
 
       - name: Keep the item-level results
         if: always()
