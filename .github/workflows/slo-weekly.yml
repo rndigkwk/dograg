@@ -1,0 +1,43 @@
+name: Weekly service levels
+
+# Reads the API's last 7 days of Langfuse traces (scripts/slo_report.py: no model calls) and fails
+# when an objective of docs/slo.md is missed; the "Alert on failure" workflow then opens an issue.
+# Needs the repository secrets LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL.
+on:
+  schedule:
+    - cron: "53 0 * * 1"  # Monday 09:53 KST, after the regression evaluation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Service levels (API, 7 days)
+        # Only python-dotenv is needed (src/settings.py); the standard library does the rest.
+        run: |
+          uv run --no-project --with python-dotenv python scripts/slo_report.py --check --json slo.json | tee slo.txt
+          status=${PIPESTATUS[0]}
+          { echo '```'; cat slo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
