@@ -260,6 +260,25 @@ class HealthCragTests(ChatGraphTestCase):
         self.assertIn("반려견 사례뿐이라 페럿의 건강 질문", result["answer"])
         self.assertIn("찾지 않았습니다", result["answer"])
 
+    def test_a_question_only_a_care_guide_answers_is_not_declined(self):
+        guide = doc("g1", "재난 키트에는 사료와 물", kind="care_guide", title="재난 대응 가이드라인", page=2)
+        tools = make_tools(health_top_similarity=Mock(return_value=0.31), retrieve_care_guides=Mock(return_value=[guide]),
+                           review_evidence=Mock(return_value=review(["g1"], True)))
+        result = self.run_chat(tools, question="재난 대비해서 강아지 물건 뭘 챙겨야 해요?")
+        self.assertFalse(result["abstained"])
+        self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["g1"])
+        self.assertEqual(result["evidence_rows"][0]["kind"], "care_guide")
+
+    def test_a_care_guide_does_not_take_a_consultations_place(self):
+        guide = doc("g1", kind="care_guide", title="윤리 가이드라인", page=39)
+        tools = make_tools(retrieve_care_guides=Mock(return_value=[guide]),
+                           review_evidence=Mock(return_value=review(["g1", "a", "b", "c"], True)))
+        result = self.run_chat(tools, top_k=2)
+        self.assertEqual([d.id for d in tools.generate_health_answer.call_args.args[1]], ["a", "b", "g1"])
+        self.assertEqual(len(result["evidence_rows"]), 3)
+        grader_context = tools.review_evidence.call_args.args[2]
+        self.assertIn("[g1] 지침 「윤리 가이드라인」 39쪽", grader_context)
+
     def test_a_question_near_the_material_goes_on_as_before(self):
         tools = make_tools(health_top_similarity=Mock(return_value=0.62))
         result = self.run_chat(tools)

@@ -1,8 +1,8 @@
-import { consultation, reportPage, type Row, SCANNED_NOTE } from "@/lib/evidence";
+import { consultation, guide, isGuide, reportPage, type Row, SCANNED_NOTE } from "@/lib/evidence";
 
 import Markdown from "./Markdown";
 
-/** The material an answer stands on: vet consultations for health, report pages for analysis. */
+/** The material an answer stands on: vet consultations (and care guides) for health, report pages for analysis. */
 export default function Evidence({ route, rows }: { route?: string; rows: Row[] }) {
   if (!rows.length) return null;
   if (route === "analysis") {
@@ -30,11 +30,35 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
       </section>
     );
   }
+  const cases = rows.filter((row) => !isGuide(row));
+  const guides = rows.filter(isGuide);
   return (
     <section className="mt-4" aria-label="검색 근거">
       <h3 className="mb-2 font-bold">검색 근거</h3>
       <div className="space-y-1">
-        {rows.map((row, index) => {
+        {guides.map((row, index) => {
+          const item = guide(row, index);
+          return (
+            <details key={`guide-${index}`} className="rounded-lg border border-line px-3 py-2 text-sm">
+              <summary className="cursor-pointer">{item.title}</summary>
+              <div className="mt-2 space-y-1">
+                <p className="whitespace-pre-wrap">{item.excerpt}</p>
+                <p className="text-xs text-muted">
+                  출처: {item.organization}
+                  {item.url ? (
+                    <>
+                      {" · "}
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="underline">
+                        원문 보기
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+            </details>
+          );
+        })}
+        {cases.map((row, index) => {
           const item = consultation(row, index);
           return (
             <details key={index} className="rounded-lg border border-line px-3 py-2 text-sm">

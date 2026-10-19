@@ -14,6 +14,21 @@ export function consultation(row: Row, index: number): { title: string; answer: 
   };
 }
 
+/** A public care guide (동물사랑배움터, src/tools/care_guides.py) among a health answer's evidence. */
+export const isGuide = (row: Row): boolean => row.kind === "care_guide";
+
+/** A care guide's evidence: the guide and page, the piece the answer used, and the guide's own page. */
+export function guide(row: Row, index: number): { title: string; organization: string; excerpt: string; url: string } {
+  const page = row.page ? ` · ${text(row.page)}쪽` : "";
+  const url = text(row.url);
+  return {
+    title: `지침 ${index + 1} · ${text(row.title) || "돌봄 지침"}${page}`,
+    organization: text(row.organization),
+    excerpt: text(row.piece),
+    url: url.startsWith("https://") ? url : "",
+  };
+}
+
 export const EXCERPT_PREVIEW_CHARS = 150; // about 2-3 lines; the rest is behind 자세히 보기
 
 /** A report answer's evidence: report title, page, and the first lines of the excerpt. */

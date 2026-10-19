@@ -52,6 +52,12 @@ MEMORY_DECLINED_KEY = "memory_declined"
 
 
 def format_evidence_row(row, index):
+    if row.get("kind") == "care_guide":  # src/tools/care_guides.py
+        source = f"출처: {row.get('organization', '')} · [원문 보기]({row.get('url', '')})"
+        return {
+            "title": f"{index + 1}. 지침 · {row.get('title', '')} · {row.get('page', '?')}쪽",
+            "body": f"{row.get('piece', '')}\n\n{source}",
+        }
     life_cycle = row.get("meta.lifeCycle") or row.get("lifeCycle") or "-"
     department = row.get("meta.department") or row.get("department") or "-"
     disease = row.get("meta.disease") or row.get("disease") or "-"

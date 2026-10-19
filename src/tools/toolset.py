@@ -6,7 +6,17 @@ Looking names up on each call (not binding them once) keeps
 
 from __future__ import annotations
 
-from src.tools import fees, general, health, history, places, report, review, router
+from src.tools import (
+    care_guides,
+    fees,
+    general,
+    health,
+    history,
+    places,
+    report,
+    review,
+    router,
+)
 
 TOOL_SOURCES = {
     router: ("is_date_question", "current_date_answer", "classify_question",
@@ -14,6 +24,7 @@ TOOL_SOURCES = {
     history: ("build_rag_search_query", "memory_search_query"),
     health: ("infer_rag_filters", "retrieve_health", "generate_health_answer", "ask_rag", "detect_urgent_sign",
              "review_health_answer", "health_top_similarity", "other_species"),
+    care_guides: ("retrieve_care_guides",),
     report: ("analyze_report", "search_reports", "generate_report_answer", "report_evidence_from_docs"),
     places: ("run_sql_search",),
     fees: ("is_fee_question", "fee_answer"),

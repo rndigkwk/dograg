@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { consultation, EXCERPT_PREVIEW_CHARS, reportPage } from "./evidence";
+import { consultation, EXCERPT_PREVIEW_CHARS, guide, isGuide, reportPage } from "./evidence";
 
 describe("consultation", () => {
   it("labels a consultation by its metadata, with dashes for what is missing", () => {
@@ -33,5 +33,24 @@ describe("reportPage", () => {
   it("marks text read from the page image", () => {
     expect(reportPage({ excerpt: "12.8%", page: 77, scanned: true }, 0).scanned).toBe(true);
     expect(reportPage({ excerpt: "12.8%", page: 77, scanned: "true" }, 0).scanned).toBe(false);
+  });
+});
+
+describe("guide", () => {
+  const row = { kind: "care_guide", title: "재난 대응 가이드라인", page: 2, organization: "동물사랑배움터",
+    url: "https://apms.epis.or.kr/home/kor/board.do?idx=639", piece: "재난 키트를 만든다" };
+
+  it("tells a care guide from a consultation", () => {
+    expect(isGuide(row)).toBe(true);
+    expect(isGuide({ "qa.output": "답변" })).toBe(false);
+  });
+
+  it("labels a care guide by its title and page, with its source and link", () => {
+    expect(guide(row, 0)).toEqual({ title: "지침 1 · 재난 대응 가이드라인 · 2쪽", organization: "동물사랑배움터",
+      excerpt: "재난 키트를 만든다", url: "https://apms.epis.or.kr/home/kor/board.do?idx=639" });
+  });
+
+  it("drops a link that is not https", () => {
+    expect(guide({ ...row, url: "javascript:alert(1)" }, 0).url).toBe("");
   });
 });
