@@ -198,9 +198,11 @@ def load_health_answer_table():
 @st.cache_resource(show_spinner=False)
 def load_health_bm25_index():
     if search_backend() == "supabase":
-        from src.supabase_store import PgroongaIndex
-
-        return _supabase(PgroongaIndex, SUPABASE_HEALTH_TABLE, load_fallback_health_index)
+        # Dense only, as the fallback already was: with the fine-tuned query model, PGroonga's keyword
+        # half put unrelated consultations into the top 3 (precision@3 0.73 -> 0.94 without it,
+        # Wilcoxon p=5e-9; useful@3 0.81 -> 0.84, p=0.58), on the fully judged relevance set
+        # (2026-10-20, docs/wiki/retrieval-experiments.md). The local mode keeps Kiwi BM25.
+        return load_fallback_health_index()
     return load_local_health_bm25_index()
 
 

@@ -37,7 +37,9 @@
     "13443": 0,
     "16635": 2,
     "14085": 0,
-    "15971": 0
+    "15971": 0,
+    "11667": 0,
+    "7592": 0
    },
    "doc_labels": {
     "16491": {
@@ -154,6 +156,16 @@
      "meta.lifeCycle": "자견",
      "meta.department": "치과",
      "meta.disease": "기타"
+    },
+    "11667": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "7592": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -222,7 +234,8 @@
     "16075": 1,
     "18098": 0,
     "7776": 0,
-    "2011": 0
+    "2011": 0,
+    "17494": 1
    },
    "doc_labels": {
     "15938": {
@@ -354,6 +367,11 @@
      "meta.lifeCycle": "노령견",
      "meta.department": "내과",
      "meta.disease": "기타"
+    },
+    "17494": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -423,7 +441,9 @@
     "13081": 0,
     "1543": 0,
     "4811": 1,
-    "5240": 0
+    "5240": 0,
+    "16633": 1,
+    "16689": 1
    },
    "doc_labels": {
     "16258": {
@@ -555,6 +575,16 @@
      "meta.lifeCycle": "노령견",
      "meta.department": "내과",
      "meta.disease": "기타"
+    },
+    "16633": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "16689": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -622,7 +652,9 @@
     "15971": 1,
     "12497": 0,
     "9882": 0,
-    "2011": 0
+    "2011": 0,
+    "13765": 0,
+    "16689": 1
    },
    "doc_labels": {
     "15950": {
@@ -749,6 +781,16 @@
      "meta.lifeCycle": "노령견",
      "meta.department": "내과",
      "meta.disease": "기타"
+    },
+    "13765": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "16689": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -818,7 +860,9 @@
     "10653": 0,
     "12327": 0,
     "1543": 0,
-    "5675": 2
+    "5675": 2,
+    "7271": 0,
+    "9850": 1
    },
    "doc_labels": {
     "10214": {
@@ -949,6 +993,16 @@
     "5675": {
      "meta.lifeCycle": "노령견",
      "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7271": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9850": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
      "meta.disease": "기타"
     }
    },
@@ -1201,7 +1255,9 @@
     "13267": 0,
     "16295": 1,
     "16020": 1,
-    "15978": 2
+    "15978": 2,
+    "11390": 0,
+    "1925": 0
    },
    "doc_labels": {
     "10946": {
@@ -1333,6 +1389,16 @@
      "meta.lifeCycle": "노령견",
      "meta.department": "치과",
      "meta.disease": "기타"
+    },
+    "11390": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "1925": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -1400,7 +1466,9 @@
     "179": 0,
     "17155": 0,
     "10267": 0,
-    "10357": 0
+    "10357": 0,
+    "13547": 0,
+    "16281": 1
    },
    "doc_labels": {
     "16788": {
@@ -1522,6 +1590,16 @@
      "meta.lifeCycle": "자견",
      "meta.department": "안과",
      "meta.disease": "기타"
+    },
+    "13547": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "16281": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "치은염"
     }
    },
    "rankings": {
@@ -1589,7 +1667,9 @@
     "12464": 0,
     "16249": 2,
     "3800": 0,
-    "2182": 0
+    "2182": 0,
+    "12451": 0,
+    "16633": 1
    },
    "doc_labels": {
     "16093": {
@@ -1721,6 +1801,16 @@
      "meta.lifeCycle": "자견",
      "meta.department": "내과",
      "meta.disease": "기타"
+    },
+    "12451": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "16633": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -1789,7 +1879,9 @@
     "16241": 1,
     "5693": 0,
     "5945": 1,
-    "16286": 2
+    "16286": 2,
+    "19155": 0,
+    "9495": 0
    },
    "doc_labels": {
     "16281": {
@@ -1916,6 +2008,16 @@
      "meta.lifeCycle": "자견",
      "meta.department": "치과",
      "meta.disease": "치은염"
+    },
+    "19155": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "9495": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
     }
    },
    "rankings": {
@@ -1952,5 +2054,6 @@
     ]
    }
   }
- ]
+ ],
+ "grades_added": "2026-10-20: the top 3 of the current app's health search variants (Supabase dense with PGroonga / none / Kiwi BM25, two tie rules) graded by the same judge, so they are fully judged"
 }
