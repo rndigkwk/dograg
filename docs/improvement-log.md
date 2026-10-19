@@ -127,6 +127,22 @@
 
 - **이 기간의 교훈 두 가지:** (1) 판사 점수가 만점이어도 답을 직접 읽어야 한다(노트 날짜 오판). (2) 검색 수정은 로컬과 운영 검색 엔진이 달라 운영 검색으로도 재야 한다(#202 → #203).
 
+## 10. 2026-10-18~20: 운영 안정화, 병합 게이트, 공공 돌봄 지침
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#211](https://github.com/rndigkwk/dograg/pull/211), [#218](https://github.com/rndigkwk/dograg/pull/218) | 운영 키워드 검색(PGroonga)이 로컬(Kiwi BM25)과 순위가 달랐다 | 건강: precision@3 0.73 → **0.94**(키워드 쪽 제거, p=5e-9), 보고서 h04 정답 | 보고서 키워드는 메모리 안 BM25, 건강은 의미 검색만 |
+| [#216](https://github.com/rndigkwk/dograg/pull/216), [#222](https://github.com/rndigkwk/dograg/pull/222) | 자료와 먼 질문, 다른 동물 질문에도 근거 평가·재검색을 돌렸다 | 검증 561문항의 최저 유사도 0.407, 범위 밖 20문항 중 3개가 0.4 아래 → 모델 호출 없이 보류 | 유사도 하한 0.4, 다른 동물은 검색 전에 보류 |
+| [#212](https://github.com/rndigkwk/dograg/pull/212), [#213](https://github.com/rndigkwk/dograg/pull/213), [#217](https://github.com/rndigkwk/dograg/pull/217), [#220](https://github.com/rndigkwk/dograg/pull/220) | 배포 뒤 확인과 품질 판정이 사람 손에 달려 있었다 | 실패한 안정 문항을 두 번 더 물어 흔들림(u20)과 회귀를 구분 | 릴리스 점검 6항목·롤백 워크플로, SLO 주간 보고·실패 이슈, 병합 조건 네 가지 |
+| [#219](https://github.com/rndigkwk/dograg/pull/219) | LLM 판사를 믿어도 되나, 리랭킹 API는 나을까 | 관련도 판사 κ 0.636(사람 라벨), Cohere useful@3 0.80 vs 지금 0.84 | 판사 성적표를 기록, 리랭킹은 넣지 않음 |
+| [#225](https://github.com/rndigkwk/dograg/pull/225), [#226](https://github.com/rndigkwk/dograg/pull/226), [#227](https://github.com/rndigkwk/dograg/pull/227) | 방문 준비 보고서를 병원에 가져가기 어렵고, 지난 상담을 못 쓰고, 멈추면 처음부터 | 실제 그래프 테스트: 이어 가기는 끝낸 단계를 다시 하지 않음 | 인쇄·PDF, 고른 상담 노트 넣기, 마지막 체크포인트부터 이어 만들기(2번까지) |
+| [#228](https://github.com/rndigkwk/dograg/pull/228), [#233](https://github.com/rndigkwk/dograg/pull/233), [#236](https://github.com/rndigkwk/dograg/pull/236) | 일상 관리 질문의 1/4을 못 답했다. 원인은 자료 구성(증상 상담 위주) | 기본 관리 30문항 핵심 답함 20 → **26**, 지침 질문 16개 중 13 → **15** | 공공 지침 5종(이용 조건 확인, 이미지 PDF는 모델로 옮겨 적고 원본과 대조), 문맥을 문장 단위로 |
+| [#229](https://github.com/rndigkwk/dograg/pull/229), [#235](https://github.com/rndigkwk/dograg/pull/235) | 사체 처리·펫로스·사망 신고 질문이 시설 검색·서비스 안내로 갔다 | 이별 질문 → 건강 상담: dev 2/12 → 12/12, 새 holdout 4/10 → 8/10 | 이별 낱말 규칙, 통계·시설 질문은 그대로 |
+| [#230](https://github.com/rndigkwk/dograg/pull/230), [#231](https://github.com/rndigkwk/dograg/pull/231), [#232](https://github.com/rndigkwk/dograg/pull/232) | 지침을 보고서와 일정에도 쓰고, 운영에서 쓰임을 재야 했다 | 노견 상담 보고서가 리플릿 2쪽을 근거로 인용 | 방문 준비 조사원의 지침 검색, 관리 일정 페이지, 실행 기록의 `guide_count` |
+| [#238](https://github.com/rndigkwk/dograg/pull/238), [#239](https://github.com/rndigkwk/dograg/pull/239), [#240](https://github.com/rndigkwk/dograg/pull/240) | 평가에 쓴 비용으로 OpenAI 한도가 차서 **운영 챗봇이 멈춤**. 데이터만 바꾼 PR은 게이트를 건너뜀 | 장애 중 운영에서 안내 + 지침·상담 표시 확인 | 한도 오류면 모델 없이 검색 결과만, 키 분리 절차, 데이터 버전도 게이트 대상 |
+
+- **이 기간의 교훈 두 가지:** (1) 평가와 운영이 같은 키를 쓰면 평가 비용이 운영 장애가 된다. 키를 나누고, 외부 모델이 멈춰도 쓸모 있는 화면을 남긴다. (2) 이미 본 holdout으로는 고친 효과를 잴 수 없다. 고치기 전에 새 holdout을 쓴다(#235).
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -334,3 +350,37 @@
 | [201](https://github.com/rndigkwk/dograg/pull/201) | 2026-10-17 | fix(report): 같은 쪽의 PDF·OCR 조각은 근거 한 자리로 |
 | [202](https://github.com/rndigkwk/dograg/pull/202) | 2026-10-17 | fix(report): 두 보고서를 묻는 질문은 보고서마다 근거 찾기 |
 | [203](https://github.com/rndigkwk/dograg/pull/203) | 2026-10-17 | fix(report): 두 보고서 질문은 보고서마다 주제어로 찾기 (운영 검색 기준) |
+| [204](https://github.com/rndigkwk/dograg/pull/204) | 2026-10-17 | docs: README를 기술 면접용으로 개편 + 문서·ADR 점검 |
+| [205](https://github.com/rndigkwk/dograg/pull/205) | 2026-10-18 | eval(report): 규칙 조정에 쓰지 않은 보고서 holdout 12문항 |
+| [206](https://github.com/rndigkwk/dograg/pull/206) | 2026-10-18 | fix(report): 이름 없이 여러 보고서를 묻는 질문은 앞선 보고서 3개에서 각각 찾기 |
+| [207](https://github.com/rndigkwk/dograg/pull/207) | 2026-10-18 | fix(ocr): KB 보고서 OCR 오인식 규칙 3개 추가 (data-v6) |
+| [208](https://github.com/rndigkwk/dograg/pull/208) | 2026-10-18 | fix(report): 보호자 말을 보고서 용어로, 지목한 보고서는 그 안에서만 찾기 |
+| [209](https://github.com/rndigkwk/dograg/pull/209) | 2026-10-18 | fix(report): h10 질문 말투 빼기, h08 OCR 숫자 손 정정 (data-v7) |
+| [210](https://github.com/rndigkwk/dograg/pull/210) | 2026-10-18 | fix(report): 이름 없는 질문은 보고서 4개에서, KB 28쪽 OCR 정정 (data-v8) |
+| [211](https://github.com/rndigkwk/dograg/pull/211) | 2026-10-18 | fix(search): 운영 보고서 키워드 검색을 PGroonga에서 메모리 안 BM25로 (h04) |
+| [212](https://github.com/rndigkwk/dograg/pull/212) | 2026-10-19 | ops: 릴리스 점검 스크립트와 API 롤백 워크플로 |
+| [213](https://github.com/rndigkwk/dograg/pull/213) | 2026-10-19 | ops: SLO 목표, 주간 확인, 실패 알림(이슈) |
+| [214](https://github.com/rndigkwk/dograg/pull/214) | 2026-10-19 | eval: 치과 관련도 세트, 보고서 보류 문항, 범위 밖 라우팅, 월간 평가 점검 |
+| [215](https://github.com/rndigkwk/dograg/pull/215) | 2026-10-19 | eval: 리랭킹 API 측정 스크립트 (키 대기) |
+| [216](https://github.com/rndigkwk/dograg/pull/216) | 2026-10-19 | fix(health): 자료와 먼 건강 질문은 근거 평가 없이 보류 (유사도 하한 0.4) |
+| [217](https://github.com/rndigkwk/dograg/pull/217) | 2026-10-19 | ci: 병합 조건 네 가지 (완전성·절대 하한·상대 하한·회귀) + 기준선 |
+| [218](https://github.com/rndigkwk/dograg/pull/218) | 2026-10-19 | fix(search): 운영 건강 검색에서 PGroonga 빼기 (의미 검색만), 동점 규칙 유지 |
+| [219](https://github.com/rndigkwk/dograg/pull/219) | 2026-10-19 | eval: 사람 판정 성적표, Cohere 리랭킹 측정(채택 안 함) |
+| [220](https://github.com/rndigkwk/dograg/pull/220) | 2026-10-19 | ci(gate): 실패한 안정 문항은 2번 더 물어 흔들림과 회귀를 가르기 |
+| [222](https://github.com/rndigkwk/dograg/pull/222) | 2026-10-19 | fix(health): 반려견이 아닌 동물의 건강 질문은 검색 전에 보류 |
+| [223](https://github.com/rndigkwk/dograg/pull/223) | 2026-10-19 | fix(ops): 릴리스 점검이 커밋 안 된 새 파일은 무시 |
+| [224](https://github.com/rndigkwk/dograg/pull/224) | 2026-10-19 | ci: 다른 동물 규칙(#222) 뒤 기준선 다시 만들기 — #222 다음에 병합 |
+| [225](https://github.com/rndigkwk/dograg/pull/225) | 2026-10-19 | feat(web): 방문 준비 보고서 인쇄 · PDF로 저장 |
+| [226](https://github.com/rndigkwk/dograg/pull/226) | 2026-10-19 | feat(visit-prep): 고른 지난 상담 노트를 방문 준비 보고서에 넣기 |
+| [227](https://github.com/rndigkwk/dograg/pull/227) | 2026-10-19 | feat(visit-prep): 멈춘 보고서 이어서 만들기 |
+| [228](https://github.com/rndigkwk/dograg/pull/228) | 2026-10-19 | feat(health): 동물사랑배움터 돌봄 지침으로 일상 관리 질문 답하기 |
+| [229](https://github.com/rndigkwk/dograg/pull/229) | 2026-10-19 | fix(router): 노령·사망·이별 질문을 건강 상담으로 |
+| [230](https://github.com/rndigkwk/dograg/pull/230) | 2026-10-19 | feat(visit-prep): 건강 조사원도 동물사랑배움터 돌봄 지침 찾기 |
+| [231](https://github.com/rndigkwk/dograg/pull/231) | 2026-10-19 | feat(web): 관리 일정 — 지침 주기로 다음 예방·접종 날짜 알려 주기 |
+| [232](https://github.com/rndigkwk/dograg/pull/232) | 2026-10-19 | feat(ops): 운영에서 돌봄 지침 사용 비율 재기 |
+| [233](https://github.com/rndigkwk/dograg/pull/233) | 2026-10-19 | feat(data): 농식품부 여름나기 보도자료로 열사병 질문 답하기 |
+| [234](https://github.com/rndigkwk/dograg/pull/234) | 2026-10-19 | docs: 지침 비용 측정 — 문맥 길이는 그대로 둠 |
+| [235](https://github.com/rndigkwk/dograg/pull/235) | 2026-10-19 | fix(router): 이별 뒤 슬픔·사망 신고 질문도 건강 상담으로 |
+| [236](https://github.com/rndigkwk/dograg/pull/236) | 2026-10-19 | fix(data): 지침 문맥을 문장 단위로, 리플릿 신고처 정리 |
+| [238](https://github.com/rndigkwk/dograg/pull/238) | 2026-10-19 | feat(api): 모델 한도가 떨어지면 오류 대신 안내와 검색 결과 보여 주기 |
+| [239](https://github.com/rndigkwk/dograg/pull/239) | 2026-10-19 | ci: 지침 검색·데이터 버전 변경에도 병합 게이트 돌리기 |
