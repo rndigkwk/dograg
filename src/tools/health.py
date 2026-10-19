@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 
@@ -15,6 +16,8 @@ from src.health_answers import attach_health_answers
 from src.health_safety import detect_urgent_sign
 from src.tools import history
 from src.tools import profile as pet_profile
+
+logger = logging.getLogger(__name__)
 
 ALL_FILTER = "전체"
 ETC_DISEASE = "기타"
@@ -189,6 +192,26 @@ def format_rag_context(retrieved_docs):
         f"[사례 {number}] 다른 보호자의 질문: {doc.page_content}\n수의사 답변: {doc.metadata.get('qa.output', '')}"
         for number, doc in enumerate(retrieved_docs, start=1)
     )
+
+
+# Below this cosine similarity of the nearest consultation, a question is outside the material and is
+# declined without the evidence grader (2026-10-19, docs/wiki/safety-and-evidence.md). Supabase,
+# fine-tuned model: the 561 validation questions' nearest is 0.407 at the lowest, while 3 of the 20
+# out-of-material CRAG questions fall below 0.4 (0.5 would cut 11 of 20, and 5 of 561).
+HEALTH_SIMILARITY_FLOOR = 0.4
+
+
+def health_top_similarity(search_query) -> float | None:
+    """Cosine similarity of the nearest health document, or None when it cannot be measured."""
+    db = resources.load_vector_db()
+    try:
+        if hasattr(db, "top_similarity"):
+            return db.top_similarity(search_query)
+        found = db.similarity_search_with_score(search_query, k=1)  # Chroma: cosine distance
+        return 1.0 - float(found[0][1]) if found else None
+    except Exception:  # noqa: BLE001 - the floor is a shortcut; without it the grader decides
+        logger.warning("health similarity not measured", exc_info=True)
+        return None
 
 
 def retrieve_health(search_query, k=DEFAULT_RAG_TOP_K, filters=None):
