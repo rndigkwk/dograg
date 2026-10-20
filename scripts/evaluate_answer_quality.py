@@ -20,14 +20,17 @@ generate records, per question, the answer and the evidence passages given to th
 gpt-6-luna with a Korean output rule; embeddings text-embedding-3-large):
 - answer_correctness: 0.75 x claim F1 against the vet answer + 0.25 x semantic similarity
 - context_recall: share of the vet answer's claims backed by the retrieved passages
+- context_precision: whether the passages useful for the vet answer are ranked first (2026-10-20)
 - answer_relevancy: similarity of questions regenerated from the answer to the real question
 Abstentions are reported apart (a correct "the material does not cover this" scores low on all three).
 Noise: judge (same answers, repeats) and system (run 0 vs run 1, first judging).
 Results: output/experiments/answer_quality_{gen_run<r>_<shard>,scores,summary}.json.
 
-The weekly regression (.github/workflows/regression-eval.yml) runs one answer run and judges only
-Answer Correctness once (`judge --repeats 1 --metrics answer_correctness --result-name <run>`): it was
-the stable and sensitive one (docs/wiki/safety-and-evidence.md). --result-name also writes
+The weekly regression (.github/workflows/regression-eval.yml) runs one answer run and judges it once
+(`judge --repeats 1 --metrics answer_correctness context_recall context_precision --result-name <run>`).
+Answer Correctness is the one with a limit, the stable and sensitive one (docs/wiki/safety-and-evidence.md);
+the two context scores (2026-10-20) are recorded beside it, so a drop can be placed in the search or
+in the answer before a limit is set on them. --result-name also writes
 output/experiments/answer_<run>.json in the shape scripts/check_regression.py reads.
 """
 
@@ -47,7 +50,7 @@ from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_DIR / "output" / "experiments"
-METRICS = ("answer_correctness", "context_recall", "answer_relevancy")
+METRICS = ("answer_correctness", "context_recall", "context_precision", "answer_relevancy")
 
 
 def golden_items() -> list[dict]:
@@ -104,7 +107,7 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
     from openai import AsyncOpenAI
     from ragas.embeddings.base import embedding_factory
     from ragas.llms import llm_factory
-    from ragas.metrics.collections import AnswerCorrectness, AnswerRelevancy, ContextRecall
+    from ragas.metrics.collections import AnswerCorrectness, AnswerRelevancy, ContextPrecision, ContextRecall
 
     load_dotenv(PROJECT_DIR / ".env")
     os.environ["RAGAS_DO_NOT_TRACK"] = "true"
@@ -115,6 +118,7 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
     embeddings = embedding_factory("openai", model="text-embedding-3-large", client=client)
     metrics = {"answer_correctness": lambda: AnswerCorrectness(llm=llm, embeddings=embeddings),
                "context_recall": lambda: ContextRecall(llm=llm),
+               "context_precision": lambda: ContextPrecision(llm=llm),
                "answer_relevancy": lambda: AnswerRelevancy(llm=llm, embeddings=embeddings)}
     metrics = {name: metrics[name]() for name in names}
     runs = {}
@@ -130,7 +134,7 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
                 try:
                     if name == "answer_correctness":
                         result = await metrics[name].ascore(user_input=row["question"], response=row["answer"], reference=row["reference"])
-                    elif name == "context_recall":
+                    elif name in ("context_recall", "context_precision"):
                         if not row["contexts"]:
                             return None
                         result = await metrics[name].ascore(user_input=row["question"], retrieved_contexts=row["contexts"],
