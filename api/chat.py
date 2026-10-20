@@ -36,7 +36,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from src import auth, data_gaps, model_outage, rate_limit
+from src import auth, data_gaps, model_outage, rate_limit, settings
 from src.chat_events import find_emergency_hospitals, places_first, progress_message
 from src.health_safety import detect_urgent_sign
 from src.pii import mask_pii
@@ -140,6 +140,11 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
 
     # Set here, in the thread that runs this generator: the deployment check is not counted
     # (rate_limit) and its answers stay out of the data-gap table (data_gaps, in the worker below).
+    if settings.get_setting("RAGDOG_FAULT") == "chat":
+        # A deliberately broken revision for the canary drill (deploy-cloud-run.yml input "fault"):
+        # the candidate check must keep it from getting any traffic. Never set on a promoted revision.
+        yield event("error", {"message": FAILED})
+        return
     data_gaps.REQUEST_AGENT.set(agent)
     rate_limit.TRUSTED_CHECK.set(trusted)  # the check token, verified by the route
     decision = rate_limit.check(person, network)
