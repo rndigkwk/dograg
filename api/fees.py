@@ -3,6 +3,8 @@
     GET /fees/items                      the 34 surveyed items (item + weight/species), by category
     GET /fees?item=...&detail=...        that item nationally, per si/do and per si/gun/gu:
                                          mean, median, minimum, maximum in won
+    GET /fees/region?province=&city=     five common items' medians there and nationally, for the
+                                         hospital list (a place-search region, src/places_search.py)
 
 Data: data/vet_fees/vet_fees.csv (src/tools/fees.py, scripts/collect_vet_fees.py), the government's
 2025 survey as published on animalclinicfee.or.kr. Every response carries the source, the collection
@@ -41,6 +43,16 @@ def items() -> dict:
         CATEGORY_ORDER.index(pair[1]) if pair[1] in CATEGORY_ORDER else len(CATEGORY_ORDER)))
     return {"items": [{"category": category, "item": item, "detail": detail, "label": fees._label(item, detail)}
                       for (item, detail), category in ordered],
+            "source": fees.SOURCE, "notice": fees.NOTICE}
+
+
+@router.get("/region")
+def region(province: str = Query(max_length=20), city: str = Query(default="", max_length=20)) -> dict:
+    _rows()
+    found = fees.region_fees(province, city)
+    if not any(row["median"] for row in found):
+        raise HTTPException(404, "이 지역의 진료비 조사 자료가 없습니다.")
+    return {"province": province, "city": city, "basis": "개, 체중 5kg 기준", "items": found,
             "source": fees.SOURCE, "notice": fees.NOTICE}
 
 

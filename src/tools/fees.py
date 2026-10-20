@@ -225,6 +225,49 @@ def fee_lookup(question: str, profile=None) -> list[dict]:
     return results
 
 
+# The place search names the merged province (2026); the 2025 survey still has the two old ones.
+MERGED_SIDO = "전남광주통합특별시"
+GWANGJU_GU = ("동구", "서구", "남구", "북구", "광산구")
+REGION_WEIGHT, REGION_SPECIES = 5, "개"  # one reference animal for the hospital list's comparison
+
+
+def fee_region(province: str, city: str = "") -> tuple[str, str]:
+    """A place-search region (src/places_search.REGIONS) in the fee table's names."""
+    if province == MERGED_SIDO:
+        province = "광주광역시" if city in GWANGJU_GU else "전라남도"
+    return province, city or ""
+
+
+def region_fees(province: str, city: str = "") -> list[dict]:
+    """GENERAL_ITEMS for a dog of 5 kg in this region next to the nation, for the hospital list.
+
+    The region is the si/gun/gu when the survey has a figure for it, else its si/do (the survey
+    leaves out districts with one clinic or none), else none: each row says which level it is."""
+    rows = load_fee_rows()
+    sido, sigungu = fee_region(province, city)
+    found = []
+    for item in GENERAL_ITEMS:
+        item_rows = [row for row in rows if row["item"] == item]
+        variants = list({row["detail"]: row for row in item_rows}.values())
+        for detail in [row["detail"] for row in _pick_details(variants, REGION_WEIGHT, REGION_SPECIES)][:1]:
+            same = [row for row in item_rows if row["detail"] == detail]
+            national = next((row for row in same if row["level"] == "national"), None)
+            if national is None:
+                continue
+            local = next((row for row in same if sigungu and row["level"] == "sigungu"
+                          and row["sido"] == sido and row["sigungu"] == sigungu), None)
+            level = "sigungu" if local else "sido"
+            local = local or next((row for row in same if row["level"] == "sido" and row["sido"] == sido), None)
+            found.append({
+                "item": item, "detail": detail, "label": _label(item, detail),
+                "national_median": int(national["median"]),
+                "median": int(local["median"]) if local else None,
+                "level": level if local else None,
+                "region": (sigungu if level == "sigungu" else sido) if local else None,
+            })
+    return found
+
+
 def fee_answer(question: str, profile=None) -> str:
     results = fee_lookup(question, profile)
     if not results:
