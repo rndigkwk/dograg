@@ -13,6 +13,13 @@ the question's. Experiment 8 found those labels agree with the questions' own te
 (tests/data/health_relevance_<department>.json): the random 100 had no 치과 question, since the
 validation set has only 10 of them (docs/wiki/eval-coverage.md).
 
+--train 기타 / --train labeled: the "기타" disease label is 76.9% of the corpus and 0 of the
+validation rows, so its search was never measured (docs/wiki/open-questions.md). These sets sample
+training rows instead (data/df.csv, TRAIN_SIZES, fixed seed): "기타" rows, and as the control the
+other rows sampled the same way, so the two differ only in the label. A training question is in the
+index itself: its own document (id = its row number) and documents with the same question text are
+left out of every ranking and pool, and the search asks for that many more to keep the depth.
+
 For 100 validation questions (data/df_val.csv, fixed seed) the pool is every candidate the
 hybrid search fuses (Dense 12 + BM25 12, up to 24 unique) plus the top 3 of the old filtered
 path. An LLM grades each candidate against the question: 2 directly useful (same problem,
@@ -47,6 +54,8 @@ sys.path.insert(0, str(PROJECT_DIR))
 SET_PATH = PROJECT_DIR / "tests" / "data" / "health_relevance_100.json"
 SAMPLE_SIZE = 100
 SEED = 20261008
+TRAIN_SIZES = {"기타": 100, "labeled": 50}  # judge calls: one per question
+TRAIN_SLUGS = {"기타": "train_etc", "labeled": "train_labeled"}
 POOL_K = 24
 ANSWER_CHARS = 300
 JUDGE_EFFORT = "low"
@@ -97,14 +106,26 @@ def judge(model, question: str, docs: list) -> dict[str, int]:
 DEPARTMENT_SLUGS = {"치과": "dental", "안과": "eye", "피부과": "skin", "내과": "internal", "외과": "surgery"}
 
 
-def set_path(department: str | None) -> Path:
+def set_path(department: str | None, train: str | None = None) -> Path:
+    if train:
+        return SET_PATH.with_name(f"health_relevance_{TRAIN_SLUGS[train]}.json")
     return SET_PATH if not department else SET_PATH.with_name(f"health_relevance_{DEPARTMENT_SLUGS[department]}.json")
 
 
-def sample_rows(rows, department: str | None = None) -> list[int]:
+def sample_rows(rows, department: str | None = None, train: str | None = None) -> list[int]:
+    if train:
+        etc = rows["meta.disease"].astype(str).str.strip() == "기타"
+        candidates = [i for i in range(len(rows)) if bool(etc[i]) == (train == "기타")]
+        return sorted(random.Random(SEED).sample(candidates, TRAIN_SIZES[train]))
     if department:
         return [i for i in range(len(rows)) if str(rows.loc[i, "meta.department"]).strip() == department]
     return sorted(random.Random(SEED).sample(range(len(rows)), SAMPLE_SIZE))
+
+
+def same_question(rows, row_id: int) -> set[str]:
+    """The ids a training question must not find: its own row and rows with the same question text."""
+    text = " ".join(str(rows.loc[row_id, "qa.input"]).split())
+    return {str(row_id)} | {str(i) for i in rows.index[rows["qa.input"].map(lambda v: " ".join(str(v).split())) == text]}
 
 
 def open_search(directory: str):
@@ -115,23 +136,29 @@ def open_search(directory: str):
     return resources.load_vector_db(), resources.load_health_bm25_index(), resources.load_health_answer_table()
 
 
-def build(workers: int, department: str | None = None) -> None:
+def build(workers: int, department: str | None = None, train: str | None = None) -> None:
     import pandas as pd
 
     from src.health_answers import attach_health_answers
     from src.hybrid_retrieval import retrieve_hybrid
     from src.tools import health
 
-    rows = pd.read_csv(PROJECT_DIR / "data" / "df_val.csv").fillna("")
-    picked = sample_rows(rows, department)
+    rows = pd.read_csv(PROJECT_DIR / "data" / ("df.csv" if train else "df_val.csv")).fillna("")
+    picked = sample_rows(rows, department, train)
     pools = []
     with tempfile.TemporaryDirectory(prefix="ragdog-relevance-", ignore_cleanup_errors=True) as directory:
         db, index, answers = open_search(directory)
         for row_id in picked:
             question = str(rows.loc[row_id, "qa.input"])
-            fused = retrieve_hybrid(db, index, question, top_k=POOL_K)
+            skip = same_question(rows, row_id) if train else set()
+
+            def search(top_k, where=None, skip=skip, question=question):
+                found = retrieve_hybrid(db, index, question, top_k=top_k + len(skip), where=where)
+                return [doc for doc in found if str(doc.id) not in skip][:top_k]
+
+            fused = search(POOL_K)
             where = health.build_metadata_filter(health.infer_rag_filters(question))
-            filtered = retrieve_hybrid(db, index, question, top_k=3, where=where)
+            filtered = search(3, where)
             docs = list({str(doc.id): doc for doc in fused + filtered}.values())
             attach_health_answers(docs, answers)
             pools.append((row_id, question, docs, [str(d.id) for d in fused], [str(d.id) for d in filtered]))
@@ -147,8 +174,11 @@ def build(workers: int, department: str | None = None) -> None:
             "doc_labels": {str(d.id): {field: str(d.metadata.get(field)) for field in FIELDS} for d in docs},
             "rankings": {"hybrid": fused, "hybrid_old_filters": filtered},
         })
-    path = set_path(department)
-    scope = f"every {department} validation question ({len(items)})" if department else "100 validation questions"
+    path = set_path(department, train)
+    if train:
+        scope = f'{len(items)} training questions labeled {"기타" if train == "기타" else "other than 기타"}, own documents excluded'
+    else:
+        scope = f"every {department} validation question ({len(items)})" if department else "100 validation questions"
     path.write_text(json.dumps({
         "description": f"Health retrieval relevance set: LLM-graded candidate pools for {scope} "
                        "(scripts/relevance_set.py). Grades: 2 directly useful, 1 partly, 0 not useful.",
@@ -177,12 +207,12 @@ def metrics(items: list[dict], ranking_of) -> dict:
             "judged_share": round(judged / shown, 3) if shown else 0.0}
 
 
-def load_items(department: str | None = None) -> list[dict]:
-    return json.loads(set_path(department).read_text(encoding="utf-8"))["items"]
+def load_items(department: str | None = None, train: str | None = None) -> list[dict]:
+    return json.loads(set_path(department, train).read_text(encoding="utf-8"))["items"]
 
 
-def evaluate(department: str | None = None) -> None:
-    items = load_items(department)
+def evaluate(department: str | None = None, train: str | None = None) -> None:
+    items = load_items(department, train)
     for name in ("hybrid", "hybrid_old_filters"):
         print(name, metrics(items, lambda item, name=name: item["rankings"][name]))
     # Upper bound: the best 3 of the judged pool, i.e. what a perfect reranker could reach.
@@ -195,15 +225,22 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     parser.add_argument("--department", choices=tuple(DEPARTMENT_SLUGS), help="every validation row of one department")
+    parser.add_argument("--train", choices=tuple(TRAIN_SLUGS), help="sampled training rows: 기타, or the labeled control")
     args = parser.parse_args()
     if args.command == "build":
         from cost_guard import confirm
 
-        calls = 10 if args.department == "치과" else SAMPLE_SIZE  # 치과 has 10 rows; others are larger
+        if args.train:
+            calls = TRAIN_SIZES[args.train]
+        else:
+            calls = 10 if args.department == "치과" else SAMPLE_SIZE  # 치과 has 10 rows; others are larger
         if not confirm("relevance_set build", calls, "one judge call per question", args.yes):
             return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    build(args.workers, args.department) if args.command == "build" else evaluate(args.department)
+    if args.command == "build":
+        build(args.workers, args.department, args.train)
+    else:
+        evaluate(args.department, args.train)
     return 0
 
 

@@ -1,0 +1,8475 @@
+{
+ "description": "Health retrieval relevance set: LLM-graded candidate pools for 50 training questions labeled other than 기타, own documents excluded (scripts/relevance_set.py). Grades: 2 directly useful, 1 partly, 0 not useful.",
+ "seed": 20261008,
+ "judge": {
+  "model": "gpt-6-luna",
+  "prompt_version": 1,
+  "reasoning_effort": "low"
+ },
+ "items": [
+  {
+   "row": 329,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "항문낭염"
+   },
+   "grades": {
+    "13755": 1,
+    "14853": 2,
+    "13798": 1,
+    "11961": 1,
+    "13421": 2,
+    "2225": 2,
+    "112": 0,
+    "14843": 0,
+    "216": 1,
+    "12783": 0,
+    "2523": 0,
+    "11337": 2,
+    "13984": 0,
+    "11888": 2,
+    "355": 0,
+    "14130": 1,
+    "13942": 1,
+    "5069": 1,
+    "13911": 2,
+    "6946": 0
+   },
+   "doc_labels": {
+    "13755": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14853": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13798": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11961": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13421": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "2225": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "112": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14843": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "216": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12783": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "2523": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11337": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13984": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11888": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "355": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14130": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13942": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5069": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13911": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6946": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13755",
+     "14853",
+     "13798",
+     "11961",
+     "13421",
+     "2225",
+     "112",
+     "14843",
+     "216",
+     "12783",
+     "2523",
+     "11337",
+     "13984",
+     "11888",
+     "355",
+     "14130",
+     "13942",
+     "5069",
+     "13911",
+     "6946"
+    ],
+    "hybrid_old_filters": [
+     "14853",
+     "13755",
+     "13942"
+    ]
+   }
+  },
+  {
+   "row": 529,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "심장사상충"
+   },
+   "grades": {
+    "6985": 2,
+    "1990": 2,
+    "12701": 2,
+    "1196": 2,
+    "5975": 2,
+    "5697": 2,
+    "1979": 2,
+    "0": 0,
+    "13839": 2,
+    "9255": 2,
+    "1520": 1,
+    "1541": 2,
+    "329": 1,
+    "5495": 1,
+    "1058": 2,
+    "15934": 0,
+    "15724": 0,
+    "754": 2
+   },
+   "doc_labels": {
+    "6985": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "1990": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12701": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "1196": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "5975": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "5697": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "1979": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "0": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13839": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "심장사상충"
+    },
+    "9255": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "복막염"
+    },
+    "1520": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1541": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "329": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "항문낭염"
+    },
+    "5495": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "1058": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "15934": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "15724": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "754": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "6985",
+     "1990",
+     "12701",
+     "1196",
+     "5975",
+     "5697",
+     "1979",
+     "0",
+     "13839",
+     "9255",
+     "1520",
+     "1541",
+     "329",
+     "5495",
+     "1058",
+     "15934",
+     "15724"
+    ],
+    "hybrid_old_filters": [
+     "1196",
+     "5975",
+     "754"
+    ]
+   }
+  },
+  {
+   "row": 1160,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "심장사상충"
+   },
+   "grades": {
+    "1383": 1,
+    "15624": 1,
+    "1924": 2,
+    "3414": 1,
+    "12312": 1,
+    "603": 1,
+    "12363": 1,
+    "5379": 1,
+    "12235": 1,
+    "9651": 1,
+    "11835": 1,
+    "3679": 1,
+    "14739": 1,
+    "5973": 1,
+    "1656": 1,
+    "5002": 1,
+    "13257": 1,
+    "2908": 1,
+    "14811": 1,
+    "2325": 1,
+    "14734": 1
+   },
+   "doc_labels": {
+    "1383": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "15624": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "방광염"
+    },
+    "1924": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3414": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "12312": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "603": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12363": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "방광염"
+    },
+    "5379": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12235": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "9651": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11835": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "3679": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14739": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5973": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1656": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "5002": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13257": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "2908": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "14811": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "방광염"
+    },
+    "2325": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "14734": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "방광결석"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "1383",
+     "15624",
+     "1924",
+     "3414",
+     "12312",
+     "603",
+     "12363",
+     "5379",
+     "12235",
+     "9651",
+     "11835",
+     "3679",
+     "14739",
+     "5973",
+     "1656",
+     "5002",
+     "13257",
+     "2908",
+     "14811",
+     "2325"
+    ],
+    "hybrid_old_filters": [
+     "15624",
+     "13257",
+     "14734"
+    ]
+   }
+  },
+  {
+   "row": 2213,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "위장관폐색"
+   },
+   "grades": {
+    "4324": 1,
+    "1524": 1,
+    "2705": 2,
+    "2009": 1,
+    "3318": 2,
+    "1974": 1,
+    "3698": 2,
+    "1827": 1,
+    "3612": 2,
+    "2044": 2,
+    "3115": 1,
+    "3383": 2,
+    "3719": 1,
+    "3277": 1,
+    "9079": 1,
+    "3365": 1,
+    "3794": 0,
+    "1948": 1,
+    "6745": 1,
+    "4343": 1,
+    "8968": 0
+   },
+   "doc_labels": {
+    "4324": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1524": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2705": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2009": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3318": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1974": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3698": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1827": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3612": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2044": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3115": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "외이염"
+    },
+    "3383": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3719": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "외이염"
+    },
+    "3277": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9079": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3365": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3794": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1948": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6745": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4343": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8968": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "4324",
+     "1524",
+     "2705",
+     "2009",
+     "3318",
+     "1974",
+     "3698",
+     "1827",
+     "3612",
+     "2044",
+     "3115",
+     "3383",
+     "3719",
+     "3277",
+     "9079",
+     "3365",
+     "3794",
+     "1948",
+     "6745",
+     "4343",
+     "8968"
+    ],
+    "hybrid_old_filters": [
+     "4324",
+     "1524",
+     "2705"
+    ]
+   }
+  },
+  {
+   "row": 2776,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "1853": 1,
+    "2159": 0,
+    "2609": 1,
+    "5833": 0,
+    "3831": 0,
+    "5628": 1,
+    "16949": 0,
+    "2752": 0,
+    "41": 1,
+    "4539": 0,
+    "7222": 0,
+    "8083": 1,
+    "4062": 0,
+    "848": 1,
+    "209": 1,
+    "4797": 0,
+    "2021": 0,
+    "62": 1,
+    "1019": 1,
+    "7639": 0,
+    "2970": 0,
+    "4572": 0
+   },
+   "doc_labels": {
+    "1853": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2159": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2609": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5833": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3831": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "5628": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16949": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "2752": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "41": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4539": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7222": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8083": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4062": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "848": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "209": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4797": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2021": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "62": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1019": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "7639": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2970": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4572": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "급성신부전"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "1853",
+     "2159",
+     "2609",
+     "5833",
+     "3831",
+     "5628",
+     "16949",
+     "2752",
+     "41",
+     "4539",
+     "7222",
+     "8083",
+     "4062",
+     "848",
+     "209",
+     "4797",
+     "2021",
+     "62",
+     "1019",
+     "7639",
+     "2970",
+     "4572"
+    ],
+    "hybrid_old_filters": [
+     "1853",
+     "2159",
+     "2609"
+    ]
+   }
+  },
+  {
+   "row": 3231,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "급성신부전"
+   },
+   "grades": {
+    "2791": 0,
+    "4165": 2,
+    "8077": 0,
+    "2077": 0,
+    "7570": 0,
+    "196": 0,
+    "5133": 0,
+    "7319": 0,
+    "3508": 0,
+    "5158": 0,
+    "7037": 0,
+    "5290": 0,
+    "6375": 0,
+    "326": 0,
+    "5110": 0,
+    "2023": 0,
+    "234": 0,
+    "7724": 0,
+    "4920": 2,
+    "7613": 0
+   },
+   "doc_labels": {
+    "2791": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4165": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "급성신부전"
+    },
+    "8077": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "부신피질기능항진증"
+    },
+    "2077": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7570": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "196": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5133": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7319": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3508": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "외이염"
+    },
+    "5158": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7037": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5290": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "6375": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "326": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5110": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2023": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "234": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7724": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4920": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "급성신부전"
+    },
+    "7613": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "2791",
+     "4165",
+     "8077",
+     "2077",
+     "7570",
+     "196",
+     "5133",
+     "7319",
+     "3508",
+     "5158",
+     "7037",
+     "5290",
+     "6375",
+     "326",
+     "5110",
+     "2023",
+     "234",
+     "7724",
+     "4920",
+     "7613"
+    ],
+    "hybrid_old_filters": [
+     "2791",
+     "4165",
+     "8077"
+    ]
+   }
+  },
+  {
+   "row": 3350,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "내과",
+    "meta.disease": "외이염"
+   },
+   "grades": {
+    "13983": 2,
+    "2009": 2,
+    "12534": 1,
+    "4941": 2,
+    "1373": 1,
+    "2574": 2,
+    "14816": 1,
+    "2086": 1,
+    "1616": 1,
+    "1832": 1,
+    "12442": 1,
+    "13531": 1,
+    "1782": 1,
+    "2410": 1,
+    "2303": 0,
+    "6023": 2,
+    "14113": 2,
+    "143": 0,
+    "6036": 2,
+    "865": 2,
+    "2413": 2,
+    "957": 2
+   },
+   "doc_labels": {
+    "13983": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "위장관폐색"
+    },
+    "2009": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12534": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "위장관폐색"
+    },
+    "4941": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1373": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2574": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14816": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "2086": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "1616": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1832": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12442": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13531": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "1782": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2410": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2303": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6023": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14113": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "143": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6036": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "865": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2413": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "957": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13983",
+     "2009",
+     "12534",
+     "4941",
+     "1373",
+     "2574",
+     "14816",
+     "2086",
+     "1616",
+     "1832",
+     "12442",
+     "13531",
+     "1782",
+     "2410",
+     "2303",
+     "6023",
+     "14113",
+     "143",
+     "6036",
+     "865",
+     "2413",
+     "957"
+    ],
+    "hybrid_old_filters": [
+     "13983",
+     "2009",
+     "12534"
+    ]
+   }
+  },
+  {
+   "row": 3517,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "외이염"
+   },
+   "grades": {
+    "7128": 2,
+    "3508": 1,
+    "4726": 1,
+    "15947": 0,
+    "5528": 1,
+    "2742": 2,
+    "1629": 1,
+    "5485": 1,
+    "18376": 0,
+    "18787": 1,
+    "2396": 1,
+    "7": 0,
+    "2077": 1,
+    "6740": 0,
+    "2525": 1,
+    "7447": 1,
+    "3277": 1,
+    "9068": 1,
+    "1367": 0,
+    "2669": 1,
+    "550": 1
+   },
+   "doc_labels": {
+    "7128": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3508": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "외이염"
+    },
+    "4726": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15947": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "5528": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2742": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1629": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5485": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "18376": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18787": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "2396": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2077": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6740": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2525": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7447": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3277": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9068": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1367": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2669": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "550": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "7128",
+     "3508",
+     "4726",
+     "15947",
+     "5528",
+     "2742",
+     "1629",
+     "5485",
+     "18376",
+     "18787",
+     "2396",
+     "7",
+     "2077",
+     "6740",
+     "2525",
+     "7447",
+     "3277",
+     "9068",
+     "1367",
+     "2669",
+     "550"
+    ],
+    "hybrid_old_filters": [
+     "7128",
+     "3508",
+     "4726"
+    ]
+   }
+  },
+  {
+   "row": 3678,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "3366": 2,
+    "2459": 2,
+    "4213": 1,
+    "2531": 2,
+    "1952": 2,
+    "3013": 2,
+    "2870": 2,
+    "3644": 2,
+    "3723": 1,
+    "3918": 2,
+    "1069": 0,
+    "3668": 2,
+    "3203": 1,
+    "3841": 2,
+    "1805": 2,
+    "2090": 2,
+    "2950": 0,
+    "5479": 2
+   },
+   "doc_labels": {
+    "3366": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2459": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4213": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2531": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1952": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3013": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2870": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3644": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3723": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3918": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1069": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3668": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3203": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "급성신부전"
+    },
+    "3841": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1805": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2090": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2950": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "5479": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "3366",
+     "2459",
+     "4213",
+     "2531",
+     "1952",
+     "3013",
+     "2870",
+     "3644",
+     "3723",
+     "3918",
+     "1069",
+     "3668",
+     "3203",
+     "3841",
+     "1805",
+     "2090",
+     "2950",
+     "5479"
+    ],
+    "hybrid_old_filters": [
+     "3366",
+     "2459",
+     "4213"
+    ]
+   }
+  },
+  {
+   "row": 4125,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "방광염"
+   },
+   "grades": {
+    "11609": 1,
+    "13132": 1,
+    "15684": 1,
+    "4150": 2,
+    "15050": 1,
+    "15357": 1,
+    "12475": 0,
+    "13003": 1,
+    "17048": 1,
+    "1942": 0,
+    "1425": 0,
+    "3404": 0,
+    "11104": 0,
+    "2853": 0,
+    "6778": 0,
+    "7957": 1,
+    "11538": 1,
+    "13673": 0,
+    "5134": 0,
+    "8963": 0,
+    "6463": 2,
+    "787": 0
+   },
+   "doc_labels": {
+    "11609": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "13132": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "15684": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "4150": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "15050": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "15357": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12475": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "13003": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "17048": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "1942": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1425": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3404": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11104": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "2853": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6778": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7957": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11538": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "13673": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5134": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8963": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6463": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "787": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "11609",
+     "13132",
+     "15684",
+     "4150",
+     "15050",
+     "15357",
+     "12475",
+     "13003",
+     "17048",
+     "1942",
+     "1425",
+     "3404",
+     "11104",
+     "2853",
+     "6778",
+     "7957",
+     "11538",
+     "13673",
+     "5134",
+     "8963",
+     "6463",
+     "787"
+    ],
+    "hybrid_old_filters": [
+     "11609",
+     "13132",
+     "15684"
+    ]
+   }
+  },
+  {
+   "row": 4220,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "4215": 2,
+    "4253": 2,
+    "3892": 1,
+    "4545": 2,
+    "3927": 2,
+    "4675": 1,
+    "4551": 2,
+    "872": 2,
+    "4167": 2,
+    "4162": 2,
+    "174": 2,
+    "3807": 2,
+    "4522": 2,
+    "9908": 0,
+    "3013": 2,
+    "3961": 2,
+    "1410": 2,
+    "533": 2,
+    "3775": 2,
+    "3778": 2
+   },
+   "doc_labels": {
+    "4215": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4253": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3892": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4545": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3927": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4675": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4551": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "872": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4167": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4162": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "174": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3807": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4522": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "9908": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "3013": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3961": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1410": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "533": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3775": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3778": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "4215",
+     "4253",
+     "3892",
+     "4545",
+     "3927",
+     "4675",
+     "4551",
+     "872",
+     "4167",
+     "4162",
+     "174",
+     "3807",
+     "4522",
+     "9908",
+     "3013",
+     "3961",
+     "1410",
+     "533",
+     "3775",
+     "3778"
+    ],
+    "hybrid_old_filters": [
+     "4215",
+     "4253",
+     "3892"
+    ]
+   }
+  },
+  {
+   "row": 4318,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "3842": 2,
+    "3690": 2,
+    "1816": 2,
+    "4171": 2,
+    "4942": 1,
+    "4933": 0,
+    "10838": 1,
+    "4695": 1,
+    "2253": 0,
+    "5027": 2,
+    "4154": 2,
+    "4237": 2,
+    "3978": 2,
+    "7067": 2,
+    "2909": 2,
+    "3723": 2,
+    "8093": 2,
+    "3685": 2,
+    "4522": 2
+   },
+   "doc_labels": {
+    "3842": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3690": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1816": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4171": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4942": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4933": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10838": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "4695": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2253": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5027": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4154": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4237": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3978": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "7067": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2909": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3723": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "8093": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3685": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4522": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "3842",
+     "3690",
+     "1816",
+     "4171",
+     "4942",
+     "4933",
+     "10838",
+     "4695",
+     "2253",
+     "5027",
+     "4154",
+     "4237",
+     "3978",
+     "7067",
+     "2909",
+     "3723",
+     "8093",
+     "3685",
+     "4522"
+    ],
+    "hybrid_old_filters": [
+     "3690",
+     "3842",
+     "1816"
+    ]
+   }
+  },
+  {
+   "row": 4419,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "2531": 2,
+    "3841": 2,
+    "4604": 1,
+    "4954": 1,
+    "3668": 1,
+    "5621": 2,
+    "2020": 2,
+    "4108": 1,
+    "4230": 1,
+    "2870": 2,
+    "3723": 1,
+    "3366": 1,
+    "4184": 1,
+    "1587": 1,
+    "4965": 1,
+    "4068": 1,
+    "533": 1,
+    "2703": 1,
+    "3942": 1,
+    "2090": 1,
+    "2364": 2
+   },
+   "doc_labels": {
+    "2531": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3841": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4604": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4954": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3668": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "5621": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2020": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4108": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4230": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2870": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3723": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3366": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4184": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1587": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4965": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4068": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "533": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2703": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3942": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2090": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2364": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "2531",
+     "3841",
+     "4604",
+     "4954",
+     "3668",
+     "5621",
+     "2020",
+     "4108",
+     "4230",
+     "2870",
+     "3723",
+     "3366",
+     "4184",
+     "1587",
+     "4965",
+     "4068",
+     "533",
+     "2703",
+     "3942",
+     "2090",
+     "2364"
+    ],
+    "hybrid_old_filters": [
+     "2531",
+     "3841",
+     "4604"
+    ]
+   }
+  },
+  {
+   "row": 4776,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "중독"
+   },
+   "grades": {
+    "2020": 2,
+    "1587": 1,
+    "2543": 2,
+    "4213": 1,
+    "4581": 2,
+    "2055": 1,
+    "3726": 2,
+    "6241": 2,
+    "1952": 2,
+    "6989": 1,
+    "2069": 2,
+    "2870": 1,
+    "2467": 1,
+    "4965": 1,
+    "4708": 1,
+    "3942": 1,
+    "533": 1,
+    "1901": 1,
+    "4777": 1,
+    "4588": 1,
+    "4653": 1
+   },
+   "doc_labels": {
+    "2020": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1587": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2543": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4213": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4581": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2055": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3726": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "6241": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1952": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "6989": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "2069": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2870": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2467": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4965": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4708": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "3942": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "533": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "1901": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4777": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "4588": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4653": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "2020",
+     "1587",
+     "2543",
+     "4213",
+     "4581",
+     "2055",
+     "3726",
+     "6241",
+     "1952",
+     "6989",
+     "2069",
+     "2870",
+     "2467",
+     "4965",
+     "4708",
+     "3942",
+     "533",
+     "1901",
+     "4777"
+    ],
+    "hybrid_old_filters": [
+     "1587",
+     "4588",
+     "4653"
+    ]
+   }
+  },
+  {
+   "row": 6277,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "단두종증후군"
+   },
+   "grades": {
+    "6748": 2,
+    "1995": 2,
+    "1512": 1,
+    "9142": 1,
+    "7466": 2,
+    "7954": 1,
+    "9108": 1,
+    "5280": 0,
+    "7617": 1,
+    "2109": 0,
+    "5122": 1,
+    "2445": 1,
+    "9322": 1,
+    "1562": 1,
+    "3666": 1,
+    "1477": 0,
+    "7424": 2,
+    "3109": 1,
+    "3968": 1,
+    "4208": 1,
+    "18": 2
+   },
+   "doc_labels": {
+    "6748": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1995": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "단두종증후군"
+    },
+    "1512": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9142": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7466": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7954": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "단두종증후군"
+    },
+    "9108": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "5280": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7617": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "2109": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5122": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "2445": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9322": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1562": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3666": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1477": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7424": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3109": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "3968": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4208": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "6748",
+     "1995",
+     "1512",
+     "9142",
+     "7466",
+     "7954",
+     "9108",
+     "5280",
+     "7617",
+     "2109",
+     "5122",
+     "2445",
+     "9322",
+     "1562",
+     "3666",
+     "1477",
+     "7424",
+     "3109",
+     "3968",
+     "4208"
+    ],
+    "hybrid_old_filters": [
+     "1995",
+     "18",
+     "1512"
+    ]
+   }
+  },
+  {
+   "row": 6377,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "내과",
+    "meta.disease": "위장관폐색"
+   },
+   "grades": {
+    "6382": 2,
+    "7259": 1,
+    "6380": 2,
+    "285": 1,
+    "4896": 1,
+    "2048": 1,
+    "2057": 1,
+    "3838": 1,
+    "8060": 1,
+    "6117": 2,
+    "6370": 1,
+    "6371": 1,
+    "5074": 1,
+    "7031": 1,
+    "3703": 1,
+    "3893": 1,
+    "5391": 1,
+    "6118": 1,
+    "14431": 1,
+    "6286": 1,
+    "5927": 1
+   },
+   "doc_labels": {
+    "6382": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7259": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6380": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "285": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4896": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2048": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2057": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3838": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8060": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "6117": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6370": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6371": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5074": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "자궁축농증"
+    },
+    "7031": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3703": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "3893": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5391": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6118": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "14431": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "위장관폐색"
+    },
+    "6286": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5927": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "6382",
+     "7259",
+     "6380",
+     "285",
+     "4896",
+     "2048",
+     "2057",
+     "3838",
+     "8060",
+     "6117",
+     "6370",
+     "6371",
+     "5074",
+     "7031",
+     "3703",
+     "3893",
+     "5391",
+     "6118",
+     "14431",
+     "6286"
+    ],
+    "hybrid_old_filters": [
+     "7259",
+     "285",
+     "5927"
+    ]
+   }
+  },
+  {
+   "row": 6674,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "내과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "6522": 2,
+    "14406": 1,
+    "6680": 2,
+    "14352": 1,
+    "18462": 1,
+    "6539": 0,
+    "6606": 1,
+    "6719": 1,
+    "14404": 1,
+    "6695": 1,
+    "14295": 1,
+    "7762": 1,
+    "18456": 1,
+    "6627": 0,
+    "6634": 0,
+    "14397": 1,
+    "9510": 0,
+    "14325": 1,
+    "14351": 1,
+    "16426": 1,
+    "6639": 2,
+    "16604": 0,
+    "16408": 1,
+    "16415": 1
+   },
+   "doc_labels": {
+    "6522": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14406": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "6680": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14352": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "18462": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "6539": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6606": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6719": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14404": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "6695": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14295": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "7762": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18456": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "6627": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6634": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "혈소판감소증"
+    },
+    "14397": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "9510": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14325": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14351": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "16426": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "6639": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16604": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "16408": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "16415": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "6522",
+     "14406",
+     "6680",
+     "14352",
+     "18462",
+     "6539",
+     "6606",
+     "6719",
+     "14404",
+     "6695",
+     "14295",
+     "7762",
+     "18456",
+     "6627",
+     "6634",
+     "14397",
+     "9510",
+     "14325",
+     "14351",
+     "16426",
+     "6639"
+    ],
+    "hybrid_old_filters": [
+     "16604",
+     "16408",
+     "16415"
+    ]
+   }
+  },
+  {
+   "row": 7749,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "내과",
+    "meta.disease": "방광염"
+   },
+   "grades": {
+    "7766": 2,
+    "18664": 1,
+    "6706": 2,
+    "12698": 1,
+    "7726": 0,
+    "6473": 0,
+    "6563": 0,
+    "14396": 1,
+    "6667": 0,
+    "14380": 0,
+    "14962": 1,
+    "6577": 1,
+    "6659": 2,
+    "14914": 1,
+    "17034": 1,
+    "14153": 1,
+    "14387": 0,
+    "14366": 1,
+    "15076": 0,
+    "16421": 0,
+    "18621": 1,
+    "6604": 0,
+    "4442": 1
+   },
+   "doc_labels": {
+    "7766": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "18664": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "방광염"
+    },
+    "6706": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "12698": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "7726": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6473": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6563": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14396": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "추간판질환"
+    },
+    "6667": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14380": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14962": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "추간판질환"
+    },
+    "6577": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중성화수술"
+    },
+    "6659": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "14914": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "17034": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "14153": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14387": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14366": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "15076": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16421": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "18621": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "6604": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4442": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "7766",
+     "18664",
+     "6706",
+     "12698",
+     "7726",
+     "6473",
+     "6563",
+     "14396",
+     "6667",
+     "14380",
+     "14962",
+     "6577",
+     "6659",
+     "14914",
+     "17034",
+     "14153",
+     "14387",
+     "14366",
+     "15076",
+     "16421",
+     "18621"
+    ],
+    "hybrid_old_filters": [
+     "6604",
+     "4442",
+     "6706"
+    ]
+   }
+  },
+  {
+   "row": 8892,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "내과",
+    "meta.disease": "위장관폐색"
+   },
+   "grades": {
+    "8344": 2,
+    "10750": 0,
+    "9514": 2,
+    "15372": 1,
+    "8579": 2,
+    "15755": 1,
+    "18884": 0,
+    "9486": 2,
+    "16624": 0,
+    "8151": 2,
+    "15758": 0,
+    "4968": 1,
+    "15457": 0,
+    "3817": 1,
+    "18868": 2,
+    "8902": 2,
+    "18961": 0,
+    "19095": 1,
+    "15856": 1,
+    "8849": 1,
+    "9575": 1
+   },
+   "doc_labels": {
+    "8344": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10750": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "9514": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15372": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "8579": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "15755": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "18884": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "9486": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16624": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "8151": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "15758": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "4968": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15457": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "3817": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18868": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "8902": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "위장관폐색"
+    },
+    "18961": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "19095": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "15856": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "8849": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9575": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "8344",
+     "10750",
+     "9514",
+     "15372",
+     "8579",
+     "15755",
+     "18884",
+     "9486",
+     "16624",
+     "8151",
+     "15758",
+     "4968",
+     "15457",
+     "3817",
+     "18868",
+     "8902",
+     "18961",
+     "19095",
+     "15856",
+     "8849",
+     "9575"
+    ],
+    "hybrid_old_filters": [
+     "8344",
+     "8579",
+     "8849"
+    ]
+   }
+  },
+  {
+   "row": 10157,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "안과",
+    "meta.disease": "유루증"
+   },
+   "grades": {
+    "10506": 2,
+    "10139": 1,
+    "10090": 1,
+    "10309": 2,
+    "10800": 1,
+    "10350": 1,
+    "18518": 1,
+    "10540": 1,
+    "17646": 1,
+    "10662": 1,
+    "10666": 2,
+    "16771": 1,
+    "9877": 2,
+    "10231": 2,
+    "10448": 1,
+    "10020": 1,
+    "10513": 1,
+    "10645": 0,
+    "10058": 1,
+    "12666": 0,
+    "6742": 1,
+    "5961": 1,
+    "6292": 0
+   },
+   "doc_labels": {
+    "10506": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10139": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10090": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10309": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10800": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10350": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "18518": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "10540": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "17646": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "10662": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10666": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "16771": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "9877": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10231": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10448": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10020": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10513": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10645": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10058": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "12666": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6742": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5961": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6292": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10506",
+     "10139",
+     "10090",
+     "10309",
+     "10800",
+     "10350",
+     "18518",
+     "10540",
+     "17646",
+     "10662",
+     "10666",
+     "16771",
+     "9877",
+     "10231",
+     "10448",
+     "10020",
+     "10513",
+     "10645",
+     "10058",
+     "12666"
+    ],
+    "hybrid_old_filters": [
+     "6742",
+     "5961",
+     "6292"
+    ]
+   }
+  },
+  {
+   "row": 10328,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "안과",
+    "meta.disease": "결막염"
+   },
+   "grades": {
+    "10007": 0,
+    "10703": 2,
+    "10674": 2,
+    "12793": 0,
+    "10692": 2,
+    "12879": 0,
+    "10620": 2,
+    "14518": 0,
+    "10459": 2,
+    "11144": 0,
+    "10429": 2,
+    "11405": 0,
+    "16258": 0,
+    "9948": 2,
+    "11360": 0,
+    "8012": 1,
+    "10090": 1,
+    "16037": 0,
+    "10447": 2,
+    "6349": 0,
+    "10172": 1,
+    "14557": 0
+   },
+   "doc_labels": {
+    "10007": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10703": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "건성각결막염"
+    },
+    "10674": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "건성각결막염"
+    },
+    "12793": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10692": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "12879": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10620": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "14518": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10459": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "11144": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "10429": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "제3안검탈출증"
+    },
+    "11405": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16258": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "치은염"
+    },
+    "9948": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "11360": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "유선종양"
+    },
+    "8012": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10090": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "16037": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "10447": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "6349": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "방광염"
+    },
+    "10172": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "제3안검탈출증"
+    },
+    "14557": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10007",
+     "10703",
+     "10674",
+     "12793",
+     "10692",
+     "12879",
+     "10620",
+     "14518",
+     "10459",
+     "11144",
+     "10429",
+     "11405",
+     "16258",
+     "9948",
+     "11360",
+     "8012",
+     "10090",
+     "16037",
+     "10447",
+     "6349",
+     "10172",
+     "14557"
+    ],
+    "hybrid_old_filters": [
+     "10007",
+     "10703",
+     "10674"
+    ]
+   }
+  },
+  {
+   "row": 10625,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "안과",
+    "meta.disease": "결막염"
+   },
+   "grades": {
+    "10344": 1,
+    "9991": 1,
+    "10723": 2,
+    "14359": 0,
+    "10290": 2,
+    "9327": 0,
+    "10110": 2,
+    "14321": 0,
+    "10036": 0,
+    "10776": 1,
+    "10738": 1,
+    "9857": 2,
+    "10085": 1,
+    "14557": 0,
+    "14333": 0,
+    "6814": 1,
+    "10153": 1,
+    "10450": 1,
+    "10257": 2,
+    "16264": 0,
+    "10017": 2,
+    "14428": 0,
+    "6616": 1,
+    "6105": 1
+   },
+   "doc_labels": {
+    "10344": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "9991": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10723": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "14359": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10290": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "9327": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10110": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "14321": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10036": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10776": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "제3안검탈출증"
+    },
+    "10738": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "9857": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10085": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "14557": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14333": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "6814": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10153": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10450": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10257": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "16264": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "10017": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "14428": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6616": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "결막염"
+    },
+    "6105": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10344",
+     "9991",
+     "10723",
+     "14359",
+     "10290",
+     "9327",
+     "10110",
+     "14321",
+     "10036",
+     "10776",
+     "10738",
+     "9857",
+     "10085",
+     "14557",
+     "14333",
+     "6814",
+     "10153",
+     "10450",
+     "10257",
+     "16264",
+     "10017",
+     "14428"
+    ],
+    "hybrid_old_filters": [
+     "6616",
+     "6105",
+     "6814"
+    ]
+   }
+  },
+  {
+   "row": 10703,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "안과",
+    "meta.disease": "건성각결막염"
+   },
+   "grades": {
+    "10674": 2,
+    "10409": 1,
+    "10429": 2,
+    "10603": 1,
+    "10071": 1,
+    "16771": 1,
+    "10609": 1,
+    "10692": 2,
+    "10185": 2,
+    "10620": 2,
+    "10328": 2,
+    "9972": 1,
+    "18395": 1,
+    "18518": 1,
+    "10365": 1,
+    "10342": 2,
+    "9150": 0,
+    "10654": 0,
+    "9859": 2,
+    "10285": 1
+   },
+   "doc_labels": {
+    "10674": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "건성각결막염"
+    },
+    "10409": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10429": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "제3안검탈출증"
+    },
+    "10603": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "10071": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "녹내장"
+    },
+    "16771": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "10609": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10692": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10185": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10620": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10328": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "9972": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "제3안검탈출증"
+    },
+    "18395": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "18518": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "10365": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10342": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "결막염"
+    },
+    "9150": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10654": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "9859": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "10285": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10674",
+     "10409",
+     "10429",
+     "10603",
+     "10071",
+     "16771",
+     "10609",
+     "10692",
+     "10185",
+     "10620",
+     "10328",
+     "9972",
+     "18395",
+     "18518",
+     "10365",
+     "10342",
+     "9150",
+     "10654",
+     "9859",
+     "10285"
+    ],
+    "hybrid_old_filters": [
+     "10674",
+     "10409",
+     "10429"
+    ]
+   }
+  },
+  {
+   "row": 10805,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "안과",
+    "meta.disease": "유루증"
+   },
+   "grades": {
+    "10742": 2,
+    "10801": 2,
+    "10754": 2,
+    "10792": 2,
+    "10811": 2,
+    "10766": 2,
+    "10751": 1,
+    "10809": 2,
+    "18847": 0,
+    "10767": 2,
+    "10804": 2,
+    "10815": 2,
+    "8563": 1,
+    "10755": 2,
+    "10786": 2,
+    "10763": 2,
+    "10803": 2
+   },
+   "doc_labels": {
+    "10742": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10801": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10754": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10792": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10811": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10766": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10751": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10809": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "18847": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "10767": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10804": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10815": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "8563": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10755": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10786": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10763": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    },
+    "10803": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "안과",
+     "meta.disease": "유루증"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10742",
+     "10801",
+     "10754",
+     "10792",
+     "10811",
+     "10766",
+     "10751",
+     "10809",
+     "18847",
+     "10767",
+     "10804",
+     "10815",
+     "8563",
+     "10755",
+     "10786",
+     "10763",
+     "10803"
+    ],
+    "hybrid_old_filters": [
+     "10742",
+     "10801",
+     "10754"
+    ]
+   }
+  },
+  {
+   "row": 11059,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "14077": 2,
+    "16998": 1,
+    "11757": 0,
+    "11468": 0,
+    "12771": 1,
+    "11868": 0,
+    "2941": 1,
+    "14076": 1,
+    "9278": 0,
+    "14761": 0,
+    "9228": 1,
+    "11696": 0,
+    "11972": 1,
+    "11737": 0,
+    "6993": 0,
+    "11202": 1,
+    "13643": 1,
+    "14635": 1,
+    "14882": 2,
+    "11154": 0,
+    "9231": 0
+   },
+   "doc_labels": {
+    "14077": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "16998": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "11757": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11468": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12771": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11868": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "2941": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14076": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "9278": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14761": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "9228": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11696": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11972": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11737": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "6993": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11202": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13643": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "14635": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14882": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11154": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "9231": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "14077",
+     "16998",
+     "11757",
+     "11468",
+     "12771",
+     "11868",
+     "2941",
+     "14076",
+     "9278",
+     "14761",
+     "9228",
+     "11696",
+     "11972",
+     "11737",
+     "6993",
+     "11202",
+     "13643",
+     "14635",
+     "14882",
+     "11154",
+     "9231"
+    ],
+    "hybrid_old_filters": [
+     "2941",
+     "9278",
+     "6993"
+    ]
+   }
+  },
+  {
+   "row": 11106,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "13555": 2,
+    "11089": 1,
+    "14136": 2,
+    "12789": 0,
+    "13078": 2,
+    "13951": 1,
+    "7009": 0,
+    "12714": 0,
+    "13592": 1,
+    "12758": 0,
+    "15581": 1,
+    "10993": 1,
+    "11805": 1,
+    "10985": 2,
+    "12385": 2,
+    "13352": 1,
+    "14655": 1,
+    "13035": 0,
+    "13422": 2,
+    "11403": 1,
+    "13591": 2,
+    "5131": 1,
+    "9335": 0,
+    "9063": 0
+   },
+   "doc_labels": {
+    "13555": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "11089": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14136": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12789": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13078": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13951": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "7009": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중독"
+    },
+    "12714": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13592": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "12758": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15581": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10993": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11805": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10985": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12385": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13352": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "14655": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13035": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13422": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11403": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "13591": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5131": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9335": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9063": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13555",
+     "11089",
+     "14136",
+     "12789",
+     "13078",
+     "13951",
+     "7009",
+     "12714",
+     "13592",
+     "12758",
+     "15581",
+     "10993",
+     "11805",
+     "10985",
+     "12385",
+     "13352",
+     "14655",
+     "13035",
+     "13422",
+     "11403",
+     "13591"
+    ],
+    "hybrid_old_filters": [
+     "5131",
+     "9335",
+     "9063"
+    ]
+   }
+  },
+  {
+   "row": 11314,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "골절"
+   },
+   "grades": {
+    "11317": 2,
+    "12827": 0,
+    "11359": 1,
+    "14623": 0,
+    "11477": 1,
+    "13573": 0,
+    "12181": 0,
+    "14557": 0,
+    "12272": 0,
+    "12699": 2,
+    "12209": 2,
+    "13534": 0,
+    "12350": 0,
+    "18038": 0,
+    "11475": 1,
+    "13838": 1,
+    "11308": 1,
+    "16011": 0,
+    "11129": 0,
+    "14529": 1,
+    "12872": 0,
+    "14450": 0
+   },
+   "doc_labels": {
+    "11317": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "12827": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11359": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "심장사상충"
+    },
+    "14623": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11477": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13573": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12181": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14557": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12272": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12699": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "12209": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "13534": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "12350": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "18038": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "11475": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "13838": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "11308": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "16011": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "11129": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14529": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12872": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "치은염"
+    },
+    "14450": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "11317",
+     "12827",
+     "11359",
+     "14623",
+     "11477",
+     "13573",
+     "12181",
+     "14557",
+     "12272",
+     "12699",
+     "12209",
+     "13534",
+     "12350",
+     "18038",
+     "11475",
+     "13838",
+     "11308",
+     "16011",
+     "11129",
+     "14529",
+     "12872",
+     "14450"
+    ],
+    "hybrid_old_filters": [
+     "11317",
+     "12827",
+     "11359"
+    ]
+   }
+  },
+  {
+   "row": 11679,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "13281": 2,
+    "11015": 1,
+    "11670": 1,
+    "13489": 2,
+    "14015": 1,
+    "11636": 2,
+    "13795": 1,
+    "11346": 1,
+    "13380": 2,
+    "11537": 1,
+    "11583": 1,
+    "11638": 1,
+    "11920": 2,
+    "14894": 2,
+    "15320": 1,
+    "13615": 1,
+    "14073": 1,
+    "13503": 1,
+    "14157": 1,
+    "11932": 1,
+    "15218": 1
+   },
+   "doc_labels": {
+    "13281": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11015": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11670": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13489": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14015": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11636": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13795": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11346": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13380": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11537": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11583": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "11638": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11920": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14894": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15320": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13615": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14073": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13503": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14157": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11932": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15218": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13281",
+     "11015",
+     "11670",
+     "13489",
+     "14015",
+     "11636",
+     "13795",
+     "11346",
+     "13380",
+     "11537",
+     "11583",
+     "11638",
+     "11920",
+     "14894",
+     "15320",
+     "13615",
+     "14073",
+     "13503",
+     "14157",
+     "11932",
+     "15218"
+    ],
+    "hybrid_old_filters": [
+     "13281",
+     "11015",
+     "11670"
+    ]
+   }
+  },
+  {
+   "row": 11825,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "163": 2,
+    "2319": 2,
+    "14792": 0,
+    "4270": 0,
+    "11951": 1,
+    "12056": 2,
+    "1134": 2,
+    "13986": 0,
+    "10868": 2,
+    "814": 2,
+    "10960": 0,
+    "4745": 2,
+    "15076": 0,
+    "7723": 0,
+    "11127": 2,
+    "14115": 2,
+    "5264": 2,
+    "7330": 1,
+    "691": 0,
+    "9063": 2,
+    "11805": 1,
+    "145": 1
+   },
+   "doc_labels": {
+    "163": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2319": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14792": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "4270": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11951": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12056": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "1134": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "심장사상충"
+    },
+    "13986": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10868": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "814": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10960": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "4745": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15076": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "7723": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11127": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "14115": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5264": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7330": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "691": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "자궁축농증"
+    },
+    "9063": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11805": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "145": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "163",
+     "2319",
+     "14792",
+     "4270",
+     "11951",
+     "12056",
+     "1134",
+     "13986",
+     "10868",
+     "814",
+     "10960",
+     "4745",
+     "15076",
+     "7723",
+     "11127",
+     "14115",
+     "5264",
+     "7330",
+     "691",
+     "9063",
+     "11805",
+     "145"
+    ],
+    "hybrid_old_filters": [
+     "814",
+     "163",
+     "2319"
+    ]
+   }
+  },
+  {
+   "row": 11996,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "자궁축농증"
+   },
+   "grades": {
+    "13972": 2,
+    "14095": 1,
+    "11725": 1,
+    "14439": 0,
+    "11172": 1,
+    "2357": 0,
+    "11137": 1,
+    "11440": 2,
+    "11219": 0,
+    "14689": 1,
+    "10898": 2,
+    "11205": 0,
+    "12512": 1,
+    "5229": 1,
+    "10823": 0,
+    "11370": 0,
+    "12456": 1,
+    "14576": 2,
+    "11609": 0,
+    "11702": 2,
+    "13917": 1,
+    "14141": 0
+   },
+   "doc_labels": {
+    "13972": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "14095": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11725": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14439": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11172": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "2357": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11137": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11440": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11219": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "14689": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "10898": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11205": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12512": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "5229": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10823": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11370": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12456": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "14576": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11609": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11702": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13917": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "심장사상충"
+    },
+    "14141": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13972",
+     "14095",
+     "11725",
+     "14439",
+     "11172",
+     "2357",
+     "11137",
+     "11440",
+     "11219",
+     "14689",
+     "10898",
+     "11205",
+     "12512",
+     "5229",
+     "10823",
+     "11370",
+     "12456",
+     "14576",
+     "11609",
+     "11702",
+     "13917",
+     "14141"
+    ],
+    "hybrid_old_filters": [
+     "14095",
+     "13972",
+     "11725"
+    ]
+   }
+  },
+  {
+   "row": 12094,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "전방십자인대파열"
+   },
+   "grades": {
+    "12350": 2,
+    "11817": 1,
+    "12108": 2,
+    "11935": 1,
+    "11515": 2,
+    "12007": 2,
+    "13602": 0,
+    "14894": 0,
+    "14548": 1,
+    "12003": 2,
+    "11643": 2,
+    "12027": 1,
+    "1250": 1,
+    "12106": 2,
+    "15699": 2,
+    "11543": 1,
+    "14690": 2,
+    "10989": 2,
+    "5807": 0,
+    "7482": 1,
+    "7496": 1
+   },
+   "doc_labels": {
+    "12350": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11817": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12108": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "11935": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11515": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "12007": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13602": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14894": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14548": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12003": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11643": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "12027": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "1250": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12106": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15699": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "11543": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "14690": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10989": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5807": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7482": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7496": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "12350",
+     "11817",
+     "12108",
+     "11935",
+     "11515",
+     "12007",
+     "13602",
+     "14894",
+     "14548",
+     "12003",
+     "11643",
+     "12027",
+     "1250",
+     "12106",
+     "15699",
+     "11543",
+     "14690",
+     "10989"
+    ],
+    "hybrid_old_filters": [
+     "5807",
+     "7482",
+     "7496"
+    ]
+   }
+  },
+  {
+   "row": 12126,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "13201": 1,
+    "15649": 1,
+    "11650": 1,
+    "12974": 0,
+    "10930": 1,
+    "11001": 1,
+    "11640": 1,
+    "14438": 2,
+    "12866": 2,
+    "12973": 1,
+    "11709": 1,
+    "13920": 1,
+    "13769": 2,
+    "810": 1,
+    "12887": 2,
+    "18390": 0,
+    "11319": 1,
+    "12841": 1,
+    "13114": 1,
+    "13526": 1,
+    "11338": 1,
+    "15639": 2
+   },
+   "doc_labels": {
+    "13201": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15649": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11650": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12974": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10930": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11001": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11640": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "14438": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12866": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12973": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11709": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13920": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13769": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "810": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12887": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "18390": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "11319": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "12841": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13114": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13526": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11338": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "15639": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13201",
+     "15649",
+     "11650",
+     "12974",
+     "10930",
+     "11001",
+     "11640",
+     "14438",
+     "12866",
+     "12973",
+     "11709",
+     "13920",
+     "13769",
+     "810",
+     "12887",
+     "18390",
+     "11319",
+     "12841",
+     "13114",
+     "13526",
+     "11338",
+     "15639"
+    ],
+    "hybrid_old_filters": [
+     "13201",
+     "15649",
+     "11650"
+    ]
+   }
+  },
+  {
+   "row": 12160,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "11484": 1,
+    "14971": 0,
+    "10034": 0,
+    "11884": 2,
+    "11479": 0,
+    "11549": 0,
+    "12097": 2,
+    "12129": 1,
+    "11680": 1,
+    "14550": 0,
+    "11154": 0,
+    "13428": 2,
+    "11015": 0,
+    "11597": 2,
+    "12130": 1,
+    "12397": 0,
+    "12513": 2,
+    "13858": 2,
+    "14075": 1,
+    "16057": 0,
+    "11808": 1,
+    "13668": 2
+   },
+   "doc_labels": {
+    "11484": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14971": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "10034": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "11884": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11479": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11549": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12097": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12129": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11680": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14550": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11154": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "13428": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11015": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11597": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12130": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12397": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12513": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13858": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14075": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "16057": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "11808": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13668": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "11484",
+     "14971",
+     "10034",
+     "11884",
+     "11479",
+     "11549",
+     "12097",
+     "12129",
+     "11680",
+     "14550",
+     "11154",
+     "13428",
+     "11015",
+     "11597",
+     "12130",
+     "12397",
+     "12513",
+     "13858",
+     "14075",
+     "16057",
+     "11808",
+     "13668"
+    ],
+    "hybrid_old_filters": [
+     "11484",
+     "14971",
+     "11549"
+    ]
+   }
+  },
+  {
+   "row": 12522,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "1297": 2,
+    "5464": 1,
+    "6852": 1,
+    "9324": 1,
+    "7453": 1,
+    "8982": 0,
+    "1137": 2,
+    "2537": 1,
+    "11610": 2,
+    "12128": 1,
+    "14063": 2,
+    "7778": 0,
+    "13736": 1,
+    "5563": 0,
+    "1695": 1,
+    "7676": 1,
+    "1955": 1,
+    "944": 1,
+    "4294": 1,
+    "9336": 1,
+    "10649": 1,
+    "11875": 1
+   },
+   "doc_labels": {
+    "1297": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "5464": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6852": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9324": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7453": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8982": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1137": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "2537": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11610": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12128": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14063": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "7778": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13736": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5563": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1695": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "7676": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "1955": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "944": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "4294": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9336": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10649": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "11875": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "1297",
+     "5464",
+     "6852",
+     "9324",
+     "7453",
+     "8982",
+     "1137",
+     "2537",
+     "11610",
+     "12128",
+     "14063",
+     "7778",
+     "13736",
+     "5563",
+     "1695",
+     "7676",
+     "1955",
+     "944",
+     "4294",
+     "9336",
+     "10649",
+     "11875"
+    ],
+    "hybrid_old_filters": [
+     "1297",
+     "5464",
+     "6852"
+    ]
+   }
+  },
+  {
+   "row": 12662,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "12237": 2,
+    "100": 1,
+    "12095": 1,
+    "11709": 1,
+    "14027": 1,
+    "13285": 1,
+    "12371": 1,
+    "12830": 0,
+    "11854": 2,
+    "13291": 2,
+    "13879": 2,
+    "15639": 2,
+    "10873": 1,
+    "13493": 2,
+    "13347": 2,
+    "14102": 2,
+    "11887": 1,
+    "11724": 1,
+    "13189": 2,
+    "11193": 1,
+    "11810": 0
+   },
+   "doc_labels": {
+    "12237": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "100": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12095": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "11709": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14027": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13285": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12371": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12830": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11854": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "13291": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "13879": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15639": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10873": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13493": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13347": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "14102": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11887": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11724": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13189": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11193": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11810": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "12237",
+     "100",
+     "12095",
+     "11709",
+     "14027",
+     "13285",
+     "12371",
+     "12830",
+     "11854",
+     "13291",
+     "13879",
+     "15639",
+     "10873",
+     "13493",
+     "13347",
+     "14102",
+     "11887",
+     "11724",
+     "13189",
+     "11193",
+     "11810"
+    ],
+    "hybrid_old_filters": [
+     "12237",
+     "12095",
+     "14027"
+    ]
+   }
+  },
+  {
+   "row": 12911,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "11742": 2,
+    "13587": 2,
+    "13186": 2,
+    "12042": 1,
+    "15290": 2,
+    "14114": 2,
+    "3443": 2,
+    "11260": 2,
+    "13710": 2,
+    "17044": 1,
+    "13450": 2,
+    "12243": 2,
+    "14726": 2,
+    "11379": 1,
+    "12727": 2,
+    "12379": 2,
+    "15006": 2,
+    "12513": 2,
+    "13246": 2,
+    "12072": 1
+   },
+   "doc_labels": {
+    "11742": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13587": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13186": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12042": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15290": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14114": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "3443": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11260": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13710": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "17044": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "13450": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12243": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14726": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11379": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12727": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12379": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15006": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12513": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13246": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "유선종양"
+    },
+    "12072": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "11742",
+     "13587",
+     "13186",
+     "12042",
+     "15290",
+     "14114",
+     "3443",
+     "11260",
+     "13710",
+     "17044",
+     "13450",
+     "12243",
+     "14726",
+     "11379",
+     "12727",
+     "12379",
+     "15006",
+     "12513",
+     "13246"
+    ],
+    "hybrid_old_filters": [
+     "13186",
+     "13587",
+     "12072"
+    ]
+   }
+  },
+  {
+   "row": 13312,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "13060": 1,
+    "15283": 2,
+    "10995": 1,
+    "12298": 0,
+    "11484": 1,
+    "11632": 1,
+    "11609": 1,
+    "15785": 1,
+    "11733": 1,
+    "14459": 1,
+    "12066": 1,
+    "15049": 0,
+    "11707": 1,
+    "15175": 1,
+    "11607": 0,
+    "12843": 1,
+    "13175": 2,
+    "13754": 1,
+    "11431": 1,
+    "11574": 0,
+    "13880": 2,
+    "15573": 0,
+    "12538": 1
+   },
+   "doc_labels": {
+    "13060": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15283": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "10995": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12298": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11484": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11632": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11609": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "15785": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11733": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "14459": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "12066": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15049": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11707": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15175": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11607": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12843": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13175": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13754": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11431": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "11574": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13880": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "15573": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12538": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13060",
+     "15283",
+     "10995",
+     "12298",
+     "11484",
+     "11632",
+     "11609",
+     "15785",
+     "11733",
+     "14459",
+     "12066",
+     "15049",
+     "11707",
+     "15175",
+     "11607",
+     "12843",
+     "13175",
+     "13754",
+     "11431",
+     "11574",
+     "13880",
+     "15573"
+    ],
+    "hybrid_old_filters": [
+     "14459",
+     "12066",
+     "12538"
+    ]
+   }
+  },
+  {
+   "row": 13379,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "전방십자인대파열"
+   },
+   "grades": {
+    "12246": 2,
+    "15935": 0,
+    "12017": 2,
+    "12324": 1,
+    "14263": 2,
+    "7838": 1,
+    "14221": 2,
+    "7776": 0,
+    "12394": 1,
+    "14269": 2,
+    "12374": 2,
+    "6966": 0,
+    "10933": 2,
+    "14252": 2,
+    "14284": 2,
+    "9978": 0,
+    "15917": 1,
+    "7708": 0,
+    "15192": 2,
+    "2194": 0,
+    "12191": 1,
+    "13297": 0
+   },
+   "doc_labels": {
+    "12246": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15935": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "12017": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12324": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14263": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "7838": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14221": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "7776": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12394": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14269": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12374": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6966": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "10933": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14252": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14284": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "9978": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "안과",
+     "meta.disease": "기타"
+    },
+    "15917": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "7708": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15192": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "2194": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12191": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13297": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "12246",
+     "15935",
+     "12017",
+     "12324",
+     "14263",
+     "7838",
+     "14221",
+     "7776",
+     "12394",
+     "14269",
+     "12374",
+     "6966",
+     "10933",
+     "14252",
+     "14284",
+     "9978",
+     "15917",
+     "7708",
+     "15192",
+     "2194",
+     "12191",
+     "13297"
+    ],
+    "hybrid_old_filters": [
+     "14284",
+     "12246",
+     "12394"
+    ]
+   }
+  },
+  {
+   "row": 13631,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "13228": 2,
+    "14948": 2,
+    "13605": 2,
+    "15286": 1,
+    "11560": 2,
+    "945": 0,
+    "11711": 1,
+    "13186": 2,
+    "13867": 1,
+    "14931": 2,
+    "6863": 0,
+    "11719": 2,
+    "14478": 1,
+    "14085": 2,
+    "11455": 0,
+    "14632": 0,
+    "10923": 1,
+    "13594": 1,
+    "13710": 2,
+    "5194": 1
+   },
+   "doc_labels": {
+    "13228": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14948": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13605": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15286": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11560": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "945": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11711": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13186": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13867": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14931": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "6863": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11719": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14478": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "녹내장"
+    },
+    "14085": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11455": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14632": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10923": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13594": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13710": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "5194": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "13228",
+     "14948",
+     "13605",
+     "15286",
+     "11560",
+     "945",
+     "11711",
+     "13186",
+     "13867",
+     "14931",
+     "6863",
+     "11719",
+     "14478",
+     "14085",
+     "11455",
+     "14632",
+     "10923",
+     "13594",
+     "13710",
+     "5194"
+    ],
+    "hybrid_old_filters": [
+     "11560",
+     "6863",
+     "13186"
+    ]
+   }
+  },
+  {
+   "row": 14285,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "6554": 2,
+    "16429": 2,
+    "8868": 1,
+    "15503": 1,
+    "6485": 1,
+    "15756": 1,
+    "6637": 0,
+    "16440": 1,
+    "18991": 1,
+    "6620": 1,
+    "14404": 2,
+    "16584": 1,
+    "15386": 1,
+    "6649": 1,
+    "14401": 2,
+    "9824": 2,
+    "18922": 1,
+    "16431": 1,
+    "6556": 1,
+    "14347": 1,
+    "9600": 1,
+    "14295": 2,
+    "14325": 2
+   },
+   "doc_labels": {
+    "6554": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16429": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "8868": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15503": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6485": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15756": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6637": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "중성화수술"
+    },
+    "16440": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "18991": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "6620": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14404": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16584": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "15386": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "6649": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "중성화수술"
+    },
+    "14401": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "9824": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18922": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "16431": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "6556": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14347": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "9600": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14295": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14325": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "6554",
+     "16429",
+     "8868",
+     "15503",
+     "6485",
+     "15756",
+     "6637",
+     "16440",
+     "18991",
+     "6620",
+     "14404",
+     "16584",
+     "15386",
+     "6649",
+     "14401",
+     "9824",
+     "18922",
+     "16431",
+     "6556",
+     "14347",
+     "9600"
+    ],
+    "hybrid_old_filters": [
+     "14401",
+     "14295",
+     "14325"
+    ]
+   }
+  },
+  {
+   "row": 14364,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "추간판질환"
+   },
+   "grades": {
+    "14395": 2,
+    "16616": 0,
+    "14371": 0,
+    "14281": 0,
+    "14329": 0,
+    "14334": 0,
+    "15441": 0,
+    "14356": 0,
+    "6634": 0,
+    "14333": 0,
+    "6672": 0,
+    "14378": 0,
+    "14403": 2,
+    "14342": 2,
+    "14362": 0,
+    "15985": 0,
+    "18456": 0,
+    "14236": 0,
+    "8295": 0,
+    "14298": 0,
+    "18462": 0,
+    "6717": 0,
+    "9746": 0,
+    "6675": 0
+   },
+   "doc_labels": {
+    "14395": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "추간판질환"
+    },
+    "16616": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "14371": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "복막염"
+    },
+    "14281": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14329": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14334": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15441": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14356": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "6634": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "혈소판감소증"
+    },
+    "14333": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "6672": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "혈소판감소증"
+    },
+    "14378": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14403": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "추간판질환"
+    },
+    "14342": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "추간판질환"
+    },
+    "14362": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "15985": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "18456": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "14236": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "8295": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14298": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "18462": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "6717": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9746": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6675": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "14395",
+     "16616",
+     "14371",
+     "14281",
+     "14329",
+     "14334",
+     "15441",
+     "14356",
+     "6634",
+     "14333",
+     "6672",
+     "14378",
+     "14403",
+     "14342",
+     "14362",
+     "15985",
+     "18456",
+     "14236",
+     "8295",
+     "14298",
+     "18462"
+    ],
+    "hybrid_old_filters": [
+     "6717",
+     "9746",
+     "6675"
+    ]
+   }
+  },
+  {
+   "row": 14417,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "골절"
+   },
+   "grades": {
+    "10822": 2,
+    "11235": 1,
+    "11362": 0,
+    "13699": 2,
+    "12685": 1,
+    "14559": 0,
+    "13066": 1,
+    "14870": 1,
+    "1201": 1,
+    "15643": 0,
+    "11475": 0,
+    "11832": 1,
+    "12027": 2,
+    "12894": 0,
+    "12068": 0,
+    "14529": 0,
+    "11563": 0,
+    "4745": 0,
+    "11452": 0,
+    "14149": 0
+   },
+   "doc_labels": {
+    "10822": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "11235": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "11362": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13699": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "12685": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "14559": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13066": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14870": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "1201": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15643": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11475": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "11832": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12027": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12894": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12068": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14529": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11563": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "4745": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11452": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14149": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "10822",
+     "11235",
+     "11362",
+     "13699",
+     "12685",
+     "14559",
+     "13066",
+     "14870",
+     "1201",
+     "15643",
+     "11475",
+     "11832",
+     "12027",
+     "12894",
+     "12068",
+     "14529",
+     "11563",
+     "4745",
+     "11452",
+     "14149"
+    ],
+    "hybrid_old_filters": [
+     "10822",
+     "11235",
+     "11362"
+    ]
+   }
+  },
+  {
+   "row": 15006,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "14726": 2,
+    "13587": 2,
+    "12521": 2,
+    "12243": 2,
+    "13186": 1,
+    "14550": 1,
+    "14641": 2,
+    "11719": 2,
+    "14071": 2,
+    "10923": 2,
+    "11574": 1,
+    "12090": 2,
+    "15694": 2,
+    "15717": 0,
+    "11258": 2,
+    "12808": 0,
+    "13123": 2,
+    "15615": 0
+   },
+   "doc_labels": {
+    "14726": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13587": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12521": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12243": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13186": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14550": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14641": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "11719": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14071": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "10923": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11574": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12090": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15694": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15717": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11258": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "심장사상충"
+    },
+    "12808": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "자궁축농증"
+    },
+    "13123": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "15615": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "14726",
+     "13587",
+     "12521",
+     "12243",
+     "13186",
+     "14550",
+     "14641",
+     "11719",
+     "14071",
+     "10923",
+     "11574",
+     "12090",
+     "15694",
+     "15717",
+     "11258",
+     "12808",
+     "13123",
+     "15615"
+    ],
+    "hybrid_old_filters": [
+     "13587",
+     "12243",
+     "11719"
+    ]
+   }
+  },
+  {
+   "row": 15239,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "치근단농양"
+   },
+   "grades": {
+    "15235": 1,
+    "16427": 1,
+    "16543": 0,
+    "9616": 2,
+    "15308": 1,
+    "8631": 1,
+    "14386": 1,
+    "16106": 0,
+    "14285": 1,
+    "15334": 1,
+    "15740": 2,
+    "9525": 1,
+    "14299": 1,
+    "16554": 0,
+    "8293": 1,
+    "8385": 1,
+    "9377": 1,
+    "9561": 0,
+    "16442": 0,
+    "8676": 1,
+    "16431": 1,
+    "8939": 1,
+    "14313": 1
+   },
+   "doc_labels": {
+    "15235": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16427": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "16543": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "9616": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15308": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "8631": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14386": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "16106": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "14285": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15334": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15740": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "9525": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14299": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "16554": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "8293": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "8385": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "만성신부전"
+    },
+    "9377": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "9561": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16442": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "8676": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16431": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "치과",
+     "meta.disease": "기타"
+    },
+    "8939": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14313": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "15235",
+     "16427",
+     "16543",
+     "9616",
+     "15308",
+     "8631",
+     "14386",
+     "16106",
+     "14285",
+     "15334",
+     "15740",
+     "9525",
+     "14299",
+     "16554",
+     "8293",
+     "8385",
+     "9377",
+     "9561",
+     "16442",
+     "8676",
+     "16431",
+     "8939"
+    ],
+    "hybrid_old_filters": [
+     "15740",
+     "15235",
+     "14313"
+    ]
+   }
+  },
+  {
+   "row": 15586,
+   "gold_labels": {
+    "meta.lifeCycle": "자견",
+    "meta.department": "외과",
+    "meta.disease": "중성화수술"
+   },
+   "grades": {
+    "15661": 2,
+    "1043": 2,
+    "14971": 0,
+    "1543": 0,
+    "6268": 2,
+    "12722": 0,
+    "13198": 1,
+    "363": 1,
+    "13551": 0,
+    "13738": 1,
+    "7783": 1,
+    "13724": 1,
+    "6800": 2,
+    "11383": 1,
+    "12727": 1,
+    "14686": 1,
+    "63": 2,
+    "12611": 2,
+    "14798": 0,
+    "12105": 1,
+    "13417": 1
+   },
+   "doc_labels": {
+    "15661": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "1043": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "14971": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "1543": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "6268": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12722": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13198": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "363": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13551": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13738": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "7783": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13724": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "6800": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "11383": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "12727": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14686": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "63": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "12611": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "14798": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12105": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    },
+    "13417": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "중성화수술"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "15661",
+     "1043",
+     "14971",
+     "1543",
+     "6268",
+     "12722",
+     "13198",
+     "363",
+     "13551",
+     "13738",
+     "7783",
+     "13724",
+     "6800",
+     "11383",
+     "12727",
+     "14686",
+     "63",
+     "12611",
+     "14798",
+     "12105",
+     "13417"
+    ],
+    "hybrid_old_filters": [
+     "1043",
+     "1543",
+     "6268"
+    ]
+   }
+  },
+  {
+   "row": 15605,
+   "gold_labels": {
+    "meta.lifeCycle": "성견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "11133": 2,
+    "13286": 1,
+    "11540": 1,
+    "15218": 1,
+    "15677": 1,
+    "11636": 1,
+    "12377": 1,
+    "11670": 1,
+    "11932": 1,
+    "11583": 1,
+    "13958": 1,
+    "13707": 1,
+    "15110": 1,
+    "11859": 1,
+    "13489": 1,
+    "11920": 1,
+    "13652": 1,
+    "13380": 1,
+    "11170": 1,
+    "14157": 1,
+    "14051": 1
+   },
+   "doc_labels": {
+    "11133": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13286": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11540": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15218": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15677": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11636": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12377": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11670": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11932": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11583": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "전방십자인대파열"
+    },
+    "13958": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13707": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15110": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11859": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "골절"
+    },
+    "13489": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11920": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13652": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "13380": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11170": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14157": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14051": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "11133",
+     "13286",
+     "11540",
+     "15218",
+     "15677",
+     "11636",
+     "12377",
+     "11670",
+     "11932",
+     "11583",
+     "13958",
+     "13707",
+     "15110",
+     "11859",
+     "13489",
+     "11920",
+     "13652",
+     "13380",
+     "11170",
+     "14157"
+    ],
+    "hybrid_old_filters": [
+     "13286",
+     "11540",
+     "14051"
+    ]
+   }
+  },
+  {
+   "row": 15665,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "외과",
+    "meta.disease": "무릎뼈 탈구"
+   },
+   "grades": {
+    "12571": 2,
+    "13422": 2,
+    "15696": 0,
+    "14027": 1,
+    "10957": 2,
+    "10860": 1,
+    "14738": 2,
+    "14002": 2,
+    "15023": 2,
+    "12003": 2,
+    "12557": 2,
+    "11735": 2,
+    "12999": 2,
+    "11932": 2,
+    "14015": 2,
+    "11241": 1,
+    "9437": 1,
+    "13090": 1,
+    "14474": 2,
+    "11601": 2,
+    "12286": 0
+   },
+   "doc_labels": {
+    "12571": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "13422": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15696": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14027": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "10957": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "백내장"
+    },
+    "10860": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14738": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14002": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "15023": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12003": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12557": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11735": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "12999": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "11932": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "14015": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11241": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "9437": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "13090": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "14474": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "무릎뼈 탈구"
+    },
+    "11601": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "12286": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "12571",
+     "13422",
+     "15696",
+     "14027",
+     "10957",
+     "10860",
+     "14738",
+     "14002",
+     "15023",
+     "12003",
+     "12557",
+     "11735",
+     "12999",
+     "11932",
+     "14015",
+     "11241",
+     "9437",
+     "13090",
+     "14474",
+     "11601",
+     "12286"
+    ],
+    "hybrid_old_filters": [
+     "12571",
+     "13422",
+     "15696"
+    ]
+   }
+  },
+  {
+   "row": 17512,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "피부과",
+    "meta.disease": "외이염"
+   },
+   "grades": {
+    "16739": 1,
+    "17959": 2,
+    "17419": 2,
+    "5355": 2,
+    "16714": 1,
+    "16778": 0,
+    "17471": 1,
+    "17499": 2,
+    "16804": 2,
+    "19025": 1,
+    "17063": 1,
+    "17519": 2,
+    "17129": 1,
+    "18032": 2,
+    "16921": 1,
+    "17510": 1,
+    "17168": 1,
+    "3639": 0,
+    "17241": 0,
+    "4314": 0,
+    "16807": 0,
+    "17365": 0
+   },
+   "doc_labels": {
+    "16739": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "17959": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17419": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "5355": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16714": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "16778": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17471": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17499": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "16804": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "19025": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "17063": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17519": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17129": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18032": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "16921": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17510": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17168": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "3639": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "17241": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "4314": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "16807": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17365": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "16739",
+     "17959",
+     "17419",
+     "5355",
+     "16714",
+     "16778",
+     "17471",
+     "17499",
+     "16804",
+     "19025",
+     "17063",
+     "17519",
+     "17129",
+     "18032",
+     "16921",
+     "17510",
+     "17168",
+     "3639",
+     "17241",
+     "4314",
+     "16807",
+     "17365"
+    ],
+    "hybrid_old_filters": [
+     "16739",
+     "17959",
+     "16778"
+    ]
+   }
+  },
+  {
+   "row": 17776,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "피부과",
+    "meta.disease": "아토피성 피부염"
+   },
+   "grades": {
+    "18505": 1,
+    "18312": 1,
+    "18381": 1,
+    "17207": 2,
+    "6077": 1,
+    "17300": 1,
+    "18705": 1,
+    "17242": 0,
+    "17368": 1,
+    "18393": 2,
+    "18361": 1,
+    "18515": 1,
+    "16828": 1,
+    "18643": 1,
+    "18598": 1,
+    "18260": 1,
+    "18314": 2,
+    "17015": 0,
+    "17099": 1,
+    "18355": 1,
+    "18563": 1
+   },
+   "doc_labels": {
+    "18505": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18312": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18381": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "심장사상충"
+    },
+    "17207": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "6077": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "부신피질기능항진증"
+    },
+    "17300": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18705": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17242": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17368": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18393": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18361": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "심장사상충"
+    },
+    "18515": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "16828": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18643": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "18598": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18260": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18314": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "아토피성 피부염"
+    },
+    "17015": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "17099": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18355": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18563": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "부신피질기능항진증"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "18505",
+     "18312",
+     "18381",
+     "17207",
+     "6077",
+     "17300",
+     "18705",
+     "17242",
+     "17368",
+     "18393",
+     "18361",
+     "18515",
+     "16828",
+     "18643",
+     "18598",
+     "18260",
+     "18314",
+     "17015",
+     "17099",
+     "18355",
+     "18563"
+    ],
+    "hybrid_old_filters": [
+     "18505",
+     "18312",
+     "18381"
+    ]
+   }
+  },
+  {
+   "row": 18755,
+   "gold_labels": {
+    "meta.lifeCycle": "노령견",
+    "meta.department": "피부과",
+    "meta.disease": "외이염"
+   },
+   "grades": {
+    "8367": 2,
+    "19093": 2,
+    "8735": 1,
+    "18894": 2,
+    "9640": 0,
+    "18850": 1,
+    "8585": 1,
+    "18665": 2,
+    "8179": 1,
+    "18937": 2,
+    "18984": 2,
+    "19152": 2,
+    "18816": 2,
+    "18849": 2,
+    "8649": 0,
+    "18812": 2,
+    "18857": 0,
+    "9543": 0,
+    "19180": 1,
+    "8753": 0,
+    "15370": 0,
+    "15473": 1,
+    "15317": 0
+   },
+   "doc_labels": {
+    "8367": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "19093": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "8735": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18894": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "9640": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18850": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "8585": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18665": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "8179": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18937": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "18984": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "19152": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "18816": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "18849": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "8649": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "18812": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "피부과",
+     "meta.disease": "외이염"
+    },
+    "18857": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "9543": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "19180": {
+     "meta.lifeCycle": "노령견",
+     "meta.department": "피부과",
+     "meta.disease": "기타"
+    },
+    "8753": {
+     "meta.lifeCycle": "자견",
+     "meta.department": "내과",
+     "meta.disease": "기타"
+    },
+    "15370": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15473": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    },
+    "15317": {
+     "meta.lifeCycle": "성견",
+     "meta.department": "외과",
+     "meta.disease": "기타"
+    }
+   },
+   "rankings": {
+    "hybrid": [
+     "8367",
+     "19093",
+     "8735",
+     "18894",
+     "9640",
+     "18850",
+     "8585",
+     "18665",
+     "8179",
+     "18937",
+     "18984",
+     "19152",
+     "18816",
+     "18849",
+     "8649",
+     "18812",
+     "18857",
+     "9543",
+     "19180",
+     "8753"
+    ],
+    "hybrid_old_filters": [
+     "15370",
+     "15473",
+     "15317"
+    ]
+   }
+  }
+ ]
+}
