@@ -8,7 +8,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAPIException
 from streamlit.runtime.scriptrunner_utils.exceptions import ScriptControlException
 
-from src import feedback_store, rate_limit, resources
+from src import feedback_store, model_outage, rate_limit, resources
 from src.chat_events import (  # noqa: F401
     ROUTE_PROGRESS,
     find_emergency_hospitals,
@@ -482,6 +482,11 @@ def render_page():
                     on_step=show_step,
                     session_id=session.request,
                 )
+            except Exception as error:
+                # The model provider out of quota: show what the search finds, as the API does (#238).
+                if streamed or not model_outage.is_quota_error(error):
+                    raise
+                result = model_outage.search_only_result(question, top_k)
             finally:
                 places_box.empty()
                 status.empty()
