@@ -1,0 +1,20 @@
+{
+  "description": "Log-match alert policies for the deployed services (scripts/gcp/setup_alerts.sh, docs/wiki/observability.md). Each quoted phrase in a filter is a message the app logs; tests/test_alert_policies.py keeps them in the code.",
+  "policies": [
+    {
+      "displayName": "RagDog: Supabase unavailable",
+      "documentation": "The app could not reach Supabase and answers from the local search, counts questions in memory, or keeps visit-prep runs in memory (docs/adr/0007, docs/wiki/cloud-run.md). Check the Supabase project status; a canary drill with fault=supabase also triggers this.",
+      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=(\"ragdog-api\" OR \"ragdog\") AND (\"Supabase search failed\" OR \"rate limit table unavailable\" OR \"visit-prep store unavailable\")"
+    },
+    {
+      "displayName": "RagDog: model out of quota",
+      "documentation": "The OpenAI project is out of quota: chat shows search results without an answer and visit-prep is paused (docs/adr/0011-degrade-on-model-quota.md). Raise the limit or add credit.",
+      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=(\"ragdog-api\" OR \"ragdog\") AND \"insufficient_quota\""
+    },
+    {
+      "displayName": "RagDog: answers failing",
+      "documentation": "A chat answer or a visit-prep report failed with an error (api/chat.py, api/visit_prep.py). Open the log entry for the exception and the Langfuse trace of that time.",
+      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"ragdog-api\" AND (\"chat failed\" OR \"visit-prep run failed\")"
+    }
+  ]
+}
