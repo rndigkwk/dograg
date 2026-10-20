@@ -8,7 +8,9 @@ from typing import Literal
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
 
+from src.care_schedule import CARE_HEADING
 from src.faithfulness import build_judge, build_verifier, recheck_unsupported
+from src.health_safety import SAVED_NOTES_HEADING
 from team.agents.workers import create_researcher, researcher_tools
 from team.core import config
 from team.core.prompts import (
@@ -37,7 +39,12 @@ def dump_json(data) -> str:
 
 def evidence_text(state: State) -> str:
     """What the report may say: the consultation itself and every researcher's facts with ids."""
-    lines = [f"[상담 내용] {state['consultation']}"]
+    consultation, _, care = state["consultation"].partition(CARE_HEADING)
+    care, notes_heading, notes = care.partition(SAVED_NOTES_HEADING)  # the notes come after the schedule
+    lines = [f"[상담 내용] {consultation.rstrip()}" + (f"\n\n{notes_heading}{notes}".rstrip() if notes_heading else "")]
+    if care.strip():
+        # The care schedule (src/care_schedule.py), appended by the API: its own source, not the guardian's words.
+        lines.append(f"[관리 일정] {' '.join(care.split())}")
     if state["profile"]:
         lines.append(f"[반려견 정보] {state['profile']}")
     if state["urgent"]:

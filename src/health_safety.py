@@ -62,8 +62,13 @@ SAVED_NOTES_HEADING = "[보호자가 고른 지난 상담 기록: 같은 증상�
 
 
 def todays_text(consultation: str) -> str:
-    """The guardian's own text of a consultation, without the saved notes appended to it."""
-    return consultation.split(SAVED_NOTES_HEADING, 1)[0].rstrip()
+    """The guardian's own text of a consultation, without the saved notes or the care schedule
+    appended to it (api/visit_prep.py)."""
+    from src.care_schedule import CARE_HEADING
+
+    for heading in (SAVED_NOTES_HEADING, CARE_HEADING):
+        consultation = consultation.split(heading, 1)[0]
+    return consultation.rstrip()
 
 
 def detect_urgent_sign(question: str) -> str | None:

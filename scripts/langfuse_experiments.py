@@ -70,8 +70,9 @@ def dataset_items(kind: str) -> list[dict]:
     if kind == "visit":
         return [{
             "id": f"{name}-{item['id']}",
-            "input": {key: item[key] for key in ("consultation", "region", "profile")},
-            "expected_output": {"scope": item["scope"], "urgent": item["urgent"]},
+            "input": {key: item[key] for key in ("consultation", "region", "profile")}
+            | ({"care_days_ago": item["care_days_ago"]} if "care_days_ago" in item else {}),
+            "expected_output": {"scope": item["scope"], "urgent": item["urgent"], "care": item.get("care_expected", [])},
             "metadata": {"id": item["id"]},
         } for item in items]
     return [{
@@ -247,8 +248,17 @@ def visit_task(*, item, **kwargs):
     from team.core import config
     from team.main import run as run_team
 
+    inputs = dict(item.input)
+    if care_days_ago := inputs.pop("care_days_ago", None):
+        # As the API adds a guardian's care schedule (api/visit_prep.with_care), dated from today.
+        from datetime import date, timedelta
+
+        from api.visit_prep import with_care
+
+        care = {key: (date.today() - timedelta(days=days)).isoformat() for key, days in care_days_ago.items()}
+        inputs["consultation"] = with_care(inputs["consultation"], care)
     started = time.perf_counter()
-    state = run_team(**item.input)
+    state = run_team(**inputs)
     seconds = round(time.perf_counter() - started, 1)
     result = json.loads((state["run_dir"] / config.RESULT_FILE).read_text(encoding="utf-8"))
     report = (state["run_dir"] / config.REPORT_FILE).read_text(encoding="utf-8")
@@ -268,6 +278,9 @@ def visit_task(*, item, **kwargs):
         "reasks": len(result.get("reasks") or {}),
         "no_answer": sum(failure["error"].startswith("NoAnswer") for failure in result["failures"].values()),
         "run_dir": state["run_dir"].relative_to(PROJECT_DIR).as_posix(),
+        # An overdue care item the consultation carried: named in the report and cited to the schedule.
+        "care_raised": (None if not (expected_care := (item.expected_output or {}).get("care"))
+                        else "[관리 일정]" in report and all(word in report for word in expected_care)),
         **fee_citations(report),
     }
 
@@ -381,8 +394,13 @@ def visit_evaluators():
         return [Evaluation(name="reasked", value=1.0 if output.get("reasks") else 0.0),
                 Evaluation(name="no_answer", value=1.0 if output.get("no_answer") else 0.0)]
 
+    def care_raised(*, output, **kwargs):
+        if output.get("care_raised") is None:
+            return []
+        return Evaluation(name="care_raised", value=1.0 if output["care_raised"] else 0.0)
+
     return [passed, urgent_correct, scope_handled, hospitals_listed, numbers, repeat_suspect, regional_fees, fee_region,
-            no_answer]
+            no_answer, care_raised]
 
 
 def fee_id_in_region(evidence_id: str, region: str) -> bool:
@@ -415,6 +433,8 @@ def visit_run_evaluators():
             Evaluation(name="fee_amounts_exact_rate", value=mean("fee_amounts_exact")),
             Evaluation(name="fee_region_ok_rate", value=mean("fee_region_ok")),
             Evaluation(name="reask_rate", value=mean("reasked")),
+            # Consultations with an overdue care item (v04, v09): the report raises it, citing the schedule.
+            Evaluation(name="care_raised_rate", value=mean("care_raised")),
             Evaluation(name="no_answer_rate", value=mean("no_answer")),
             Evaluation(name="mean_unsupported", value=statistics.mean(r.output.get("unsupported", 0) for r in item_results)),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),

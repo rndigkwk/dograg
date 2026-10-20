@@ -143,3 +143,23 @@ test("a run that stopped on an error goes on from where it stopped", async ({ pa
   await expect(page.getByRole("button", { name: "↻ 이어서 만들기" })).toHaveCount(0);
   expect(api.posts.map((post) => post.path)).toEqual(["/visit-prep", "/visit-prep/t7/retry"]);
 });
+
+test("an overdue care-schedule item goes with the report unless unticked", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-20T10:00:00"));
+  await page.addInitScript(() => localStorage.setItem("ragdog:v1:care_schedule", JSON.stringify({ rabies: "2025-09-01", vaccine: "2026-10-01" })));
+  const api = await fakeApi(page, [], {}, { "/visit-prep": [["result", REPORT]] });
+  await page.goto("/visit-prep");
+  await page.getByLabel("상담 내용").fill("설사를 해요");
+  const care = page.getByLabel(/관리 일정에서 지금 할 때이거나 기한이 지난 항목 넣기/);
+  await expect(care).toBeChecked();
+  await expect(page.getByText(/광견병 추가접종/)).toBeVisible();
+  await expect(page.getByText(/종합백신/)).toHaveCount(0); // done this month: not due
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "검수 통과" })).toBeVisible();
+  expect(api.posts[0].body).toEqual({ consultation: "설사를 해요", region: "", profile: "", care: { rabies: "2025-09-01", vaccine: "2026-10-01" } });
+
+  await care.uncheck();
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
+  await expect.poll(() => api.posts.length).toBe(2);
+  expect(api.posts[1].body).toEqual({ consultation: "설사를 해요", region: "", profile: "" });
+});

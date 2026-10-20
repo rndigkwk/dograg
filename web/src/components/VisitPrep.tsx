@@ -19,7 +19,9 @@ import {
 } from "@/lib/visitPrep";
 
 import { type Location, locate } from "@/lib/location";
+import { type CareRecord, dueItems, loadRecord } from "@/lib/careSchedule";
 import { forChat, listNotes, type Note, NOTES_PER_QUESTION, noteDate, notesEnabled } from "@/lib/notes";
+import { browserStorage } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { nearby } from "@/lib/places";
 import { REPORT_FILE, saveFile, toDocx, toPlainText } from "@/lib/reportFiles";
@@ -171,6 +173,10 @@ export default function VisitPrep() {
   const notesOn = records?.where === "account" && notesEnabled(session);
   const [savedNotes, setSavedNotes] = useState<Note[]>([]);
   const [chosenNotes, setChosenNotes] = useState<Set<string>>(new Set());
+  // The care schedule (/care, this browser): its due or overdue items go into the report unless unticked.
+  const [care, setCare] = useState<CareRecord>({});
+  const [useCare, setUseCare] = useState(true);
+  const careDue = dueItems(care);
 
   useEffect(() => {
     if (!notesOn) {
@@ -205,6 +211,8 @@ export default function VisitPrep() {
       })
       .catch(() => {});
   }, [records]);
+
+  useEffect(() => setCare(loadRecord(browserStorage())), []);
 
   useEffect(() => {
     warmUp();
@@ -248,7 +256,7 @@ export default function VisitPrep() {
     const notes = forChat(savedNotes.filter((note) => chosenNotes.has(note.id)));
     void stream(
       "/visit-prep",
-      { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}), ...(notes.length ? { notes } : {}) },
+      { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}), ...(notes.length ? { notes } : {}), ...(useCare && careDue.length ? { care } : {}) },
       emptyRun(),
     );
   }
@@ -310,6 +318,15 @@ export default function VisitPrep() {
           </label>
         </div>
         {savedNotes.length ? <NotePicker notes={savedNotes} chosen={chosenNotes} onToggle={toggleNote} disabled={working} /> : null}
+        {careDue.length ? (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={useCare} onChange={(event) => setUseCare(event.target.checked)} disabled={working} className="mt-1" />
+            <span>
+              관리 일정에서 지금 할 때이거나 기한이 지난 항목 넣기: {careDue.map((item) => item.label).join(", ")}
+              <span className="block text-xs text-muted">수의사에게 물어볼 질문에 들어갑니다. 날짜는 관리 일정 탭에서 바꿀 수 있어요.</span>
+            </span>
+          </label>
+        ) : null}
         <button type="submit" disabled={working || !consultation.trim()} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white disabled:opacity-40">
           📝 방문 준비 보고서 만들기
         </button>

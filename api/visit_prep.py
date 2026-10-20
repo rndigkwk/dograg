@@ -44,6 +44,7 @@ from src import (
     visit_prep_runs,
     visit_prep_store,
 )
+from src.care_schedule import care_section
 from src.health_safety import SAVED_NOTES_HEADING, detect_urgent_sign, todays_text
 from src.pii import mask_pii
 from src.tools.health import notes_context
@@ -74,6 +75,9 @@ class StartRequest(BaseModel):
     location: tuple[float, float] | None = None
     # Saved consultation notes the guardian ticked for this report (ADR-0009; none unless chosen).
     notes: list[Note] = Field(default_factory=list, max_length=5)
+    # The care schedule's last-done dates by item (web/src/lib/careSchedule.ts), when the guardian keeps it:
+    # the items due or overdue go into the report (src/care_schedule.py works out the dates).
+    care: dict[str, str] = Field(default_factory=dict, max_length=10)
 
     @field_validator("location")
     @classmethod
@@ -95,6 +99,12 @@ def with_notes(consultation: str, notes: list[Note]) -> str:
         return consultation
     masked = [Note(date=note.date, text=mask_pii(note.text)) for note in notes]
     return f"{consultation}\n\n{SAVED_NOTES_HEADING}\n{notes_context(masked)}"
+
+
+def with_care(consultation: str, care: dict[str, str]) -> str:
+    """The consultation with the care-schedule items that are due or overdue, if any."""
+    section = care_section(care)
+    return f"{consultation}\n\n{section}" if section else consultation
 
 
 def _take_report(person: str, now: float) -> bool:
@@ -204,7 +214,7 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
     visit_prep_store.store().expire(visit_prep_store.now())
     if not _take_report(person, visit_prep_store.now()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
-    return _response(_stream(person, with_notes(consultation, body.notes), body.region.strip(), body.profile.strip(), agent,
+    return _response(_stream(person, with_notes(with_care(consultation, body.care), body.notes), body.region.strip(), body.profile.strip(), agent,
                              location=body.location))
 
 

@@ -1,5 +1,5 @@
 {
- "description": "Visit-prep team consultations: 10 dog cases (4 urgent, 2 asking about fees, 9 with a region) and 2 other species (cat, rabbit). Expected: urgent flag; dog cases should pass review, other species should not get a made-up report.",
+ "description": "Visit-prep team consultations: 10 dog cases (4 urgent, 2 asking about fees, 9 with a region) and 2 other species (cat, rabbit). Expected: urgent flag; dog cases should pass review, other species should not get a made-up report. v04 and v09 carry a care schedule (care_days_ago, 2026-10-20): items overdue on every run, which the report should raise as a question for the vet citing [관리 일정].",
  "items": [
   {
    "id": "v01",
@@ -31,7 +31,13 @@
    "region": "송파구",
    "profile": "비숑, 3살",
    "scope": "dog",
-   "urgent": false
+   "urgent": false,
+   "care_days_ago": {
+    "deworming": 200
+   },
+   "care_expected": [
+    "구충"
+   ]
   },
   {
    "id": "v05",
@@ -71,7 +77,13 @@
    "region": "수성구",
    "profile": "믹스견, 14살, 7kg",
    "scope": "dog",
-   "urgent": false
+   "urgent": false,
+   "care_days_ago": {
+    "rabies": 400
+   },
+   "care_expected": [
+    "광견병"
+   ]
   },
   {
    "id": "v10",

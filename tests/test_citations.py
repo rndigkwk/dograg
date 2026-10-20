@@ -38,6 +38,10 @@ class NumberCitationTests(unittest.TestCase):
         _, sources = number_citations("돌봄 [careguide-반려동물과의+이별,+미리+알고+함께+준비합니다-p2]", findings)
         self.assertEqual(sources[0][2], "동물사랑배움터 돌봄 지침 「반려동물과의 이별, 미리 알고 함께 준비합니다」 2쪽: 미끄럼 방지와 짧은 산책")
 
+    def test_the_care_schedule_is_a_known_source(self):
+        _, sources = number_citations("접종 [관리 일정]", {})
+        self.assertEqual(sources[0][1:], ("관리 일정", "보호자가 기록한 관리 일정 (동물사랑배움터 지침의 주기로 계산한 다음 날짜)"))
+
     def test_links_and_unknown_brackets_stay_as_written(self):
         report = "[시설 찾기](https://example.com) [참고] [qa-9999] [qa-5250]"
         numbered, sources = number_citations(report, FINDINGS)

@@ -83,6 +83,14 @@ export function cleanRecord(raw: unknown, today = new Date()): CareRecord {
   return record;
 }
 
+/** The items due now or overdue in a record: what the visit report mentions. */
+export function dueItems(record: CareRecord, today = new Date()): CareItem[] {
+  return CARE_ITEMS.filter((item) => {
+    const due = record[item.id] ? nextDue(item, record[item.id], today) : null;
+    return due !== null && (due.status === "overdue" || due.status === "due");
+  });
+}
+
 export function loadRecord(storage: KeyValue | null, today = new Date()): CareRecord {
   try {
     return cleanRecord(JSON.parse(storage?.getItem(CARE_SCHEDULE_KEY) ?? "{}"), today);

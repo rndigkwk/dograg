@@ -89,6 +89,25 @@ class VisitPrepApiTests(unittest.TestCase):
         self.assertNotIn("urgent", [kind for kind, _ in got])
         self.assertFalse(got[-1][1]["urgent"])
 
+    def test_the_care_schedule_adds_only_due_items_before_the_notes(self):
+        from datetime import date
+
+        last_year = date(date.today().year - 1, 1, 15).isoformat()
+        events(self.start(care={"rabies": last_year, "vaccine": date.today().isoformat(), "bogus": "x"},
+                          notes=[{"date": date.today().isoformat(), "text": "기침이 있었음"}]))
+        consultation = self.team.calls[0][0]
+        self.assertTrue(consultation.startswith("말티즈가 설사를 해요\n\n[보호자가 기록한 관리 일정"))
+        self.assertIn(f"- 광견병 추가접종: 마지막 {last_year}", consultation)
+        self.assertIn("기한이 지났음", consultation)
+        self.assertNotIn("종합백신", consultation)  # done today: not due
+        self.assertLess(consultation.index("관리 일정"), consultation.index("지난 상담 기록"))
+
+    def test_a_schedule_with_nothing_due_adds_nothing(self):
+        from datetime import date
+
+        events(self.start(care={"vaccine": date.today().isoformat()}))
+        self.assertEqual(self.team.calls[0][0], "말티즈가 설사를 해요")
+
     def test_without_notes_the_consultation_is_as_typed(self):
         events(self.start())
         self.assertEqual(self.team.calls[0][0], "말티즈가 설사를 해요")

@@ -503,6 +503,19 @@ class ReworkRuleTests(unittest.TestCase):
         added = update["plan"][1:]
         self.assertEqual([(task["task_id"], task["kind"], task["extra"]) for task in added], [("t2", "cost", True)])
 
+    def test_the_care_schedule_is_its_own_source_and_the_notes_stay_with_the_consultation(self):
+        from src.care_schedule import CARE_HEADING
+        from src.health_safety import SAVED_NOTES_HEADING
+
+        consultation = (f"기침해요\n\n{CARE_HEADING}\n- 광견병 추가접종: 마지막 2025-01-01 — 기한이 지났음"
+                        f"\n\n{SAVED_NOTES_HEADING}\n- 2026-10-01: 설사")
+        text = nodes.evidence_text({**initial_state(), "consultation": consultation})
+        self.assertIn("[관리 일정] - 광견병 추가접종: 마지막 2025-01-01 — 기한이 지났음", text)
+        before, after = text.split("[관리 일정]", 1)
+        self.assertIn("기침해요", before)
+        self.assertIn("2026-10-01: 설사", before)  # the notes stay with the consultation
+        self.assertNotIn("설사", after.split("\n")[0])
+
     def test_evidence_includes_the_urgency_decision_and_the_region(self):
         state = {**initial_state(), "urgent": "응급 징후가 의심됩니다."}
         text = nodes.evidence_text(state)

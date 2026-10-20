@@ -35,6 +35,9 @@ class DatasetItemTests(unittest.TestCase):
         visit = experiments.dataset_items("visit")
         self.assertEqual(len(visit), 12)
         self.assertEqual(set(visit[0]["input"]), {"consultation", "region", "profile"})
+        with_care = {item["metadata"]["id"]: item for item in visit if "care_days_ago" in item["input"]}
+        self.assertEqual(sorted(with_care), ["v04", "v09"])
+        self.assertEqual(with_care["v09"]["expected_output"]["care"], ["광견병"])
         self.assertEqual(sum(item["expected_output"]["urgent"] for item in visit), 4)
         self.assertEqual(sum(item["expected_output"]["scope"] != "dog" for item in visit), 2)
 
@@ -54,6 +57,12 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(gold, output=output, expected_output={"gold_pages": [["a.pdf", 3]]}), {"gold_page_hit": 1.0})
         self.assertEqual(scores(gold, output=output, expected_output={"gold_pages": []}), {})
         self.assertEqual(scores(latency, output=output), {"latency_s": 6.2})
+
+    def test_care_raised_counts_only_consultations_with_a_schedule(self):
+        *_, raised = experiments.visit_evaluators()
+        self.assertEqual(scores(raised, output={"care_raised": None}), {})
+        self.assertEqual(scores(raised, output={"care_raised": True}), {"care_raised": 1.0})
+        self.assertEqual(scores(raised, output={"care_raised": False}), {"care_raised": 0.0})
 
     def test_guide_scores(self):
         answered, used = experiments.guide_evaluators()
@@ -92,7 +101,7 @@ class EvaluatorTests(unittest.TestCase):
                          {"route_correct": 0.0})
 
     def test_visit_scores(self):
-        passed, urgent, scope, hospitals, numbers, repeat, _, _, no_answer = experiments.visit_evaluators()
+        passed, urgent, scope, hospitals, numbers, repeat, _, _, no_answer, _ = experiments.visit_evaluators()
         output = {"status": "human_check", "urgent": True, "says_no_evidence": False, "hospitals": 0,
                   "round": 2, "latency_s": 53.0, "visits": {"planner": 1, "writer": 3, "reviewer": 3},
                   "repeated_nodes": ["reviewer", "writer"]}
@@ -121,7 +130,7 @@ class EvaluatorTests(unittest.TestCase):
         with patch.object(experiments, "_fee_rows", return_value=rows):
             self.assertEqual(experiments.fee_citations(report), {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []})
             self.assertEqual(experiments.fee_citations(report.replace("51,099원", "52,000원"))["fee_amounts_wrong"], ["52,000"])
-        *_, regional, region, _ = experiments.visit_evaluators()
+        *_, regional, region, _, _ = experiments.visit_evaluators()
         asked = {"region": "강남구", "consultation": "엑스레이 비용이 걱정돼요"}
         output = {"fee_ids": [gangnam], "fee_amounts": 4, "fee_amounts_wrong": []}
         self.assertEqual(scores(regional, input=asked, output=output), {"regional_fee_cited": 1.0, "fee_amounts_exact": 1.0})
