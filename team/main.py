@@ -20,7 +20,7 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from src import tracing
+from src import resources, tracing
 from src.health_safety import detect_urgent_sign, todays_text
 from src.run_log import question_fingerprint
 from team.agents.workers import create_writer
@@ -92,8 +92,10 @@ def run(consultation: str, region: str = "", profile: str = "", *, location: tup
                     if on_step is not None:
                         on_step(node, update or {})
         finally:
-            trace.finish({"status": "waiting_for_guardian", "questions": len(state.get("questions", []))} if paused
-                         else run_record(state, time.perf_counter() - started, visits))
+            record = ({"status": "waiting_for_guardian", "questions": len(state.get("questions", []))} if paused
+                      else run_record(state, time.perf_counter() - started, visits))
+            # The researchers searched the local stores while Supabase failed (src/tracing.level_of).
+            trace.finish({**record, "search_fallback": resources.search_on_fallback()})
     tracing.flush()
     if paused:
         return {"run_dir": run_dir, **state, "paused": True, "visits": visits}
