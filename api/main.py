@@ -17,7 +17,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 
-from src import auth, settings, tracing
+from src import auth, request_log, settings, tracing
 
 LOCAL_WEB = "http://localhost:3000"
 
@@ -29,6 +29,8 @@ def allowed_origins() -> list[str]:
 
 
 def create_app() -> FastAPI:
+    if settings.deployed():
+        request_log.configure()  # JSON log lines for Cloud Logging (src/request_log.py)
     # The interactive docs list every route and schema; deployed, they stay off unless RAGDOG_API_DOCS=1.
     docs = not settings.deployed() or settings.get_setting("RAGDOG_API_DOCS") == "1"
     app = FastAPI(title="RagDog API", version="0.1.0", docs_url="/docs" if docs else None, redoc_url=None,
