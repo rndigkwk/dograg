@@ -46,6 +46,8 @@ DATASETS = {
     "crag": ("ragdog-crag-60", PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json"),
     "routing": ("ragdog-place-routing-36", PROJECT_DIR / "tests" / "data" / "place_routing_questions.json"),
     "visit": ("ragdog-visit-prep-12", PROJECT_DIR / "tests" / "data" / "visit_prep_consultations.json"),
+    # Everyday care the public guides answer (src/tools/care_guides.py, 2026-10-19).
+    "guide": ("ragdog-care-guide-16", PROJECT_DIR / "tests" / "data" / "care_guide_questions.json"),
 }
 
 
@@ -57,6 +59,12 @@ def dataset_items(kind: str) -> list[dict]:
         return [{
             "id": f"{name}-{item['id']}", "input": {"question": item["question"]},
             "expected_output": {"behavior": item["expected"], "gold_pages": item.get("gold_pages", [])},
+            "metadata": {"id": item["id"], "group": item["group"]},
+        } for item in items]
+    if kind == "guide":
+        return [{
+            "id": f"{name}-{item['id']}", "input": {"question": item["question"]},
+            "expected_output": {"behavior": item["expected"], "guide": item["guide"]},
             "metadata": {"id": item["id"], "group": item["group"]},
         } for item in items]
     if kind == "visit":
@@ -135,6 +143,55 @@ def crag_run_evaluators():
             Evaluation(name="over_abstain", value=rate(item_results, "answer", {"abstain"})),
             Evaluation(name="missed_abstain", value=rate(item_results, "abstain", {"answer", "partial"})),
             Evaluation(name="latency_p50_s", value=statistics.median(latencies)),
+            Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
+        ]
+
+    return [summary]
+
+
+# --- care-guide set ---------------------------------------------------------------
+def guide_task(*, item, **kwargs):
+    from evaluate_crag import outcome
+
+    from src.chatbot import chatbot
+
+    started = time.perf_counter()
+    result = chatbot(item.input["question"], crag=True, crag_reports=False)
+    guides = [row for row in result.get("evidence_rows", []) if row.get("kind") == "care_guide"]
+    return {
+        "route": result["route"],
+        "outcome": outcome(result, result.get("decision")),
+        "guides": [[row.get("title"), row.get("page")] for row in guides],
+        "latency_s": round(time.perf_counter() - started, 2),
+    }
+
+
+def guide_evaluators():
+    from langfuse import Evaluation
+
+    def answered(*, output, **kwargs):
+        return Evaluation(name="answered", value=1.0 if output["outcome"] in ("answer", "partial") else 0.0,
+                          comment=f"{output['route']} {output['outcome']}")
+
+    def guide_used(*, output, expected_output, **kwargs):
+        return Evaluation(name="guide_used", value=1.0 if output["guides"] else 0.0,
+                          comment=f"expected {expected_output['guide']}, got {output['guides']}")
+
+    return [answered, guide_used]
+
+
+def guide_run_evaluators():
+    from langfuse import Evaluation
+
+    def summary(*, item_results, **kwargs):
+        def mean(name):
+            values = [e.value for r in item_results for e in r.evaluations if e.name == name]
+            return sum(values) / len(values) if values else 0.0
+
+        latencies = sorted(r.output["latency_s"] for r in item_results)
+        return [
+            Evaluation(name="answered_rate", value=mean("answered")),
+            Evaluation(name="guide_rate", value=mean("guide_used")),
             Evaluation(name="latency_p90_s", value=latencies[int(0.9 * (len(latencies) - 1))]),
         ]
 
@@ -388,6 +445,8 @@ def run(langfuse, kind: str, run_name: str, description: str | None, concurrency
         task, evaluators, run_evaluators = crag_task, crag_evaluators(), crag_run_evaluators()
     elif kind == "visit":
         task, evaluators, run_evaluators = visit_task, visit_evaluators(), visit_run_evaluators()
+    elif kind == "guide":
+        task, evaluators, run_evaluators = guide_task, guide_evaluators(), guide_run_evaluators()
     else:
         metadata["router"] = "rules only" if ROUTING_RULES_ONLY else "rules + LLM"
         task, evaluators, run_evaluators = routing_task, routing_evaluators(), routing_run_evaluators()
