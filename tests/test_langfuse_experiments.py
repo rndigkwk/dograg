@@ -39,6 +39,12 @@ class DatasetItemTests(unittest.TestCase):
         self.assertEqual(sum(item["expected_output"]["scope"] != "dog" for item in visit), 2)
 
 
+    def test_guide_items_name_the_guide_page(self):
+        guide = experiments.dataset_items("guide")
+        self.assertEqual(len(guide), 16)
+        self.assertTrue(all(item["expected_output"]["behavior"] == "answer" and item["expected_output"]["guide"]
+                            for item in guide))
+
 class EvaluatorTests(unittest.TestCase):
     def test_crag_item_scores(self):
         correct, gold, latency = experiments.crag_evaluators()
@@ -48,6 +54,20 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(gold, output=output, expected_output={"gold_pages": [["a.pdf", 3]]}), {"gold_page_hit": 1.0})
         self.assertEqual(scores(gold, output=output, expected_output={"gold_pages": []}), {})
         self.assertEqual(scores(latency, output=output), {"latency_s": 6.2})
+
+    def test_guide_scores(self):
+        answered, used = experiments.guide_evaluators()
+        output = {"route": "rag", "outcome": "partial", "guides": [["윤리 가이드라인", 39]], "latency_s": 7.0}
+        self.assertEqual(scores(answered, output=output), {"answered": 1.0})
+        self.assertEqual(scores(used, output=output, expected_output={"guide": "p.39"}), {"guide_used": 1.0})
+        self.assertEqual(scores(answered, output={**output, "outcome": "abstain"}), {"answered": 0.0})
+        self.assertEqual(scores(used, output={**output, "guides": []}, expected_output={"guide": "p.39"}), {"guide_used": 0.0})
+        [summary] = experiments.guide_run_evaluators()
+        results = [SimpleNamespace(output={"latency_s": latency}, evaluations=[
+            SimpleNamespace(name="answered", value=a), SimpleNamespace(name="guide_used", value=g)])
+            for latency, a, g in ((5.0, 1.0, 1.0), (9.0, 1.0, 0.0), (3.0, 0.0, 0.0), (7.0, 1.0, 1.0))]
+        values = scores(summary, item_results=results)
+        self.assertEqual((values["answered_rate"], values["guide_rate"], values["latency_p90_s"]), (0.75, 0.5, 7.0))
 
     def test_crag_run_scores(self):
         [summary] = experiments.crag_run_evaluators()

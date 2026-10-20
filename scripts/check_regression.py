@@ -63,6 +63,14 @@ LIMITS = {
         ("route_accuracy", "min", 0.94, 1.0),
         ("kind_accuracy", "min", 1.0, 1.0),
     ],
+    # Everyday care the public guides answer (16, tests/data/care_guide_questions.json). On 2026-10-19
+    # (#236, local, production search) all 16 got an answer and 15 used a guide (g11 none); two misses
+    # each are allowed for run-to-run spread, three mean the guides or their routing broke.
+    "guide": [
+        ("answered_rate", "min", 0.87, 1.0),
+        ("guide_rate", "min", 0.81, 0.94),
+        ("latency_p90_s", "max", 25.0, 12.0),
+    ],
     # Visit-prep team (12 consultations). repeat_suspect_rate is the share of runs where a worker
     # ran more often than a normal run needs (team/core/config.py VISIT_LIMITS): loops show up
     # here before they reach the hard stops.
