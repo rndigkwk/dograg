@@ -14,6 +14,8 @@
 | [0004](0004-no-shared-db.md) | 두 배포에 공유 DB를 두지 않음 (Claude 권고였고 소유자 결정이 아니어서 거절, 외부 DB 허용) | 거절 |
 | [0005](0005-no-reranker.md) | 리랭커를 쓰지 않음 | 채택 |
 | [0006](0006-cloud-run-region-seoul.md) | Cloud Run 지역은 서울 유지 (us-central1과 한국에서 비교: 답변 완료 8.6 대 9.4초) | 채택 |
-| [0007](0007-search-in-supabase.md) | 벡터·키워드 검색을 Supabase(pgvector + PGroonga)로. 앱 최고 메모리 910 → 442MB, 검색 품질 같음. 장애 시 로컬 검색, float16 저장. Streamlit Cloud 최고 702MB | 채택 |
+| [0007](0007-search-in-supabase.md) | 벡터·키워드 검색을 Supabase(pgvector + PGroonga)로. 앱 최고 메모리 910 → 442MB, 검색 품질 같음. 장애 시 로컬 검색, float16 저장. Streamlit Cloud 최고 702MB. **덧붙임:** 키워드 쪽은 운영 측정으로 PGroonga에서 뺐다(보고서는 메모리 BM25 #211, 건강은 의미 검색만 #218) | 채택 (키워드 부분 변경) |
 | [0008](0008-nextjs-frontend-fastapi-backend.md) | 화면은 Next.js(Vercel), 앱 로직은 FastAPI(Cloud Run)로 나누고 로그인은 Supabase Auth + RLS. 단계 P1 API → P2 질병 문의 → P3 나머지 화면 → P4 로그인 → P5 전환 | 채택 (P5 남음) |
 | [0009](0009-consultation-memory.md) | 지난 상담 기억은 보호자가 고른 "상담 노트"(300자, 최대 30개)를 사용자 계정 테이블(RLS)에 두고, 새 질문에 브라우저가 최근 5개를 보냄. 기본 꺼짐, 보기·지우기 화면 | 채택 |
+| [0010](0010-public-care-guides.md) | 일상 관리 질문은 공공기관 돌봄 지침 5종으로 보강하고, 상담 컬렉션과 따로 메모리에 색인. 공공누리 없는 자료는 비공개 보관·짧은 인용·출처 링크 | 채택 |
+| [0011](0011-degrade-on-model-quota.md) | 모델 사용 한도가 떨어지면 검색 결과(상담·지침)와 안내로 버티고, 평가·CI와 운영의 OpenAI 키를 나누고, 데이터 변경도 병합 게이트에 | 채택 (키 분리는 소유자 작업 남음) |
