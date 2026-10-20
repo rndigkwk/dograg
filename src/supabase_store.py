@@ -18,6 +18,9 @@ so a float32 (vector) table still works.
 When the database fails (connection, timeout), FallbackVectorStore and FallbackIndex answer from the
 local stores (Chroma + Kiwi BM25, loaded only then) and keep doing so for a cooldown before trying
 the database again; one Breaker per process is shared by all four, so an outage costs one timeout.
+
+RAGDOG_FAULT=supabase (fault_injected) makes every connection fail as if the database were down: the
+outage drill on a canary candidate (deploy-cloud-run.yml input "fault", docs/wiki/cloud-run.md).
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from langchain_core.documents import Document
 ROW_COLUMNS = "id, body, metadata"
 CONNECT_TIMEOUT_SECONDS = 3
 STATEMENT_TIMEOUT_MS = 3000
+FAULT = "supabase"  # the RAGDOG_FAULT value of the outage drill
 
 logger = logging.getLogger(__name__)
 
@@ -202,12 +206,21 @@ class FallbackIndex(_Fallback):
         return self._call("search", query, top_k, where=where)
 
 
+def fault_injected() -> bool:
+    """The outage drill: RAGDOG_FAULT=supabase, set only on a candidate that never gets traffic."""
+    from src import settings
+
+    return settings.get_setting("RAGDOG_FAULT") == FAULT
+
+
 def connector(url: str):
     """A function that opens a connection (autocommit) to the database at url, failing fast: a
     3-second connect timeout and a 3-second statement timeout, so an outage falls back quickly."""
     import psycopg
 
     def connect():
+        if fault_injected():
+            raise psycopg.OperationalError("injected outage (RAGDOG_FAULT=supabase)")
         conn = psycopg.connect(url, autocommit=True, connect_timeout=CONNECT_TIMEOUT_SECONDS)
         conn.execute(f"set statement_timeout = {STATEMENT_TIMEOUT_MS}")
         return conn

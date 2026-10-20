@@ -198,6 +198,10 @@ def store() -> Store:
             url = settings.get_setting("SUPABASE_DB_URL") if settings.deployed() else None
             if url:
                 try:
+                    from src.supabase_store import fault_injected
+
+                    if fault_injected():  # the outage drill (src/supabase_store.py)
+                        raise ConnectionError("injected outage (RAGDOG_FAULT=supabase)")
                     _store = PostgresStore(url)
                     _store.probe()
                 except Exception:  # noqa: BLE001 - a missing schema or a down database must not stop reports

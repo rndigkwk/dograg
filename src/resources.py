@@ -100,6 +100,11 @@ def load_search_breaker():
     return Breaker()
 
 
+def search_on_fallback() -> bool:
+    """Whether the Supabase searches answer from the local stores right now (the breaker is open)."""
+    return search_backend() == "supabase" and load_search_breaker().open
+
+
 def _supabase(primary_class, table: str, load_local, *args):
     from src import supabase_store
 

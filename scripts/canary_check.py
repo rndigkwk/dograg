@@ -11,24 +11,33 @@ guardian's first minute asks, and the deploy moves the traffic only when every c
 4. /chat with a health question: the search, the grader and the answer model run (about 4 model calls)
 
 A result that is the quota notice (src/model_outage.py, "degraded") counts as a failure: a revision
-that cannot answer should not take the traffic. Exit 1 on the first failed check, with the reason.
-The requests carry the deployment check's user agent (src/data_gaps.CHECK_AGENT), so their answers
-stay out of the data-gap table.
+that cannot answer should not take the traffic. Each check prints as it passes; exit 1 on the first
+failed one, with the reason. The requests carry the deployment check's user agent
+(src/data_gaps.CHECK_AGENT), so their answers stay out of the data-gap table.
+
+The questions count against the question limit (src/rate_limit.py) like a guardian's. Each run asks
+as a new browser (a random id): with one fixed id, a few deploys within an hour reached the limit of
+10 and the check would have failed on it (the canary drill, 2026-10-20).
+
+--expect-search local: the Supabase outage drill (RAGDOG_FAULT=supabase). The health answer must come
+from the local stores, its result carrying "search": "local" (api/chat.py).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 
 # Standard library only: the deploy job runs it with the runner's python3, without the project's
 # environment. CHECK_AGENT is src/data_gaps.CHECK_AGENT (tests/test_canary_check.py keeps them equal).
 CHECK_AGENT = "RagDogCheck"
-CLIENT = "c0ffee00c0ffee00c0ffee00c0ffee00"  # a fixed browser id for the check (32 hex)
+CLIENT = secrets.token_hex(16)  # a new browser id (32 hex) for each run, see the docstring
 DATE_QUESTION = "오늘 날짜 알려줘"
 HEALTH_QUESTION = "강아지가 어제부터 설사를 해요"
 HEALTH_ATTEMPTS, HEALTH_WAIT_S = 30, 5
@@ -83,7 +92,7 @@ def check_tables(base: str) -> str:
     return "places and fees: 200"
 
 
-def check_answer(base: str, question: str, route: str) -> str:
+def check_answer(base: str, question: str, route: str, search: str | None = None) -> str:
     events = chat_events(base, question)
     results = [data for kind, data in events if kind == "result"]
     if not results:
@@ -94,23 +103,31 @@ def check_answer(base: str, question: str, route: str) -> str:
         raise CheckFailed(f"{question!r} got the quota notice, not an answer")
     if result.get("route") != route:
         raise CheckFailed(f"{question!r} went to {result.get('route')}, not {route}")
-    return f"chat {route}: answered ({len(result.get('answer', ''))} chars)"
+    if search and result.get("search") != search:
+        raise CheckFailed(f"{question!r} was answered from search {result.get('search', 'supabase')!r}, not {search!r}")
+    where = f", search {search}" if search else ""
+    return f"chat {route}: answered ({len(result.get('answer', ''))} chars{where})"
 
 
-def run(base: str, commit: str, sleep=time.sleep) -> list[str]:
+def run(base: str, commit: str, sleep=time.sleep, search: str | None = None) -> Iterator[str]:
+    """The checks in order, each line as it passes (a failure raises CheckFailed)."""
     base = base.rstrip("/")
-    return [check_health(base, commit, sleep), check_tables(base),
-            check_answer(base, DATE_QUESTION, "none"), check_answer(base, HEALTH_QUESTION, "rag")]
+    yield check_health(base, commit, sleep)
+    yield check_tables(base)
+    yield check_answer(base, DATE_QUESTION, "none")
+    yield check_answer(base, HEALTH_QUESTION, "rag", search)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("url", help="the candidate's tag URL")
     parser.add_argument("--expect-commit", required=True)
+    parser.add_argument("--expect-search", choices=["local"], help="the outage drill: answers from the local stores")
     args = parser.parse_args(argv)
-    sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stdout, "reconfigure"):  # not a redirected stream (tests)
+        sys.stdout.reconfigure(encoding="utf-8")
     try:
-        for line in run(args.url, args.expect_commit):
+        for line in run(args.url, args.expect_commit, search=args.expect_search):
             print(f"ok   {line}", flush=True)
     except (CheckFailed, OSError, ValueError) as error:
         print(f"FAIL {error}", flush=True)
