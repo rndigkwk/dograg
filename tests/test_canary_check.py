@@ -93,6 +93,20 @@ class CanaryCheckTests(unittest.TestCase):
         self.assertEqual(canary_check.CHECK_AGENT, data_gaps.CHECK_AGENT)
 
 
+class WorkflowTests(unittest.TestCase):
+    def test_a_failed_check_fails_the_deploy_step(self):
+        """The check's output goes through tee; without pipefail the step would pass on a failed check
+        and the broken candidate would be promoted (found after the first canary deploy, 2026-10-20)."""
+        import yaml
+
+        workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "deploy-cloud-run.yml"
+        steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["deploy"]["steps"]
+        check = next(step for step in steps if "canary_check.py" in step.get("run", ""))
+        script = check["run"]
+        self.assertIn("set -o pipefail", script)
+        self.assertLess(script.index("set -o pipefail"), script.index("canary_check.py"))
+
+
 class FaultInjectionTests(unittest.TestCase):
     def test_a_revision_with_the_chat_fault_answers_nothing(self):
         from unittest.mock import patch
