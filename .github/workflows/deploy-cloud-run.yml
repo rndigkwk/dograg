@@ -132,6 +132,8 @@ jobs:
         # the revision that was serving: the job fails, and alert-on-failure.yml opens an issue.
         # No 10% step: at a few questions an hour, a share of the traffic says nothing in minutes.
         run: |
+          # pipefail: without it the step takes tee's exit status, and a failed check would still promote.
+          set -o pipefail
           url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
           candidate="https://candidate---${url#https://}"
           echo "### API candidate: $candidate" >> "$GITHUB_STEP_SUMMARY"
