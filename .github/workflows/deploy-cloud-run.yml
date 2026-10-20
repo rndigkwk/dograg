@@ -13,6 +13,12 @@ on:
     branches: [main]
     paths-ignore: ["web/**", ".github/workflows/web-ci.yml"]  # the frontend is not in the image
   workflow_dispatch:
+    inputs:
+      fault:
+        description: "Canary drill: deploy a deliberately broken API candidate (it must not get traffic)"
+        type: choice
+        options: [none, chat]
+        default: none
 
 permissions:
   contents: read
@@ -95,6 +101,7 @@ jobs:
         # for CORS; until the frontend exists only the local dev server is allowed.
         env:
           SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
+          FAULT: ${{ inputs.fault || 'none' }}
           WEB_ORIGINS: ${{ vars.RAGDOG_WEB_ORIGINS }}
           WEB_ORIGIN_REGEX: ${{ vars.RAGDOG_WEB_ORIGIN_REGEX }}
         run: |
@@ -108,15 +115,33 @@ jobs:
           env_vars="^|^ENABLE_CRAG=true|SEARCH_BACKEND=$backend|LANGFUSE_BASE_URL=https://us.cloud.langfuse.com|LANGFUSE_TRACING_ENVIRONMENT=cloudrun-api|LANGFUSE_RELEASE=$GITHUB_SHA"
           [ -n "$WEB_ORIGINS" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGINS=$WEB_ORIGINS"
           [ -n "$WEB_ORIGIN_REGEX" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGIN_REGEX=$WEB_ORIGIN_REGEX"
+          [ "$FAULT" = chat ] && env_vars="$env_vars|RAGDOG_FAULT=chat"
+          # Canary: the new revision starts with no traffic, reachable only at the "candidate" tag URL.
+          # The next step checks it there; only then does the traffic move (docs/wiki/cloud-run.md).
           gcloud run deploy "$API_SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
             --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
             --min-instances=0 --max-instances=2 --no-session-affinity --timeout=900 \
             --allow-unauthenticated \
             --command=uvicorn --args=api.main:app,--host,0.0.0.0,--port,8080 \
-            --set-secrets="$secrets" --set-env-vars="$env_vars"
-          # After a rollback (rollback-api.yml) the traffic stays pinned to the old revision; a
-          # deploy sends it back to the new one.
-          gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
+            --set-secrets="$secrets" --set-env-vars="$env_vars" \
+            --no-traffic --tag=candidate
+
+      - name: Check the API candidate before it gets traffic
+        # scripts/canary_check.py: health and commit, the places and fee tables, a date question
+        # (no model) and a health question (about 4 model calls). A failure here leaves all traffic on
+        # the revision that was serving: the job fails, and alert-on-failure.yml opens an issue.
+        # No 10% step: at a few questions an hour, a share of the traffic says nothing in minutes.
+        run: |
+          url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
+          candidate="https://candidate---${url#https://}"
+          echo "### API candidate: $candidate" >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/canary_check.py "$candidate" --expect-commit "$GITHUB_SHA" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote the API candidate
+        # All traffic to the new revision. This also undoes a rollback (rollback-api.yml), which pins
+        # the traffic to an older revision.
+        run: gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
 
       - name: Check the deployed service
         run: |
