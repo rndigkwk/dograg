@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch
 from streamlit.testing.v1 import AppTest
 
 from app_pages import rag as chat_page
-from src import chat_events, conversation_ui
+from src import chat_events, conversation_ui, model_outage
 from src.private_data import needs_private_data
 from src.storage.models import PetProfile, Thread, Turn
 from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
@@ -250,6 +250,25 @@ class ConversationPageTests(unittest.TestCase):
             at.chat_input[0].set_value("기침해요")
             at = at.run()
         self.assertEqual(len(at.feedback), 0)
+
+    def test_an_exhausted_model_quota_shows_the_notice_and_the_search(self):
+        class RateLimitError(Exception):
+            pass
+
+        found = {"answer": model_outage.PAUSED, "route": "rag", "abstained": False, "trace_id": None, "degraded": True,
+                 "evidence_rows": [{"kind": "care_guide", "title": "윤리 가이드라인", "page": 39, "piece": "2~3주",
+                                    "organization": "동물사랑배움터", "url": "https://apms.epis.or.kr/x"}],
+                 "hospital_rows": [], "safety_notice": None}
+        browser = FakeBrowser(notice=True)
+        at = self.run_app(browser)
+        with patch.object(chat_page, "chatbot", side_effect=RateLimitError("429 insufficient_quota")), \
+                patch.object(model_outage, "search_only_result", return_value=found) as search:
+            at.chat_input[0].set_value("강아지 발톱은 얼마 만에 깎아요?")
+            at = at.run()
+        search.assert_called_once()
+        self.assertTrue(any("이용 한도" in m.value for m in at.markdown))
+        self.assertTrue(any("윤리 가이드라인" in e.label for e in at.expander))
+        self.assertEqual([e.value for e in at.error], [])  # not "실행 중 오류가 발생했습니다"
 
     def interrupt(self, at, question, thread=None):
         """State a rerun leaves when it stops the run that was answering `question`."""
