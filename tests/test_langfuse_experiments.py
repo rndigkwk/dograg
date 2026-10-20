@@ -153,5 +153,47 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(values["latency_p50_s"], 60.0)
 
 
+class LocalRunTests(unittest.TestCase):
+    """--local (RAGDOG_EXPERIMENTS_LOCAL=1): the CI runs until the Langfuse plan resets (2026-11-06)."""
+
+    def items(self):
+        return [
+            {"id": "x-a1", "input": {"question": "q1"}, "expected_output": {"behavior": "answer", "gold_pages": []}, "metadata": {"id": "a1", "group": "health"}},
+            {"id": "x-b1", "input": {"question": "q2"}, "expected_output": {"behavior": "abstain", "gold_pages": []}, "metadata": {"id": "b1", "group": "health"}},
+            {"id": "x-c1", "input": {"question": "boom"}, "expected_output": {"behavior": "answer", "gold_pages": []}, "metadata": {"id": "c1", "group": "health"}},
+        ]
+
+    def test_the_same_scores_without_langfuse(self):
+        def task(*, item, **kwargs):
+            if item.input["question"] == "boom":
+                raise RuntimeError("model down")
+            outcome = "answer" if item.input["question"] == "q1" else "abstain"
+            return {"route": "rag", "decision": None, "outcome": outcome, "latency_s": 1.0, "evidence_pages": []}
+
+        parts = (task, experiments.crag_evaluators(), experiments.crag_run_evaluators(), {})
+        with patch.object(experiments, "dataset_items", return_value=self.items()),                 patch.object(experiments, "experiment_parts", return_value=parts):
+            result = experiments.run_local("crag", concurrency=2)
+        self.assertEqual([r.item.metadata["id"] for r in result.item_results], ["a1", "b1"])  # the failed item is left out
+        self.assertTrue(all({e.name: e.value for e in r.evaluations}["correct_behavior"] == 1.0 for r in result.item_results))
+        run_scores = {e.name: e.value for e in result.run_evaluations}
+        self.assertEqual(run_scores["accuracy"], 1.0)
+        self.assertIsNone(result.dataset_run_url)
+        self.assertIn("not sent to Langfuse", result.format())
+
+    def test_main_never_opens_a_langfuse_client(self):
+        import json
+        import tempfile
+
+        fake = SimpleNamespace(item_results=[], run_evaluations=[], dataset_run_url=None, format=lambda: "")
+        with tempfile.TemporaryDirectory() as directory,                 patch.object(experiments, "PROJECT_DIR", Path(directory)),                 patch.object(experiments.shutil, "copytree"),                 patch.object(experiments, "run_local", return_value=fake) as local,                 patch("src.tracing.client", side_effect=AssertionError("Langfuse opened")),                 patch.dict("os.environ", {"RAGDOG_EXPERIMENTS_LOCAL": "1"}),                 patch.object(sys, "argv", ["langfuse_experiments.py", "run", "crag", "--name", "ci-test"]):
+            self.assertEqual(experiments.main(), 0)
+            saved = json.loads((Path(directory) / "output" / "experiments" / "crag_ci-test.json").read_text(encoding="utf-8"))
+            import os
+
+            self.assertEqual(os.environ["LANGFUSE_TRACING_ENABLED"], "false")
+        local.assert_called_once()
+        self.assertEqual((saved["run"], saved["url"], saved["items"]), ("ci-test", None, []))
+
+
 if __name__ == "__main__":
     unittest.main()

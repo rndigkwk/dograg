@@ -66,6 +66,10 @@ jobs:
       LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       LANGFUSE_TRACING_ENVIRONMENT: ci
+      # Until the Langfuse free plan resets on 2026-11-06 (about 120,000 of 50,000 units used): run the
+      # sets here and send nothing (scripts/langfuse_experiments.py --local). Remove both lines after.
+      RAGDOG_EXPERIMENTS_LOCAL: "1"
+      LANGFUSE_TRACING_ENABLED: "false"
       HF_HUB_OFFLINE: "0"
     steps:
       - name: Check out repository

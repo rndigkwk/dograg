@@ -142,6 +142,8 @@
   - 예외: 10/13 지역 비교 측정(`cloudrun-us-central1`)이 360개였다.
 - **예상 (다음 주기):** 점검 월 약 2,500 + 트레이스, 주간 회귀 월 4~5회(필터 후 회당 약 1,800, 월 약 8~9천), 사용자 질문을 더해 **월 1만 5천 안팎**이다. 한도의 30% 정도다. 로컬 실험을 Langfuse로 돌리는 달(`LANGFUSE_TRACING_ENABLED=true`, `scripts/langfuse_experiments.py`)만 다시 본다.
 - **이번 주기 남은 기간:** 한도를 넘어 유예 기간 뒤 수집이 멈출 수 있다. 10/13에도 관측이 들어왔다. 멈추면 11월 6일까지 Langfuse 화면에 새 기록이 안 보일 뿐이고, 앱 답변, 배포 점검(DB 확인 포함), 주간 회귀 판정은 영향이 없다. 주간 회귀 판정은 로컬 결과 파일을 읽는다.
+- **초과 사용과 그 결과 (2026-10-20 확인):** 이번 주기에 약 12만 유닛을 썼다(한도 5만). 대부분 평가·실험 실행이었다. 그 뒤 수집이 일부만 됐다. 배포 검사의 건강 질문 트레이스는 trace_id로 찾아도 관측이 0개였다. 같은 검사의 날짜 질문은 들어왔고, 앱 로그에는 오류가 없었다(docs/wiki/cloud-run.md). 초기화는 **11월 6일**이다.
+- **초기화까지 CI는 Langfuse에 보내지 않는다:** 주간 회귀(`regression-eval.yml`)와 PR 품질 게이트(`pr-quality.yml`)가 `RAGDOG_EXPERIMENTS_LOCAL=1`, `LANGFUSE_TRACING_ENABLED=false`로 돈다. `langfuse_experiments.py --local`은 같은 문항·채점·결과 파일(`output/experiments/`)을 만들고 판정(`check_regression.py`)도 그대로다. 11월 6일 뒤 두 워크플로의 두 줄을 지우면 Langfuse 실험 기록이 다시 쌓인다.
 
 ## 알아 둘 점
 
