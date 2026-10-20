@@ -106,7 +106,10 @@ def check_answer(base: str, question: str, route: str, search: str | None = None
     if search and result.get("search") != search:
         raise CheckFailed(f"{question!r} was answered from search {result.get('search', 'supabase')!r}, not {search!r}")
     where = f", search {search}" if search else ""
-    return f"chat {route}: answered ({len(result.get('answer', ''))} chars{where})"
+    # The trace id, to open the run in Langfuse: the deployment checks' health traces went missing
+    # there on 2026-10-20 while their date traces arrived (docs/wiki/cloud-run.md).
+    trace = f", trace {result['trace_id']}" if result.get("trace_id") else ""
+    return f"chat {route}: answered ({len(result.get('answer', ''))} chars{where}{trace})"
 
 
 def run(base: str, commit: str, sleep=time.sleep, search: str | None = None) -> Iterator[str]:
