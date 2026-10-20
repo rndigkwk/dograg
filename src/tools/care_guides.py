@@ -27,7 +27,11 @@ GUIDE_K = 2
 # Cosine similarity of the closest piece. On 12 probe questions (2026-10-19) the guide answering
 # the question scored 0.56-0.71 (nail trims 0.67, disaster kit 0.71, after a death 0.62), the
 # unrelated best pieces 0.31-0.53 (diarrhoea 0.31, heatstroke 0.53, an old dog pacing at night 0.47).
-GUIDE_FLOOR = 0.55
+# 0.55 -> 0.52 (2026-10-20): g11 "발이나 귀 만지는 걸 싫어하는데" missed the etiquette guide's touching
+# lesson at 0.522; 0.52 also brings the guide to deworming, flea and tick medicine, foods to avoid,
+# temperature and obesity questions (basic care 13 -> 18 of 30), while 0.50 would reach u20, a
+# question to decline. Chosen looking at g11, so judged on the basic care set and the merge gate.
+GUIDE_FLOOR = 0.52
 
 
 @lru_cache(maxsize=1)
