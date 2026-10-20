@@ -58,6 +58,24 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(seen["pet_profile"].name, "보리")
         self.assertEqual(seen["session_id"], CLIENT)
 
+    def test_the_trace_is_sent_before_the_stream_ends(self):
+        """The last request before Cloud Run idles lost its trace (src/tracing.flushed, 2026-10-20)."""
+        order = []
+        real_event = chat_api.event
+
+        def recording_event(kind, data):
+            order.append(kind)
+            return real_event(kind, data)
+
+        with patch.object(chat_api, "event", side_effect=recording_event),                 patch("src.tracing.flush", side_effect=lambda: order.append("flush")):
+            self.post({"question": "강아지가 구토해요"})
+        self.assertEqual(order[-2:], ["result", "flush"])
+
+    def test_a_failed_flush_does_not_break_the_answer(self):
+        with patch("src.tracing.flush", side_effect=RuntimeError("langfuse down")):
+            got = events(self.post({"question": "강아지가 구토해요"}))
+        self.assertEqual(got[-1][0], "result")
+
     def test_the_report_page_asks_the_reports_directly(self):
         events(self.post({"question": "펫보험 가입률은?", "route": "report"}))
         self.assertEqual(self.chatbot.call_args.kwargs["force_route"], "analysis")

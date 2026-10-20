@@ -187,7 +187,8 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
 
 
 def _response(stream: Iterator[str]) -> StreamingResponse:
-    return StreamingResponse(stream, media_type="text/event-stream",
+    # Flushed at the end: a report is often the instance's last request (src/tracing.flushed).
+    return StreamingResponse(tracing.flushed(stream), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 

@@ -36,7 +36,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from src import auth, data_gaps, model_outage, rate_limit, settings
+from src import auth, data_gaps, model_outage, rate_limit, settings, tracing
 from src.chat_events import find_emergency_hospitals, places_first, progress_message
 from src.health_safety import detect_urgent_sign
 from src.pii import mask_pii
@@ -234,6 +234,6 @@ def chat(body: ChatRequest, request: Request, x_ragdog_client: str | None = Head
     agent = request.headers.get("User-Agent") or ""
     trusted = rate_limit.trusted_check(x_ragdog_check)
     person = person_of(x_ragdog_client, network, authorization)
-    return StreamingResponse(answer_events(body, person, network, agent, trusted),
+    return StreamingResponse(tracing.flushed(answer_events(body, person, network, agent, trusted)),
                              media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
