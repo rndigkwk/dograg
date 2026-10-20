@@ -63,6 +63,21 @@
   - 처음에는 DB가 안 되면 질문을 그냥 허용했다. 백업 앱에 제한이 없으면 공개 앱의 비용 위험이 그대로라서 바꿨다(사용자 결정).
 - **측정:** 실제 Supabase에서 같은 ID로 11번 물었다. 10번 허용, 11번째 "약 60분 뒤"였다. 확인 한 번에 처음 0.48초가 걸려서, 조회 4번을 1번으로 합치고 오래된 행 삭제를 20번에 1번으로 줄여 **0.12초**로 낮췄다. 시험 행은 지웠다.
 
+## 장애 알림 (2026-10-20)
+
+배포된 앱이 장애를 로그에 남기면 이메일이 온다. Cloud Monitoring의 로그 일치 알림 정책이고, 앱 코드는 바꾸지 않는다. 그 전에는 운영 중 Supabase가 끊겨도 Cloud Run 로그에 경고 한 줄만 남고 아무도 알지 못했다.
+
+| 정책 | 잡는 로그 | 의미 |
+| --- | --- | --- |
+| Supabase unavailable | `Supabase search failed`, `rate limit table unavailable`, `visit-prep store unavailable` | DB가 안 돼 로컬 검색·메모리로 버티는 중(ADR-0007) |
+| model out of quota | `insufficient_quota` | 모델 한도 소진. 채팅은 검색 결과만, 보고서는 멈춤(ADR-0011) |
+| answers failing | `chat failed`, `visit-prep run failed` | 답변·보고서가 오류로 실패 |
+
+- **정의:** `scripts/gcp/alert_policies.json`. 정책마다 한 시간에 메일 한 통까지 보내고, 30분 동안 다시 안 생기면 닫는다.
+- **설치(한 번):** Cloud Shell에서 저장소 루트에서 `ALERT_EMAIL=받을주소 bash scripts/gcp/setup_alerts.sh`를 실행한다. 다시 실행해도 이미 있는 채널과 정책은 그대로 둔다.
+- **문구가 바뀌면 알림이 조용히 꺼진다:** 그래서 `tests/test_alert_policies.py`가 정책의 문구가 모두 코드에 실제로 있는지 확인한다.
+- **고장 연습도 알림을 보낸다:** `fault=supabase` 연습을 하면 Supabase 정책 메일이 온다. 알림이 실제로 오는지 확인하는 기회로 쓴다.
+
 ## 켜고 끄기
 
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`가 있으면 켜진다(`.env` 또는 Streamlit secrets). 주소는 `LANGFUSE_BASE_URL`.
