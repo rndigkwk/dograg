@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CARE_ITEMS, CARE_SCHEDULE_KEY, cleanRecord, loadRecord, nextDue, saveRecord } from "./careSchedule";
+import { CARE_ITEMS, CARE_SCHEDULE_KEY, cleanRecord, dueItems, loadRecord, nextDue, saveRecord } from "./careSchedule";
 
 const item = (id: string) => CARE_ITEMS.find((entry) => entry.id === id)!;
 const day = (value: string) => new Date(`${value}T09:00:00`);
@@ -57,5 +57,13 @@ describe("stored record", () => {
     expect(storage.getItem(CARE_SCHEDULE_KEY)).toBeNull();
     storage.setItem(CARE_SCHEDULE_KEY, "{not json");
     expect(loadRecord(storage)).toEqual({});
+  });
+});
+
+describe("dueItems", () => {
+  it("lists only the items due now or overdue", () => {
+    const record = { rabies: "2025-09-01", vaccine: "2026-10-01", deworming: "2026-06-10", nails: "2026-10-15" };
+    expect(dueItems(record, day("2026-10-20")).map((item) => item.id)).toEqual(["deworming", "rabies"]);
+    expect(dueItems({}, day("2026-10-20"))).toEqual([]);
   });
 });
