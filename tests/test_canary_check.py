@@ -110,6 +110,11 @@ class CanaryCheckTests(unittest.TestCase):
         lines = list(canary_check.run(self.serve(answers=local), COMMIT, sleep=lambda s: None, search="local"))
         self.assertIn("search local", lines[-1])
 
+    def test_the_trace_id_is_printed_to_find_the_run(self):
+        traced = {**GOOD, canary_check.HEALTH_QUESTION: sse(("result", {"route": "rag", "answer": "설사", "trace_id": "ab12"}))}
+        lines = list(canary_check.run(self.serve(answers=traced), COMMIT, sleep=lambda s: None))
+        self.assertTrue(lines[-1].endswith(", trace ab12)"), lines[-1])
+
     def test_each_run_asks_as_a_new_browser(self):
         self.assertRegex(canary_check.CLIENT, r"^[0-9a-f]{32}$")
         self.assertNotEqual(canary_check.CLIENT, "c0ffee00c0ffee00c0ffee00c0ffee00")
