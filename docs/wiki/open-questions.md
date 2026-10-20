@@ -5,7 +5,7 @@
 ## 문서와 코드가 다른 부분
 
 - ~~루트 README의 건강 RAG 설명이 하이브리드 검색 이전 상태다.~~ 2026-10-02 갱신: 하이브리드 검색 설명, 비교 표, `scripts/`·`docs/wiki/` 구조를 반영함.
-- README의 답변 유사도(0.7448 / 0.7721)는 아직 Dense 검색 시점 수치다. 하이브리드 검색 기준으로 다시 측정하지 않았다.
+- ~~README의 답변 유사도(0.7448 / 0.7721)는 아직 Dense 검색 시점 수치다.~~ 2026-10-20 확인: README에는 더 이상 이 수치가 없다. 답변 품질은 주간 회귀의 Answer Correctness(수의사 답변 대비, 100문항, 10-20 0.292)로 잰다([safety-and-evidence.md](safety-and-evidence.md)).
 
 ## 데이터
 
@@ -15,8 +15,8 @@
 
 ## 검색·생성
 
-- 검색 근거보다 생성 답변의 유사도가 낮다(0.7721 → 0.7448). 원인은 분석하지 않았다.
-- 관련도 임계값이 없어서, 범위 밖 질문에도 근거 k건이 붙는다([safety-and-evidence.md](safety-and-evidence.md)).
+- ~~검색 근거보다 생성 답변의 유사도가 낮다(0.7721 → 0.7448).~~ 2026-10-20: Dense 시절 임베딩 유사도 지표라 지금 구조(하이브리드·CRAG·의미 검색)에는 맞지 않아 다시 재지 않는다. 답변 품질은 Answer Correctness로, 검색 품질은 useful@3로 따로 잰다.
+- ~~관련도 임계값이 없어서, 범위 밖 질문에도 근거 k건이 붙는다.~~ 2026-10-19 #216: 가장 가까운 상담의 유사도가 0.4 아래면 근거 평가 없이 보류한다. 돌봄 지침은 0.52 이상만 붙인다(#246)([safety-and-evidence.md](safety-and-evidence.md)).
 - ~~BM25 색인 구축이 앱 콜드 스타트를 수 분 늦춘다.~~ 2026-10-05 토큰 캐시와 백그라운드 워밍업으로 해결. 로컬 첫 질문 165초 이상 → 8초([deployment-resources.md](deployment-resources.md)).
 - RRF 동점(검증 질문의 79%에서 상위 4건 안에 발생)을 운영 코드가 문서 ID 문자열 순으로 처리한다. 사실상 임의 순서다. BM25 우선이 holdout에서 순증 2문항으로 약간 낫다([retrieval-experiments.md](retrieval-experiments.md) 실험 4). → 2026-10-20 운영 순위로 다시 쟀다: 키워드 순위 우선이 지금 규칙보다 나빠 그대로 둔다. 운영 건강 검색은 키워드 쪽 없이 의미 검색만 쓰게 되어 동점이 생기지 않는다([retrieval-experiments.md](retrieval-experiments.md) "운영 건강 검색의 키워드 쪽").
 - 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다. → 2026-10-20 Cohere rerank-v3.5로 쟀다: useful@3 0.80으로 지금 운영 검색(의미 검색만, 0.84)보다 낮아 채택하지 않았다([retrieval-experiments.md](retrieval-experiments.md) "리랭킹 API").
