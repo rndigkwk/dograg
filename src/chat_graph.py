@@ -20,7 +20,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from src import resources, tracing
+from src import model_outage, resources, tracing
 from src.crag import (
     HEALTH_CANDIDATE_K,
     MAX_REWRITES,
@@ -484,6 +484,7 @@ def run_chat(
     graph = graph or build_chat_graph(tools)
     started = time.perf_counter()
     error = None
+    failure: BaseException | None = None
     fingerprint = question_fingerprint(question)
     with tracing.chat_trace(
         fingerprint, session=tracing.session_id(session_id),
@@ -499,10 +500,13 @@ def run_chat(
                     "trace": [], "rewrite_count": 0,
                 }, on_token, on_step, config={"callbacks": chat_trace.callbacks} if chat_trace.callbacks else None)
         except Exception as exc:
-            error = type(exc).__name__
+            error, failure = type(exc).__name__, exc
             raise
         finally:
             record = _run_record(fingerprint, crag, crag_reports, started, error, state if error is None else None, usage)
+            # The degraded answers (docs/adr/0007, 0011): counted in Langfuse as WARNING traces.
+            record.update(search_fallback=resources.search_on_fallback(),
+                          quota_exhausted=model_outage.is_quota_error(failure))
             log_chat_run(record)
             chat_trace.finish(record)
     return {

@@ -195,9 +195,19 @@ class ChatTrace:
 
             memory = process_memory_mb()
             output = {**record, "process": memory} if memory else record
-            self._span.update(output=output, level="ERROR" if record.get("error") else None)
+            self._span.update(output=output, level=level_of(record))
         except Exception:
             logger.warning("Langfuse trace update failed", exc_info=True)
+
+
+def level_of(record: dict) -> str | None:
+    """ERROR for a failed run; WARNING for one answered the degraded way (the search on the local
+    stores while Supabase failed, or the model out of quota), so the trace list can filter them."""
+    if record.get("error") and not record.get("quota_exhausted"):
+        return "ERROR"
+    if record.get("search_fallback") or record.get("quota_exhausted"):
+        return "WARNING"
+    return None
 
 
 @contextmanager

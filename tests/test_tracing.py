@@ -201,6 +201,39 @@ class TraceExportTests(unittest.TestCase):
         [root] = [span for span in self.exported() if span.name == "chat"]
         self.assertEqual(json.loads(root.attributes["langfuse.observation.output"])["error"], "RuntimeError")
 
+    def test_an_answer_on_the_local_search_is_a_warning(self):
+        from src import resources
+
+        with patch.object(resources, "search_on_fallback", return_value=True):
+            run_chat(health_tools(), QUESTION, top_k=1, crag=True)
+        [root] = [span for span in self.exported() if span.name == "chat"]
+        output = json.loads(root.attributes["langfuse.observation.output"])
+        self.assertEqual((output["search_fallback"], output["quota_exhausted"]), (True, False))
+        self.assertEqual(root.attributes["langfuse.observation.level"], "WARNING")
+
+    def test_the_model_out_of_quota_is_a_warning_not_an_error(self):
+        from src import model_outage
+
+        class RateLimitError(Exception):
+            pass
+
+        tools = health_tools()
+        tools.retrieve_health = Mock(side_effect=RateLimitError(model_outage.QUOTA_MARKERS[0]))
+        with self.assertRaises(RateLimitError):
+            run_chat(tools, QUESTION, top_k=1, crag=True)
+        [root] = [span for span in self.exported() if span.name == "chat"]
+        output = json.loads(root.attributes["langfuse.observation.output"])
+        self.assertEqual((output["error"], output["quota_exhausted"]), ("RateLimitError", True))
+        self.assertEqual(root.attributes["langfuse.observation.level"], "WARNING")
+
+
+class LevelTests(unittest.TestCase):
+    def test_levels(self):
+        self.assertIsNone(tracing.level_of({"error": None, "search_fallback": False, "quota_exhausted": False}))
+        self.assertEqual(tracing.level_of({"error": "RuntimeError"}), "ERROR")
+        self.assertEqual(tracing.level_of({"error": None, "search_fallback": True}), "WARNING")
+        self.assertEqual(tracing.level_of({"error": "RateLimitError", "quota_exhausted": True}), "WARNING")
+
 
 class ReleaseTests(unittest.TestCase):
     def git_dir(self, head: str, refs: dict[str, str] | None = None, packed: str | None = None):
