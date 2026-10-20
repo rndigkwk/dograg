@@ -486,7 +486,7 @@ def render_page():
                 # The model provider out of quota: show what the search finds, as the API does (#238).
                 if streamed or not model_outage.is_quota_error(error):
                     raise
-                result = model_outage.search_only_result(question, top_k)
+                result = model_outage.search_only_result(question, top_k, screen="streamlit")
             finally:
                 places_box.empty()
                 status.empty()

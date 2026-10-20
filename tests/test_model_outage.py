@@ -47,6 +47,16 @@ class SearchOnlyTests(unittest.TestCase):
         self.assertIn(model_outage.FOUND, result["answer"])
         cases.assert_called_once_with("강아지 발톱은 얼마 만에 깎아요?", k=3)
 
+    def test_each_screen_names_only_what_it_has(self):
+        with patch.object(health, "other_species", return_value=None), \
+                patch.object(health, "health_top_similarity", return_value=0.1), \
+                patch.object(care_guides, "retrieve_care_guides", return_value=[]):
+            web = model_outage.search_only_result("기침해요", 3)["answer"]
+            backup = model_outage.search_only_result("기침해요", 3, screen="streamlit")["answer"]
+        self.assertIn("관리 일정", web)
+        self.assertNotIn("관리 일정", backup)
+        self.assertNotIn("진료비", backup)
+
     def test_far_from_every_consultation_only_the_guides_show(self):
         result, cases = self.search(0.2)
         self.assertEqual(result["evidence_rows"], [GUIDE.metadata])
