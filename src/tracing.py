@@ -277,3 +277,19 @@ def flush() -> None:
     langfuse = client()
     if langfuse is not None:
         langfuse.flush()
+
+
+def flushed(stream: Iterator[str]) -> Iterator[str]:
+    """The API's streamed answers, then a flush while the response is still open.
+
+    Cloud Run gives an instance CPU only while it serves a request. The SDK exports in a background
+    thread, so the last request before the instance idles lost its trace: every deployment check's
+    last question (the health one) was missing from Langfuse on 2026-10-20 (docs/wiki/cloud-run.md).
+    The guardian already has the result event; the flush only holds the stream's end."""
+    try:
+        yield from stream
+    finally:
+        try:
+            flush()
+        except Exception:  # noqa: BLE001 - a tracing failure must never break an answer
+            logger.warning("Langfuse flush failed", exc_info=True)
