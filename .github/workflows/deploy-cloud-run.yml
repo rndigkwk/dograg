@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       fault:
-        description: "Canary drill: deploy a deliberately broken API candidate (it must not get traffic)"
+        description: "Canary drill: chat = a broken API candidate (the check must fail), supabase = its database down (the check must pass on local search). Never promoted."
         type: choice
-        options: [none, chat]
+        options: [none, chat, supabase]
         default: none
 
 permissions:
@@ -115,7 +115,7 @@ jobs:
           env_vars="^|^ENABLE_CRAG=true|SEARCH_BACKEND=$backend|LANGFUSE_BASE_URL=https://us.cloud.langfuse.com|LANGFUSE_TRACING_ENVIRONMENT=cloudrun-api|LANGFUSE_RELEASE=$GITHUB_SHA"
           [ -n "$WEB_ORIGINS" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGINS=$WEB_ORIGINS"
           [ -n "$WEB_ORIGIN_REGEX" ] && env_vars="$env_vars|RAGDOG_WEB_ORIGIN_REGEX=$WEB_ORIGIN_REGEX"
-          [ "$FAULT" = chat ] && env_vars="$env_vars|RAGDOG_FAULT=chat"
+          [ "$FAULT" != none ] && env_vars="$env_vars|RAGDOG_FAULT=$FAULT"
           # Canary: the new revision starts with no traffic, reachable only at the "candidate" tag URL.
           # The next step checks it there; only then does the traffic move (docs/wiki/cloud-run.md).
           gcloud run deploy "$API_SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
@@ -131,18 +131,25 @@ jobs:
         # (no model) and a health question (about 4 model calls). A failure here leaves all traffic on
         # the revision that was serving: the job fails, and alert-on-failure.yml opens an issue.
         # No 10% step: at a few questions an hour, a share of the traffic says nothing in minutes.
+        # fault=supabase: the candidate's database is down; the answers must come from local search.
+        env:
+          FAULT: ${{ inputs.fault || 'none' }}
         run: |
           # pipefail: without it the step takes tee's exit status, and a failed check would still promote.
           set -o pipefail
           url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
           candidate="https://candidate---${url#https://}"
           echo "### API candidate: $candidate" >> "$GITHUB_STEP_SUMMARY"
-          python3 scripts/canary_check.py "$candidate" --expect-commit "$GITHUB_SHA" \
+          expect=""
+          [ "$FAULT" = supabase ] && expect="--expect-search local"
+          # $expect unquoted on purpose: empty, or the flag and its value.
+          python3 scripts/canary_check.py "$candidate" --expect-commit "$GITHUB_SHA" $expect \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Promote the API candidate
         # All traffic to the new revision. This also undoes a rollback (rollback-api.yml), which pins
-        # the traffic to an older revision.
+        # the traffic to an older revision. A drill candidate (input fault) is never promoted.
+        if: ${{ (inputs.fault || 'none') == 'none' }}
         run: gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
 
       - name: Check the deployed service
@@ -161,6 +168,7 @@ jobs:
 
       - name: Check the deployed API
         # /health reports the commit (LANGFUSE_RELEASE): the new revision must be the one serving.
+        if: ${{ (inputs.fault || 'none') == 'none' }}
         run: |
           url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
           for attempt in $(seq 1 30); do

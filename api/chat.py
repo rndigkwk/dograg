@@ -134,17 +134,18 @@ def urgent_event(notice: str, location) -> str:
 
 
 def answer_events(body: ChatRequest, person: str, network: str, agent: str = "", trusted: bool = False) -> Iterator[str]:
+    from src import resources
     from src.chatbot import chatbot
     from src.tools.history import history_with_summary
     from src.tools.urgency import urgent_notice
 
-    # Set here, in the thread that runs this generator: the deployment check is not counted
-    # (rate_limit) and its answers stay out of the data-gap table (data_gaps, in the worker below).
     if settings.get_setting("RAGDOG_FAULT") == "chat":
         # A deliberately broken revision for the canary drill (deploy-cloud-run.yml input "fault"):
         # the candidate check must keep it from getting any traffic. Never set on a promoted revision.
         yield event("error", {"message": FAILED})
         return
+    # Set here, in the thread that runs this generator: the deployment check is not counted
+    # (rate_limit) and its answers stay out of the data-gap table (data_gaps, in the worker below).
     data_gaps.REQUEST_AGENT.set(agent)
     rate_limit.TRUSTED_CHECK.set(trusted)  # the check token, verified by the route
     decision = rate_limit.check(person, network)
@@ -199,11 +200,14 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
         yield event("error", {"message": FAILED})
         return
     result = outcome["result"]
+    # "search": "local" when the Supabase search failed and the answer came from the local stores
+    # (src/supabase_store.Breaker): what the outage drill checks, and a sign in the browser's network tab.
+    fallback = {"search": "local"} if resources.search_on_fallback() else {}
     yield event("result", {
         "answer": result["answer"], "route": result["route"],
         "evidence_rows": result.get("evidence_rows", []), "hospital_rows": result.get("hospital_rows", []),
         "safety_notice": result.get("safety_notice") or notice, "abstained": result.get("abstained", False),
-        "trace_id": result.get("trace_id"), "memory": memory,
+        "trace_id": result.get("trace_id"), "memory": memory, **fallback,
     })
     if body.suggest_memory and result["route"] == "rag":
         yield from memory_event(body)
