@@ -77,8 +77,9 @@ jobs:
         run: .venv/bin/python scripts/langfuse_experiments.py run visit --name "$RUN_NAME" --description "weekly regression (${{ github.event_name }})"
 
       - name: Health answers against the vets' answers (100 consultations)
-        # Answer Correctness only, judged once (docs/wiki/safety-and-evidence.md): about 100 answers
-        # in 4 processes and 300 judge calls. ragas needs its own environment (an older LangChain).
+        # Judged once (docs/wiki/safety-and-evidence.md): about 100 answers in 4 processes. Answer
+        # Correctness has the limit; Context Recall and Precision (2026-10-20) are recorded to tell a
+        # search drop from an answer drop, about 600 more judge calls. ragas needs its own environment (an older LangChain).
         env:
           SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -89,7 +90,7 @@ jobs:
           wait
           tail -n 2 answer_gen_*.log
           uv run --no-project --python 3.12 --with "ragas==0.4.3" --with "langchain-community<0.4" --with python-dotenv \
-            python scripts/evaluate_answer_quality.py judge --repeats 1 --metrics answer_correctness --result-name "$RUN_NAME"
+            python scripts/evaluate_answer_quality.py judge --repeats 1 --metrics answer_correctness context_recall context_precision --result-name "$RUN_NAME"
 
       - name: Compare with limits
         # Each set's scores also go to ragdog_eval_history (scripts/eval_history.py) for the trend.
