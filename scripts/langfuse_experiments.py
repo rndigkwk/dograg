@@ -20,6 +20,11 @@ reasoning effort, so runs can be compared side by side in the Langfuse UI.
 These questions are our own evaluation data (AI Hub validation Q&A and hand-written
 questions), not user conversations. Traces still go through the app's masking
 (src/tracing.py), so answers appear as lengths; the scores carry the results.
+
+--local (or RAGDOG_EXPERIMENTS_LOCAL=1): the same items, tasks and scores, run here without
+Langfuse; only output/experiments/<set>_<run>.json is written, which is all check_regression.py
+reads. The CI workflows use it from 2026-10-20 to 2026-11-06: the free plan's 50,000 units were
+overrun (about 120,000, mostly experiment runs) and ingestion dropped traces until the reset.
 """
 
 from __future__ import annotations
@@ -451,25 +456,70 @@ def git_commit() -> str:
         return "unknown"
 
 
+def experiment_parts(kind: str):
+    """The task, item evaluators, run evaluators and extra run metadata of a set."""
+    if kind == "crag":
+        return crag_task, crag_evaluators(), crag_run_evaluators(), {}
+    if kind == "visit":
+        return visit_task, visit_evaluators(), visit_run_evaluators(), {}
+    if kind == "guide":
+        return guide_task, guide_evaluators(), guide_run_evaluators(), {}
+    router = "rules only" if ROUTING_RULES_ONLY else "rules + LLM"
+    return routing_task, routing_evaluators(), routing_run_evaluators(), {"router": router}
+
+
+def _evaluations(found) -> list:
+    """An evaluator returns one Evaluation, a list of them, or [] (as the Langfuse SDK accepts)."""
+    if found is None:
+        return []
+    return list(found) if isinstance(found, list | tuple) else [found]
+
+
+def run_local(kind: str, concurrency: int):
+    """The experiment without Langfuse (--local), in the shape run_experiment returns as main()
+    reads it. A task that raises leaves its item out, with a message, as the SDK's experiment does."""
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    task, evaluators, run_evaluators, _ = experiment_parts(kind)
+    items = [SimpleNamespace(id=item["id"], input=item["input"], expected_output=item["expected_output"],
+                             metadata=item["metadata"]) for item in dataset_items(kind)]
+
+    def one(item):
+        try:
+            output = task(item=item)
+        except Exception as error:  # noqa: BLE001 - one failed item must not stop the run
+            print(f"{item.metadata['id']}: task failed ({type(error).__name__}: {error})", file=sys.stderr)
+            return None
+        found = []
+        for evaluator in evaluators:
+            found += _evaluations(evaluator(input=item.input, output=output, expected_output=item.expected_output,
+                                            metadata=item.metadata))
+        return SimpleNamespace(item=item, output=output, evaluations=found)
+
+    with ThreadPoolExecutor(max(1, concurrency)) as pool:
+        results = [result for result in pool.map(one, items) if result is not None]
+    run_found = []
+    for evaluator in run_evaluators:
+        run_found += _evaluations(evaluator(item_results=results))
+    lines = [f"{kind}: {len(results)}/{len(items)} items (local, not sent to Langfuse)"]
+    lines += [f"  {e.name}: {e.value}" for e in run_found]
+    return SimpleNamespace(item_results=results, run_evaluations=run_found, dataset_run_url=None,
+                           format=lambda: "\n".join(lines))
+
+
 def run(langfuse, kind: str, run_name: str, description: str | None, concurrency: int):
     from src import resources, settings
 
     name, _ = DATASETS[kind]
     dataset = langfuse.get_dataset(name)
+    task, evaluators, run_evaluators, extra = experiment_parts(kind)
     metadata = {
         "model": resources.CHAT_MODEL_NAME,
         "reasoning_effort": settings.get_setting("CHAT_REASONING_EFFORT") or "default",
         "commit": git_commit(),
+        **extra,
     }
-    if kind == "crag":
-        task, evaluators, run_evaluators = crag_task, crag_evaluators(), crag_run_evaluators()
-    elif kind == "visit":
-        task, evaluators, run_evaluators = visit_task, visit_evaluators(), visit_run_evaluators()
-    elif kind == "guide":
-        task, evaluators, run_evaluators = guide_task, guide_evaluators(), guide_run_evaluators()
-    else:
-        metadata["router"] = "rules only" if ROUTING_RULES_ONLY else "rules + LLM"
-        task, evaluators, run_evaluators = routing_task, routing_evaluators(), routing_run_evaluators()
     return dataset.run_experiment(
         name=name, run_name=run_name, description=description, task=task,
         evaluators=evaluators, run_evaluators=run_evaluators, max_concurrency=concurrency, metadata=metadata,
@@ -488,13 +538,18 @@ def main() -> int:
     run_parser.add_argument("--rules-only", action="store_true", help="routing set: keyword rules without the LLM router")
     run_parser.add_argument("--concurrency", type=int, default=1,
                             help="parallel items (default 1: the app's search caches were not built for threads)")
+    run_parser.add_argument("--local", action="store_true",
+                            help="run and score here, send nothing to Langfuse (also RAGDOG_EXPERIMENTS_LOCAL=1)")
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    local = args.command == "run" and (args.local or os.environ.get("RAGDOG_EXPERIMENTS_LOCAL") == "1")
+    if local:
+        os.environ["LANGFUSE_TRACING_ENABLED"] = "false"  # the app's own traces stay off too (src/tracing.py)
 
     from src import resources, tracing
 
-    langfuse = tracing.client()
-    if langfuse is None:
+    langfuse = None if local else tracing.client()
+    if langfuse is None and not local:
         print("Langfuse is not configured (LANGFUSE_PUBLIC_KEY/SECRET_KEY).", file=sys.stderr)
         return 1
     try:
@@ -505,7 +560,8 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="ragdog-experiment-", ignore_cleanup_errors=True) as directory:
             resources.CHROMA_DIR = Path(directory) / "chroma_db"  # Chroma writes to its folder even when reading
             shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
-            result = run(langfuse, args.set, args.name, args.description, args.concurrency)
+            result = (run_local(args.set, args.concurrency) if local
+                      else run(langfuse, args.set, args.name, args.description, args.concurrency))
         print(result.format())
         print(json.dumps({e.name: e.value for e in result.run_evaluations}, ensure_ascii=False))
         saved = PROJECT_DIR / "output" / "experiments" / f"{args.set}_{args.name}.json"
@@ -520,7 +576,8 @@ def main() -> int:
             print(result.dataset_run_url)
         return 0
     finally:
-        langfuse.flush()
+        if langfuse is not None:
+            langfuse.flush()
 
 
 if __name__ == "__main__":
