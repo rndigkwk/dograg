@@ -34,6 +34,33 @@ export function feeItems(): Promise<{ items: FeeItem[]; source: string; notice: 
   return getJson("/fees/items");
 }
 
+export type RegionFee = {
+  item: string;
+  detail: string;
+  label: string;
+  national_median: number;
+  median: number | null;
+  level: "sigungu" | "sido" | null;
+  region: string | null;
+};
+export type RegionFees = { province: string; city: string; basis: string; items: RegionFee[]; source: string; notice: string };
+
+export function regionFees(province: string, city = ""): Promise<RegionFees> {
+  return getJson(`/fees/region?${new URLSearchParams({ province, city })}`);
+}
+
+/** The place-search region of a road address: "서울특별시 강남구 …" -> ["서울특별시", "강남구"]. */
+export function regionOfAddress(address: string | null): [string, string] | null {
+  const words = (address ?? "").split(/\s+/).filter(Boolean);
+  return words.length >= 2 ? [words[0], words[1]] : null;
+}
+
+/** "중간 11,000원 · 전국보다 1,000원 높음 (전국 10,000원)", in the fee page's words (versusNational). */
+export function compareText(row: RegionFee): string {
+  if (row.median === null) return `전국 중간 ${won(row.national_median)} (이 지역 자료 없음)`;
+  return `중간 ${won(row.median)} · ${versusNational(row.median, row.national_median)} (전국 ${won(row.national_median)})`;
+}
+
 export function itemFees(item: FeeItem): Promise<ItemFees> {
   return getJson(`/fees?${new URLSearchParams({ item: item.item, detail: item.detail })}`);
 }

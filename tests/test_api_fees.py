@@ -33,6 +33,30 @@ class FeesApiTests(unittest.TestCase):
         self.assertLessEqual(row["median"], row["max"])
         self.assertEqual(len(body["collected"]), 10)
 
+    def test_a_district_next_to_the_nation_for_the_hospital_list(self):
+        body = self.client.get("/fees/region", params={"province": "서울특별시", "city": "강남구"}).json()
+        self.assertEqual([row["item"] for row in body["items"]], list(fees.GENERAL_ITEMS))
+        first = body["items"][0]
+        self.assertEqual((first["label"], first["level"], first["region"]), ("초진 진찰료 (체중 5kg)", "sigungu", "강남구"))
+        self.assertGreater(first["median"], 0)
+        self.assertGreater(first["national_median"], 0)
+        self.assertIn("개별 병원의 가격이 아닙니다", body["notice"])
+
+    def test_a_district_without_a_figure_shows_its_province(self):
+        """The survey leaves out districts with one clinic or none (연천군 has no figure)."""
+        body = self.client.get("/fees/region", params={"province": "경기도", "city": "연천군"}).json()
+        self.assertTrue(all(row["level"] in ("sido", None) for row in body["items"]))
+        self.assertIn("경기도", {row["region"] for row in body["items"]})
+
+    def test_the_merged_province_reads_the_two_surveyed_ones(self):
+        self.assertEqual(fees.fee_region("전남광주통합특별시", "광산구"), ("광주광역시", "광산구"))
+        self.assertEqual(fees.fee_region("전남광주통합특별시", "여수시"), ("전라남도", "여수시"))
+        body = self.client.get("/fees/region", params={"province": "전남광주통합특별시", "city": "광산구"}).json()
+        self.assertTrue(any(row["median"] for row in body["items"]))
+
+    def test_an_unknown_region_is_not_found(self):
+        self.assertEqual(self.client.get("/fees/region", params={"province": "없는도"}).status_code, 404)
+
     def test_a_province_without_a_figure_is_listed_not_shown_as_zero(self):
         body = self.client.get("/fees", params={"item": "자기공명영상검사(MRI)비와 판독료", "detail": "체중 5kg"}).json()
         self.assertIn("세종특별자치시", body["no_data"])

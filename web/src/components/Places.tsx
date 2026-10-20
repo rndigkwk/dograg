@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { compareText, type RegionFees, regionFees, regionOfAddress } from "@/lib/fees";
 import { locate, type Location } from "@/lib/location";
 import { type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
 
@@ -45,6 +46,42 @@ function PlaceTable({ places, withDistance = false }: { places: Place[]; withDis
   );
 }
 
+/** The region's median clinic fees next to the nation, above a hospital list (api/fees.py /fees/region).
+ * Regional survey statistics, not these hospitals' prices: the notice says so under the figures. */
+function RegionFeeNote({ province, city }: { province: string; city: string }) {
+  const [fees, setFees] = useState<RegionFees | null>(null);
+  useEffect(() => {
+    let live = true;
+    setFees(null);
+    regionFees(province, city).then((found) => live && setFees(found), () => live && setFees(null));
+    return () => {
+      live = false;
+    };
+  }, [province, city]);
+  if (!fees) return null;
+  const regionName = fees.items.find((row) => row.region)?.region ?? province;
+  // The district has no figure for any item: say so once, in the heading, not on every line.
+  const allProvince = Boolean(city) && fees.items.every((row) => row.level !== "sigungu");
+  return (
+    <details className="rounded-xl border border-line bg-white p-3 text-sm" open>
+      <summary className="cursor-pointer font-semibold">
+        {regionName} 진료비 중간값 ({fees.basis}){allProvince ? ` · ${city} 자료가 없어 ${regionName} 기준` : ""}
+      </summary>
+      <ul className="mt-2 space-y-1">
+        {fees.items.map((row) => (
+          <li key={row.label}>
+            <span className="font-medium">{row.label}</span>: {compareText(row)}
+            {row.level === "sido" && city && !allProvince ? <span className="text-muted"> · {city} 자료가 없어 {row.region} 기준</span> : null}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted">
+        {fees.notice} 항목별 자세한 값은 <Link href="/fees" className="underline">지역별 진료비</Link>에서 볼 수 있습니다.
+      </p>
+    </details>
+  );
+}
+
 /** One place, opened from a list or from a chat answer (app_pages/hospital.py render_selected_place). */
 function PlaceView({ id }: { id: string }) {
   const [found, setFound] = useState<Place | null | "missing">(null);
@@ -76,7 +113,7 @@ export default function Places() {
   const [city, setCity] = useState("");
   const [location, setLocation] = useState<Location | null>(null);
   const [near, setNear] = useState<Place[] | null>(null);
-  const [found, setFound] = useState<{ total: number; places: Place[]; area: string } | null>(null);
+  const [found, setFound] = useState<{ total: number; places: Place[]; area: string; kind: string; province: string; city: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,7 +163,7 @@ export default function Places() {
     setError(null);
     try {
       const result = await search(kind, province, byCity ? city : undefined);
-      setFound({ ...result, area: byCity ? `${province} ${city}` : province });
+      setFound({ ...result, area: byCity ? `${province} ${city}` : province, kind, province, city: byCity ? city : "" });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -193,6 +230,9 @@ export default function Places() {
             {near ? (
               near.length ? (
                 <>
+                  {kind === "hospital" && regionOfAddress(near[0].address) ? (
+                    <RegionFeeNote province={regionOfAddress(near[0].address)![0]} city={regionOfAddress(near[0].address)![1]} />
+                  ) : null}
                   <PlaceTable places={near} withDistance />
                   <PlaceMap places={near} />
                 </>
@@ -239,6 +279,7 @@ export default function Places() {
                 {found.area} 지역에서 {label} {found.total.toLocaleString()}곳을 찾았습니다.
                 {found.total > found.places.length ? ` 앞의 ${found.places.length.toLocaleString()}곳을 보여 줍니다.` : ""}
               </p>
+              {found.kind === "hospital" ? <RegionFeeNote province={found.province} city={found.city} /> : null}
               <PlaceTable places={found.places} />
               <PlaceMap places={found.places} />
             </>
