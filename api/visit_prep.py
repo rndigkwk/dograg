@@ -39,6 +39,7 @@ from src import (
     data_gaps,
     model_outage,
     rate_limit,
+    request_log,
     settings,
     tracing,
     visit_prep_runs,
@@ -186,9 +187,10 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
                                ("report", "passed", "status", "round", "steps", "urgent", "seconds", "answered")})
 
 
-def _response(stream: Iterator[str]) -> StreamingResponse:
-    # Flushed at the end: a report is often the instance's last request (src/tracing.flushed).
-    return StreamingResponse(tracing.flushed(stream), media_type="text/event-stream",
+def _response(stream: Iterator[str], agent: str = "") -> StreamingResponse:
+    # One summary log line per report (src/request_log.py), then the trace flushed: a report is
+    # often the instance's last request (src/tracing.flushed).
+    return StreamingResponse(tracing.flushed(request_log.summarized("visit-prep", stream, agent)), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -216,7 +218,7 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
     if not _take_report(person, visit_prep_store.now()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
     return _response(_stream(person, with_notes(with_care(consultation, body.care), body.notes), body.region.strip(), body.profile.strip(), agent,
-                             location=body.location))
+                             location=body.location), agent=agent)
 
 
 @router.post("/{thread_id}/answer")
@@ -236,7 +238,7 @@ def answer(thread_id: str, body: AnswerRequest, request: Request, x_ragdog_clien
         raise HTTPException(409, "멈춘 보고서입니다. '이어서 만들기'를 눌러 주세요.")
     agent = request.headers.get("User-Agent") or ""
     return _response(_stream(person, pending["consultation"], pending["region"], pending["profile"], agent,
-                             pending=pending, answer=body.answer.strip()))
+                             pending=pending, answer=body.answer.strip()), agent=agent)
 
 
 @router.post("/{thread_id}/retry")
@@ -254,4 +256,4 @@ def retry(thread_id: str, request: Request, x_ragdog_client: str | None = Header
         raise HTTPException(404, NOT_FAILED)
     agent = request.headers.get("User-Agent") or ""
     return _response(_stream(person, pending["consultation"], pending["region"], pending["profile"], agent,
-                             pending=pending, retry=True))
+                             pending=pending, retry=True), agent=agent)

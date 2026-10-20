@@ -71,6 +71,25 @@
   - 처음 통합할 때 이 처리가 없어서, 전체 테스트 1회분의 가짜 실행(마스킹됨, `development`)이 프로젝트에 들어갔다.
 - 로컬 평가 스크립트(`scripts/*.py`)도 기본으로 꺼진다. Langfuse 실험(`scripts/langfuse_experiments.py`)만 예외다. 추적이 필요하면 `LANGFUSE_TRACING_ENABLED=true`로 켠다. 아래 "무료 사용량 한도" 참고.
 
+## 요청 요약 로그 (Cloud Logging, 2026-10-20)
+
+배포된 API는 로그를 JSON 한 줄로 쓴다(`src/request_log.py`). Cloud Logging이 `severity`를 로그 수준으로 읽고, 나머지 키는 필드(`jsonPayload.…`)로 걸러 셀 수 있다. 예전에는 일반 텍스트여서 오류 하나의 traceback이 여러 줄로 쪼개져 들어갔다.
+
+- **답변마다 한 줄:** 채팅과 진료 준비 보고서가 끝나면 `ragdog.requests` 로거가 요약을 남긴다.
+
+| 필드 | 뜻 |
+| --- | --- |
+| `kind` | `chat` 또는 `visit-prep` |
+| `outcome` | 마지막 이벤트: `result`, `error`, `limited`, `paused`, `busy` … (연결이 끊기면 그때까지의 마지막) |
+| `latency_ms` | 요청 시작부터 스트림 끝까지 |
+| `route`, `trace_id`, `search`, `degraded`, `abstained` | 결과 이벤트의 값. `trace_id`로 Langfuse 트레이스를 연다 |
+| `urgent`, `check` | 응급 안내가 있었는지, 배포 검사(`RagDogCheck`)였는지 |
+
+- **원문은 없다:** 질문과 답변 글은 읽지 않는다. 위 키만 결과 이벤트에서 가져온다(`RESULT_KEYS`).
+- **조회 예:** 로그 탐색기에서 `jsonPayload.logger="ragdog.requests" AND jsonPayload.outcome="error" AND jsonPayload.check=false`. 한도에 걸린 요청은 `outcome="limited"`, 로컬 검색으로 답한 요청은 `search="local"`이다.
+- **라이브러리 로그:** 루트 로거는 WARNING이다. httpx가 요청마다 남기는 INFO 줄은 들어오지 않는다.
+- **로컬과 테스트:** 기본 로깅 그대로다(`settings.deployed()`일 때만 켠다).
+
 ## 무료 사용량 한도 (2026-10-12)
 
 **무슨 일:** Langfuse 무료 플랜의 월 50,000 이벤트를 넘었다는 메일을 받았다(50,652, 초기화 11월 6일). 넘으면 유예 기간 뒤 수집이 멈추고, 들어오는 트레이스·점수가 버려진다. 앱 답변과 주간 회귀 판정은 영향이 없다. 판정 스크립트는 로컬 결과 파일을 읽는다.
