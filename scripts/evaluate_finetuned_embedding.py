@@ -1,6 +1,12 @@
 """Compare the base health embedding model with the fine-tuned ones on the app's hybrid path.
 
     uv run --group tools python scripts/evaluate_finetuned_embedding.py   # needs HF_TOKEN (private models)
+    uv run --group tools python scripts/evaluate_finetuned_embedding.py --variants b hn   # the hard-negative model
+
+--variants picks the fine-tuned models to compare with the base (default a b). hn is
+blanden77/ko-sroberta-dograg-hn from notebooks/hardneg_finetune_colab.ipynb (2026-10-21): variant B plus
+one mined hard negative per pair. Candidates not graded before are graded with the judge, and the
+count is shown before it runs (scripts/cost_guard.py).
 
 Models: `jhgan/ko-sroberta-multitask` (base) and blanden77/ko-sroberta-dograg-a / -b, trained in
 notebooks/finetune_embedding_colab.ipynb on synthetic guardian queries (scripts/finetune_queries.py).
@@ -36,7 +42,9 @@ sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 
 BASE = "jhgan/ko-sroberta-multitask"
-TUNED = {"a": "blanden77/ko-sroberta-dograg-a", "b": "blanden77/ko-sroberta-dograg-b"}
+ALL_TUNED = {"a": "blanden77/ko-sroberta-dograg-a", "b": "blanden77/ko-sroberta-dograg-b",
+             "hn": "blanden77/ko-sroberta-dograg-hn"}
+TUNED = {name: ALL_TUNED[name] for name in ("a", "b")}  # main() narrows it to --variants
 FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 CANDIDATE_K = 12
 OUT = PROJECT_DIR / "output" / "experiments" / "finetuned_embedding.json"
@@ -52,12 +60,19 @@ def mcnemar(base: list[bool], other: list[bool]) -> dict:
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--variants", nargs="+", choices=sorted(ALL_TUNED), default=["a", "b"])
+    args = parser.parse_args()
+    TUNED.clear()
+    TUNED.update({name: ALL_TUNED[name] for name in args.variants})
     from dotenv import load_dotenv
     from huggingface_hub import snapshot_download
     from langchain_core.documents import Document
+    from relevance_set import judge, judge_model
     from sentence_transformers import SentenceTransformer
 
-    from relevance_set import judge, judge_model
     from src import resources
     from src.health_answers import attach_health_answers
     from src.hybrid_retrieval import reciprocal_rank_fusion
@@ -65,8 +80,11 @@ def main() -> int:
     load_dotenv(PROJECT_DIR / ".env")
     token = os.environ["HF_TOKEN"]
     paths = {v: Path(snapshot_download(repo, token=token)) for v, repo in TUNED.items()}
-    ids = json.loads((paths["a"] / "corpus_ids.json").read_text())
-    vectors = {"base": np.load(paths["a"] / "base_corpus_embeddings.npy"),
+    base_path = Path(snapshot_download(ALL_TUNED["a"], token=token))  # the base model's vectors live in -a
+    ids = json.loads((base_path / "corpus_ids.json").read_text())
+    for v in TUNED:  # every repo's vectors follow the same df.csv row order
+        assert json.loads((paths[v] / "corpus_ids.json").read_text()) == ids, f"{v}: corpus order differs"
+    vectors = {"base": np.load(base_path / "base_corpus_embeddings.npy"),
                **{v: np.load(paths[v] / "corpus_embeddings.npy") for v in TUNED}}
     vectors = {name: m / np.linalg.norm(m, axis=1, keepdims=True) for name, m in vectors.items()}
     encoders = {"base": SentenceTransformer(BASE, device="cpu"),
@@ -121,6 +139,11 @@ def main() -> int:
                 docs = list(missing.values())
                 attach_health_answers(docs, answers)
                 jobs.append((i, question, docs))
+        from cost_guard import confirm
+
+        # One judge call per question with new candidates; the earlier runs' grades are reused.
+        if jobs and not confirm(f"evaluate_finetuned_embedding {set_name}", len(jobs), "one judge call per question"):
+            raise SystemExit(1)
         with ThreadPoolExecutor(8) as pool:
             for (i, _, _), grades in zip(jobs, pool.map(lambda job: judge(model, job[1], job[2]), jobs)):
                 extra.setdefault(f"{set_name}:{i}", {}).update(grades)

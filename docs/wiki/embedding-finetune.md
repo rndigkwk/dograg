@@ -385,3 +385,23 @@ uv run python scripts/evaluate_app_retrieval.py
 - **왜 MNRL인가:** 짝(질의, 정답)만 있으면 배치 안의 나머지를 오답으로 쓸 수 있다. 오답 라벨이 따로 필요 없다. 대신 같은 상담이 한 배치에 두 번 들어가지 않게 했다(`NO_DUPLICATES`).
 - **왜 개발용 점수로 결론 내지 않았나:** 학습 데이터와 같은 분포라 낙관적이다. 결론은 사람이 쓴 짧은 질문과 실제 검증셋으로, 앱과 같은 하이브리드 경로에서 냈다.
 - **왜 McNemar인가:** 같은 질문에서 두 모델이 맞혔는지를 짝지어, 한쪽만 맞힌 질문의 비대칭만 본다.
+
+## 하드 네거티브로 다시 학습 (2026-10-21 준비, Colab 실행 대기, 교안 Day 74)
+
+**왜:** 앱 모델 B는 배치 안의 다른 상담만 오답으로 배웠다(위 4절 "어려운 오답 실험은 계획만 했다"). 운영 검색은 `기타` 100문항 중 21문항에서 상위 3개에 바로 쓸모 있는 상담을 놓친다. 그중 14문항은 후보 안에 그런 상담이 있다([eval-coverage.md](eval-coverage.md)). ADR-0001의 재검토 조건이기도 하다.
+
+**노트북:** `notebooks/hardneg_finetune_colab.ipynb`(생성 코드 `scripts/build_hardneg_notebook.py`)
+- B와 같은 조건이다: 기본 모델, 질의, 배치 64, 학습률 2e-5, 1 epoch, dev 상담 300개(SEED 13). 다른 점은 **질의마다 하드 네거티브 1개**뿐이다.
+- 오답 캐기(`sentence_transformers.util.mine_hard_negatives`, 캐는 모델은 앱 모델 B):
+  - 10~50위 사이에서 고른다. 1~9위는 사실상 정답일 수 있어서다.
+  - 정답보다 5% 이상 덜 비슷한 것만 쓴다(`relative_margin`). 같은 증상의 상담이 많아서다.
+  - dev 상담은 오답 후보에서도 뺀다.
+- **기록:** MLflow(DagsHub, 실험 `health-embedding`)에 설정, 캐낸 오답 수, 학습 손실, 기본·B·새 모델의 dev 점수를 남긴다(다음 임베딩 학습부터 MLflow에 남기기로 한 약속).
+- 결과 모델과 상담 벡터는 비공개 저장소 `blanden77/ko-sroberta-dograg-hn`에 둔다. 로컬 평가가 읽는 형식(`corpus_embeddings.npy`, `corpus_ids.json`)이다.
+- `SMOKE=True`로 로컬 CPU에서 모든 셀이 돌았다(질의 80개, 오답 118개, MLflow 로컬 기록).
+
+**최종 평가(로컬):** `uv run --group tools python scripts/evaluate_finetuned_embedding.py --variants b hn`
+- 짧은 질문 120과 긴 상담 100의 `useful@3`를 B와 McNemar로 비교한다.
+- 새로 나온 후보만 같은 판정으로 채점한다. 호출 수를 먼저 보여 준다(`cost_guard`).
+
+**채택 조건:** 짧은 질문 `useful@3`가 B보다 유의하게 나을 때(p<0.05)만, ONNX int8로 바꿔 앱 모델을 교체한다(새 ADR). 그 전에 운영 검색(`SEARCH_BACKEND=supabase`)에서도 다시 잰다.
