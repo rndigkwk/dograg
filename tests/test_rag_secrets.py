@@ -43,9 +43,18 @@ class RagSecretsTest(unittest.TestCase):
 
         item = rag.format_evidence_row(row, 0)
 
-        self.assertEqual(item["title"], "1. adult / internal / vomiting")
+        self.assertEqual(item["title"], "사례 1 · adult / internal / vomiting")
         self.assertNotIn("My dog keeps vomiting.", item["body"])
         self.assertIn("Repeated vomiting should be checked by a vet.", item["body"])
+
+    def test_numbers_guides_and_consultations_as_the_answer_cites_them(self):
+        guide = {"kind": "care_guide", "title": "예방접종", "page": 3, "piece": "...", "organization": "농림축산식품부", "url": ""}
+        case = {"meta.lifeCycle": "adult", "meta.department": "internal", "meta.disease": "vomiting", "qa.output": "..."}
+
+        titles = [item["title"] for item in rag.numbered_evidence([case, guide, case])]
+
+        self.assertEqual(titles, ["지침 1 · 예방접종 · 3쪽", "사례 1 · adult / internal / vomiting",
+                                  "사례 2 · adult / internal / vomiting"])
 
     def test_builds_filter_context_for_prompt(self):
         filters = {

@@ -52,10 +52,12 @@ MEMORY_DECLINED_KEY = "memory_declined"
 
 
 def format_evidence_row(row, index):
+    """index counts within the row's kind: "사례 n" and "지침 n" are the numbers the answer cites
+    ([사례 n], [지침 n], src/citations.py), as on the web (web/src/lib/evidence.ts)."""
     if row.get("kind") == "care_guide":  # src/tools/care_guides.py
         source = f"출처: {row.get('organization', '')} · [원문 보기]({row.get('url', '')})"
         return {
-            "title": f"{index + 1}. 지침 · {row.get('title', '')} · {row.get('page', '?')}쪽",
+            "title": f"지침 {index + 1} · {row.get('title', '')} · {row.get('page', '?')}쪽",
             "body": f"{row.get('piece', '')}\n\n{source}",
         }
     life_cycle = row.get("meta.lifeCycle") or row.get("lifeCycle") or "-"
@@ -63,9 +65,16 @@ def format_evidence_row(row, index):
     disease = row.get("meta.disease") or row.get("disease") or "-"
     answer = row.get("qa.output") or row.get("answer") or ""
     return {
-        "title": f"{index + 1}. {life_cycle} / {department} / {disease}",
+        "title": f"사례 {index + 1} · {life_cycle} / {department} / {disease}",
         "body": f"**답변**\n\n{answer}",
     }
+
+
+def numbered_evidence(rows):
+    """Guides first, then consultations, each numbered on its own (the web's order)."""
+    guides = [row for row in rows if row.get("kind") == "care_guide"]
+    cases = [row for row in rows if row.get("kind") != "care_guide"]
+    return [format_evidence_row(row, index) for group in (guides, cases) for index, row in enumerate(group)]
 
 
 def render_hospital_links(rows):
@@ -218,8 +227,7 @@ def render_assistant_message(message: dict, *, show_notice: bool = True, key: st
         render_report_evidence(evidence_rows, key)
     else:
         st.markdown("#### 검색 근거")
-        for index, row in enumerate(evidence_rows):
-            evidence = format_evidence_row(row, index)
+        for evidence in numbered_evidence(evidence_rows):
             with st.expander(evidence["title"]):
                 st.markdown(plain_tildes(evidence["body"]))
 
