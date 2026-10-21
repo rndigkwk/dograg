@@ -19,7 +19,7 @@
 - ~~관련도 임계값이 없어서, 범위 밖 질문에도 근거 k건이 붙는다.~~ 2026-10-19 #216: 가장 가까운 상담의 유사도가 0.4 아래면 근거 평가 없이 보류한다. 돌봄 지침은 0.52 이상만 붙인다(#246)([safety-and-evidence.md](safety-and-evidence.md)).
 - ~~BM25 색인 구축이 앱 콜드 스타트를 수 분 늦춘다.~~ 2026-10-05 토큰 캐시와 백그라운드 워밍업으로 해결. 로컬 첫 질문 165초 이상 → 8초([deployment-resources.md](deployment-resources.md)).
 - RRF 동점(검증 질문의 79%에서 상위 4건 안에 발생)을 운영 코드가 문서 ID 문자열 순으로 처리한다. 사실상 임의 순서다. BM25 우선이 holdout에서 순증 2문항으로 약간 낫다([retrieval-experiments.md](retrieval-experiments.md) 실험 4). → 2026-10-20 운영 순위로 다시 쟀다: 키워드 순위 우선이 지금 규칙보다 나빠 그대로 둔다. 운영 건강 검색은 키워드 쪽 없이 의미 검색만 쓰게 되어 동점이 생기지 않는다([retrieval-experiments.md](retrieval-experiments.md) "운영 건강 검색의 키워드 쪽").
-- 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다. → 2026-10-20 Cohere rerank-v3.5로 쟀다: useful@3 0.80으로 지금 운영 검색(의미 검색만, 0.84)보다 낮아 채택하지 않았다([retrieval-experiments.md](retrieval-experiments.md) "리랭킹 API").
+- 정답이 후보 풀(Dense 12 + BM25 12)에 있는데 상위 3건에 못 드는 문항이 196개다. 리랭킹 후보 과제다. → 2026-10-20 Cohere rerank-v3.5로 쟀다: useful@3 0.80으로 지금 운영 검색(의미 검색만, 0.84)보다 낮아 채택하지 않았다([retrieval-experiments.md](retrieval-experiments.md) "리랭킹 API"). 2026-10-21 지금 후보에 GPU 리랭커(bge-reranker-v2-m3)를 붙여도 `기타` 0.79 → 0.78, CPU 질문당 11.7초로 채택하지 않았다("GPU 리랭커").
 - ~~기본 관리 질문 30개 중 7개는 핵심을 답하지 못한다(2026-10-10).~~ **2026-10-19 공공 돌봄 지침 5종을 넣어 26/30이 핵심을 답한다([data.md](data.md#돌봄-지침-2026-10-19)).** 남은 것: 빗질 주기(공개 자료 없음), 귀 청소 방법. 아래는 당시 기록이다. 대부분 자료 구성이 원인이다. 일상 관리 사실이 다른 상담의 답변 속에만 있거나 아예 없다. 답변 글 검색이나 공개 관리 지침 추가를 검토할 만하다([retrieval-experiments.md](retrieval-experiments.md) "기본 관리 질문 30개"). 답의 첫 문장이 "자료에 없다"로 시작하던 문제는 2026-10-12에 프롬프트로 고쳤다([safety-and-evidence.md](safety-and-evidence.md) "아는 것을 먼저"). 자료에 없는 사실 자체는 그대로다.
 - 건강 컬렉션(ko-sroberta)과 보고서 컬렉션(bge-m3)의 임베딩 모델이 다르다. 건강 컬렉션도 bge-m3로 바꿀 때의 효과는 측정하지 않았다.
 

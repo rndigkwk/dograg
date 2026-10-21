@@ -26,5 +26,6 @@
 - **다시 검토할 조건:**
   - 앱이 Cloud Run(2GiB)만 쓰게 되거나, 외부 리랭크 API를 쓸 수 있게 될 때(질문이 외부로 나감, 비용)
   - 한국어로 학습된 가벼운 리랭커(수백 MB 이하, 상업 사용 가능)가 나올 때. 같은 100문항으로 잰다.
+    - 2026-10-21: 배포 제약을 두지 않고 GPU에서 `bge-reranker-v2-m3`·`-ko`를 지금 운영 검색 후보에 붙였다. 검증 100 0.84 → 0.86(p=0.63), `기타` 0.79 → 0.78, CPU 1스레드 질문당 11.7초. **결정은 그대로다**([wiki](../wiki/retrieval-experiments.md) "GPU 리랭커").
 
 **기록:** [wiki/retrieval-experiments.md](../wiki/retrieval-experiments.md) 실험 9·11, [improvement-log.md](../improvement-log.md) 7절
