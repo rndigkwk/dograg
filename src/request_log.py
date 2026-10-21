@@ -27,7 +27,7 @@ from src import data_gaps
 
 logger = logging.getLogger("ragdog.requests")
 # The keys a summary may take from the last event's data: decided by the app, never text.
-RESULT_KEYS = ("route", "trace_id", "search", "degraded", "abstained", "status", "passed", "round")
+RESULT_KEYS = ("route", "trace_id", "search", "degraded", "abstained", "status", "passed", "round", "guards")
 CONFIGURED_MARK = "_ragdog_json"
 
 

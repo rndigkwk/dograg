@@ -20,7 +20,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from src import model_outage, resources, tracing
+from src import guardrails, model_outage, resources, tracing
 from src.crag import (
     HEALTH_CANDIDATE_K,
     MAX_REWRITES,
@@ -522,6 +522,9 @@ def run_chat(
             error, failure = type(exc).__name__, exc
             raise
         finally:
+            if error is None:
+                # Checks on the way out, whatever route answered: crisis lines, links (src/guardrails.py).
+                state = guardrails.apply_output_guards(question, state)
             record = _run_record(fingerprint, crag, crag_reports, started, error, state if error is None else None, usage)
             # The degraded answers (docs/adr/0007, 0011): counted in Langfuse as WARNING traces.
             record.update(search_fallback=resources.search_on_fallback(),
@@ -537,5 +540,5 @@ def run_chat(
         "abstained": state.get("abstained", False),
         "trace_id": chat_trace.trace_id,
         "decision": state.get("decision") or None,  # CRAG grade: correct, ambiguous or incorrect
-        "guards": state.get("guards", []),  # what changed the answer: src/citations.py checks
+        "guards": state.get("guards", []),  # what changed the answer: citations (src/citations.py), crisis and links (src/guardrails.py)
     }

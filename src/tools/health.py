@@ -16,6 +16,7 @@ from src.health_answers import attach_health_answers
 from src.health_safety import detect_urgent_sign
 from src.tools import history
 from src.tools import profile as pet_profile
+from src.untrusted import drop_instructed, has_hidden_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -297,7 +298,8 @@ def retrieve_health(search_query, k=DEFAULT_RAG_TOP_K, filters=None):
         top_k=k,
         where=build_metadata_filter({key: value for key, value in (filters or {}).items() if key in SEARCH_FILTER_KEYS}),
     )
-    return attach_health_answers(retrieved_docs, resources.load_health_answer_table())
+    # The retrieval rail: a consultation carrying an instruction for the bot is dropped (src/untrusted.py).
+    return drop_instructed(attach_health_answers(retrieved_docs, resources.load_health_answer_table()), "consultation")
 
 
 NOTES_MAX_CHARS = 1500  # the five latest notes the browser sends (ADR-0009)
@@ -312,6 +314,8 @@ def notes_context(notes, today: date | None = None) -> str:
     today = today or date.today()
     lines, used = [], 0
     for note in notes:
+        if has_hidden_instruction(note.text):  # a note telling the bot what to do is not a note (src/untrusted.py)
+            continue
         when = date.fromisoformat(note.date)
         days = (today - when).days
         # The age is written out: given only dates, the model called a week-old note old and an

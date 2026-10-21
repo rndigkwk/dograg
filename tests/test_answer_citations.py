@@ -86,6 +86,12 @@ class FixTests(unittest.TestCase):
         self.assertEqual(answer, "병원에 가세요.")
         self.assertEqual(done, [health.CITATION_FIXED, health.CITATION_DROPPED])
 
+    def test_the_output_guards_keep_the_citation_record(self):
+        from src import guardrails
+
+        result = guardrails.apply_output_guards("나도 죽고 싶어요", {"answer": "답", "guards": [health.CITATION_FIXED]})
+        self.assertEqual(result["guards"], [health.CITATION_FIXED, guardrails.CRISIS])
+
     def test_the_rule_is_in_the_answer_prompt(self):
         prompt = health.RAG_PROMPT.messages[0].prompt.template
         self.assertIn("[사례 1], [지침 2]처럼 붙이세요", prompt)
