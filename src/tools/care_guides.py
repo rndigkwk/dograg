@@ -18,6 +18,7 @@ import numpy as np
 from langchain_core.documents import Document
 
 from src import resources, settings
+from src.untrusted import drop_instructed
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def retrieve_care_guides(query: str, k: int = GUIDE_K) -> list[Document]:
             "organization": chunk["organization"], "url": chunk["url"], "piece": chunk["text"],
             "similarity": round(float(scores[index]), 3),
         }))
-    return docs
+    return drop_instructed(docs, "care guide")  # the retrieval rail (src/untrusted.py)
 
 
 def is_guide(doc) -> bool:

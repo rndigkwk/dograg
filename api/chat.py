@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field, field_validator
 from src import (
     auth,
     data_gaps,
+    guardrails,
     model_outage,
     rate_limit,
     request_log,
@@ -160,7 +161,10 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     if not decision.allowed:
         if notice := detect_urgent_sign(body.question):
             yield urgent_event(notice, body.location)
-        yield event("limited", {"message": rate_limit.message(decision), "wait_minutes": decision.wait_minutes})
+        message = rate_limit.message(decision)
+        if guardrails.is_crisis(body.question):  # over the limit, the crisis lines still come first
+            message = guardrails.with_crisis_notice(message)
+        yield event("limited", {"message": message, "wait_minutes": decision.wait_minutes})
         return
 
     memory = body.memory.model_dump()
@@ -202,7 +206,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     while (item := events.get()) is not None:
         yield item
     if outcome.get("quota"):
-        yield event("result", {**model_outage.search_only_result(body.question, body.top_k), "memory": memory})
+        degraded = guardrails.apply_output_guards(body.question, model_outage.search_only_result(body.question, body.top_k))
+        yield event("result", {**degraded, "memory": memory})
         return
     if outcome.get("error"):
         yield event("error", {"message": FAILED})
@@ -215,7 +220,7 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
         "answer": result["answer"], "route": result["route"],
         "evidence_rows": result.get("evidence_rows", []), "hospital_rows": result.get("hospital_rows", []),
         "safety_notice": result.get("safety_notice") or notice, "abstained": result.get("abstained", False),
-        "trace_id": result.get("trace_id"), "memory": memory, **fallback,
+        "trace_id": result.get("trace_id"), "memory": memory, "guards": result.get("guards", []), **fallback,
     })
     if body.suggest_memory and result["route"] == "rag":
         yield from memory_event(body)
