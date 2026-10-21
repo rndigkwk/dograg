@@ -88,6 +88,7 @@ class ChatState(TypedDict, total=False):
     answer: str
     evidence_rows: list
     safety_notice: str | None
+    guards: list  # the checks that changed the answer (citations here; crisis and links in src/guardrails.py)
     hospital_rows: list
     abstained: bool
     # day54: a question that describes a symptom and asks for places runs both paths
@@ -280,6 +281,21 @@ def build_chat_graph(tools):
             "documents": merge_documents(state.get("documents", []), [*found, *guides]),
         }
 
+    def _check_citations(state: ChatState, question: str, docs: list, answer: str) -> tuple[str, list]:
+        # The numbers the answer may repeat without a citation: the dog's profile, the notes, the conversation.
+        from src.tools.history import format_chat_history
+        from src.tools.profile import profile_context
+
+        context = "\n".join([
+            profile_context(state.get("pet_profile")) if state.get("pet_profile") else "",
+            "\n".join(getattr(note, "text", "") for note in state.get("notes") or []),
+            format_chat_history(state.get("chat_history")),
+        ])
+        try:
+            return tools.check_citations(question, docs, answer, context)
+        except AttributeError:  # a toolset without it (tests): the answer as written
+            return answer, []
+
     def _care_guides(query: str) -> list:
         try:
             return tools.retrieve_care_guides(query)
@@ -342,7 +358,9 @@ def build_chat_graph(tools):
             question, docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
             profile=state.get("pet_profile"), notes=state.get("notes"),
         )
+        answer, guards = _check_citations(state, question, docs, answer)
         return {
+            "guards": [*state.get("guards", []), *guards],
             "answer": with_places(answer, state),
             "evidence_rows": [doc.metadata for doc in docs],
             "safety_notice": tools.detect_urgent_sign(state["question"]),
@@ -452,6 +470,7 @@ def _run_record(fingerprint, crag, crag_reports, started, error, state, usage) -
             guide_count=sum(row.get("kind") == "care_guide" for row in state.get("evidence_rows") or []),
             trace=state.get("trace", []),
             token_usage=summarize_usage(usage.usage_metadata),
+            guards=state.get("guards", []),
         )
     return record
 
@@ -518,4 +537,5 @@ def run_chat(
         "abstained": state.get("abstained", False),
         "trace_id": chat_trace.trace_id,
         "decision": state.get("decision") or None,  # CRAG grade: correct, ambiguous or incorrect
+        "guards": state.get("guards", []),  # what changed the answer: src/citations.py checks
     }

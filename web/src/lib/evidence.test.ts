@@ -5,7 +5,7 @@ import { consultation, EXCERPT_PREVIEW_CHARS, guide, isGuide, reportPage } from 
 describe("consultation", () => {
   it("labels a consultation by its metadata, with dashes for what is missing", () => {
     expect(consultation({ "meta.lifeCycle": "성견", "meta.disease": "장염", "qa.output": "수액 치료를 합니다" }, 0)).toEqual({
-      title: "1. 성견 / - / 장염",
+      title: "사례 1 · 성견 / - / 장염",
       answer: "수액 치료를 합니다",
     });
   });

@@ -5,11 +5,12 @@ export type Row = Record<string, unknown>;
 
 const text = (value: unknown): string => (value === undefined || value === null ? "" : String(value));
 
-/** A health answer's evidence: a vet consultation, labelled by life stage, department, disease. */
+/** A health answer's evidence: a vet consultation, labelled by life stage, department, disease.
+ * "사례 n" is the number the answer cites ([사례 n], src/citations.py). */
 export function consultation(row: Row, index: number): { title: string; answer: string } {
   const pick = (...keys: string[]) => keys.map((key) => text(row[key])).find(Boolean) || "-";
   return {
-    title: `${index + 1}. ${pick("meta.lifeCycle", "lifeCycle")} / ${pick("meta.department", "department")} / ${pick("meta.disease", "disease")}`,
+    title: `사례 ${index + 1} · ${pick("meta.lifeCycle", "lifeCycle")} / ${pick("meta.department", "department")} / ${pick("meta.disease", "disease")}`,
     answer: text(row["qa.output"]) || text(row.answer),
   };
 }
