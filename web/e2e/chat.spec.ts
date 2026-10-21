@@ -26,7 +26,7 @@ test("a question streams into an answer with evidence and feedback", async ({ pa
 
   await expect(conversation(page).getByText("설사가 이틀 넘게 계속되면 병원에 가세요.", { exact: false })).toBeVisible();
   await expect(page.getByText("5~10%", { exact: false })).toBeVisible(); // a range, not strikethrough
-  await page.getByText("1. 성견 / 내과 / 장염").click();
+  await page.getByText("사례 1 · 성견 / 내과 / 장염").click();
   await expect(page.getByText("수액 치료를 합니다.")).toBeVisible();
 
   await page.getByRole("button", { name: "아쉬워요" }).click();
@@ -61,7 +61,7 @@ test("a care guide shows among the evidence with its source and link", async ({ 
   await expect(page.getByText("반려견의 발톱은 2~3주 주기로 한 번씩 손질해 주며")).toBeVisible();
   await expect(page.getByText(/출처: 농림수산식품교육문화정보원 동물사랑배움터/)).toBeVisible();
   await expect(page.getByRole("link", { name: "원문 보기" })).toHaveAttribute("href", /apms\.epis\.or\.kr.*idx=1454/);
-  await expect(page.getByText("1. 성견 / 외과 / 기타")).toBeVisible(); // the consultation keeps its own number
+  await expect(page.getByText("사례 1 · 성견 / 외과 / 기타")).toBeVisible(); // the consultation keeps its own number
 });
 
 test("an urgent warning comes before the answer, with the nearest hospitals", async ({ page, context }) => {
