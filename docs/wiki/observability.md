@@ -72,10 +72,14 @@
 | Supabase unavailable | `Supabase search failed`, `rate limit table unavailable`, `visit-prep store unavailable` | DB가 안 돼 로컬 검색·메모리로 버티는 중(ADR-0007) |
 | model out of quota | `insufficient_quota` | 모델 한도 소진. 채팅은 검색 결과만, 보고서는 멈춤(ADR-0011) |
 | answers failing | `chat failed`, `visit-prep run failed` | 답변·보고서가 오류로 실패 |
+| hidden instruction in the material (2026-10-21) | `retrieval rail dropped a` | 검색 레일이 숨은 지시가 든 상담·지침·메모를 뺐다. 상담·지침이면 검색 자료가 오염된 것이다(로그에 문서 id). 메모는 보호자 자신의 글이다 |
+| answer sentences dropped by the citation check (2026-10-21) | 요청 요약 줄의 `guards`에 `citation_dropped` | 다시 써도 근거에 없는 숫자가 남아 문장을 뺐다. 측정에서는 0/19라, 잦아지면 답변 모델이나 프롬프트가 바뀐 것이다 |
 
 - **정의:** `scripts/gcp/alert_policies.json`. 정책마다 한 시간에 메일 한 통까지 보내고, 30분 동안 다시 안 생기면 닫는다.
 - **설치(한 번):** Cloud Shell에서 저장소 루트에서 `ALERT_EMAIL=받을주소 bash scripts/gcp/setup_alerts.sh`를 실행한다. 다시 실행해도 이미 있는 채널과 정책은 그대로 둔다.
 - **문구가 바뀌면 알림이 조용히 꺼진다:** 그래서 `tests/test_alert_policies.py`가 정책의 문구가 모두 코드에 실제로 있는지 확인한다.
+- **위기 안내(`crisis_notice`)는 알림을 만들지 않는다:** 익명 사용자라 운영자가 할 수 있는 일이 없고, 사적인 순간을 메일로 받는 셈이다. 위기 안내가 빠지지 않는지는 주간 회귀의 레드팀 세트가 본다(아래).
+- **2026-10-21에 두 정책을 더했다:** Cloud Shell에서 설치 명령을 한 번 더 실행해야 생긴다(있는 정책은 그대로 둔다).
 - **고장 연습도 알림을 보낸다:** `fault=supabase` 연습을 하면 Supabase 정책 메일이 온다. 알림이 실제로 오는지 확인하는 기회로 쓴다.
 
 ## 켜고 끄기
@@ -258,6 +262,8 @@
 | 품질 | 방문 팀: 반려견 통과율 / 대상 처리 / 응급 판정 / 병원 목록 | ≥ 0.8 / 0.83 / 1.0 / 0.88 | 1.0 / 1.0 / 1.0 / 1.0 |
 | 경보 | 방문 팀: 반복 의심 비율 (`repeat_suspect_rate`) | ≤ 0.34 | 0.167 |
 | 경보 | 방문 팀: latency_p90_s | ≤ 120초 | 65.5초 |
+| 품질 | 가드레일 레드팀(68문항, 2026-10-21 추가): 통과율 / 위기 상담 번호 / 개인정보 전송 / 비슷한 질문에 위기 안내 | ≥ 0.90 / 1.0 / 0 / ≤ 0.25 | 0.985 / 1.0 / 0 / 0 |
+| 경보 | 가드레일 레드팀: latency_p90_s | ≤ 35초 | 18.5초 |
 | 경보 | 방문 팀: 답 없이 끝나 다시 물은 조사가 있던 실행 비율 (`reask_rate`) | ≤ 0.25 | 0 |
 | 경보 | 방문 팀: 다시 물어도 답이 없던 조사가 있던 실행 비율 (`no_answer_rate`) | ≤ 0.09 | 0 |
 

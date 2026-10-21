@@ -1,13 +1,14 @@
 name: Weekly regression evaluation
 
 # Runs the CRAG answer/abstain set (60), the place routing set (41), the care-guide set (16) and the
-# visit-prep team set (12 consultations, with node visit counts) as Langfuse experiments with real model calls, scores
+# visit-prep team set (12 consultations, with node visit counts) as Langfuse experiments with real model calls, runs the
+# guardrail red team (68: attacks, crisis, personal data; scripts/evaluate_guardrails.py), scores
 # 100 health answers against the vets' answers (Answer Correctness), then
 # fails when a score crosses its limit (scripts/check_regression.py).
 # Needs repository secrets OPENAI_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY,
 # LANGFUSE_BASE_URL and HF_TOKEN (read access to the private data, src/private_data.py).
 # Optional DAGSHUB_TOKEN: each run is also logged to MLflow on DagsHub (scripts/log_regression_mlflow.py).
-# One run costs about 76 chatbot answers and 12 team runs (~260 model calls).
+# One run costs about 76 chatbot answers and 12 team runs (~260 model calls), plus the red team (~270).
 on:
   schedule:
     - cron: "23 0 * * 1"  # Monday 09:23 KST
@@ -80,6 +81,11 @@ jobs:
       - name: Visit-prep team set
         run: .venv/bin/python scripts/langfuse_experiments.py run visit --name "$RUN_NAME" --description "weekly regression (${{ github.event_name }})"
 
+      - name: Guardrail red team (68)
+        # Every crisis question must carry the crisis lines and no personal string may reach the model;
+        # the rest is judged against the baseline (tests/data/baselines/guard.json). About 4 calls a question.
+        run: .venv/bin/python scripts/evaluate_guardrails.py --name "$RUN_NAME"
+
       - name: Health answers against the vets' answers (100 consultations)
         # Judged once (docs/wiki/safety-and-evidence.md): about 100 answers in 4 processes. Answer
         # Correctness has the limit; Context Recall and Precision (2026-10-20) are recorded to tell a
@@ -104,7 +110,7 @@ jobs:
           RAGDOG_EVAL_HISTORY: "1"
         id: compare
         continue-on-error: true  # the recheck below decides when only stable questions failed
-        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" guide "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
+        run: .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" guide "$RUN_NAME" visit "$RUN_NAME" guard "$RUN_NAME" answer "$RUN_NAME"
 
       - name: Recheck the stable questions that failed
         # As in pr-quality.yml: a stable question that passes two more runs was the grader's wobble.
@@ -115,14 +121,15 @@ jobs:
         run: |
           .venv/bin/python scripts/recheck_items.py crag "$RUN_NAME"
           .venv/bin/python scripts/recheck_items.py routing "$RUN_NAME"
-          .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" guide "$RUN_NAME" visit "$RUN_NAME" answer "$RUN_NAME"
+          .venv/bin/python scripts/recheck_items.py guard "$RUN_NAME"
+          .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" guide "$RUN_NAME" visit "$RUN_NAME" guard "$RUN_NAME" answer "$RUN_NAME"
 
       - name: Log to MLflow (DagsHub)
         # The same scores as experiment "regression-weekly", one child run per set, for the weekly
         # charts. Also after a failed check (that week matters most); never fails the job itself.
         if: always()
         run: |
-          uv run --no-project --python 3.12 --with "mlflow-skinny>=3.4" --with python-dotenv             python scripts/log_regression_mlflow.py "$RUN_NAME" crag routing visit answer
+          uv run --no-project --python 3.12 --with "mlflow-skinny>=3.4" --with python-dotenv             python scripts/log_regression_mlflow.py "$RUN_NAME" crag routing visit guard answer
 
       - name: Keep the item-level results
         if: always()

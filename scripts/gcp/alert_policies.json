@@ -15,6 +15,16 @@
       "displayName": "RagDog: answers failing",
       "documentation": "A chat answer or a visit-prep report failed with an error (api/chat.py, api/visit_prep.py). Open the log entry for the exception and the Langfuse trace of that time.",
       "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"ragdog-api\" AND (\"chat failed\" OR \"visit-prep run failed\")"
+    },
+    {
+      "displayName": "RagDog: hidden instruction in the material",
+      "documentation": "The retrieval rail (src/untrusted.py) dropped a consultation, care guide or note with an instruction aimed at the model. A consultation or guide means the search material itself carries an injection: find the document id in the log line and check the data revision. A note is the guardian's own text (docs/security/threat-model.md).",
+      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=(\"ragdog-api\" OR \"ragdog\") AND \"retrieval rail dropped a\""
+    },
+    {
+      "displayName": "RagDog: answer sentences dropped by the citation check",
+      "documentation": "A health answer still had a number in none of its evidence after one rewrite, so the citation check cut those sentences (src/citations.py, docs/wiki/safety-and-evidence.md). 0 of 19 in the measurement: a burst means the answer model or the prompt changed. Open the Langfuse trace by the trace_id in the log line.",
+      "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"ragdog-api\" AND jsonPayload.logger=\"ragdog.requests\" AND jsonPayload.guards:\"citation_dropped\""
     }
   ]
 }

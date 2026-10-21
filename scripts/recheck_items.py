@@ -11,7 +11,8 @@ counted as a wobble, one that fails again as a regression.
 Why: the baseline calls a question stable when it passed all three baseline runs, yet the evidence
 grader's own verdict wobbles. On #218 two runs of unchanged code each failed one different stable
 question (r20, then u20), which passed when asked again. A real regression fails again.
-Costs: a crag question is one chat run (2-4 model calls); a routing question at most one call.
+Costs: a crag question is one chat run (2-4 model calls); a routing question at most one call; a
+guard question one chat run and one judge call.
 """
 
 from __future__ import annotations
@@ -30,11 +31,19 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 
 RESULTS_DIR = PROJECT_DIR / "output" / "experiments"
 QUESTION_FILES = {"crag": PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json",
-                  "routing": PROJECT_DIR / "tests" / "data" / "place_routing_questions.json"}
+                  "routing": PROJECT_DIR / "tests" / "data" / "place_routing_questions.json",
+                  "guard": PROJECT_DIR / "tests" / "data" / "guardrail_questions.json"}
+_GUARD_RUNNER = []  # the app and its judge, loaded once for the guard set
 
 
 def passes(set_name: str, item: dict) -> bool:
     """One run of the app on one question, scored as scripts/langfuse_experiments.py scores it."""
+    if set_name == "guard":  # scripts/evaluate_guardrails.py: the judge and the rule checks
+        import evaluate_guardrails
+
+        if not _GUARD_RUNNER:
+            _GUARD_RUNNER.append(evaluate_guardrails.load_runner())
+        return evaluate_guardrails.run_item(_GUARD_RUNNER[0], item)["ok"]
     if set_name == "crag":
         from evaluate_crag import outcome
 
