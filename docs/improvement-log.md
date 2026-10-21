@@ -100,6 +100,8 @@
 | [#64](https://github.com/rndigkwk/dograg/pull/64) | 챗봇 Self-RAG (day53) | 충실도 0.927 → 0.941(판정 흔들림 안), 시간 p50 8.5 → **16.1초** | 기본 꺼짐 (설정으로 켤 수 있음) |
 | [#40](https://github.com/rndigkwk/dograg/pull/40) | 긴 질문을 줄여 검색 | 효과 없음 | 미적용 (필터 제거만 적용) |
 | [#88](https://github.com/rndigkwk/dograg/pull/88) | CRAG 검색 후보 5 → 8 | 기본 관리 20/3/7 그대로, 토큰 +19~24% | 5 유지 |
+| [#265](https://github.com/rndigkwk/dograg/pull/265) | GPU 리랭커(bge-reranker-v2-m3)를 운영 검색 후보에 | `기타` useful@3 0.79 → 0.78, 검증 100 0.84 → 0.86(p=0.63), CPU 질문당 **11.7초** | 미적용 |
+| [#269](https://github.com/rndigkwk/dograg/pull/269) | 하드 네거티브로 임베딩 재학습(Day 74) | 짧은 질문 useful@3 0.80 → 0.742(p=0.09), 긴 상담 0.85 → 0.87(p=0.69) | 미적용, B 유지 |
 
 ## 8. 측정 방법 자체를 고친 경우
 
