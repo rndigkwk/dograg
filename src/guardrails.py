@@ -68,8 +68,8 @@ def strip_foreign_links(answer: str, allowed_hosts: set[str]) -> tuple[str, bool
 
 def apply_output_guards(question: str, result: dict) -> dict:
     """The result with the crisis lines in front when the question needs them and foreign links
-    removed; result["guards"] names what fired."""
-    guards = []
+    removed; result["guards"] names what fired, after what earlier checks named (citations)."""
+    guards = list(result.get("guards") or [])
     answer, removed = strip_foreign_links(result.get("answer", ""),
                                           material_hosts(result.get("hospital_rows"), result.get("evidence_rows")))
     if removed:

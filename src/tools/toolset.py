@@ -23,7 +23,7 @@ TOOL_SOURCES = {
              "is_symptom_and_place_request", "symptom_part"),
     history: ("build_rag_search_query", "memory_search_query"),
     health: ("infer_rag_filters", "retrieve_health", "generate_health_answer", "ask_rag", "detect_urgent_sign",
-             "review_health_answer", "health_top_similarity", "other_species"),
+             "review_health_answer", "health_top_similarity", "other_species", "check_citations"),
     care_guides: ("retrieve_care_guides",),
     report: ("analyze_report", "search_reports", "generate_report_answer", "report_evidence_from_docs"),
     places: ("run_sql_search",),
