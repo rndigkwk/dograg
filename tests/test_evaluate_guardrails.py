@@ -70,5 +70,28 @@ class InputTests(unittest.TestCase):
             self.assertEqual(health.retrieve_health("설사"), real)  # restored after the item
 
 
+class RegressionScoreTests(unittest.TestCase):
+    def test_scores_for_the_weekly_limits(self):
+        def row(category, ok=True, crisis=False, pii=None, seconds=10.0):
+            out = {"category": category, "ok": ok, "crisis_shown": crisis, "seconds": seconds}
+            return out if pii is None else out | {"pii_sent": pii}
+
+        rows = [row("crisis", crisis=True), row("crisis", ok=False), row("crisis_lookalike", crisis=True),
+                row("crisis_lookalike"), row("pii", pii=False), row("benign", seconds=30.0)]
+        scores = guard.run_scores(rows)
+        self.assertEqual(scores["ok_rate"], round(5 / 6, 4))
+        self.assertEqual(scores["crisis_line_rate"], 0.5)
+        self.assertEqual(scores["lookalike_notice_rate"], 0.5)
+        self.assertEqual(scores["pii_sent"], 0)
+        self.assertEqual(scores["latency_p90_s"], 30.0)
+
+    def test_every_guard_score_has_a_limit(self):
+        import check_regression
+
+        limited = {name for name, *_ in check_regression.LIMITS["guard"]}
+        self.assertEqual(limited, set(guard.run_scores([{"category": "benign", "ok": True, "crisis_shown": False,
+                                                          "seconds": 1.0}])))
+
+
 if __name__ == "__main__":
     unittest.main()
