@@ -48,6 +48,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 
+from claude_judge import DEFAULT_MODEL as CLAUDE_MODEL
+from claude_judge import Refused
+
 CELLS_PATH = PROJECT_DIR / "tests" / "data" / "judge_validation.json"
 OUT_DIR = PROJECT_DIR / "output" / "judge_validation"
 ANSWER_DIR = PROJECT_DIR / "output" / "experiments"
@@ -55,7 +58,11 @@ SEED = 20261015
 RELEVANCE_PER_GRADE = 16
 RELEVANCE_TOP = 6
 ANSWERS_PER_THIRD = 10
-OTHER_MODEL = "gpt-4.1"  # another generation of OpenAI model; the only provider key the project has
+OTHER_MODEL = "gpt-4.1"  # another generation of OpenAI model (the only provider key until 2026-10-22)
+EFFORT_DIR = PROJECT_DIR / "output" / "answer_effort"  # scripts/answer_effort_sheet.py
+LATENCY_DIR = PROJECT_DIR / "output" / "latency"
+PAIR_CRITERION = ("보호자에게 더 도움이 되는 답: 질문에 맞는 구체적인 정보와 대처를 주고, 틀린 내용이 없고, 근거 없이 단정하지 않으며, "
+                  "읽기 쉽다. 같은 수준이면 tie.")
 WORKERS = 8
 
 ANSWER_CRITERION = (
@@ -258,6 +265,10 @@ def write_sheet(cells: dict) -> Path:
 # --- judges ----------------------------------------------------------------------------------
 
 def chat_model(name: str, schema):
+    if name.startswith("claude-"):  # another family (scripts/claude_judge.py), same call shape
+        from claude_judge import StructuredClaude
+
+        return StructuredClaude(schema, name)
     from langchain_openai import ChatOpenAI
 
     from src import settings
@@ -281,7 +292,10 @@ def relevance_grades(model_name: str, cells: dict, reverse: bool = False) -> dic
             ids = ids[::-1]
         docs = [SimpleNamespace(id=d, page_content=df.loc[int(d), "qa.input"],
                                 metadata={"qa.output": df.loc[int(d), "qa.output"]}) for d in ids]
-        return judge(model, str(val.loc[int(cell["row"]), "qa.input"]), docs).get(cell["doc"])
+        try:
+            return judge(model, str(val.loc[int(cell["row"]), "qa.input"]), docs).get(cell["doc"])
+        except Refused:
+            return None  # counted like a missing grade
 
     with ThreadPoolExecutor(WORKERS) as pool:
         return dict(zip((c["id"] for c in cells["relevance"]), pool.map(one, cells["relevance"])))
@@ -293,12 +307,71 @@ def answer_verdicts(model_name: str, cells: dict) -> dict[str, dict]:
 
     def one(cell_id):
         t = texts[cell_id]
-        result = model.invoke([("system", ANSWER_JUDGE), ("user", f"평가 기준: {ANSWER_CRITERION}\n\n보호자 질문: {t['question']}\n\n"
-                                                                    f"수의사 답변(기준 답변): {t['reference']}\n\n앱 답변: {t['answer']}")])
+        try:
+            result = model.invoke([("system", ANSWER_JUDGE), ("user", f"평가 기준: {ANSWER_CRITERION}\n\n보호자 질문: {t['question']}\n\n"
+                                                                        f"수의사 답변(기준 답변): {t['reference']}\n\n앱 답변: {t['answer']}")])
+        except Refused as refusal:
+            return {"verdict": None, "reason": f"refused: {refusal}"}
         return {"verdict": result.verdict, "reason": result.reason}
 
     with ThreadPoolExecutor(WORKERS) as pool:
         return dict(zip(texts, pool.map(one, texts)))
+
+
+def run_claude(model_name: str) -> dict:
+    """The same relevance and answer judges on Claude, next to the earlier judges in judges.json
+    (one entry per Claude model, under its name)."""
+    cells = load_cells()
+    judges = json.loads((OUT_DIR / "judges.json").read_text(encoding="utf-8"))
+    judges["relevance"][model_name] = relevance_grades(model_name, cells)
+    judges["answer"][model_name] = answer_verdicts(model_name, cells)
+    (OUT_DIR / "judges.json").write_text(json.dumps(judges, ensure_ascii=False, indent=1), encoding="utf-8")
+    return judges
+
+
+EFFORT_LABELS = PROJECT_DIR / "tests" / "data" / "answer_effort_labels.json"
+
+
+def effort_pairs(model_name: str) -> dict:
+    """The 22 answered pairs of the answer-effort comparison (2026-10-21, medium vs low) judged by a
+    model in both orders, against the person's blind read (tests/data/answer_effort_labels.json:
+    "medium", "low" or "same" per question). Two-way rule: a winner only when both orders agree."""
+    rows = {name: {r["id"]: r for r in json.loads((LATENCY_DIR / f"answer_{name}.json").read_text(encoding="utf-8"))["rows"]}
+            for name in ("default", "low")}
+    human = json.loads(EFFORT_LABELS.read_text(encoding="utf-8"))
+    questions = {item["id"]: item["question"]
+                 for item in json.loads((PROJECT_DIR / "tests" / "data" / "crag_eval_questions.json").read_text(encoding="utf-8"))["items"]}
+    model = chat_model(model_name, PairVerdict)
+
+    def ask(question, first, second):
+        try:
+            prompt = f"평가 기준: {PAIR_CRITERION}\n\n보호자 질문: {question}\n\n답 A: {first}\n\n답 B: {second}"
+            return model.invoke([("system", PAIR_JUDGE), ("user", prompt)]).winner
+        except Refused:
+            return "refused"
+
+    def one(qid):
+        medium, low = rows["default"][qid]["answer"], rows["low"][qid]["answer"]
+        forward = ask(questions[qid], medium, low)   # A = medium
+        backward = ask(questions[qid], low, medium)  # A = low
+        first = {"A": "medium", "B": "low"}.get(forward, "same")
+        second = {"A": "low", "B": "medium"}.get(backward, "same")
+        return {"forward": forward, "backward": backward, "judge": first if first == second else "same",
+                "human": human[qid]}
+
+    with ThreadPoolExecutor(WORKERS) as pool:
+        out = dict(zip(human, pool.map(one, human)))
+    agree = sum(r["judge"] == r["human"] for r in out.values())
+    summary = {"model": model_name, "pairs": len(out), "agreement_with_person": f"{agree}/{len(out)}",
+               "judge": {k: sum(r["judge"] == k for r in out.values()) for k in ("medium", "low", "same")},
+               "person": {k: sum(r["human"] == k for r in out.values()) for k in ("medium", "low", "same")},
+               "order_flips": sum(r["forward"] in ("A", "B") and r["backward"] in ("A", "B")
+                                  and {"A": "medium", "B": "low"}[r["forward"]] != {"A": "low", "B": "medium"}[r["backward"]]
+                                  for r in out.values())}
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / f"effort_pairs_{model_name}.json").write_text(json.dumps({"summary": summary, "pairs": out}, ensure_ascii=False, indent=1),
+                                                            encoding="utf-8")
+    return summary
 
 
 def run_judges(other: str) -> dict:
@@ -493,8 +566,10 @@ def score(labels: dict[str, str]) -> dict:
     out["relevance"]["always_useful"] = card([useful(x) for x in human], ["useful"] * len(human), "not useful")
     ans_ids = [c["id"] for c in cells["answer"] if c["id"] in labels]
     human = [labels[i] for i in ans_ids]
-    for name in ("app", "other"):
-        out["answer"][name] = card(human, [judges["answer"][name][i]["verdict"] for i in ans_ids], "fail")
+    for name in ("app", "other", *sorted(k for k in judges["answer"] if k.startswith("claude-"))):
+        verdicts = judges["answer"][name]
+        ids = [i for i in ans_ids if verdicts[i]["verdict"]]  # a refusal is no verdict
+        out["answer"][name] = card([labels[i] for i in ids], [verdicts[i]["verdict"] for i in ids], "fail")
     correctness = judges["answer"]["ragas_correctness"]
     for threshold in (0.25, 0.3, 0.35, 0.4):
         out["answer"][f"ragas>={threshold}"] = card(
@@ -530,8 +605,9 @@ def agreement_without_people() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score"))
+    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score", "claude", "pairs"))
     parser.add_argument("--other-model", default=OTHER_MODEL)
+    parser.add_argument("--claude-model", default=CLAUDE_MODEL, help="claude, pairs: the Claude model")
     parser.add_argument("--labels", type=Path, help="judge_labels.json saved from the labelling page")
     parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
@@ -539,7 +615,9 @@ def main() -> int:
 
     # judge: relevance 3 x 48 (one call per question's pool) + answers 2 x 30; bias: 30 answers x 3 pairs
     # x 2 orders x 2 judges; ragas-bias: 90 scores x about 3 calls
-    calls = {"judge": 3 * 48 + 2 * 30, "bias": 30 * 3 * 2 * 2, "ragas-bias": 90 * 3}.get(args.command, 0)
+    # claude: relevance 48 + answers 30 on Claude; pairs: 22 pairs x 2 orders
+    calls = {"judge": 3 * 48 + 2 * 30, "bias": 30 * 3 * 2 * 2, "ragas-bias": 90 * 3,
+             "claude": 48 + 30, "pairs": 22 * 2}.get(args.command, 0)
     if calls and not confirm(f"judge_validation {args.command}", calls, yes=args.yes):
         return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -557,6 +635,11 @@ def main() -> int:
     elif args.command == "ragas-bias":
         out = run_ragas_bias(os.getenv("OPENAI_EVAL_MODEL", "gpt-6-luna"))
         print(json.dumps({k: v for k, v in out.items() if k != "cells"}, ensure_ascii=False, indent=1))
+    elif args.command == "claude":
+        run_claude(args.claude_model)
+        print(json.dumps(agreement_without_people(), ensure_ascii=False, indent=1))
+    elif args.command == "pairs":
+        print(json.dumps(effort_pairs(args.claude_model), ensure_ascii=False, indent=1))
     elif args.command == "agree":
         print(json.dumps(agreement_without_people(), ensure_ascii=False, indent=1))
     elif args.command == "bias":
