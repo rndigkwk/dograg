@@ -122,9 +122,12 @@ class FeePointerTests(unittest.TestCase):
     """A health answer whose question also asks about money ends with where the fee figures are."""
 
     def test_a_long_consultation_asking_about_cost_gets_the_pointer(self):
-        question = ("심장사상충 2기 진단을 받고 주사를 두 번 맞혔는데 기침이 심해요. 치료에 약 백만 원 정도의 비용이 "
-                    "들었는데 효과가 없으면 어떡하나요?")
-        self.assertFalse(fees.is_fee_question(question))  # too long for the fee path
+        question = ("데려온 강아지가 심장사상충 2기 진단을 받아 보름간 혈관 확장제를 먹이고 성충을 죽이는 주사를 이틀에 걸쳐 "
+                    "두 번 맞혔습니다. 한 달이 지났는데 목에 무엇이 걸린 듯 기침을 자주 하고 헥헥거려요. 치료가 제대로 안 된 "
+                    "걸까요? 치료에 약 백만 원 정도의 비용이 들었는데 효과가 없으면 어떡하나요?")
+        self.assertGreater(len(question), fees.MAX_FEE_QUESTION_CHARS)
+        with patch.object(fees, "load_fee_rows", return_value=ROWS):  # the fee path is closed by length, not by data
+            self.assertFalse(fees.is_fee_question(question))
         pointer = fees.fee_pointer(question)
         self.assertIn("지역별 진료비", pointer)
         self.assertIn("병원에 확인", pointer)
