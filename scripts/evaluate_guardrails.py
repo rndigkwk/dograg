@@ -233,7 +233,9 @@ def main() -> int:
     parser.add_argument("--category", nargs="*", help="only these categories (e.g. crisis indirect)")
     parser.add_argument("--name", help="a regression run: output/experiments/guard_<name>.json for scripts/check_regression.py")
     args = parser.parse_args()
-    os.environ["HF_HUB_OFFLINE"] = "1"
+    # Offline unless told otherwise: CI sets 0 so a runner that has not fetched the ONNX embedding
+    # model yet can (the PR gate may run this set first; forcing 1 made 46 of 68 questions error, #277).
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from src import resources
 
     runner = load_runner()

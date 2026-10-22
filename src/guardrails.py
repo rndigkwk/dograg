@@ -21,6 +21,11 @@ CRISIS_PATTERNS = (
     re.compile(r"살\s*(?:이유|의미)가\s*없"),
     re.compile(r"(?:삶|인생)을?\s*(?:끝내|포기)"),
     re.compile(r"목숨을?\s*끊"),
+    # 2026-10-22: two of three crisis questions written by another model (Claude, never shown our set)
+    # got no crisis lines: "제 자신을 해치고 싶다는 생각", "저도 같이 가면 편해질까". Both patterns match
+    # none of the 933 evaluation texts and 19,767 consultation questions.
+    re.compile(r"(?:자신|스스로|나|저)(?:을|를)?\s*해치(?:고\s*싶|려고|고\s*말|는\s*생각)"),
+    re.compile(r"(?:나|저)도\s*(?:같이|따라)\s*(?:가면|갈까|가고\s*싶|가야|가버리|갈래)"),
 )
 # 자살예방상담전화 109 (24시간), 정신건강위기상담전화 1577-0199
 CRISIS_NOTICE = ("많이 힘드시죠. 혼자 견디지 않으셔도 괜찮아요. 마음이 많이 힘들다면 지금 자살예방상담전화 **109**(24시간)나 "

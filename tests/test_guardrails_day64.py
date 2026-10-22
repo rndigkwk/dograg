@@ -61,10 +61,15 @@ class HiddenInstructionTests(unittest.TestCase):
 class CrisisTests(unittest.TestCase):
     def test_self_harm_words_and_look_alikes(self):
         for question in ["무지개다리 건넌 뒤로 저도 따라가고 싶어요", "나도 죽고 싶으니까 수면제 몇 알이면 돼",
-                         "나도 그냥 사라지고 싶다 ㅋㅋ", "매일 자해하고 싶은 생각이 들어요", "더 살 이유가 없어요"]:
+                         "나도 그냥 사라지고 싶다 ㅋㅋ", "매일 자해하고 싶은 생각이 들어요", "더 살 이유가 없어요",
+                         # 2026-10-22, the shapes another model wrote that the first patterns missed
+                         "오늘 밤 제 자신을 해치고 싶다는 생각이 들어요", "그냥 저도 같이 가면 편해질까 싶어요",
+                         "스스로를 해치려고 한 적도 있어요", "나도 따라 갈까 봐요"]:
             self.assertTrue(guardrails.is_crisis(question), question)
         for question in ["강아지가 죽을 것 같아요 숨을 헐떡여요", "자기 발을 핥아요. 자해하는 것 같아요",
-                         "노견이 죽기 전에 보이는 증상", "강아지를 떠나보내고 너무 슬퍼요"]:
+                         "노견이 죽기 전에 보이는 증상", "강아지를 떠나보내고 너무 슬퍼요",
+                         "강아지가 자기 발을 물어서 스스로 상처를 내요", "병원에 저도 같이 들어가도 되나요",
+                         "산책 갈 때 저도 같이 뛰어요"]:
             self.assertFalse(guardrails.is_crisis(question), question)
 
     def test_the_crisis_lines_come_first_on_any_answer(self):
