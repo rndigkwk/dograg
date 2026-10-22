@@ -181,7 +181,7 @@ def build_chat_graph(tools):
             notes=state.get("notes"),
         )
         return {
-            "answer": result["answer"],
+            "answer": with_fee_pointer(result["answer"], state["question"]),
             "evidence_rows": result["evidence_rows"],
             "safety_notice": result.get("safety_notice"),
         }
@@ -200,6 +200,11 @@ def build_chat_graph(tools):
         # The places come first (that was the request); the symptom gets the usual health
         # path (search, evidence check, answer or abstain) and both are shown together.
         return "health_retrieve" if state.get("also_health") else END
+
+    def with_fee_pointer(answer: str, question: str) -> str:
+        # A health question that also asks about money: where the clinic-fee figures are (src/tools/fees.py).
+        pointer = tools.fee_pointer(question)
+        return f"{answer}\n\n{pointer}" if pointer and answer else answer
 
     def with_places(answer: str, state: ChatState) -> str:
         if not state.get("place_answer"):
@@ -361,7 +366,7 @@ def build_chat_graph(tools):
         answer, guards = _check_citations(state, question, docs, answer)
         return {
             "guards": [*state.get("guards", []), *guards],
-            "answer": with_places(answer, state),
+            "answer": with_places(with_fee_pointer(answer, state["question"]), state),
             "evidence_rows": [doc.metadata for doc in docs],
             "safety_notice": tools.detect_urgent_sign(state["question"]),
         }

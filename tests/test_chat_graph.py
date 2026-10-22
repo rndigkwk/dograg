@@ -38,6 +38,7 @@ def make_tools(route="rag", **overrides):
         is_date_question=lambda question: False,
         is_fee_question=lambda question: False,
         fee_answer=Mock(return_value="진료비 표"),
+        fee_pointer=lambda question: "",
         current_date_answer=lambda: "오늘",
         classify_question=lambda question, chat_history=None: route,
         build_rag_search_query=lambda question, history=None: question,
@@ -98,6 +99,14 @@ class CragOffTests(ChatGraphTestCase):
                 tools.retrieve_health.assert_not_called()
                 tools.review_evidence.assert_not_called()
                 self.assertEqual((result["route"], result["answer"]), (route, answer))
+
+    def test_a_health_answer_ends_with_the_fee_pointer_when_cost_is_asked(self):
+        for crag, answer in ((False, "기존 답변"), (True, "생성 답변")):
+            with self.subTest(crag=crag):
+                tools = make_tools("rag", fee_pointer=lambda question: "💰 진료비 안내" if "비용" in question else "")
+                result = self.run_chat(tools, question="구토 치료 비용도 궁금해요", crag=crag)
+                self.assertEqual(result["answer"], f"{answer}\n\n💰 진료비 안내")
+                self.assertEqual(self.run_chat(tools, crag=crag)["answer"], answer)
 
     def test_every_route_the_graph_returns_can_be_saved_as_a_turn(self):
         # The fee route reached the deployed app before the stored-turn model accepted it, and

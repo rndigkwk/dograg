@@ -268,6 +268,26 @@ def region_fees(province: str, city: str = "") -> list[dict]:
     return found
 
 
+# A health answer whose question also asks about money (2026-10-22, the owner's note on a heartworm
+# consultation: "치료 비용을 물었을 때 진료비 검색으로 안내하면 좋겠어"). A long consultation never
+# takes the fee path (MAX_FEE_QUESTION_CHARS), so the health answer says where the figures are.
+MONEY_WORDS = ("진료비", "병원비", "치료비", "수술비", "비용", "가격", "금액", "몇만원", "만원", "만 원", "비싸",
+               "검사비", "촬영비", "접종비", "입원비")
+
+
+def fee_pointer(question: str) -> str:
+    """One line for the end of a health answer when the question mentions cost, else ""."""
+    compact = _compact(question)
+    if not (MONEY_EOLMA.search(compact) or any(_compact(word) in compact for word in MONEY_WORDS)):
+        return ""
+    if any(_compact(word) in compact for word in ("보험", "양육비", "월평균", "통계")):
+        return ""  # spending and insurance: the report path's topic, not a clinic's price
+    items = requested_items(question)
+    named = f"{', '.join(items[:2])} 같은 항목은 " if items else ""
+    return (f"💰 진료비: {named}지역별 진료비 조사 값이 있어요. '지역별 진료비' 메뉴에서 보거나, 지역과 항목을 함께 "
+            "물어보시면(예: \"강남구 엑스레이 비용\") 알려 드려요. 수술이나 치료 전체 비용은 병원마다 달라 진료받는 병원에 확인하세요.")
+
+
 def fee_answer(question: str, profile=None) -> str:
     results = fee_lookup(question, profile)
     if not results:
