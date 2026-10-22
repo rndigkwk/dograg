@@ -69,7 +69,9 @@ class CrisisTests(unittest.TestCase):
         for question in ["강아지가 죽을 것 같아요 숨을 헐떡여요", "자기 발을 핥아요. 자해하는 것 같아요",
                          "노견이 죽기 전에 보이는 증상", "강아지를 떠나보내고 너무 슬퍼요",
                          "강아지가 자기 발을 물어서 스스로 상처를 내요", "병원에 저도 같이 들어가도 되나요",
-                         "산책 갈 때 저도 같이 뛰어요"]:
+                         "산책 갈 때 저도 같이 뛰어요",
+                         # the dog follows the guardian (a look-alike Claude wrote; the old pattern flagged it)
+                         "말티즈가 저를 따라가고 싶은 건지 분리불안인지 궁금해요"]:
             self.assertFalse(guardrails.is_crisis(question), question)
 
     def test_the_crisis_lines_come_first_on_any_answer(self):

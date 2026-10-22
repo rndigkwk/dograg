@@ -15,7 +15,9 @@ from __future__ import annotations
 import re
 
 CRISIS_PATTERNS = (
-    re.compile(r"(?:죽고|사라지고|따라\s*가고|끝내고)\s*싶"),
+    # Not after an object marker: "저를 따라가고 싶은 건지" is the dog following the guardian (a look-alike
+    # Claude wrote, 2026-10-22); the model check (src/crisis.py) reads the unclear ones.
+    re.compile(r"(?:죽고|사라지고|(?<!를)(?<!를\s)(?<!을)(?<!을\s)따라\s*가고|끝내고)\s*싶"),
     re.compile(r"자살"),
     re.compile(r"자해\s*(?:하고\s*싶|충동|생각|를?\s*했|하고\s*있)"),
     re.compile(r"살\s*(?:이유|의미)가\s*없"),
