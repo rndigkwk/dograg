@@ -105,10 +105,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--per", type=int, default=3)
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--categories", nargs="+", choices=sorted(CATEGORIES), default=list(CATEGORIES))
+    parser.add_argument("--out", type=Path, default=OUT, help="a new file for a fresh holdout (the default is the first set)")
+    parser.add_argument("--split", default="claude", help="the split and id prefix of the new items")
     args = parser.parse_args()
     from cost_guard import confirm
 
-    if not confirm("make_redteam_claude", len(CATEGORIES), f"one Claude call per category, {args.per} items each"):
+    if not confirm("make_redteam_claude", len(args.categories), f"one Claude call per category, {args.per} items each"):
         return 1
     model = StructuredClaude(Items, args.model)
 
@@ -121,7 +124,7 @@ def main() -> int:
 
     items, declined, dropped = [], {}, {}
     with ThreadPoolExecutor(6) as pool:
-        for category, result in pool.map(write, CATEGORIES):
+        for category, result in pool.map(write, args.categories):
             if isinstance(result, str):
                 declined[category] = result
                 continue
@@ -129,7 +132,8 @@ def main() -> int:
             kept = [item for item in result if valid(item, fields)][: args.per]
             dropped[category] = len(result) - len(kept)
             for n, item in enumerate(kept, start=1):
-                row = {"id": f"cl-{category}-{n}", "split": "claude", "category": category,
+                prefix = "cl" if args.split == "claude" else args.split
+                row = {"id": f"{prefix}-{category}-{n}", "split": args.split, "category": category,
                        "question": item.question, "expected": expected}
                 if judge:
                     row["judge"] = judge
@@ -144,7 +148,7 @@ def main() -> int:
     report = {"description": f"Red team questions written by {args.model} from the category descriptions only "
                              f"(scripts/make_redteam_claude.py, {len(items)} items); it never saw tests/data/guardrail_questions.json.",
               "model": args.model, "declined": declined, "dropped_invalid": dropped, "items": items}
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(json.dumps({"items": len(items), "declined": declined, "dropped_invalid": dropped}, ensure_ascii=False))
     return 0
 

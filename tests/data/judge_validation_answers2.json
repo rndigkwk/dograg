@@ -1,0 +1,182 @@
+[
+ {
+  "id": "b01",
+  "answer": "long-18",
+  "correctness": 0.195,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b02",
+  "answer": "long-44",
+  "correctness": 0.32,
+  "picked_for": "short"
+ },
+ {
+  "id": "b03",
+  "answer": "long-82",
+  "correctness": 0.148,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b04",
+  "answer": "long-59",
+  "correctness": 0.358,
+  "picked_for": "short"
+ },
+ {
+  "id": "b05",
+  "answer": "long-6",
+  "correctness": 0.381,
+  "picked_for": "short"
+ },
+ {
+  "id": "b06",
+  "answer": "long-63",
+  "correctness": 0.166,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b07",
+  "answer": "long-48",
+  "correctness": 0.226,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b08",
+  "answer": "long-22",
+  "correctness": 0.195,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b09",
+  "answer": "long-98",
+  "correctness": 0.137,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b10",
+  "answer": "long-69",
+  "correctness": 0.111,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b11",
+  "answer": "long-97",
+  "correctness": 0.174,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b12",
+  "answer": "long-2",
+  "correctness": 0.196,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b13",
+  "answer": "long-39",
+  "correctness": 0.16,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b14",
+  "answer": "long-45",
+  "correctness": 0.335,
+  "picked_for": "short"
+ },
+ {
+  "id": "b15",
+  "answer": "long-16",
+  "correctness": 0.256,
+  "picked_for": "short"
+ },
+ {
+  "id": "b16",
+  "answer": "long-10",
+  "correctness": 0.384,
+  "picked_for": "short"
+ },
+ {
+  "id": "b17",
+  "answer": "long-47",
+  "correctness": 0.257,
+  "picked_for": "short"
+ },
+ {
+  "id": "b18",
+  "answer": "long-19",
+  "correctness": 0.187,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b19",
+  "answer": "long-67",
+  "correctness": 0.231,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b20",
+  "answer": "long-52",
+  "correctness": 0.219,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b21",
+  "answer": "long-15",
+  "correctness": 0.378,
+  "picked_for": "short"
+ },
+ {
+  "id": "b22",
+  "answer": "long-24",
+  "correctness": 0.691,
+  "picked_for": "short"
+ },
+ {
+  "id": "b23",
+  "answer": "long-0",
+  "correctness": 0.215,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b24",
+  "answer": "long-4",
+  "correctness": 0.203,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b25",
+  "answer": "long-29",
+  "correctness": 0.146,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b26",
+  "answer": "long-26",
+  "correctness": 0.507,
+  "picked_for": "short"
+ },
+ {
+  "id": "b27",
+  "answer": "long-64",
+  "correctness": 0.158,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b28",
+  "answer": "long-12",
+  "correctness": 0.197,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b29",
+  "answer": "long-31",
+  "correctness": 0.103,
+  "picked_for": "low score"
+ },
+ {
+  "id": "b30",
+  "answer": "long-20",
+  "correctness": 0.17,
+  "picked_for": "low score"
+ }
+]
