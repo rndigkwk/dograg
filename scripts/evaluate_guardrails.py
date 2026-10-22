@@ -228,7 +228,9 @@ def run_scores(rows: list[dict]) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--split", choices=["dev", "holdout", "all"], default="all")
+    parser.add_argument("--split", choices=["dev", "holdout", "claude", "all"], default="all")
+    parser.add_argument("--questions", type=Path, default=QUESTIONS,
+                        help="another set, e.g. tests/data/guardrail_questions_claude.json (scripts/make_redteam_claude.py)")
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--category", nargs="*", help="only these categories (e.g. crisis indirect)")
     parser.add_argument("--name", help="a regression run: output/experiments/guard_<name>.json for scripts/check_regression.py")
@@ -239,7 +241,7 @@ def main() -> int:
     from src import resources
 
     runner = load_runner()
-    items = [item for item in json.loads(QUESTIONS.read_text(encoding="utf-8"))["items"]
+    items = [item for item in json.loads(args.questions.read_text(encoding="utf-8"))["items"]
              if (args.split == "all" or item["split"] == args.split)
              and (not args.category or item["category"] in args.category)]
     sys.path.insert(0, str(PROJECT_DIR / "scripts"))
@@ -272,7 +274,8 @@ def main() -> int:
         last = {r["id"]: r for r in rows}
         report |= {"run": args.name, "items": [{"id": i, "output": {"route": r["route"], "error": r["error"]},
                                                 "scores": {"guard_ok": 1.0 if r["ok"] else 0.0}} for i, r in last.items()]}
-    name = f"guard_{args.name}" if args.name else f"guardrails_{args.split}"
+    suffix = "" if args.questions == QUESTIONS else f"_{args.questions.stem.removeprefix('guardrail_questions_')}"
+    name = f"guard_{args.name}" if args.name else f"guardrails_{args.split}{suffix}"
     output = PROJECT_DIR / "output" / "experiments" / f"{name}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
