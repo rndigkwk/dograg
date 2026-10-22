@@ -221,6 +221,57 @@ a.href=URL.createObjectURL(new Blob([JSON.stringify(labels,null,1)],{type:'appli
 """
 
 
+# --- second answer sheet (2026-10-22) ----------------------------------------------------------
+# Five judges (gpt-6-luna, gpt-4.1, RAGAS, Claude Haiku 5.5 and Opus 5.5) passed all three answers
+# the person failed: ANSWER_CRITERION fails only a contradiction, while the person also failed an
+# answer that left out what the vet said to do. The second rubric says so, and 30 more answers are
+# picked where fails are likely (the lowest RAGAS scores and the shortest answers) to reach 15 fails.
+ANSWER_CRITERION_V2 = (
+    "수의사 답변(기준 답변)과 비교해 보호자에게 맞는 답인지 판단한다. 다음 중 하나라도 있으면 fail: "
+    "(1) 수의사의 핵심 판단(가능한 원인, 위험한 정도)과 반대되는 말을 한다. "
+    "(2) 수의사가 권한 핵심 조치(병원 진료 여부와 시급성, 지켜볼 증상, 멈출 것) 가운데 보호자가 꼭 알아야 할 것이 빠졌다. "
+    "(3) 기준 답변에 없는 진단·약·용량을 단정한다. 표현이 다르거나 더 짧다는 것만으로는 fail이 아니다."
+)
+ANSWERS2_PATH = PROJECT_DIR / "tests" / "data" / "judge_validation_answers2.json"
+
+
+def pick_answers2(lowest: int = 20, shortest: int = 10) -> list[dict]:
+    used = {cell["answer"] for cell in load_cells()["answer"]}
+    answers = [a for a in _answers().values()
+               if a.get("correctness") is not None and a["route"] == "rag" and a["abstained"] in (False, "False")
+               and a["id"] not in used]
+    low = sorted(answers, key=lambda a: a["correctness"])[:lowest]
+    short = sorted((a for a in answers if a not in low), key=lambda a: len(str(a["answer"])))[:shortest]
+    picked = [(a, "low score") for a in low] + [(a, "short") for a in short]
+    random.Random(SEED + 2).shuffle(picked)
+    return [{"id": f"b{i + 1:02d}", "answer": a["id"], "correctness": round(a["correctness"], 3), "picked_for": why}
+            for i, (a, why) in enumerate(picked)]
+
+
+def write_sheet2(cells2: list[dict]) -> Path:
+    esc = html.escape
+    texts = answer_texts({"answer": cells2})
+    head = ("<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            f"<title>답변 판정 2</title><style>{SHEET_CSS}</style></head><body>")
+    intro = ("<h1>답변 판정 2: 앱 답변이 수의사 답변과 맞나요? (30칸)</h1><p>지난번 30칸과 같은 방식입니다. 기준이 조금 바뀌었습니다: "
+             "<b>보호자가 꼭 알아야 할 조치가 빠진 답도 fail</b>입니다. 고른 값은 이 브라우저에 자동 저장됩니다.</p>")
+    parts = [head, "<div class='bar'><button id='dl'>결과 저장 (judge_labels2.json)</button><span id='count'></span></div>",
+             intro, f"<div class='rubric'>{esc(ANSWER_CRITERION_V2)}</div>"]
+    for n, cell in enumerate(cells2, 1):
+        t = texts[cell["id"]]
+        options = "".join(f"<label><input type='radio' name='{cell['id']}' value='{value}'>{esc(label)}</label>"
+                          for value, label in (("pass", "pass 맞음"), ("fail", "fail 어긋남·빠짐·단정")))
+        parts.append(f"<div class='card'><b>{n}.</b><div class='lab'>보호자 질문</div><div class='txt'>{esc(t['question'])}</div>"
+                     f"<div class='lab'>수의사 답변 (기준)</div><div class='txt'>{esc(t['reference'])}</div>"
+                     f"<div class='lab'>앱 답변</div><div class='txt'>{esc(t['answer'])}</div><div class='opts'>{options}</div></div>")
+    script = SHEET_JS.replace("ragdog-judge-labels", "ragdog-judge-labels2").replace("'judge_labels.json'", "'judge_labels2.json'")
+    parts.append(f"<script>{script}</script></body></html>")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = OUT_DIR / "label_sheet2.html"
+    path.write_text("\n".join(parts), encoding="utf-8")
+    return path
+
+
 def write_sheet(cells: dict) -> Path:
     rng = random.Random(SEED + 1)
     rel, ans = relevance_texts(cells), answer_texts(cells)
@@ -605,7 +656,7 @@ def agreement_without_people() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score", "claude", "pairs"))
+    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score", "claude", "pairs", "sheet2"))
     parser.add_argument("--other-model", default=OTHER_MODEL)
     parser.add_argument("--claude-model", default=CLAUDE_MODEL, help="claude, pairs: the Claude model")
     parser.add_argument("--labels", type=Path, help="judge_labels.json saved from the labelling page")
@@ -629,6 +680,10 @@ def main() -> int:
         if not CELLS_PATH.exists():
             CELLS_PATH.write_text(json.dumps(pick_cells(), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print("sheet:", write_sheet(load_cells()))
+    elif args.command == "sheet2":
+        if not ANSWERS2_PATH.exists():
+            ANSWERS2_PATH.write_text(json.dumps(pick_answers2(), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print("sheet:", write_sheet2(json.loads(ANSWERS2_PATH.read_text(encoding="utf-8"))))
     elif args.command == "judge":
         run_judges(args.other_model)
         print(json.dumps(agreement_without_people(), ensure_ascii=False, indent=1))
