@@ -80,6 +80,56 @@ class CrisisTests(unittest.TestCase):
         self.assertEqual(result["guards"], [guardrails.CRISIS])
 
 
+class ModelCrisisCheckTests(unittest.TestCase):
+    """src/crisis.py: the model's verdict next to the rule, never holding up or failing the answer."""
+
+    def test_the_models_verdict_brings_the_lines_and_is_named(self):
+        result = guardrails.apply_output_guards("밤마다 자꾸 생각이 많아요", {"answer": "자료에 없습니다."}, model_crisis=True)
+        self.assertTrue(result["answer"].startswith(guardrails.CRISIS_NOTICE))
+        self.assertEqual(result["guards"], [guardrails.CRISIS, guardrails.CRISIS_BY_MODEL])
+        ruled = guardrails.apply_output_guards("나도 따라가고 싶어요", {"answer": "a"}, model_crisis=True)
+        self.assertEqual(ruled["guards"], [guardrails.CRISIS])  # the rule saw it; the model is not credited
+
+    def test_a_failed_late_or_missing_check_counts_as_no(self):
+        from concurrent.futures import Future
+
+        from src import crisis
+
+        self.assertFalse(crisis.verdict(None))
+        failed = Future()
+        failed.set_exception(RuntimeError("model down"))
+        self.assertFalse(crisis.verdict(failed))
+        self.assertFalse(crisis.verdict(Future(), timeout=0.01))  # never finishes
+        done = Future()
+        done.set_result(True)
+        self.assertTrue(crisis.verdict(done))
+
+    def test_it_can_be_turned_off_and_needs_a_model(self):
+        from src import crisis, resources, settings
+
+        with patch.object(resources, "load_review_model", return_value=object()), \
+                patch.object(settings, "get_setting", return_value="1"):
+            self.assertIsNone(crisis.start("질문"))
+        with patch.object(resources, "load_review_model", return_value=None):
+            self.assertIsNone(crisis.start("질문"))
+        # Unit tests never make the real call (src/settings.py loads .env on a developer's machine).
+        self.assertTrue(crisis._under_test_runner())
+        with patch.object(resources, "load_review_model", return_value=object()):
+            self.assertIsNone(crisis.start("질문"))
+        with patch.object(crisis, "_under_test_runner", return_value=False), \
+                patch.object(resources, "load_review_model", return_value=object()), \
+                patch.object(crisis, "judge", return_value=True):
+            self.assertTrue(crisis.verdict(crisis.start("질문")))
+
+    def test_the_guardians_earlier_messages_are_read_too(self):
+        from src import crisis
+
+        history = [{"role": "user", "content": "첫 글"}, {"role": "assistant", "content": "답"},
+                   {"role": "user", "content": "둘째 글"}, {"role": "user", "content": "셋째 글"}]
+        text = crisis._text("지금 글", history)
+        self.assertEqual(text, "[앞선 글] 둘째 글\n[앞선 글] 셋째 글\n[지금 글] 지금 글")
+
+
 class LinkTests(unittest.TestCase):
     def test_only_links_from_the_material_pass(self):
         answer = "사료는 https://shop.example/food 에서, 지침은 https://www.animal.go.kr/guide 에서 보세요."
