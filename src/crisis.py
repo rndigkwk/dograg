@@ -51,8 +51,13 @@ def _under_test_runner() -> bool:
     return getattr(spec, "name", "") in ("unittest.__main__", "pytest.__main__") or "pytest" in sys.modules
 
 
+# Read once, at import: test discovery imports this before any test runs, and Streamlit's AppTest
+# later swaps __main__ for the page it runs.
+UNDER_TEST_RUNNER = _under_test_runner()
+
+
 def enabled() -> bool:
-    return not settings.setting_enabled("DISABLE_CRISIS_MODEL_CHECK") and not _under_test_runner()
+    return not settings.setting_enabled("DISABLE_CRISIS_MODEL_CHECK") and not UNDER_TEST_RUNNER
 
 
 def _text(question: str, chat_history: list | None) -> str:

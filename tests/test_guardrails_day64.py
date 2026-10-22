@@ -113,10 +113,10 @@ class ModelCrisisCheckTests(unittest.TestCase):
         with patch.object(resources, "load_review_model", return_value=None):
             self.assertIsNone(crisis.start("질문"))
         # Unit tests never make the real call (src/settings.py loads .env on a developer's machine).
-        self.assertTrue(crisis._under_test_runner())
+        self.assertTrue(crisis.UNDER_TEST_RUNNER)
         with patch.object(resources, "load_review_model", return_value=object()):
             self.assertIsNone(crisis.start("질문"))
-        with patch.object(crisis, "_under_test_runner", return_value=False), \
+        with patch.object(crisis, "UNDER_TEST_RUNNER", False), \
                 patch.object(resources, "load_review_model", return_value=object()), \
                 patch.object(crisis, "judge", return_value=True):
             self.assertTrue(crisis.verdict(crisis.start("질문")))
