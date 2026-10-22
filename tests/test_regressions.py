@@ -115,11 +115,17 @@ class Gpt6ModelConfigTest(unittest.TestCase):
             health, "ChatOpenAI", return_value=fake_model
         ) as constructor, patch.object(resources, "ChatOpenAI", new=constructor):
             health.load_rag_chain.clear()
-            health.load_rag_chain()
+            with patch.object(settings, "get_setting", return_value=None):
+                health.load_rag_chain()
+            # No temperature; the answer model reasons at "low" (2026-10-22) unless configured.
             self.assertEqual(
                 constructor.call_args.kwargs,
-                {"model": "gpt-6-luna", "api_key": "test-key"},
+                {"model": "gpt-6-luna", "api_key": "test-key", "reasoning_effort": "low"},
             )
+            health.load_rag_chain.clear()
+            with patch.object(settings, "get_setting", return_value="medium"):
+                health.load_rag_chain()
+            self.assertEqual(constructor.call_args.kwargs["reasoning_effort"], "medium")
 
             constructor.reset_mock()
             resources.load_chat_model.clear()

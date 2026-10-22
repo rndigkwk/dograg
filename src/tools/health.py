@@ -100,15 +100,21 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
 ])
 
 
+ANSWER_REASONING_EFFORT = "low"
+
+
 @st.cache_resource(show_spinner=False)
 def load_rag_chain():
     api_key = settings.get_openai_api_key()
     if not api_key:
         return None
-    return RAG_PROMPT | ChatOpenAI(
-        model=resources.CHAT_MODEL_NAME,
-        api_key=api_key,
-    ) | StrOutputParser()
+    # ANSWER_REASONING_EFFORT overrides the answer model's reasoning ("none", "low", "medium", ...).
+    # "low" since 2026-10-22: p90 18.5 -> 11.4 s on the 40 health questions, and a blind read of the
+    # 22 answered pairs gave low 6, medium 5, same 11 (docs/wiki/deployment-resources.md). The grader
+    # has its own (resources.REVIEW_REASONING_EFFORT).
+    effort = settings.get_setting("ANSWER_REASONING_EFFORT") or ANSWER_REASONING_EFFORT
+    return RAG_PROMPT | ChatOpenAI(model=resources.CHAT_MODEL_NAME, api_key=api_key,
+                                   reasoning_effort=effort) | StrOutputParser()
 
 
 @st.cache_resource(show_spinner=False)
