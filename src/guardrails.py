@@ -31,6 +31,7 @@ CRISIS_PATTERNS = (
 CRISIS_NOTICE = ("많이 힘드시죠. 혼자 견디지 않으셔도 괜찮아요. 마음이 많이 힘들다면 지금 자살예방상담전화 **109**(24시간)나 "
                  "정신건강위기상담전화 **1577-0199**에 전화해 이야기해 주세요. 당장 위험한 상황이면 112나 119에 바로 연락해 주세요.")
 CRISIS = "crisis_notice"
+CRISIS_BY_MODEL = "crisis_by_model"  # with CRISIS when only the model saw it (src/crisis.py)
 LINKS_REMOVED = "links_removed"
 
 LINK = re.compile(r"https?://([A-Za-z0-9.-]+)[^\s)\]>\"']*")
@@ -71,15 +72,19 @@ def strip_foreign_links(answer: str, allowed_hosts: set[str]) -> tuple[str, bool
     return LINK.sub(replace, answer or ""), removed
 
 
-def apply_output_guards(question: str, result: dict) -> dict:
+def apply_output_guards(question: str, result: dict, model_crisis: bool = False) -> dict:
     """The result with the crisis lines in front when the question needs them and foreign links
-    removed; result["guards"] names what fired, after what earlier checks named (citations)."""
+    removed; result["guards"] names what fired, after what earlier checks named (citations).
+    model_crisis: the model's verdict (src/crisis.py), for what the rule does not match."""
     guards = list(result.get("guards") or [])
     answer, removed = strip_foreign_links(result.get("answer", ""),
                                           material_hosts(result.get("hospital_rows"), result.get("evidence_rows")))
     if removed:
         guards.append(LINKS_REMOVED)
-    if is_crisis(question):
+    rule = is_crisis(question)
+    if rule or model_crisis:
         answer = with_crisis_notice(answer)
         guards.append(CRISIS)
+        if not rule:
+            guards.append(CRISIS_BY_MODEL)
     return {**result, "answer": answer, "guards": guards}
