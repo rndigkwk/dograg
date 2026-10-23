@@ -74,14 +74,16 @@ def chat_events(base: str, question: str, timeout: float = 180) -> list[tuple[st
     return events
 
 
-def check_health(base: str, commit: str, sleep=time.sleep) -> str:
+def check_health(base: str, commit: str | None, sleep=time.sleep) -> str:
+    """The revision answers /health with the expected commit (any commit when none is expected: the
+    scheduled check of the serving API, keep-alive.yml, which may run in the middle of a deploy)."""
     last = ""
     for _ in range(HEALTH_ATTEMPTS):
         status, last = get(f"{base}/health")
-        if status == 200 and json.loads(last).get("commit") == commit:
-            return f"health: commit {commit[:7]}"
+        if status == 200 and (commit is None or json.loads(last).get("commit") == commit):
+            return f"health: commit {json.loads(last).get('commit', '?')[:7]}"
         sleep(HEALTH_WAIT_S)
-    raise CheckFailed(f"/health did not report {commit[:7]} (last: {last[:200]})")
+    raise CheckFailed(f"/health did not report {(commit or 'ok')[:7]} (last: {last[:200]})")
 
 
 def check_tables(base: str) -> str:
@@ -112,7 +114,7 @@ def check_answer(base: str, question: str, route: str, search: str | None = None
     return f"chat {route}: answered ({len(result.get('answer', ''))} chars{where}{trace})"
 
 
-def run(base: str, commit: str, sleep=time.sleep, search: str | None = None) -> Iterator[str]:
+def run(base: str, commit: str | None, sleep=time.sleep, search: str | None = None) -> Iterator[str]:
     """The checks in order, each line as it passes (a failure raises CheckFailed)."""
     base = base.rstrip("/")
     yield check_health(base, commit, sleep)
@@ -123,8 +125,8 @@ def run(base: str, commit: str, sleep=time.sleep, search: str | None = None) -> 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("url", help="the candidate's tag URL")
-    parser.add_argument("--expect-commit", required=True)
+    parser.add_argument("url", help="the candidate's tag URL (or the serving API, keep-alive.yml)")
+    parser.add_argument("--expect-commit", help="the commit being deployed; left out by the scheduled check")
     parser.add_argument("--expect-search", choices=["local"], help="the outage drill: answers from the local stores")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):  # not a redirected stream (tests)

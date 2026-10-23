@@ -74,6 +74,12 @@ class CanaryCheckTests(unittest.TestCase):
         self.assertEqual(len(lines), 4)
         self.assertTrue(all(data_gaps.CHECK_AGENT in agent for agent in self.server.agents))
 
+    def test_the_scheduled_check_takes_any_commit(self):
+        # keep-alive.yml checks the serving API every 8 hours, maybe in the middle of a deploy.
+        lines = list(canary_check.run(self.serve(commit="old0000"), None, sleep=lambda s: None))
+        self.assertEqual(lines[0], "health: commit old0000")
+        self.assertEqual(len(lines), 4)
+
     def test_the_old_revision_answering_fails(self):
         with self.assertRaisesRegex(canary_check.CheckFailed, "did not report"):
             list(canary_check.run(self.serve(commit="old0000"), COMMIT, sleep=lambda s: None))

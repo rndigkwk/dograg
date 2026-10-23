@@ -84,8 +84,10 @@ jobs:
             secrets="$secrets,SUPABASE_DB_URL=SUPABASE_DB_URL:latest"
           fi
           echo "### Search backend: $backend" >> "$GITHUB_STEP_SUMMARY"
+          # Since P5 (2026-10-23) the Streamlit service shows only the "moved" notice (main.py), which
+          # loads no data or model: 512Mi. Back to 2Gi with STREAMLIT_FULL_APP=1 to revive the full app.
           gcloud run deploy "$SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
-            --service-account="$RUNTIME" --memory=2Gi --cpu=1 --cpu-boost \
+            --service-account="$RUNTIME" --memory=512Mi --cpu=1 --cpu-boost \
             --min-instances=0 --max-instances=2 --session-affinity --timeout=3600 \
             --allow-unauthenticated \
             --set-secrets="$secrets" \
