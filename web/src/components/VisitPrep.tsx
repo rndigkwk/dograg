@@ -29,6 +29,7 @@ import { REPORT_FILE, saveFile, toDocx, toPlainText } from "@/lib/reportFiles";
 import { useAuth } from "./AuthProvider";
 import Markdown from "./Markdown";
 import { useRecords } from "./useRecords";
+import Icon from "./Icon";
 
 const FAILED = "보고서를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 
@@ -37,7 +38,7 @@ function UrgentNotice() {
     <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 p-3">
       <p className="font-semibold text-danger">{URGENT}</p>
       <Link href="/places" className="mt-1 inline-block text-sm text-accent underline">
-        🏥 시설 찾기에서 가까운 동물병원 찾기
+        <Icon name="pin" size={16} className="mr-1 inline-block align-[-3px]" />시설 찾기에서 가까운 동물병원 찾기
       </Link>
     </div>
   );
@@ -68,16 +69,16 @@ function Downloads({ report }: { report: string }) {
             }
           }}
         >
-          📄 Word (.docx)
+          <Icon name="file" size={16} className="mr-1 inline-block align-[-3px]" />Word (.docx)
         </button>
         <button type="button" className={button} onClick={() => saveFile(new Blob([toPlainText(report)], { type: "text/plain;charset=utf-8" }), `${REPORT_FILE}.txt`)}>
-          📝 텍스트 (.txt)
+          <Icon name="note" size={16} className="mr-1 inline-block align-[-3px]" />텍스트 (.txt)
         </button>
         <button type="button" className={button} onClick={() => saveFile(new Blob([report], { type: "text/markdown;charset=utf-8" }), `${REPORT_FILE}.md`)}>
           Markdown (.md)
         </button>
         <button type="button" className={button} onClick={() => window.print()}>
-          🖨️ 인쇄 · PDF로 저장
+          <Icon name="printer" size={16} className="mr-1 inline-block align-[-3px]" />인쇄 · PDF로 저장
         </button>
       </div>
       {failed ? <p role="alert" className="text-sm text-danger">Word 파일을 만들지 못했습니다. 텍스트로 저장해 주세요.</p> : null}
@@ -308,7 +309,7 @@ export default function VisitPrep() {
               />
             </label>
             <button type="button" disabled={working} onClick={shareLocation} className="mt-1 rounded-lg border border-line bg-white px-3 py-1 text-sm disabled:opacity-40">
-              📍 {location ? "위치 다시 가져오기" : "현재 위치 사용"}
+              <Icon name="locate" size={16} className="mr-1 inline-block align-[-3px]" />{location ? "위치 다시 가져오기" : "현재 위치 사용"}
             </button>
             {locationNote ? <p className="mt-1 text-xs text-muted">{locationNote}</p> : null}
           </div>
@@ -328,7 +329,7 @@ export default function VisitPrep() {
           </label>
         ) : null}
         <button type="submit" disabled={working || !consultation.trim()} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white disabled:opacity-40">
-          📝 방문 준비 보고서 만들기
+          <Icon name="file" size={16} className="mr-1 inline-block align-[-3px]" />방문 준비 보고서 만들기
         </button>
         <p className="text-xs text-muted">한 번에 1~2분, 모델 호출 10~20회가 들어 하루 2번까지 만들 수 있습니다. 질문 한도에도 한 번으로 셉니다.</p>
       </form>
@@ -337,7 +338,7 @@ export default function VisitPrep() {
 
       {run && (working || run.steps.length) ? (
         <section aria-label="진행 과정" className="rounded-xl border border-line bg-white p-4 text-sm">
-          <p className="font-semibold">{working ? "⏳ 보고서를 만드는 중입니다. 1~2분 걸립니다." : "진행 과정"}</p>
+          <p className="font-semibold">{working ? "보고서를 만드는 중입니다. 1~2분 걸립니다." : "진행 과정"}</p>
           <ul className="mt-2 space-y-1">
             {run.steps.map((line, index) => (
               <li key={index}>✓ {line}</li>

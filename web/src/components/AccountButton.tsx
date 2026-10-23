@@ -6,6 +6,7 @@ import { useState } from "react";
 import { signInWithGoogle, signOut } from "@/lib/supabase";
 
 import { useAuth } from "./AuthProvider";
+import Icon from "./Icon";
 
 /** Sign in with Google, or the signed-in account with sign-out (the menu's right end). */
 export default function AccountButton() {
@@ -45,7 +46,8 @@ export default function AccountButton() {
   return (
     <span className="flex shrink-0 items-center gap-2">
       <Link href="/memory" className="rounded-lg px-2 py-1.5 text-ink hover:bg-line/50" title="지난 상담 기억">
-        🗂<span className="hidden sm:inline"> 기억</span>
+        <Icon name="bookmark" size={18} className="inline-block align-[-4px]" label="지난 상담 기억" />
+        <span className="hidden sm:inline"> 기억</span>
       </Link>
       <span className="hidden max-w-48 truncate text-muted sm:inline" title={email}>
         {email}

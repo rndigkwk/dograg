@@ -11,6 +11,7 @@ import { type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, 
 import { failureMessage } from "@/lib/failure";
 
 import Waiting, { LoadError } from "./Waiting";
+import Icon from "./Icon";
 
 const PlaceMap = dynamic(() => import("./PlaceMap"), { ssr: false, loading: () => <p className="text-sm text-muted">지도를 불러오는 중입니다…</p> });
 
@@ -242,7 +243,7 @@ export default function Places() {
             <h2 className="text-lg font-bold">현재 위치에서 가까운 {label}</h2>
             <p className="text-sm text-muted">버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다.</p>
             <button type="button" disabled={busy} onClick={location ? () => findNear() : useLocation} className="rounded-lg border border-line bg-white px-3 py-1 disabled:opacity-40">
-              📍 {location ? `가까운 ${label} 다시 찾기` : "현재 위치 사용"}
+              <Icon name="locate" size={16} className="mr-1 inline-block align-[-3px]" />{location ? `가까운 ${label} 다시 찾기` : "현재 위치 사용"}
             </button>
             {note ? <p className="text-sm text-muted">{note}</p> : null}
             {near ? (

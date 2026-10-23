@@ -89,7 +89,7 @@ export default function NotesManager() {
         {notes === null ? (
           <p className="text-muted">불러오는 중입니다…</p>
         ) : notes.length === 0 ? (
-          <p className="text-muted">아직 저장한 기록이 없습니다. 질병 문의 답변 아래의 “🗂 이 상담 기억하기”로 저장할 수 있습니다.</p>
+          <p className="text-muted">아직 저장한 기록이 없습니다. 질병 문의 답변 아래의 “이 상담 기억하기”로 저장할 수 있습니다.</p>
         ) : (
           <ul className="space-y-2">
             {notes.map((note) => (

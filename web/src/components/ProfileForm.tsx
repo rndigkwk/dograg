@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { cleanProfile, type PetProfile, profileSummary, splitItems } from "@/lib/profile";
+import Icon from "./Icon";
 
 const NEUTERED = [
   ["모름", null],
@@ -45,7 +46,7 @@ export default function ProfileForm({ profile, onSave }: { profile: PetProfile |
   const input = "w-full rounded-lg border border-line bg-white px-2 py-1";
   return (
     <details className="rounded-lg border border-line bg-white p-3 text-sm">
-      <summary className="cursor-pointer font-bold">🐾 우리 아이 정보</summary>
+      <summary className="cursor-pointer font-bold"><Icon name="heart" size={16} className="mr-1 inline-block align-[-3px]" />우리 아이 정보</summary>
       <p className="mt-2 text-muted">{profile ? profileSummary(profile) : "입력하면 질문에 나이가 없어도 나이에 맞는 상담 자료를 먼저 찾습니다."}</p>
       {/* Keyed by the stored profile: a saved suggestion refills the form. */}
       <form key={JSON.stringify(current)} onSubmit={submit} className="mt-3 space-y-2">
