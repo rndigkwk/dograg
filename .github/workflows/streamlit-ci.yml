@@ -1,4 +1,7 @@
-name: Streamlit app checks
+name: Python tests
+# The unit tests of the whole Python side: the API, the chat graph, guardrails, scripts and the
+# Streamlit pages kept in app_pages/ (2026-10-23: renamed from "Streamlit app checks"; the job is
+# still "test", the required check of the main ruleset).
 
 on:
   pull_request:
