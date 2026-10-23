@@ -21,6 +21,7 @@
 | [visit-prep-team.md](visit-prep-team.md) | 멀티에이전트 방문 준비 보고서 팀: 상담 12개 실험(기준선 → 개선), 실패 처리와 장애 주입, 배포 장애 기록 |
 | [deployment-resources.md](deployment-resources.md) | Streamlit Cloud 메모리 한도(2.7GB) 대비 구성 요소별 측정과 리랭커 비용 (Streamlit 시기 기록) |
 | [cloud-run.md](cloud-run.md) | Cloud Run 이원화: 컨테이너 배포 기록, 설정과 이유, 첫 방문 대기 |
+| [web-frontend.md](web-frontend.md) | 웹 앱 첫 화면 무게: 페이지별 First Load JS, 마크다운 나중에 받기, 홈 사진 크기 |
 | [lecture-review.md](lecture-review.md) | Day 46~56 교안 기법별 적용·테스트·미적용 정리 (어떻게, 결과, 이유) |
 | [../curriculum-fit.md](../curriculum-fit.md) | Day 58~79 수업 중 이 프로젝트에 쓸 만한 것, 가드레일 경량 대안과 현재 상태, 일반 대화 기능 검토 |
 | [../adr/](../adr/README.md) | 아키텍처 결정 기록(ADR) 9개: 임베딩, 검색 전략, 저장소, 리랭커, 지역, Next.js·FastAPI 전환, 상담 기억. 결정마다 다시 검토할 조건 |
