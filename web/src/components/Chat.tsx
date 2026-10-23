@@ -29,6 +29,7 @@ import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
 import Waiting from "./Waiting";
+import Icon from "./Icon";
 
 const FAILED = "답변을 받지 못했습니다. 잠시 뒤 다시 질문해 주세요.";
 const STOPPED = "답변을 멈췄습니다.";
@@ -49,7 +50,7 @@ function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency
   return (
     <div role="alert" className="mb-3 rounded-lg border border-danger/40 bg-danger/5 p-3">
       <p className="font-semibold text-danger">{notice}</p>
-      <p className="mt-2 font-semibold">🚨 가까운 동물병원</p>
+      <p className="mt-2 font-semibold"><Icon name="alert" size={16} className="mr-1 inline-block align-[-3px]" />가까운 동물병원</p>
       {hospitals.nearest?.length ? (
         <>
           <ul className="mt-1 space-y-1">{hospitals.nearest.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
@@ -145,7 +146,7 @@ function VisitPrepLink({ question }: { question: string }) {
       }}
       className="mt-3 rounded-lg border border-line px-3 py-1 text-sm"
     >
-      📝 이 상담으로 방문 준비 보고서 만들기
+      <Icon name="file" size={16} className="mr-1 inline-block align-[-3px]" />이 상담으로 방문 준비 보고서 만들기
     </button>
   );
 }
@@ -551,7 +552,7 @@ export default function Chat() {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <button type="button" onClick={useLocation} className="rounded-lg border border-line bg-white px-3 py-1">
-            📍 {location ? "위치 다시 가져오기" : "현재 위치 사용"}
+            <Icon name="locate" size={16} className="mr-1 inline-block align-[-3px]" />{location ? "위치 다시 가져오기" : "현재 위치 사용"}
           </button>
           <span className="text-muted">{locationNote ?? "가까운 병원 검색은 위치 사용을 선택한 경우에만 직선거리로 계산합니다."}</span>
         </div>

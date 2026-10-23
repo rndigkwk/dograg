@@ -81,7 +81,7 @@ test("a signed-in guardian keeps a consultation as a note, and the next question
   await page.goto("/chat");
 
   await ask(page, "보리가 이틀째 설사해요");
-  await page.getByRole("button", { name: "🗂 이 상담 기억하기" }).click();
+  await page.getByRole("button", { name: "이 상담 기억하기" }).click();
   const box = page.getByRole("textbox", { name: "기억할 내용 (고쳐 쓸 수 있어요)" });
   await expect(box).toHaveValue(NOTE);
   expect(notes[0]).toMatchObject({ body: { question: "보리가 이틀째 설사해요", answer: "설사가 이틀 넘으면 병원에 가세요." }, auth: `Bearer ${TOKEN}` });
@@ -116,7 +116,7 @@ test("a full account (30 notes) is sent to the memory page, without writing a no
   });
   await page.goto("/chat");
   await ask(page, "보리가 이틀째 설사해요");
-  await page.getByRole("button", { name: "🗂 이 상담 기억하기" }).click();
+  await page.getByRole("button", { name: "이 상담 기억하기" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "기록이 30개로 가득 찼어요." })).toBeVisible();
   await expect(page.getByRole("link", { name: "기억 화면에서 지운 뒤" })).toHaveAttribute("href", "/memory");
   expect(written).toBe(0);
@@ -152,7 +152,7 @@ test("signed out, no note button and the memory page asks to sign in", async ({ 
   await page.goto("/chat");
   await ask(page, "보리가 이틀째 설사해요");
   await expect(page.getByText("설사가 이틀 넘으면 병원에 가세요.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "🗂 이 상담 기억하기" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "이 상담 기억하기" })).toHaveCount(0);
   await page.goto("/memory");
   await expect(page.getByText("지난 상담 기억은 로그인한 경우에만 쓸 수 있습니다.", { exact: false })).toBeVisible();
 });

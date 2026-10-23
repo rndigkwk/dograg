@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { FEEDBACK_REASONS, sendReason, sendReview, sendVote } from "@/lib/api";
 import type { Answer } from "@/lib/chat";
+import Icon from "./Icon";
 
 const THANKS = "보내 주셔서 고맙습니다. 답변을 고치는 데 쓰겠습니다.";
 
@@ -32,7 +33,7 @@ export default function Feedback({ answer, question }: { answer: Answer; questio
     setReview(saved ? "sent" : "failed");
   }
 
-  const button = (helpful: boolean, label: string, icon: string) => (
+  const button = (helpful: boolean, label: string, icon: React.ReactNode) => (
     <button
       type="button"
       aria-label={label}
@@ -47,8 +48,8 @@ export default function Feedback({ answer, question }: { answer: Answer; questio
   return (
     <div className="mt-4 text-sm">
       <div className="flex gap-2">
-        {button(true, "도움이 됐어요", "👍")}
-        {button(false, "아쉬워요", "👎")}
+        {button(true, "도움이 됐어요", <Icon name="thumbUp" size={18} />)}
+        {button(false, "아쉬워요", <Icon name="thumbDown" size={18} />)}
       </div>
       {vote === false ? (
         <fieldset className="mt-3">

@@ -42,6 +42,35 @@ const PATHS = {
       <path d="M9 7h6M9 11h6M9 15h4" />
     </>
   ),
+  alert: (
+    <>
+      <path d="M12 3 2 20h20z" />
+      <path d="M12 10v4M12 17h.01" />
+    </>
+  ),
+  printer: (
+    <>
+      <path d="M7 8V3h10v5" />
+      <rect x="3" y="8" width="18" height="9" rx="2" />
+      <path d="M7 14h10v7H7z" />
+    </>
+  ),
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </>
+  ),
+  thumbUp: <path d="M7 10v11H4V10zM7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 2H7" />,
+  thumbDown: <path d="M17 14V3h3v11zM17 14l-4 7a2 2 0 0 1-3-2l1-5H5a2 2 0 0 1-2-2l2-7a2 2 0 0 1 2-2h10" />,
+  bookmark: <path d="M6 3h12v18l-6-4-6 4z" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
   chevronDown: <path d="m6 9 6 6 6-6" />,
   send: <path d="M4 12h15M13 6l6 6-6 6" />,
 } as const;

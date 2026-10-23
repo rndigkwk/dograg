@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { waitedText, waitingHint } from "@/lib/failure";
+import Icon from "./Icon";
 
 /** A waiting line with the seconds so far, a hint when the server is waking or slow, and a stop
  * button when the wait can be cancelled. `started`: the API has answered something already. */
@@ -19,7 +20,7 @@ export default function Waiting({ text, started = false, onStop }: { text: strin
   return (
     <div role="status" className="text-muted">
       <p>
-        ⏳ {text}
+        <Icon name="clock" size={16} className="mr-1 inline-block align-[-3px]" />{text}
         {seconds >= 3 ? <span className="ml-1 text-sm tabular-nums">({waitedText(seconds)})</span> : null}
       </p>
       {hint ? <p className="mt-1 text-sm">{hint}</p> : null}

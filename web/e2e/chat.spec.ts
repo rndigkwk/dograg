@@ -161,7 +161,7 @@ test("a memory suggestion is saved only on click and sent with the next question
   expect(api.chats[1].profile).toEqual({ name: "두부", breed: "말티즈", birth_month: "2023-04-01" });
   expect(api.chats[2].declined_memory).toEqual(["복용약: 심장약"]);
   await openList(page);
-  await page.getByText("🐾 우리 아이 정보").filter({ visible: true }).click();
+  await page.getByText("우리 아이 정보").filter({ visible: true }).click();
   await expect(page.getByText(/이름: 두부 · 견종: 말티즈 · 나이: 약 \d+살/).filter({ visible: true })).toBeVisible();
 });
 

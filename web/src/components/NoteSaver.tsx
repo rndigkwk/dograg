@@ -8,6 +8,7 @@ import { addNote, cleanNote, countNotes, isNotesFull, MAX_NOTES, NOTE_MAX_CHARS,
 import { supabase } from "@/lib/supabase";
 
 import { useAuth } from "./AuthProvider";
+import Icon from "./Icon";
 
 type Step = { kind: "idle" } | { kind: "full" } | { kind: "writing" } | { kind: "edit"; text: string } | { kind: "saving"; text: string } | { kind: "saved" } | { kind: "error"; message: string; text?: string };
 
@@ -53,7 +54,7 @@ export default function NoteSaver({ question, answer, threadId, onSaved }: { que
   if (step.kind === "idle") {
     return (
       <button type="button" onClick={() => void write()} className="mt-3 ml-2 rounded-lg border border-line px-3 py-1 text-sm">
-        🗂 이 상담 기억하기
+        <Icon name="bookmark" size={16} className="mr-1 inline-block align-[-3px]" />이 상담 기억하기
       </button>
     );
   }
