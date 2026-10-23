@@ -55,6 +55,19 @@ class NamesAndAddressesTests(unittest.TestCase):
                      "정도로 5~10알 정도의 사료", "간격으로 20~30분 정도씩", "올해로 5세가 되는", "체중이 3.5kg으로"):
             self.assertEqual(mask_pii(text), text)
 
+    def test_lab_values_lists_and_ranges_are_not_addresses(self):
+        # The shapes the 2026-10-23 scan of the 19,206 consultations masked wrongly (none was an address).
+        for text in ("현재 적혈구 농축도가 40이 정상인 상황에서", "백혈구 수치가 22,000으로 평균보다", "백혈구 수치가 6으로 정상범위",
+                     "슬개골 탈구 단계가 1기에서 4기까지", "탈구 상태가 2기에서 3기 정도로", "슬개골탈구 정도가 3기라면",
+                     "그런데 이번에 실수로 5에서 10kg에 해당하는", "외출 등의 문제로 2, 3일 대소변을", "주로 1) 안과 질환, 2) 귀 질환",
+                     "마취 비용으로 20,000원, 그리고", "평균적으로 1에서 5년의", "심장 크기가 일반적으로 8에서 10 사이"):
+            self.assertEqual(mask_pii(text), text)
+
+    def test_real_addresses_still_go(self):
+        for text, gone in (("마포구 월드컵로 123에 살아요", "123"), ("중구 을지로3가 5 근처", "을지로3가 5"),
+                           ("역삼동 123-4 근처예요", "123-4"), ("테헤란로 12길 34, 2층", "12길 34")):
+            self.assertNotIn(gone, mask_pii(text), text)
+
     def test_a_dogs_name_is_not_the_guardians(self):
         text = "반려견의 이름은 양감자입니다"
         self.assertEqual(mask_pii(text), text)

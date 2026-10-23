@@ -28,10 +28,14 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("전화번호", re.compile(r"(?<!\d)0(?:2|[3-6][1-5])[- .]\d{3,4}[- .]\d{4}(?!\d)")),
 )
 # A road or neighbourhood name with its number, after a district: 월드컵로 123, 우동 1234-5,
-# 테헤란로 12길 34, 신사동 123번지. Only after 구/군 so "운동 30분" or "도로 2개" stay.
+# 테헤란로 12길 34, 신사동 123번지, 을지로3가 5. Only after 구/군 so "운동 30분" or "도로 2개" stay.
+# "가" only after a number (종로1가): a medical word ending in 구 and a subject ending in 가 read as an
+# address in 2026-10-23's corpus scan ("백혈구 수치가 22,000", "슬개골탈구 정도가 3기"), and the
+# guardian's lab values never reached the model.
 _ADDRESS = re.compile(
     r"(?P<district>[가-힣]+[구군])\s+"
-    r"(?P<street>[가-힣0-9]+(?:로|길|동|리|가)(?:\s*\d+(?:번?길))?\s*\d+(?:-\d+)?(?:번지)?)"
+    r"(?P<street>[가-힣0-9]+(?:로|길|동|리|\d가)(?:\s*\d+(?:번?길))?\s*\d+(?:-\d+)?(?:번지)?)"
+    r"(?![\d,.~∼]|\s*(?:기|단계))"
 )
 
 
@@ -49,13 +53,14 @@ _SIGNED_NAME = re.compile(r"(?P<name>" + _NAME + r")(?=\s*(?:드림|올림))")
 # A road or neighbourhood with its number but no district before it: the number must end the phrase
 # (space, punctuation, 에, 근처 ...). Most "~로 + number" in consultations are a particle and a
 # quantity ("것으로 11세", "수술비로 165만 원", "정도로 5~10알", "간격으로 20~30분"): no unit, no range,
-# no decimal may follow.
+# no decimal may follow. Nor a list or a range (2026-10-23 corpus scan): "문제로 2, 3일",
+# "주로 1) 안과 질환", "실수로 5에서 10kg", "비용으로 20,000원". A comma before a floor stays an address.
 _UNITS = (r"분|시간|번|회|개|가지|살|세|kg|킬로|일|주|개월|달|월|년|마리|층|시|초|cm|센티|도|%|곳|명|알|봉|g|ml|미리|"
-          r"만|천|백|원")
+          r"만|천|백|원|기|단계|차")
 _STREET_NUMBER = re.compile(
     r"(?P<street>[가-힣]+(?:로|길|동))\s+(?P<number>(?:\d+번?길\s*)?\d+(?:-\d+)?(?:번지)?)"
     r"(?![\d.~∼]|\s*(?:" + _UNITS + r"))"
-    r"(?=$|[\s,.?!)]|에|근처|쪽|부근|이에요|예요|입니다|인데)"
+    r"(?=$|[\s.?!]|,(?!\s*\d+\s*(?:" + _UNITS + r"|[,~]))|,(?=\s*\d+\s*[층호])|에(?!서)|근처|쪽|부근|이에요|예요|입니다|인데)"
 )
 _APARTMENT_UNIT = re.compile(r"\d+\s*동\s*\d+\s*호")
 
