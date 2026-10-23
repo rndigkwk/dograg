@@ -74,8 +74,8 @@ test("a place answer in the chat links to the place page", async ({ page }) => {
 test("the menu leads between the pages", async ({ page }) => {
   await fakeApi(page, [], PLACES);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("데이터로 지키는 따뜻한 동행");
-  await page.getByRole("link", { name: /반려동물 시설 찾기/ }).click(); // a service card
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("어떤 점이 걱정되세요?");
+  await page.getByRole("link", { name: /^시설 찾기 동물병원/ }).click(); // a shortcut card
   await expect(page.getByRole("heading", { name: "반려동물 시설 찾기" })).toBeVisible();
   await page.getByRole("link", { name: "라그도그", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);

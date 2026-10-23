@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyEvent, finish, FIRST_STEP, historyOf, type Message, type Pending, startPending } from "./chat";
+import { applyEvent, askLater, finish, FIRST_STEP, historyOf, MAX_QUESTION_CHARS, type Message, type Pending, startPending, takeAsked } from "./chat";
 import type { StreamEvent } from "./sse";
 
 function run(events: StreamEvent[]): { pending: Pending; memory?: unknown } {
@@ -80,5 +80,28 @@ describe("historyOf", () => {
     ]).flat();
     expect(historyOf(many)).toHaveLength(40);
     expect(historyOf(many)[0]).toEqual({ role: "user", content: "q10" });
+  });
+});
+
+describe("a question from the home page", () => {
+  function memory() {
+    const kept = new Map<string, string>();
+    return { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) };
+  }
+
+  it("is asked once, trimmed and cut to the chat box's length", () => {
+    const storage = memory();
+    expect(askLater("  강아지가 기침을 해요 ", storage)).toBe(true);
+    expect(takeAsked(storage)).toBe("강아지가 기침을 해요");
+    expect(takeAsked(storage)).toBeNull();
+    askLater("가".repeat(1500), storage);
+    expect(takeAsked(storage)?.length).toBe(MAX_QUESTION_CHARS);
+  });
+
+  it("keeps nothing for an empty box or blocked storage", () => {
+    const storage = memory();
+    expect(askLater("   ", storage)).toBe(false);
+    expect(askLater("질문", null)).toBe(false);
+    expect(takeAsked(storage)).toBeNull();
   });
 });
