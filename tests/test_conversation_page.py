@@ -7,6 +7,7 @@ st.navigation, so chat-page tests run `chat_app`, which follows main.py's order.
 """
 
 import json
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -21,6 +22,9 @@ from src.storage.snapshot import NOTICE_KEY, PROFILE_KEY, THREADS_KEY
 from src.tools import urgency
 from src.tools.profile import MemorySuggestion
 
+# main.py shows only the "moved" notice unless STREAMLIT_FULL_APP is set (P5, 2026-10-23);
+# these tests drive the full Streamlit app.
+os.environ.setdefault("STREAMLIT_FULL_APP", "1")
 MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
 
