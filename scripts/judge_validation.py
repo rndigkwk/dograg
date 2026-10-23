@@ -9,6 +9,8 @@ the app's own model. This checks them the lesson's way:
     uv run python scripts/judge_validation.py bias    # two-way pairwise on built pairs (about 360 calls)
     uv run --no-project --python 3.12 --with "ragas==0.4.3" --with "langchain-community<0.4" --with python-dotenv         --with pandas python scripts/judge_validation.py ragas-bias   # the weekly gate's judge, 90 scores
     uv run python scripts/judge_validation.py score --labels judge_labels.json
+    uv run python scripts/judge_validation.py answers2   # both answer rubrics on 60 answers (120 calls)
+    uv run python scripts/judge_validation.py score2 --labels judge_labels2.json
 
 Cells (tests/data/judge_validation.json, ids only; texts come from data/df.csv, data/df_val.csv
 and the answers of scripts/evaluate_answer_quality.py in output/experiments):
@@ -352,15 +354,19 @@ def relevance_grades(model_name: str, cells: dict, reverse: bool = False) -> dic
         return dict(zip((c["id"] for c in cells["relevance"]), pool.map(one, cells["relevance"])))
 
 
-def answer_verdicts(model_name: str, cells: dict) -> dict[str, dict]:
+def answer_prompt(t: dict, criterion: str = ANSWER_CRITERION) -> str:
+    return (f"평가 기준: {criterion}\n\n보호자 질문: {t['question']}\n\n"
+            f"수의사 답변(기준 답변): {t['reference']}\n\n앱 답변: {t['answer']}")
+
+
+def answer_verdicts(model_name: str, cells: dict, criterion: str = ANSWER_CRITERION) -> dict[str, dict]:
     texts = answer_texts(cells)
     model = chat_model(model_name, Verdict)
 
     def one(cell_id):
         t = texts[cell_id]
         try:
-            result = model.invoke([("system", ANSWER_JUDGE), ("user", f"평가 기준: {ANSWER_CRITERION}\n\n보호자 질문: {t['question']}\n\n"
-                                                                        f"수의사 답변(기준 답변): {t['reference']}\n\n앱 답변: {t['answer']}")])
+            result = model.invoke([("system", ANSWER_JUDGE), ("user", answer_prompt(t, criterion))])
         except Refused as refusal:
             return {"verdict": None, "reason": f"refused: {refusal}"}
         return {"verdict": result.verdict, "reason": result.reason}
@@ -439,6 +445,57 @@ def run_judges(other: str) -> dict:
                       "app": answer_verdicts(app, cells), "other": answer_verdicts(other, cells)}}
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "judges.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
+
+
+ANSWERS2_JUDGES = OUT_DIR / "answers2_judges.json"
+
+
+def answer_cells60() -> dict:
+    """The first 30 answer cells (a01..) and the second sheet's 30 (b01..)."""
+    return {"answer": load_cells()["answer"] + json.loads(ANSWERS2_PATH.read_text(encoding="utf-8"))}
+
+
+def run_answers2(model_name: str, dry_run: bool = False) -> dict:
+    """The app's answer judge on all 60 answers with both rubrics (ANSWER_CRITERION and _V2):
+    does the second rubric catch the answers the person failed for a missing step?"""
+    cells = answer_cells60()
+    if dry_run:  # the texts and prompts, no model calls
+        texts = answer_texts(cells)
+        sizes = [len(answer_prompt(t, c)) for t in texts.values() for c in (ANSWER_CRITERION, ANSWER_CRITERION_V2)]
+        return {"cells": len(texts), "calls": len(sizes), "prompt_chars_max": max(sizes),
+                "empty": [i for i, t in texts.items() if not (t["question"] and t["reference"] and t["answer"])]}
+    out = {"model": model_name,
+           "correctness": {c["id"]: c["correctness"] for c in cells["answer"]},
+           "v1": answer_verdicts(model_name, cells, ANSWER_CRITERION),
+           "v2": answer_verdicts(model_name, cells, ANSWER_CRITERION_V2)}
+    ANSWERS2_JUDGES.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
+
+
+def score_answers2(labels2: dict[str, str]) -> dict:
+    """Both rubrics against the person: the first sheet's labels (labels.csv, a01..) and the
+    second's (judge_labels2.json, b01..), on each half and on all 60."""
+    with open(OUT_DIR / "labels.csv", encoding="utf-8-sig", newline="") as f:
+        labels = {row["cell"]: row["human"] for row in csv.DictReader(f) if row["cell"].startswith("a")}
+    labels.update({k: v for k, v in labels2.items() if k.startswith("b")})
+    judges = json.loads(ANSWERS2_JUDGES.read_text(encoding="utf-8"))
+    out = {}
+    for part, prefix in (("first 30", "a"), ("second 30", "b"), ("all 60", "")):
+        ids = [i for i in judges["correctness"] if i.startswith(prefix) and i in labels]
+        human = [labels[i] for i in ids]
+        cards = {}
+        for rubric in ("v1", "v2"):
+            kept = [i for i in ids if judges[rubric][i]["verdict"]]  # a refusal is no verdict
+            cards[rubric] = card([labels[i] for i in kept], [judges[rubric][i]["verdict"] for i in kept], "fail")
+        for threshold in (0.3, 0.4):
+            cards[f"ragas>={threshold}"] = card(
+                human, ["pass" if judges["correctness"][i] >= threshold else "fail" for i in ids], "fail")
+        cards["always_pass"] = card(human, ["pass"] * len(human), "fail")
+        out[part] = cards
+    out["v2_missed"] = [i for i in judges["correctness"] if labels.get(i) == "fail" and judges["v2"][i]["verdict"] == "pass"]
+    out["v2_false_fail"] = [i for i in judges["correctness"] if labels.get(i) == "pass" and judges["v2"][i]["verdict"] == "fail"]
+    (OUT_DIR / "answers2_scores.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     return out
 
 
@@ -656,19 +713,23 @@ def agreement_without_people() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score", "claude", "pairs", "sheet2"))
+    parser.add_argument("command", choices=("sheet", "judge", "bias", "ragas-bias", "agree", "score", "claude", "pairs", "sheet2",
+                                            "answers2", "score2"))
     parser.add_argument("--other-model", default=OTHER_MODEL)
     parser.add_argument("--claude-model", default=CLAUDE_MODEL, help="claude, pairs: the Claude model")
     parser.add_argument("--labels", type=Path, help="judge_labels.json saved from the labelling page")
+    parser.add_argument("--dry-run", action="store_true", help="answers2: build the 120 prompts, call nothing")
     parser.add_argument("--yes", action="store_true", help="go on past the cost guard (scripts/cost_guard.py)")
     args = parser.parse_args()
     from cost_guard import confirm
 
     # judge: relevance 3 x 48 (one call per question's pool) + answers 2 x 30; bias: 30 answers x 3 pairs
     # x 2 orders x 2 judges; ragas-bias: 90 scores x about 3 calls
-    # claude: relevance 48 + answers 30 on Claude; pairs: 22 pairs x 2 orders
+    # claude: relevance 48 + answers 30 on Claude; pairs: 22 pairs x 2 orders; answers2: 60 answers x 2 rubrics
     calls = {"judge": 3 * 48 + 2 * 30, "bias": 30 * 3 * 2 * 2, "ragas-bias": 90 * 3,
-             "claude": 48 + 30, "pairs": 22 * 2}.get(args.command, 0)
+             "claude": 48 + 30, "pairs": 22 * 2, "answers2": 60 * 2}.get(args.command, 0)
+    if args.dry_run:
+        calls = 0
     if calls and not confirm(f"judge_validation {args.command}", calls, yes=args.yes):
         return 1
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -695,6 +756,14 @@ def main() -> int:
         print(json.dumps(agreement_without_people(), ensure_ascii=False, indent=1))
     elif args.command == "pairs":
         print(json.dumps(effort_pairs(args.claude_model), ensure_ascii=False, indent=1))
+    elif args.command == "answers2":
+        from src import resources
+
+        out = run_answers2(resources.CHAT_MODEL_NAME, dry_run=args.dry_run)
+        print(json.dumps(out if args.dry_run else {r: sum(v["verdict"] == "fail" for v in out[r].values()) for r in ("v1", "v2")},
+                         ensure_ascii=False, indent=1))
+    elif args.command == "score2":
+        print(json.dumps(score_answers2(json.loads(args.labels.read_text(encoding="utf-8"))), ensure_ascii=False, indent=1))
     elif args.command == "agree":
         print(json.dumps(agreement_without_people(), ensure_ascii=False, indent=1))
     elif args.command == "bias":
