@@ -121,10 +121,11 @@ class Gpt6ModelConfigTest(unittest.TestCase):
             health.load_rag_chain.clear()
             with patch.object(settings, "get_setting", return_value=None):
                 health.load_rag_chain()
-            # No temperature; the answer model reasons at "low" (2026-10-22) unless configured.
+            # No temperature; the answer model reasons at "low" (2026-10-22) unless configured, with a time
+            # limit and one retry (2026-10-23).
             self.assertEqual(
                 constructor.call_args.kwargs,
-                {"model": "gpt-6-luna", "api_key": "test-key", "reasoning_effort": "low"},
+                {"model": "gpt-6-luna", "api_key": "test-key", "reasoning_effort": "low", "timeout": 45, "max_retries": 1},
             )
             health.load_rag_chain.clear()
             with patch.object(settings, "get_setting", return_value="medium"):
@@ -136,7 +137,7 @@ class Gpt6ModelConfigTest(unittest.TestCase):
             resources.load_chat_model()
             self.assertEqual(
                 constructor.call_args.kwargs,
-                {"model": "gpt-6-luna", "api_key": "test-key"},
+                {"model": "gpt-6-luna", "api_key": "test-key", "timeout": 30, "max_retries": 1},
             )
 
         health.load_rag_chain.clear()
