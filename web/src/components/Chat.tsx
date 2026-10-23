@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
-import { type Answer, applyEvent, type Emergency, finish, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
+import { type Answer, applyEvent, type Emergency, finish, FIRST_STEP, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
+import { failureMessage } from "@/lib/failure";
 
 import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
 import { type AccountRecords, DeviceRecords, moveDeviceToAccount } from "@/lib/records";
@@ -27,8 +28,10 @@ import { deleteAccount } from "@/lib/supabase";
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
+import Waiting from "./Waiting";
 
 const FAILED = "답변을 받지 못했습니다. 잠시 뒤 다시 질문해 주세요.";
+const STOPPED = "답변을 멈췄습니다.";
 const PLACEHOLDER = "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요.";
 
 function HospitalLine({ row }: { row: Hospital }) {
@@ -65,15 +68,22 @@ function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency
   );
 }
 
-function AnswerView({ answer, question, threadId, onNoteSaved }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void }) {
+function AnswerView({ answer, question, threadId, onNoteSaved, onRetry }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void }) {
   return (
     <>
       {answer.urgent ? <UrgentBox {...answer.urgent} /> : null}
       {answer.safetyNotice ? <p role="note" className="mb-3 rounded-lg bg-warn/10 p-3">{answer.safetyNotice}</p> : null}
       {answer.notice ? (
-        <p role={answer.notice === "error" ? "alert" : "status"} className={answer.notice === "error" ? "text-danger" : "text-warn-strong"}>
-          {answer.content}
-        </p>
+        <>
+          <p role={answer.notice === "error" ? "alert" : "status"} className={answer.notice === "error" ? "text-danger" : "text-warn-strong"}>
+            {answer.content}
+          </p>
+          {onRetry ? (
+            <button type="button" onClick={onRetry} className="mt-2 rounded-lg border border-line bg-white px-3 py-1 text-sm">
+              같은 질문 다시 보내기
+            </button>
+          ) : null}
+        </>
       ) : (
         <Markdown text={answer.content} />
       )}
@@ -140,7 +150,7 @@ function VisitPrepLink({ question }: { question: string }) {
   );
 }
 
-function PendingView({ pending }: { pending: Pending }) {
+function PendingView({ pending, onStop }: { pending: Pending; onStop: () => void }) {
   return (
     <>
       {pending.answer.urgent ? <UrgentBox {...pending.answer.urgent} /> : null}
@@ -150,7 +160,8 @@ function PendingView({ pending }: { pending: Pending }) {
           <Markdown text={pending.text + " ▌"} />
         </div>
       ) : (
-        <p role="status" className="text-muted">⏳ {pending.step}</p>
+        // Anything past the first step means the API is awake and working.
+        <Waiting text={pending.step} started={pending.step !== FIRST_STEP || Boolean(pending.places)} onStop={onStop} />
       )}
     </>
   );
@@ -200,6 +211,8 @@ export default function Chat() {
   // {thread id: summary of its older turns, as the API last returned it}; this tab only, like the Streamlit page.
   const memories = useRef(new Map<string, Memory>());
   const controller = useRef<AbortController | null>(null);
+  // The guardian pressed 멈추기: the abort ends the answer with a notice (leaving the page aborts quietly).
+  const stopped = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -353,6 +366,19 @@ export default function Chat() {
     }
   }
 
+  function stop() {
+    stopped.current = true;
+    controller.current?.abort();
+  }
+
+  /** A failed or stopped answer is not kept; its question goes again in its place. */
+  function retry(index: number) {
+    const question = askedBefore(messages, index);
+    if (!question || pending) return;
+    setMessages((shown) => shown.slice(0, index - 1));
+    void send(question);
+  }
+
   async function send(question: string) {
     const thread = current;
     const history = historyOf(messages);
@@ -373,6 +399,8 @@ export default function Chat() {
     };
     let memory = (thread && memories.current.get(thread)) || { upto: 0, summary: "" };
     controller.current = new AbortController();
+    stopped.current = false;
+    let failure: unknown = null;
     try {
       for await (const event of askChat({ ...request, memory }, controller.current.signal)) {
         const next = applyEvent(state, event);
@@ -382,9 +410,10 @@ export default function Chat() {
         setPending(state);
       }
     } catch (error) {
-      if ((error as Error).name === "AbortError") return;
+      if ((error as Error).name === "AbortError" && !stopped.current) return;
+      failure = error;
     }
-    const answer = finish(state, FAILED);
+    const answer = finish(state, stopped.current ? STOPPED : failureMessage(failure, FAILED));
     if (!answer.notice) {
       // Only answers are kept; a refused or failed question is shown but not stored.
       const recorded = recordTurn(threads, thread, question, answer);
@@ -491,13 +520,20 @@ export default function Chat() {
               {message.role === "user" ? (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               ) : (
-                <AnswerView answer={message} question={askedBefore(messages, index)} threadId={current} onNoteSaved={() => setNotesVersion((v) => v + 1)} />
+                <AnswerView
+                  answer={message}
+                  question={askedBefore(messages, index)}
+                  threadId={current}
+                  onNoteSaved={() => setNotesVersion((v) => v + 1)}
+                  // The last answer only, when it failed (not a question-limit notice: retrying would not help).
+                  onRetry={message.notice === "error" && index === messages.length - 1 && !pending ? () => retry(index) : undefined}
+                />
               )}
             </Bubble>
           ))}
           {pending ? (
             <Bubble role="assistant">
-              <PendingView pending={pending} />
+              <PendingView pending={pending} onStop={stop} />
             </Bubble>
           ) : null}
           {suggestion && !pending ? <MemoryCard suggestion={suggestion} onSave={() => answerSuggestion(true)} onDismiss={() => answerSuggestion(false)} /> : null}

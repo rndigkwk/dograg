@@ -8,6 +8,9 @@ import { useEffect, useState } from "react";
 import { compareText, type RegionFees, regionFees, regionOfAddress } from "@/lib/fees";
 import { locate, type Location } from "@/lib/location";
 import { type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
+import { failureMessage } from "@/lib/failure";
+
+import Waiting, { LoadError } from "./Waiting";
 
 const PlaceMap = dynamic(() => import("./PlaceMap"), { ssr: false, loading: () => <p className="text-sm text-muted">지도를 불러오는 중입니다…</p> });
 
@@ -88,7 +91,7 @@ function PlaceView({ id }: { id: string }) {
   useEffect(() => {
     loadPlace(id).then(setFound, () => setFound("missing"));
   }, [id]);
-  if (found === null) return <p className="text-muted">불러오는 중입니다…</p>;
+  if (found === null) return <Waiting text="불러오는 중입니다…" />;
   if (found === "missing") return <p role="alert" className="text-danger">선택한 장소를 찾지 못했습니다.</p>;
   return (
     <article className="space-y-2">
@@ -117,6 +120,9 @@ export default function Places() {
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The kinds and regions the form needs: a failure shows a retry button instead of an empty form.
+  const [loadFailed, setLoadFailed] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     Promise.all([loadKinds(), loadRegions()]).then(
@@ -127,9 +133,9 @@ export default function Places() {
         setProvince(first);
         setCity(r[first]?.[0] ?? "");
       },
-      () => setError("시설 정보를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요."),
+      (e) => setLoadFailed(failureMessage(e, "시설 정보를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.")),
     );
-  }, []);
+  }, [attempt]);
 
   const current = kinds.find((k) => k.kind === kind);
   const label = current?.label ?? "시설";
@@ -179,6 +185,18 @@ export default function Places() {
       </div>
     );
   }
+
+  if (loadFailed)
+    return (
+      <LoadError
+        message={loadFailed}
+        onRetry={() => {
+          setLoadFailed(null);
+          setAttempt((n) => n + 1);
+        }}
+      />
+    );
+  if (!kinds.length) return <Waiting text="시설 정보를 불러오는 중입니다…" />;
 
   return (
     <div className="space-y-6">

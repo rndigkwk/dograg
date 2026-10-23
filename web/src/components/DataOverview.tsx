@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 
 import { type Overview, overview, percent } from "@/lib/stats";
 
+import { failureMessage } from "@/lib/failure";
+
 import BarChart from "./BarChart";
+import Waiting, { LoadError } from "./Waiting";
 
 const TABS = ["기타를 제외한 질병 순위", "진료과 별 분포", "지역별 동물병원 수", "반려동물 시설 데이터"] as const;
 
@@ -68,13 +71,23 @@ export default function DataOverview() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    overview().then(setData, (e: Error) => setError(e.message));
-  }, []);
+    overview().then(setData, (e: Error) => setError(failureMessage(e, e.message)));
+  }, [attempt]);
 
-  if (error) return <p role="alert" className="rounded-lg bg-warn/10 p-3">{error}</p>;
-  if (!data) return <p className="text-muted">데이터를 불러오는 중입니다…</p>;
+  if (error)
+    return (
+      <LoadError
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setAttempt((n) => n + 1);
+        }}
+      />
+    );
+  if (!data) return <Waiting text="데이터를 불러오는 중입니다…" />;
 
   const panels = [
     <BarChart key="d" title="기타를 제외한 질병 분류 TOP 10" unit="건" rows={data.diseases} note="상담 데이터 개수" />,
