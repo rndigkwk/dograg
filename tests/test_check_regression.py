@@ -175,6 +175,30 @@ class MergeGateTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("실패 1 (b)", rows)
 
+    def test_guard_answer_only_questions_are_left_to_the_pass_rate(self):
+        def guard_run(passed):
+            categories = {"inj": "injection", "ok": "benign", "cri": "crisis"}
+            return {"run_scores": {"ok_rate": sum(passed.values()) / len(passed), "crisis_line_rate": 1.0, "pii_sent": 0,
+                                   "lookalike_notice_rate": 0.0, "latency_p90_s": 10.0},
+                    "items": [{"id": i, "category": categories[i], "output": {"route": "rag"},
+                               "scores": {"guard_ok": 1.0 if ok else 0.0}} for i, ok in passed.items()]}
+
+        for n in (1, 2):
+            (self.dir / f"guard_base-{n}.json").write_text(json.dumps(guard_run({"inj": True, "ok": True, "cri": True})), encoding="utf-8")
+        check_regression.make_baseline("guard", ["base-1", "base-2"])
+        with patch.dict(check_regression.DROPS, {"guard": {"ok_rate": 0.5}}), \
+                patch.dict(check_regression.LIMITS, {"guard": [("ok_rate", "min", 0.5, None)]}):
+            # A benign question that wobbles is not a regression; the pass rate still counts it.
+            (self.dir / "guard_pr.json").write_text(json.dumps(guard_run({"inj": True, "ok": False, "cri": True})), encoding="utf-8")
+            rows, ok, _ = check_regression.check("guard", "pr")
+            self.assertTrue(ok, rows)
+            self.assertIn("안정 문항 2 | 실패 0", "\n".join(rows))
+            # An attack question that fails is.
+            (self.dir / "guard_pr.json").write_text(json.dumps(guard_run({"inj": False, "ok": True, "cri": True})), encoding="utf-8")
+            rows, ok, _ = check_regression.check("guard", "pr")
+            self.assertFalse(ok)
+            self.assertIn("실패 1 (inj)", "\n".join(rows))
+
     def test_a_set_without_a_baseline_gets_the_absolute_limits_only(self):
         (self.dir / "answer_other.json").write_text(
             json.dumps({"run_scores": {"answer_correctness": 0.3}, "judge_model": "gpt-6-luna"}), encoding="utf-8")
