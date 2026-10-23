@@ -34,6 +34,45 @@ class QuotaErrorTests(unittest.TestCase):
         self.assertFalse(model_outage.is_quota_error(None))
 
 
+class APITimeoutError(Exception):
+    pass
+
+
+class OutageKindTests(unittest.TestCase):
+    def test_quota_timeout_and_our_own_bugs(self):
+        try:
+            try:
+                raise APITimeoutError("Request timed out.")
+            except APITimeoutError as inner:
+                raise RuntimeError("graph failed") from inner
+        except RuntimeError as wrapped:
+            self.assertEqual(model_outage.outage_kind(wrapped), "unavailable")
+        self.assertEqual(model_outage.outage_kind(RateLimitError("insufficient_quota")), "quota")
+        self.assertEqual(model_outage.outage_kind(RateLimitError("Rate limit reached for requests per min")), "unavailable")
+        self.assertIsNone(model_outage.outage_kind(KeyError("answer")))
+        self.assertIsNone(model_outage.outage_kind(None))
+
+    def test_the_unavailable_notice_does_not_talk_of_a_quota(self):
+        with patch.object(health, "other_species", return_value=None),                 patch.object(health, "health_top_similarity", return_value=0.1),                 patch.object(care_guides, "retrieve_care_guides", return_value=[]):
+            answer = model_outage.search_only_result("기침해요", 3, kind="unavailable")["answer"]
+        self.assertTrue(answer.startswith(model_outage.UNAVAILABLE_ONLY))
+        self.assertNotIn("한도", answer)
+
+
+class ClientLimitTests(unittest.TestCase):
+    def test_every_chat_model_client_has_a_time_limit_and_one_retry(self):
+        from src import resources, settings
+        from src.tools import health as health_tool
+
+        with patch.object(settings, "get_openai_api_key", return_value="sk-test"):
+            clients = [resources.load_review_model.__wrapped__(), resources.load_chat_model.__wrapped__(),
+                       health_tool.load_rag_chain.__wrapped__().steps[1]]
+        for client in clients:
+            self.assertIsNotNone(client.request_timeout)
+            self.assertLessEqual(client.request_timeout, 60)
+            self.assertEqual(client.max_retries, 1)
+
+
 class SearchOnlyTests(unittest.TestCase):
     def search(self, similarity, guides=(GUIDE,), species=None):
         with patch.object(health, "other_species", return_value=species),                 patch.object(health, "health_top_similarity", return_value=similarity),                 patch.object(health, "retrieve_health", return_value=[CASE]) as cases,                 patch.object(care_guides, "retrieve_care_guides", return_value=list(guides)):
