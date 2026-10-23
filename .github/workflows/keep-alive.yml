@@ -1,75 +1,56 @@
 name: Keep deployed app awake and working
 
-# Every 8 hours, and after a push to main once the redeploy is done, a headless browser opens the
-# Cloud Run deployment (docs/wiki/cloud-run.md), every page, and asks the chatbot a date and a
-# health question (scripts/check_deployed_app.py), so a deployment that is up but broken fails the
+# Every 8 hours the serving API gets the deploy canary's four checks (scripts/canary_check.py:
+# /health, the tables, a date question, a health question through the search and the answer
+# model), and the web app's pages must answer 200, so a deployment that is up but broken fails the
 # run. Cloud Run scales to zero between visits: the scheduled runs record its cold start.
-# Until 2026-10-15 the main branch also ran on Streamlit Community Cloud and this check kept it
-# awake. Since then Streamlit Cloud runs only the frozen backup (branch streamlit-backup, its own
-# Chroma search, docs/docker-deployment.md); it may sleep and is not checked here.
+# Until 2026-10-23 a headless browser opened the Cloud Run Streamlit service here
+# (scripts/check_deployed_app.py). Since P5 that service, like the old Streamlit Cloud address
+# (branch streamlit-backup), shows only a notice pointing to the web app (main.py).
+# A push to main is not a trigger any more: the deploy workflow runs the same canary on the new
+# revision and checks the API once it serves (deploy-cloud-run.yml).
 on:
   schedule:
     - cron: "17 */8 * * *"
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Several merges in a row started one check each (three at once on 2026-10-09). A newer run
-# replaces the one still waiting: only the check after the last redeploy matters.
 concurrency:
   group: deployed-app-check
   cancel-in-progress: true
 
+env:
+  API_URL: https://ragdog-api-892238791473.asia-northeast3.run.app
+  WEB_URL: https://ragdog-rndigkwks-projects.vercel.app
+
 jobs:
   wake:
-    strategy:
-      fail-fast: false  # one deployment failing must not hide the other's result
-      matrix:
-        target:
-          - name: cloud-run
-            url: https://ragdog-892238791473.asia-northeast3.run.app
-    name: wake (${{ matrix.target.name }})
     runs-on: ubuntu-latest
-    # Up to 5 min for the redeploy, 10 min for the deployed commit to match, then the page and chat checks.
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+      - name: The serving API answers like a new revision must
+        # No --expect-commit: a deploy may be on its way; deploy-cloud-run.yml checks the commit.
+        run: python3 scripts/canary_check.py "$API_URL"
 
-      - name: Install headless Chromium
-        run: uvx --with playwright playwright install --with-deps chromium
-
-      - name: Wait for the redeploy
-        # Streamlit Cloud redeploys on its own; Cloud Run's deploy workflow takes about 3 minutes.
-        if: github.event_name == 'push'
-        run: sleep 300
-
-      - name: Wake the app and check every page and the chatbot
-        # The result also goes to ragdog_eval_history (scripts/eval_history.py) for the trend.
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          RAGDOG_EVAL_HISTORY: "1"
-        run: uvx --with playwright --with "psycopg[binary]" python scripts/check_deployed_app.py "${{ matrix.target.url }}" ${{ github.ref == 'refs/heads/main' && format('--expect-commit {0}', github.sha) || '' }}
-
-      - name: Keep the failure screenshot
-        if: failure()
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: check-app-failure-${{ matrix.target.name }}
-          path: |
-            wake_app_failure.png
-            check_app_failure.png
-          if-no-files-found: ignore
+      - name: The web app's pages answer
+        run: |
+          for path in / /chat /places /fees /care /visit-prep; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$WEB_URL$path" || true)"
+            echo "$path $code"
+            if [ "$code" != 200 ]; then
+              echo "::error::$WEB_URL$path answered $code"
+              exit 1
+            fi
+          done
 
   database:
-    # The check above asks a health question; with SEARCH_BACKEND=supabase (docs/adr/0007) that
-    # search must have used the Supabase vector index during this run. Otherwise the deployments
+    # The canary above asks the API a health question; with SEARCH_BACKEND=supabase (docs/adr/0007)
+    # that search must have used the Supabase vector index during this run. Otherwise the API
     # answered from the local fallback and Supabase is failing for them. The query also counts as
     # database activity, so the free project is not paused for inactivity.
     needs: wake

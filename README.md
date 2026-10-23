@@ -2,7 +2,7 @@
 
 > 반려견 건강 상담, 반려동물 시설 찾기(38,529곳), 지역별 진료비, 반려동물 보고서 분석, 수의사 방문 준비 보고서, 예방·접종 관리 일정을 하나로 묶은 RAG 서비스입니다. **근거가 없으면 지어내지 않고 보류하고, 모든 개선은 같은 평가 세트로 전후를 재서 결정했습니다.**
 
-- **웹 앱:** <https://ragdog-rndigkwks-projects.vercel.app> (Next.js, Vercel) · **API:** FastAPI on Google Cloud Run(서울) · **백업 화면:** [Streamlit](https://dograg-hsckizrbd7fddwtv8mt7cs.streamlit.app/rag)
+- **웹 앱:** <https://ragdog-rndigkwks-projects.vercel.app> (Next.js, Vercel) · **API:** FastAPI on Google Cloud Run(서울) · 옛 Streamlit 화면은 2026-10-23부터 새 웹 앱 안내만 보여 줍니다(코드는 `app_pages/`에 남김)
 - **문서:** [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 11개](docs/adr/README.md) · [보안 정리](docs/security/README.md) · [데이터 명세](docs/data-sources.md)
 - 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 **오현탁이 혼자 이어서**(2026-09~10, PR 230여 개) 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
 
@@ -154,7 +154,7 @@ uv run python -m unittest discover -s tests
 ```
 
 - 웹은 `NEXT_PUBLIC_RAGDOG_API_URL=http://localhost:8000`으로 로컬 API를 씁니다. 키는 `.env`(OpenAI, Supabase)에 두고 Git에 올리지 않습니다.
-- Streamlit 백업 화면: `uv run streamlit run main.py`. 컨테이너: [Docker·배포 설계](docs/docker-deployment.md)
+- Streamlit 화면: `uv run streamlit run main.py`는 새 주소 안내만 띄웁니다. 전체 화면은 `STREAMLIT_FULL_APP=1`을 함께 줍니다. 컨테이너: [Docker·배포 설계](docs/docker-deployment.md)
 - 평가 스크립트(`scripts/evaluate_*.py`)는 실제 모델을 불러 비용이 듭니다.
 
 <details>
@@ -174,7 +174,7 @@ uv run python -m unittest discover -s tests
 │   ├── auth.py · rate_limit.py · pii.py · tracing.py
 │   └── storage/            # 대화·반려견 정보 모델
 ├── team/                   # 멀티에이전트 팀: core → tools → agents → graph → main
-├── app_pages/ · main.py    # Streamlit 백업 화면
+├── app_pages/ · main.py    # Streamlit 화면(지금은 안내만, STREAMLIT_FULL_APP=1이면 전체)
 ├── scripts/                # 평가, 실험, 회귀 판정, 릴리스 점검, SLO, 돌봄 지침 빌드, OCR, MLflow, sql/(RLS와 테스트)
 ├── tests/                  # 단위·회귀 테스트, 평가 문항(tests/data/)
 ├── .github/workflows/      # 테스트, PR 품질 검사, 주간 회귀, 배포 점검, Cloud Run 배포
