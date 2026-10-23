@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   byMedian,
+  DEFAULT_ITEM,
   dotAxis,
   type FeeItem,
   feeItems,
@@ -20,7 +21,6 @@ import { failureMessage } from "@/lib/failure";
 
 import Waiting, { LoadError } from "./Waiting";
 
-const DEFAULT_ITEM = "초진 진찰료 (체중 5kg)";
 const ALL = "";
 
 function Stat({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
@@ -170,22 +170,27 @@ function SigunguTable({ fees, sido, chosen, onChoose }: { fees: ItemFees; sido: 
 
 /** The fee page: pick a surveyed item and a region; see that region's numbers, every province against
  * the national median, and the districts of the chosen province (animalclinicfee.or.kr's view). */
-export default function FeeExplorer() {
-  const [items, setItems] = useState<FeeItem[] | null>(null);
-  const [itemLabel, setItemLabel] = useState(DEFAULT_ITEM);
-  const [fees, setFees] = useState<ItemFees | null>(null);
+export type FeesStart = { items: FeeItem[]; fees: ItemFees };
+
+export default function FeeExplorer({ initial = null }: { initial?: FeesStart | null }) {
+  const [items, setItems] = useState<FeeItem[] | null>(initial?.items ?? null);
+  const [itemLabel, setItemLabel] = useState(initial?.fees.label ?? DEFAULT_ITEM);
+  const [fees, setFees] = useState<ItemFees | null>(initial?.fees ?? null);
   const [sido, setSido] = useState(ALL);
   const [gu, setGu] = useState(ALL);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (initial && attempt === 0) return; // drawn from the server (lib/prefetch.ts)
     feeItems().then((body) => setItems(body.items), (e: Error) => setError(failureMessage(e, e.message)));
-  }, [attempt]);
+  }, [attempt, initial]);
 
   const item = items?.find((candidate) => candidate.label === itemLabel) ?? items?.[0];
   useEffect(() => {
     if (!item) return;
+    // The server's figures are for the first item; another item or a retry fetches.
+    if (initial && attempt === 0 && item.item === initial.fees.item && item.detail === initial.fees.detail) return;
     let current = true;
     itemFees(item).then(
       (body) => current && setFees(body),
@@ -194,7 +199,7 @@ export default function FeeExplorer() {
     return () => {
       current = false;
     };
-  }, [item, attempt]);
+  }, [item, attempt, initial]);
 
   if (error)
     return (

@@ -107,14 +107,17 @@ function PlaceView({ id }: { id: string }) {
   );
 }
 
-export default function Places() {
+export type PlacesStart = { kinds: Kind[]; regions: Record<string, string[]> };
+
+export default function Places({ initial = null }: { initial?: PlacesStart | null }) {
   const params = useSearchParams();
   const selected = params.get("id");
-  const [kinds, setKinds] = useState<Kind[]>([]);
-  const [regionList, setRegionList] = useState<Record<string, string[]>>({});
+  const firstProvince = Object.keys(initial?.regions ?? {})[0] ?? "";
+  const [kinds, setKinds] = useState<Kind[]>(initial?.kinds ?? []);
+  const [regionList, setRegionList] = useState<Record<string, string[]>>(initial?.regions ?? {});
   const [kind, setKind] = useState("hospital");
-  const [province, setProvince] = useState("");
-  const [city, setCity] = useState("");
+  const [province, setProvince] = useState(firstProvince);
+  const [city, setCity] = useState(initial?.regions[firstProvince]?.[0] ?? "");
   const [location, setLocation] = useState<Location | null>(null);
   const [near, setNear] = useState<Place[] | null>(null);
   const [found, setFound] = useState<{ total: number; places: Place[]; area: string; kind: string; province: string; city: string } | null>(null);
@@ -126,6 +129,7 @@ export default function Places() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (initial && attempt === 0) return; // drawn from the server (lib/prefetch.ts)
     Promise.all([loadKinds(), loadRegions()]).then(
       ([k, r]) => {
         setKinds(k);
@@ -136,7 +140,7 @@ export default function Places() {
       },
       (e) => setLoadFailed(failureMessage(e, "시설 정보를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.")),
     );
-  }, [attempt]);
+  }, [attempt, initial]);
 
   const current = kinds.find((k) => k.kind === kind);
   const label = current?.label ?? "시설";

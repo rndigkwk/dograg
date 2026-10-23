@@ -67,15 +67,16 @@ function PlaceSources({ sources }: { sources: Overview["place_sources"] }) {
 }
 
 /** The data page (app_pages/data.py): consultation counts and the place data, in four tabs. */
-export default function DataOverview() {
-  const [data, setData] = useState<Overview | null>(null);
+export default function DataOverview({ initial = null }: { initial?: Overview | null }) {
+  const [data, setData] = useState<Overview | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (initial && attempt === 0) return; // drawn from the server (lib/prefetch.ts)
     overview().then(setData, (e: Error) => setError(failureMessage(e, e.message)));
-  }, [attempt]);
+  }, [attempt, initial]);
 
   if (error)
     return (
