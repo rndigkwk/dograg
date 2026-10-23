@@ -1,9 +1,10 @@
 name: Deploy to Cloud Run
 
 # Builds the container image (Dockerfile: private data and model baked in, HF_TOKEN as a build
-# secret), pushes it to the private Artifact Registry repository and deploys it to Cloud Run twice:
-# the Streamlit app (service ragdog, docs/wiki/cloud-run.md) and, from the same image with another
-# command, the API for the Next.js frontend (service ragdog-api, docs/adr/0008).
+# secret), pushes it to the private Artifact Registry repository and deploys the API for the
+# Next.js frontend to Cloud Run (service ragdog-api, docs/adr/0008). Until 2026-10-23 the same image
+# also ran the Streamlit app as service ragdog; that service showed only a notice after P5 and was
+# removed (the fallback is Streamlit Cloud on branch streamlit-backup, docs/runbook-manual-deploy.md).
 #
 # One-time setup: scripts/gcp/setup_cloud_run.sh in Cloud Shell, then the repository variable
 # GCP_WORKLOAD_IDENTITY_PROVIDER (Settings > Secrets and variables > Actions > Variables).
@@ -31,7 +32,6 @@ concurrency:
 env:
   PROJECT_ID: ragdog-511311
   REGION: asia-northeast3
-  SERVICE: ragdog
   API_SERVICE: ragdog-api
   IMAGE: asia-northeast3-docker.pkg.dev/ragdog-511311/ragdog/app
   DEPLOYER: github-deployer@ragdog-511311.iam.gserviceaccount.com
@@ -64,38 +64,8 @@ jobs:
           docker build --secret id=hf_token,env=HF_TOKEN -t "$IMAGE:$GITHUB_SHA" .
           docker push "$IMAGE:$GITHUB_SHA"
 
-      - name: Deploy
-        # 2 GiB: 1.06 GiB peak measured with a visit report (docs/wiki/cloud-run.md).
-        # At most 2 instances: the cost cap, and the visit report's paused runs live in one
-        # server's memory, so session affinity keeps a browser on the same instance.
-        # Streamlit keeps a websocket open per tab: the timeout is the longest a tab stays connected.
-        # Settings mirror the Streamlit Cloud secrets (ENABLE_CRAG, Langfuse); HF_TOKEN is not needed
-        # at run time because the data and the model are in the image.
-        # Search in Supabase (docs/adr/0007) when the repository secret SEARCH_BACKEND is "supabase":
-        # the database URL then comes from the Secret Manager secret SUPABASE_DB_URL (created once by
-        # scripts/gcp/setup_cloud_run.sh), like the other runtime secrets.
-        env:
-          SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
-        run: |
-          secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest"
-          backend=local
-          if [ "$SEARCH_BACKEND" = supabase ]; then
-            backend=supabase
-            secrets="$secrets,SUPABASE_DB_URL=SUPABASE_DB_URL:latest"
-          fi
-          echo "### Search backend: $backend" >> "$GITHUB_STEP_SUMMARY"
-          # Since P5 (2026-10-23) the Streamlit service shows only the "moved" notice (main.py), which
-          # loads no data or model: 512Mi. Back to 2Gi with STREAMLIT_FULL_APP=1 to revive the full app.
-          gcloud run deploy "$SERVICE" --image="$IMAGE:$GITHUB_SHA" --region="$REGION" \
-            --service-account="$RUNTIME" --memory=512Mi --cpu=1 --cpu-boost \
-            --min-instances=0 --max-instances=2 --session-affinity --timeout=3600 \
-            --allow-unauthenticated \
-            --set-secrets="$secrets" \
-            --set-env-vars="ENABLE_CRAG=true,SEARCH_BACKEND=$backend,LANGFUSE_BASE_URL=https://us.cloud.langfuse.com,LANGFUSE_TRACING_ENVIRONMENT=cloudrun,LANGFUSE_RELEASE=$GITHUB_SHA"
-
       - name: Deploy the API
-        # The same image and settings as the app, started as the FastAPI server (api/main.py).
-        # Two instances at most (the cost cap, like the app). A visit report paused for the guardian's
+        # The image, started as the FastAPI server (api/main.py). Two instances at most (the cost cap). A visit report paused for the guardian's
         # answer waits in Supabase (src/visit_prep_store.py, schema visit_prep), so the answer may reach
         # either instance and survives a deploy. No session affinity: the browser calls with fetch and
         # no cookies. 15 minutes per request: a report streams for
@@ -153,20 +123,6 @@ jobs:
         # the traffic to an older revision. A drill candidate (input fault) is never promoted.
         if: ${{ (inputs.fault || 'none') == 'none' }}
         run: gcloud run services update-traffic "$API_SERVICE" --region="$REGION" --to-latest
-
-      - name: Check the deployed service
-        run: |
-          url="$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')"
-          for attempt in $(seq 1 30); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' "$url/_stcore/health" || true)"
-            if [ "$code" = 200 ]; then
-              echo "### Cloud Run: $url (health 200, attempt $attempt)" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::$url/_stcore/health did not answer 200 (last: $code)"
-          exit 1
 
       - name: Check the deployed API
         # /health reports the commit (LANGFUSE_RELEASE): the new revision must be the one serving.
