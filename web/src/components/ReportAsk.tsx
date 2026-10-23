@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, warmUp } from "@/lib/api";
-import { type Answer, applyEvent, finish, type Pending, startPending } from "@/lib/chat";
+import { type Answer, applyEvent, finish, FIRST_STEP, type Pending, startPending } from "@/lib/chat";
+import { failureMessage } from "@/lib/failure";
 import { CROSS_QUESTIONS, type Report, REPORTS, scoped } from "@/lib/reports";
 
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
 import Markdown from "./Markdown";
+import Waiting from "./Waiting";
 
 const FAILED = "답변을 만들지 못했습니다. 잠시 뒤 다시 질문해 주세요.";
 type Asked = { question: string; answer: Answer };
@@ -58,6 +60,9 @@ export default function ReportAsk() {
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
+      setAsked((shown) => [{ question, answer: finish(state, failureMessage(error, FAILED)) }, ...shown]);
+      setPending(null);
+      return;
     }
     setAsked((shown) => [{ question, answer: finish(state, FAILED) }, ...shown]);
     setPending(null);
@@ -123,7 +128,13 @@ export default function ReportAsk() {
       {pending ? (
         <article aria-busy="true" aria-label="답변을 만드는 중" className="rounded-xl border border-line bg-white p-4">
           <p className="font-semibold">Q. {pending.question}</p>
-          {pending.state.text ? <Markdown text={pending.state.text} /> : <p className="mt-2 text-muted">{pending.state.step}</p>}
+          {pending.state.text ? (
+            <Markdown text={pending.state.text} />
+          ) : (
+            <div className="mt-2">
+              <Waiting text={pending.state.step} started={pending.state.step !== FIRST_STEP} />
+            </div>
+          )}
         </article>
       ) : null}
       {asked.map(({ question, answer }, index) => (

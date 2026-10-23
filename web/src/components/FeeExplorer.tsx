@@ -15,6 +15,9 @@ import {
   versusNational,
   won,
 } from "@/lib/fees";
+import { failureMessage } from "@/lib/failure";
+
+import Waiting, { LoadError } from "./Waiting";
 
 const DEFAULT_ITEM = "초진 진찰료 (체중 5kg)";
 const ALL = "";
@@ -154,10 +157,11 @@ export default function FeeExplorer() {
   const [sido, setSido] = useState(ALL);
   const [gu, setGu] = useState(ALL);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    feeItems().then((body) => setItems(body.items), (e: Error) => setError(e.message));
-  }, []);
+    feeItems().then((body) => setItems(body.items), (e: Error) => setError(failureMessage(e, e.message)));
+  }, [attempt]);
 
   const item = items?.find((candidate) => candidate.label === itemLabel) ?? items?.[0];
   useEffect(() => {
@@ -165,15 +169,24 @@ export default function FeeExplorer() {
     let current = true;
     itemFees(item).then(
       (body) => current && setFees(body),
-      (e: Error) => current && setError(e.message),
+      (e: Error) => current && setError(failureMessage(e, e.message)),
     );
     return () => {
       current = false;
     };
-  }, [item]);
+  }, [item, attempt]);
 
-  if (error) return <p role="alert" className="rounded-lg bg-warn/10 p-3">{error}</p>;
-  if (!items || !fees) return <p className="text-muted">진료비 자료를 불러오는 중입니다…</p>;
+  if (error)
+    return (
+      <LoadError
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setAttempt((n) => n + 1);
+        }}
+      />
+    );
+  if (!items || !fees) return <Waiting text="진료비 자료를 불러오는 중입니다…" />;
 
   const sidoRow = fees.sido.find((row) => row.sido === sido);
   const guRow = fees.sigungu.find((row) => row.sido === sido && row.sigungu === gu);
