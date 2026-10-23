@@ -118,5 +118,29 @@ class FeeTests(unittest.TestCase):
         self.assertIn("지역(예: 강남구, 수원)", answer)
 
 
+class FeePointerTests(unittest.TestCase):
+    """A health answer whose question also asks about money ends with where the fee figures are."""
+
+    def test_a_long_consultation_asking_about_cost_gets_the_pointer(self):
+        question = ("데려온 강아지가 심장사상충 2기 진단을 받아 보름간 혈관 확장제를 먹이고 성충을 죽이는 주사를 이틀에 걸쳐 "
+                    "두 번 맞혔습니다. 한 달이 지났는데 목에 무엇이 걸린 듯 기침을 자주 하고 헥헥거려요. 치료가 제대로 안 된 "
+                    "걸까요? 치료에 약 백만 원 정도의 비용이 들었는데 효과가 없으면 어떡하나요?")
+        self.assertGreater(len(question), fees.MAX_FEE_QUESTION_CHARS)
+        with patch.object(fees, "load_fee_rows", return_value=ROWS):  # the fee path is closed by length, not by data
+            self.assertFalse(fees.is_fee_question(question))
+        pointer = fees.fee_pointer(question)
+        self.assertIn("지역별 진료비", pointer)
+        self.assertIn("병원에 확인", pointer)
+
+    def test_a_named_item_is_mentioned(self):
+        pointer = fees.fee_pointer("강아지가 다리를 절어서 엑스레이를 찍었는데 보통 얼마 나와요? 그리고 뼈는 괜찮을까요?")
+        self.assertIn("엑스선 촬영비와 판독료 같은 항목은", pointer)
+
+    def test_no_money_no_pointer(self):
+        for question in ["강아지가 이틀째 설사를 해요", "사료는 하루에 얼마나 자주 줘야 하나요?",
+                         "약은 얼마 동안 먹여야 해요?", "펫보험 가입 비용 평균이 얼마예요?"]:
+            self.assertEqual(fees.fee_pointer(question), "", question)
+
+
 if __name__ == "__main__":
     unittest.main()

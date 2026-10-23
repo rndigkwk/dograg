@@ -27,7 +27,7 @@ TOOL_SOURCES = {
     care_guides: ("retrieve_care_guides",),
     report: ("analyze_report", "search_reports", "generate_report_answer", "report_evidence_from_docs"),
     places: ("run_sql_search",),
-    fees: ("is_fee_question", "fee_answer"),
+    fees: ("is_fee_question", "fee_answer", "fee_pointer"),
     general: ("answer_without_tool",),
     review: ("review_evidence", "rewrite_search_query", "decompose_question"),
 }
