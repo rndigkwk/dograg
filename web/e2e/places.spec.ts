@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openFromMenu } from "./nav";
 
 import { ask, fakeApi, result } from "./fake-api";
 
@@ -76,11 +77,11 @@ test("the menu leads between the pages", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("데이터로 지키는 따뜻한 동행");
   await page.getByRole("link", { name: /반려동물 시설 찾기/ }).click(); // a service card
   await expect(page.getByRole("heading", { name: "반려동물 시설 찾기" })).toBeVisible();
-  await page.getByRole("link", { name: "🐾 라그도그" }).click();
+  await page.getByRole("link", { name: "라그도그", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole("navigation", { name: "메뉴" }).getByRole("link", { name: /시설 찾기/ }).click();
+  await openFromMenu(page, "찾기", "시설 찾기");
   await expect(page.getByRole("heading", { name: "반려동물 시설 찾기" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /시설 찾기/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "찾기 메뉴" }).getByRole("link", { name: "시설 찾기" })).toHaveAttribute("aria-current", "page");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBe(0);
 });

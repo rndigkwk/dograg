@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
-/* The Streamlit app's colors (src/ui.py apply_app_theme): navy text, violet accent. */
+/* Design A (2026-10-24, the redesign canvas): a deep teal accent on a pale green-grey page. Every text
+   color passes 4.5:1 on the page, white and the 5-10% accent tints (muted 5.1+, accent 5.0+). */
 @theme {
-  --color-page: #f7f8fc;
-  --color-ink: #17233f;
-  --color-muted: #5f6b86; /* 4.5:1 on the tinted panels too (Lighthouse, 2026-10-23: #66728d was 4.22 on bg-accent/5) */
-  --color-line: #dfe3ee;
-  --color-accent: #5943d8;
+  --color-page: #f5f8f7;
+  --color-ink: #14231f;
+  --color-muted: #4f6560;
+  --color-line: #dce6e3;
+  --color-accent: #0f6e63;
   --color-danger: #c62828;
   --color-warn: #f2a900;
   --color-warn-strong: #8a5a00;
