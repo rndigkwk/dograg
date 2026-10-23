@@ -472,15 +472,17 @@ export default function Chat() {
             {saveError}
           </p>
         ) : null}
-        {notice ? (
-          <p role="note" className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm">
-            {STORAGE_NOTICE}
-          </p>
-        ) : null}
         <div className="flex-1 space-y-4 pb-4" aria-label="대화">
           {messages.length === 0 && !pending ? (
             <p className="rounded-xl bg-accent/5 p-4 text-muted">
               반려견의 증상, 가까운 병원, 반려동물 관련 보고서 내용을 물어보세요. 응급 징후가 보이면 답보다 먼저 알려 드립니다.
+            </p>
+          ) : null}
+          {/* Below the greeting, not above the conversation: it is known only once the browser's records
+              are read, and above it pushed the whole conversation down (CLS 0.12, Lighthouse 2026-10-23). */}
+          {notice ? (
+            <p role="note" className="rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm">
+              {STORAGE_NOTICE}
             </p>
           ) : null}
           {messages.map((message, index) => (

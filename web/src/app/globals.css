@@ -4,7 +4,7 @@
 @theme {
   --color-page: #f7f8fc;
   --color-ink: #17233f;
-  --color-muted: #66728d;
+  --color-muted: #5f6b86; /* 4.5:1 on the tinted panels too (Lighthouse, 2026-10-23: #66728d was 4.22 on bg-accent/5) */
   --color-line: #dfe3ee;
   --color-accent: #5943d8;
   --color-danger: #c62828;
