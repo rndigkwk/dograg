@@ -171,3 +171,27 @@ test("the page fits a phone screen", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBe(0);
 });
+
+test("a question typed on the home page is asked on the chat page, once", async ({ page }) => {
+  const api = await fakeApi(page, [[result("홈에서 물은 질문의 답입니다.")]]);
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "질문" }).fill("강아지가 기침을 해요");
+  await page.getByRole("button", { name: "질문하기" }).click();
+  await expect(page).toHaveURL(/\/chat$/);
+  await expect(conversation(page).getByText("홈에서 물은 질문의 답입니다.")).toBeVisible();
+  expect(api.chats.map((chat) => chat.question)).toEqual(["강아지가 기침을 해요"]);
+  expect(page.url()).not.toContain("기침"); // never in the address
+
+  await page.reload();
+  await openList(page);
+  await expect(page.getByRole("button", { name: "강아지가 기침을 해요" })).toBeVisible(); // kept with the conversations
+  expect(api.chats).toHaveLength(1); // not asked again
+});
+
+test("an example question on the home page goes straight to the chat", async ({ page }) => {
+  const api = await fakeApi(page, [[result("발톱 답")]]);
+  await page.goto("/");
+  await page.getByRole("button", { name: "발톱이 부러져서 피가 나요" }).click();
+  await expect(conversation(page).getByText("발톱 답")).toBeVisible();
+  expect(api.chats[0].question).toBe("발톱이 부러져서 피가 나요");
+});

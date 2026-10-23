@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
-import { type Answer, applyEvent, type Emergency, finish, FIRST_STEP, type Hospital, historyOf, type Message, type Pending, startPending } from "@/lib/chat";
+import { type Answer, applyEvent, type Emergency, finish, FIRST_STEP, type Hospital, historyOf, type Message, type Pending, startPending, takeAsked } from "@/lib/chat";
 import { failureMessage } from "@/lib/failure";
 
 import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
@@ -258,6 +258,16 @@ export default function Chat() {
       stale = true;
     };
   }, [records, storage]);
+
+  // A question typed on the home page (components/HomeAsk.tsx): asked once the records are read, so
+  // it joins the right conversation and profile. Taken out first, so a reload does not ask it again.
+  useEffect(() => {
+    if (!loaded) return;
+    const asked = takeAsked();
+    if (asked) void send(asked);
+    // send is this render's; the question is taken once, when the records are first loaded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
 
   /** Runs a write to the records; a failure is shown, not thrown (the answer is already on screen). */
   async function write(action: () => Promise<void>) {

@@ -29,6 +29,43 @@ export type Pending = { step: string; places: string; text: string; answer: Answ
 
 export const FIRST_STEP = "질문을 확인하고 있습니다…";
 
+// The home page's question box hands its question to the chat page through this tab's storage, not
+// the URL (a question can carry health or personal details that would stay in history and logs).
+export const ASK_KEY = "ragdog:v1:home_question";
+export const MAX_QUESTION_CHARS = 1000; // the chat box's maxLength
+
+/** Keeps a question for the chat page to ask; false when storage is blocked. */
+export function askLater(question: string, storage: Pick<Storage, "setItem"> | null = safeSession()): boolean {
+  const text = question.trim().slice(0, MAX_QUESTION_CHARS);
+  if (!text || !storage) return false;
+  try {
+    storage.setItem(ASK_KEY, text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The kept question, taken out so it is asked once. */
+export function takeAsked(storage: Pick<Storage, "getItem" | "removeItem"> | null = safeSession()): string | null {
+  if (!storage) return null;
+  try {
+    const text = storage.getItem(ASK_KEY);
+    storage.removeItem(ASK_KEY);
+    return text?.trim() ? text.slice(0, MAX_QUESTION_CHARS) : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeSession(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
 export function startPending(): Pending {
   return { step: FIRST_STEP, places: "", text: "", answer: { role: "assistant", content: "" } };
 }
