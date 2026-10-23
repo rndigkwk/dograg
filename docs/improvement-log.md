@@ -103,6 +103,9 @@
 | [#275](https://github.com/rndigkwk/dograg/pull/275) | NeMo Guardrails·Llama Guard 3·Prompt Guard 2를 앱 앞에 (레드팀 68문항) | 앱이 놓친 공격을 막은 층 없음(앱 26/26). NeMo 입력은 위기 질문 1·사람 약 2를 막음, Llama Guard 3는 정당한 질문 11개·질문당 66초 | 미적용 (함수 유지) |
 | [#265](https://github.com/rndigkwk/dograg/pull/265) | GPU 리랭커(bge-reranker-v2-m3)를 운영 검색 후보에 | `기타` useful@3 0.79 → 0.78, 검증 100 0.84 → 0.86(p=0.63), CPU 질문당 **11.7초** | 미적용 |
 | [#269](https://github.com/rndigkwk/dograg/pull/269) | 하드 네거티브로 임베딩 재학습(Day 74) | 짧은 질문 useful@3 0.80 → 0.742(p=0.09), 긴 상담 0.85 → 0.87(p=0.69) | 미적용, B 유지 |
+| [#270](https://github.com/rndigkwk/dograg/pull/270) | 작은 분류기(앱 임베딩 + 로지스틱 회귀)로 Decisions 호출 대신 | 라우팅 22/24 vs Decisions 23/24, 응급 판단은 쓸 수 없음 | 미적용, Decisions 유지 |
+| [#278](https://github.com/rndigkwk/dograg/pull/278) | Claude(Haiku 5.5·Opus 5.5)를 판사로 | 관련성 κ 0.28·0.30(지금 판사 0.64), 22쌍 사람과 일치 9/22·8/22 | 미적용 |
+| [#276](https://github.com/rndigkwk/dograg/pull/276) | 프롬프트 캐시(고정 규칙을 앞에, 캐시 키) | 이 모델은 프롬프트 전체가 같을 때만 캐시 | 바꾸지 않음 |
 
 ## 8. 측정 방법 자체를 고친 경우
 
@@ -145,6 +148,20 @@
 | [#238](https://github.com/rndigkwk/dograg/pull/238), [#239](https://github.com/rndigkwk/dograg/pull/239), [#240](https://github.com/rndigkwk/dograg/pull/240) | 평가에 쓴 비용으로 OpenAI 한도가 차서 **운영 챗봇이 멈춤**. 데이터만 바꾼 PR은 게이트를 건너뜀 | 장애 중 운영에서 안내 + 지침·상담 표시 확인 | 한도 오류면 모델 없이 검색 결과만, 키 분리 절차, 데이터 버전도 게이트 대상 |
 
 - **이 기간의 교훈 두 가지:** (1) 평가와 운영이 같은 키를 쓰면 평가 비용이 운영 장애가 된다. 키를 나누고, 외부 모델이 멈춰도 쓸모 있는 화면을 남긴다. (2) 이미 본 holdout으로는 고친 효과를 잴 수 없다. 고치기 전에 새 holdout을 쓴다(#235).
+
+## 11. 2026-10-21~23: 가드레일 통합 운영, 다른 계열 모델로 교차 검증
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#266](https://github.com/rndigkwk/dograg/pull/266), [#267](https://github.com/rndigkwk/dograg/pull/267) | 위기 표현에 상담 번호가 없었고, 검색 자료·메모 속 지시와 지어낸 링크를 막는 장치가 없었다 | 위기 0/4 → **4/4**, 숨은 지시·위기 패턴 오탐 0(상담 19,206개) | 위기 안내를 맨 앞에, 검색 레일, 허용 밖 링크 제거 |
+| [#268](https://github.com/rndigkwk/dograg/pull/268), [#273](https://github.com/rndigkwk/dograg/pull/273) | 답의 어느 문장이 어느 사례에서 왔는지 볼 수 없었다 | 문장 인용률 0 → 0.44, 지어낸 숫자 0/19 유지 | `[사례 n]` 인용과 숫자 출처 검사(모델 없음), 웹·Streamlit 근거 번호 맞춤 |
+| [#274](https://github.com/rndigkwk/dograg/pull/274), [#282](https://github.com/rndigkwk/dograg/pull/282), [#283](https://github.com/rndigkwk/dograg/pull/283) | 레드팀을 손으로 돌릴 때만 쟀다 | 기준선 67/68, 이후 5회 실행으로 안정 문항 65 | 주간 회귀·가드레일 PR 게이트에 레드팀, 레일 알림 2개, 공격·위기는 회귀로·정상 질문은 통과율로 판정 |
+| [#276](https://github.com/rndigkwk/dograg/pull/276) | 건강 답변 시간 대부분이 답변 모델의 추론이었다 | p90 18.5 → **11.4초**, 사람 블라인드 22쌍 low 6 · medium 5 · 비슷함 11 | 답변 생성 추론 low (판사 대신 사람이 결정) |
+| [#277](https://github.com/rndigkwk/dograg/pull/277), [#279](https://github.com/rndigkwk/dograg/pull/279), [#280](https://github.com/rndigkwk/dograg/pull/280) | 다른 모델(Claude)이 쓴 위기 문항 3개 중 2개를 놓쳤고, 패턴을 고친 뒤 새 문항에서 다시 0/5 | 모델 판정 추가 뒤 12/12, 오탐 0/305, 판정 뒤 새 holdout **5/5**, 운영 5/5 | 정규식은 첫 단계로 두고, 답변과 동시에 모델이 위기 여부 판정 |
+| [#278](https://github.com/rndigkwk/dograg/pull/278) | 판사가 모두 OpenAI 계열이라 자기 선호를 의심했다 | 관련성 κ: 지금 판사 0.64, Claude Haiku 0.28 · Opus 0.30. 답변 fail 3개는 판사 다섯 모두 0/3 | 판사는 그대로, 원인은 기준 문장(#279에서 기준 2와 라벨 30칸) |
+| [#281](https://github.com/rndigkwk/dograg/pull/281) | 긴 상담 속 비용 질문에 비용 이야기가 없었다(사용자 메모) | 검증 상담 6.8%에 안내가 붙음 | 건강 답 끝에 진료비 안내 한 줄(모델 없음) |
+
+- **이 기간의 교훈 두 가지:** (1) 같은 사람이 방어와 시험을 함께 쓰면 빈틈을 못 본다. 다른 계열 모델이 쓴 문항이 위기 안내의 빈틈을 두 번 찾았다. 표현을 하나씩 더하는 정규식으로는 따라갈 수 없어 모델 판정을 붙였다. (2) 판사 계열이나 크기를 바꿔도 사람 판정과 맞지 않았다. 답변 품질이 걸린 결정(답변 추론 low)은 블라인드 사람 판정으로 했다.
 
 ## 전체 PR 목록
 
@@ -387,3 +404,46 @@
 | [236](https://github.com/rndigkwk/dograg/pull/236) | 2026-10-19 | fix(data): 지침 문맥을 문장 단위로, 리플릿 신고처 정리 |
 | [238](https://github.com/rndigkwk/dograg/pull/238) | 2026-10-19 | feat(api): 모델 한도가 떨어지면 오류 대신 안내와 검색 결과 보여 주기 |
 | [239](https://github.com/rndigkwk/dograg/pull/239) | 2026-10-19 | ci: 지침 검색·데이터 버전 변경에도 병합 게이트 돌리기 |
+| [240](https://github.com/rndigkwk/dograg/pull/240) | 2026-10-20 | docs: 평가와 운영의 OpenAI 키 나누기 |
+| [241](https://github.com/rndigkwk/dograg/pull/241) | 2026-10-20 | docs: README·개선 기록을 PR 240까지 갱신 (포트폴리오용) |
+| [242](https://github.com/rndigkwk/dograg/pull/242) | 2026-10-20 | fix(streamlit): 백업 화면도 한도 소진 시 안내와 검색 결과 |
+| [243](https://github.com/rndigkwk/dograg/pull/243) | 2026-10-20 | eval: 주간 회귀에 돌봄 지침 세트(16) 추가 |
+| [244](https://github.com/rndigkwk/dograg/pull/244) | 2026-10-20 | fix(outage): 한도 안내에 화면마다 쓸 수 있는 기능만 적기 |
+| [245](https://github.com/rndigkwk/dograg/pull/245) | 2026-10-20 | docs(adr): 0010 공공 돌봄 지침, 0011 모델 한도 소진 대응 |
+| [246](https://github.com/rndigkwk/dograg/pull/246) | 2026-10-20 | fix(guides): 지침 기준 0.55 → 0.52 (g11 몸 만지기 교육) |
+| [247](https://github.com/rndigkwk/dograg/pull/247) | 2026-10-20 | feat(visit-prep): 관리 일정의 기한 지난 항목을 방문 보고서 질문으로 |
+| [248](https://github.com/rndigkwk/dograg/pull/248) | 2026-10-20 | ci: 병합 게이트 기준선 다시 만들기 (#246 코드 3회) |
+| [249](https://github.com/rndigkwk/dograg/pull/249) | 2026-10-20 | ops: API 카나리 배포 — 트래픽 0%로 올려 검사한 뒤 넘기기 |
+| [250](https://github.com/rndigkwk/dograg/pull/250) | 2026-10-20 | docs: 미해결 과제 정리 (예전 유사도 수치, 관련도 하한) |
+| [251](https://github.com/rndigkwk/dograg/pull/251) | 2026-10-20 | docs(readme): 작업 방식과 AI 도구 사용 범위 |
+| [252](https://github.com/rndigkwk/dograg/pull/252) | 2026-10-20 | eval: 주간 회귀에 Context Recall·Precision 기록 (교안 Day 59) |
+| [253](https://github.com/rndigkwk/dograg/pull/253) | 2026-10-20 | fix(ops): 카나리 검사가 실패하면 배포 단계도 실패하게 (pipefail) |
+| [255](https://github.com/rndigkwk/dograg/pull/255) | 2026-10-20 | feat(canary): Supabase 장애 주입 연습 + 채팅 고장 연습에서 나온 두 가지 수정 |
+| [256](https://github.com/rndigkwk/dograg/pull/256) | 2026-10-20 | eval(retrieval): 기타 라벨 검색 품질 측정 (자료의 76.9%, 검증 0건) |
+| [257](https://github.com/rndigkwk/dograg/pull/257) | 2026-10-20 | feat(places): 병원 목록 위에 그 지역 중간 진료비를 전국과 나란히 |
+| [258](https://github.com/rndigkwk/dograg/pull/258) | 2026-10-20 | docs(cloud-run): Supabase 장애 연습 기록 + 마지막 트레이스 누락 발견 |
+| [259](https://github.com/rndigkwk/dograg/pull/259) | 2026-10-20 | fix(tracing): API 응답이 끝나기 전에 Langfuse 기록을 보낸다 |
+| [260](https://github.com/rndigkwk/dograg/pull/260) | 2026-10-20 | feat(tracing): 대체 경로로 답한 경우를 Langfuse에 WARNING으로 남긴다 |
+| [261](https://github.com/rndigkwk/dograg/pull/261) | 2026-10-20 | feat(ops): 장애 로그가 남으면 이메일 알림 (Cloud Monitoring) |
+| [262](https://github.com/rndigkwk/dograg/pull/262) | 2026-10-20 | feat(ops): API 로그를 JSON 한 줄로, 답변마다 요약 한 줄 (Cloud Logging) |
+| [263](https://github.com/rndigkwk/dograg/pull/263) | 2026-10-20 | feat(canary): 건강 답변의 trace_id 출력 + Supabase 장애 연습 2회차 기록 |
+| [264](https://github.com/rndigkwk/dograg/pull/264) | 2026-10-20 | ci(eval): 11월 6일까지 주간 회귀와 PR 게이트를 Langfuse 없이 실행 |
+| [265](https://github.com/rndigkwk/dograg/pull/265) | 2026-10-20 | eval(rerank): GPU 리랭커 재검토용 Colab 노트북 + 운영 검색 순위 저장 |
+| [266](https://github.com/rndigkwk/dograg/pull/266) | 2026-10-21 | eval(guardrails): 교안 day64 레드팀 24문항 추가 (측정 전에 작성) |
+| [267](https://github.com/rndigkwk/dograg/pull/267) | 2026-10-21 | feat(guardrails): 위기 상담 번호를 맨 앞에, 검색 레일, 허용 밖 링크 제거 (교안 day64) |
+| [268](https://github.com/rndigkwk/dograg/pull/268) | 2026-10-21 | feat(citations): 건강 답변에 문장별 [사례 n] 인용 + 숫자 출처 검사(모델 없음) |
+| [269](https://github.com/rndigkwk/dograg/pull/269) | 2026-10-21 | eval(embedding): 하드 네거티브로 앱 임베딩을 다시 학습하는 Colab 노트북 (MLflow 기록) |
+| [270](https://github.com/rndigkwk/dograg/pull/270) | 2026-10-21 | eval(router): 작은 분류기로 Decisions 호출을 대신할 수 있나 — 측정, 적용 안 함 |
+| [271](https://github.com/rndigkwk/dograg/pull/271) | 2026-10-21 | docs: GPU 리랭커·하드 네거티브 임베딩 결과 (둘 다 미적용) |
+| [272](https://github.com/rndigkwk/dograg/pull/272) | 2026-10-21 | docs: GPU 리랭커 할 일 항목을 결과로 바꿈 |
+| [273](https://github.com/rndigkwk/dograg/pull/273) | 2026-10-21 | fix(streamlit): 근거 번호를 답의 [사례 n]·[지침 n]과 맞춤 |
+| [274](https://github.com/rndigkwk/dograg/pull/274) | 2026-10-21 | ci: 가드레일 레드팀을 주간 회귀·가드레일 PR 게이트에, 레일 알림 2개 |
+| [275](https://github.com/rndigkwk/dograg/pull/275) | 2026-10-21 | eval: NeMo Guardrails·Llama Guard 3·Prompt Guard 2를 레드팀 68문항으로 비교 (미적용) |
+| [276](https://github.com/rndigkwk/dograg/pull/276) | 2026-10-22 | perf(health): 답변 생성 추론을 low로 (p90 18.5→11.4초, 사람 판정 6:5:11) |
+| [277](https://github.com/rndigkwk/dograg/pull/277) | 2026-10-22 | fix(guardrails): 위기 표현 두 가지 추가 (다른 모델이 쓴 위기 문항 3개 중 2개를 놓침) |
+| [278](https://github.com/rndigkwk/dograg/pull/278) | 2026-10-22 | eval: Claude를 두 번째 판사·레드팀 작성자로 (판사는 미채택, 레드팀이 위기 빈틈 발견) |
+| [279](https://github.com/rndigkwk/dograg/pull/279) | 2026-10-22 | eval: 새 위기 holdout(0/5)과 답변 판정 기준 2·라벨 30칸 |
+| [280](https://github.com/rndigkwk/dograg/pull/280) | 2026-10-22 | feat(guardrails): 위기 표현을 모델로도 판정 (정규식 0/5 → 12/12, 오탐 0/305) |
+| [281](https://github.com/rndigkwk/dograg/pull/281) | 2026-10-23 | feat(health): 비용을 묻는 건강 질문에 진료비 안내 한 줄 (사용자 메모 h12) |
+| [282](https://github.com/rndigkwk/dograg/pull/282) | 2026-10-23 | fix(guardrails): '저를 따라가고 싶은'은 반려견 이야기 — 위기 정규식 오탐 정리 |
+| [283](https://github.com/rndigkwk/dograg/pull/283) | 2026-10-23 | ci: 레드팀 회귀 판정을 공격·위기 문항으로 한정, 정상 질문은 통과율로 |
