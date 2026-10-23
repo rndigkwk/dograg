@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   byMedian,
+  dotAxis,
   type FeeItem,
   feeItems,
   type FeeValues,
@@ -47,19 +48,21 @@ function Summary({ title, values, national }: { title: string; values: FeeValues
   );
 }
 
-/** Provinces' medians as one-hue bars, ranked, with the national median as a dashed rule; the chosen
- * province stays solid and the rest fade. Hover or focus reads a row out; a click chooses it. */
+/** Provinces' medians as dots, ranked, with the national median as a dashed rule; the chosen province
+ * stays solid and the rest fade. Dots, not bars (2026-10-24): the medians sit close together, and bars
+ * from zero all looked the same length; a dot is read by position, so the axis starts near the data
+ * (lib/fees.ts dotAxis). Hover or focus reads a row out; a click chooses it. */
 function SidoChart({ fees, chosen, onChoose }: { fees: ItemFees; chosen: string; onChoose: (sido: string) => void }) {
   const [active, setActive] = useState<string | null>(null);
   const rows = useMemo(() => byMedian(fees.sido), [fees.sido]);
-  const max = Math.max(1, fees.national.median, ...rows.map((row) => row.median));
-  const scale = (value: number) => (value / max) * 100;
+  const axis = useMemo(() => dotAxis(rows.map((row) => row.median), fees.national.median), [rows, fees.national.median]);
+  const scale = (value: number) => ((value - axis.lo) / (axis.hi - axis.lo)) * 100;
   const shown = rows.find((row) => row.sido === active);
   return (
     <figure className="rounded-xl border border-line bg-white p-4">
       <figcaption className="mb-3">
         <span className="font-bold">시·도별 중간값</span>
-        <span className="ml-2 text-sm text-muted">점선과 회색 숫자는 전국 중간값 {won(fees.national.median)} 대비 · 막대를 누르면 그 시·도를 고릅니다</span>
+        <span className="ml-2 text-sm text-muted">점선은 전국 중간값 {won(fees.national.median)} · 오른쪽 숫자는 전국과의 차이 · 줄을 누르면 그 시·도를 고릅니다</span>
       </figcaption>
       <ol className="space-y-1.5" aria-label="시·도별 중간값">
         {rows.map((row) => {
@@ -78,16 +81,17 @@ function SidoChart({ fees, chosen, onChoose }: { fees: ItemFees; chosen: string;
                 className="grid w-full grid-cols-[2.5rem_1fr_auto] items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <span className={`text-sm ${chosen === row.sido ? "font-bold text-accent" : ""}`}>{shortSido(row.sido)}</span>
-                {/* The track: bars and the national rule share one scale, so nothing spills past it. */}
+                {/* The track: the dot, the national rule and the axis ticks share one scale. */}
                 <span className="relative h-6 min-w-0">
-                  <span
-                    className={`absolute inset-y-0.5 left-0 rounded-r bg-accent transition-opacity ${faded ? "opacity-35" : ""}`}
-                    style={{ width: `${Math.max(0.5, scale(row.median))}%` }}
-                  />
+                  <span aria-hidden className="absolute inset-x-0 top-1/2 border-t border-line" />
                   <span
                     aria-hidden
                     className="pointer-events-none absolute inset-y-0 border-l-2 border-dashed border-ink/50"
                     style={{ left: `${scale(fees.national.median)}%` }}
+                  />
+                  <span
+                    className={`absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent transition-opacity ${faded ? "opacity-35" : ""}`}
+                    style={{ left: `${scale(row.median)}%` }}
                   />
                 </span>
                 <span className="w-[7.5rem] text-right text-sm tabular-nums text-ink">
@@ -98,6 +102,22 @@ function SidoChart({ fees, chosen, onChoose }: { fees: ItemFees; chosen: string;
           );
         })}
       </ol>
+      {/* The axis under the dots, in the rows' columns: the end ticks always, the ones between on wider screens. */}
+      <div aria-hidden className="mt-1 grid grid-cols-[2.5rem_1fr_auto] gap-2 text-xs text-muted tabular-nums">
+        <span />
+        <span className="relative h-4">
+          {axis.ticks.map((tick, index) => (
+            <span
+              key={tick}
+              className={`absolute -translate-x-1/2 whitespace-nowrap ${index === 0 || index === axis.ticks.length - 1 ? "" : "hidden sm:inline"}`}
+              style={{ left: `${scale(tick)}%` }}
+            >
+              {tick.toLocaleString("ko-KR")}
+            </span>
+          ))}
+        </span>
+        <span className="w-[7.5rem]" />
+      </div>
       {fees.no_data.length ? (
         <p className="mt-2 text-xs text-muted">자료 없음: {fees.no_data.map(shortSido).join(", ")} (해당 진료가 없거나 병원이 1곳 이하인 지역은 공개되지 않습니다)</p>
       ) : null}
