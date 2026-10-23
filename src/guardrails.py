@@ -8,11 +8,14 @@ run_chat (src/chat_graph.py) applies them to every answer, whatever route made i
   (a place's homepage, a care guide's source). A link the model wrote itself, or one an injected
   record asked for, is removed.
 Each check that fired is named in the result's "guards" (counted in the request log and Langfuse).
+They are the output rails of rails/rails.yml (OUT-01, OUT-02) and run in its order (src/rails.py).
 """
 
 from __future__ import annotations
 
 import re
+
+from src import rails
 
 CRISIS_PATTERNS = (
     # Not after an object marker: "저를 따라가고 싶은 건지" is the dog following the guardian (a look-alike
@@ -79,14 +82,18 @@ def apply_output_guards(question: str, result: dict, model_crisis: bool = False)
     removed; result["guards"] names what fired, after what earlier checks named (citations).
     model_crisis: the model's verdict (src/crisis.py), for what the rule does not match."""
     guards = list(result.get("guards") or [])
-    answer, removed = strip_foreign_links(result.get("answer", ""),
-                                          material_hosts(result.get("hospital_rows"), result.get("evidence_rows")))
-    if removed:
-        guards.append(LINKS_REMOVED)
-    rule = is_crisis(question)
-    if rule or model_crisis:
-        answer = with_crisis_notice(answer)
-        guards.append(CRISIS)
-        if not rule:
-            guards.append(CRISIS_BY_MODEL)
+    answer = result.get("answer", "")
+    for rail in rails.output_order():
+        if rail == "links_removed":
+            answer, removed = strip_foreign_links(answer, material_hosts(result.get("hospital_rows"),
+                                                                         result.get("evidence_rows")))
+            if removed:
+                guards.append(LINKS_REMOVED)
+        elif rail == "crisis_notice":
+            rule = is_crisis(question)
+            if rule or model_crisis:
+                answer = with_crisis_notice(answer)
+                guards.append(CRISIS)
+                if not rule:
+                    guards.append(CRISIS_BY_MODEL)
     return {**result, "answer": answer, "guards": guards}

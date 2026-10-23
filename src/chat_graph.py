@@ -20,7 +20,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from src import crisis, guardrails, model_outage, resources, tracing
+from src import crisis, guardrails, model_outage, rails, resources, tracing
 from src.crag import (
     HEALTH_CANDIDATE_K,
     MAX_REWRITES,
@@ -203,7 +203,8 @@ def build_chat_graph(tools):
 
     def with_fee_pointer(answer: str, question: str) -> str:
         # A health question that also asks about money: where the clinic-fee figures are (src/tools/fees.py).
-        pointer = tools.fee_pointer(question)
+        # The answer rail ANS-02 (rails/rails.yml).
+        pointer = tools.fee_pointer(question) if rails.enabled("fee_pointer") else ""
         return f"{answer}\n\n{pointer}" if pointer and answer else answer
 
     def with_places(answer: str, state: ChatState) -> str:
@@ -296,6 +297,8 @@ def build_chat_graph(tools):
             "\n".join(getattr(note, "text", "") for note in state.get("notes") or []),
             format_chat_history(state.get("chat_history")),
         ])
+        if not rails.enabled("citation_check"):  # the answer rail ANS-01 (rails/rails.yml)
+            return answer, []
         try:
             return tools.check_citations(question, docs, answer, context)
         except AttributeError:  # a toolset without it (tests): the answer as written
