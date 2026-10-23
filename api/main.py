@@ -14,12 +14,48 @@ deployments of each pull request. Without them only the local Next.js dev server
 
 from __future__ import annotations
 
+import logging
+import time
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 from src import auth, request_log, settings, tracing
 
 LOCAL_WEB = "http://localhost:3000"
+
+
+def warm_up() -> None:
+    """Load what the first health question needs before the instance takes requests: the query
+    model (ONNX), the search store with its first Supabase connection, the answer table and the
+    model clients. Measured 2026-10-23 with the image's dependencies: about 4 to 7 seconds that the
+    first question paid. It runs inside startup, not in a background thread, because Cloud Run gives
+    an instance CPU during startup (boosted by --cpu-boost) but almost none between requests; the
+    frontend's /health call on page open starts the instance while the guardian types.
+    Best effort: on a failure the first question loads the rest, as before. One summary line
+    (kind "warmup") says how long it took."""
+    from src import resources
+
+    started = time.perf_counter()
+    outcome = "done"
+    try:
+        resources.load_vector_db().similarity_search("강아지가 설사를 해요", k=1)
+        resources.load_health_answer_table()
+        resources.load_review_model()
+        resources.load_chat_model()
+    except Exception:  # noqa: BLE001 - warm-up is best effort
+        outcome = "failed"
+        logging.getLogger(__name__).warning("API warm-up failed; the first question loads the rest", exc_info=True)
+    request_log.logger.info("warmup %s", outcome, extra={"fields": {
+        "kind": "warmup", "outcome": outcome, "latency_ms": round((time.perf_counter() - started) * 1000)}})
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.deployed():
+        warm_up()
+    yield
 
 
 def allowed_origins() -> list[str]:
@@ -34,7 +70,7 @@ def create_app() -> FastAPI:
     # The interactive docs list every route and schema; deployed, they stay off unless RAGDOG_API_DOCS=1.
     docs = not settings.deployed() or settings.get_setting("RAGDOG_API_DOCS") == "1"
     app = FastAPI(title="RagDog API", version="0.1.0", docs_url="/docs" if docs else None, redoc_url=None,
-                  openapi_url="/openapi.json" if docs else None)
+                  openapi_url="/openapi.json" if docs else None, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins(),

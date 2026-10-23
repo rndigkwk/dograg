@@ -46,3 +46,25 @@ class CorsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WarmUpTests(unittest.TestCase):
+    def test_deployed_startup_warms_up_before_requests(self):
+        with patch.object(main.settings, "deployed", return_value=True), patch.object(main, "warm_up") as warm, \
+                patch.object(main.request_log, "configure"):
+            with TestClient(main.create_app()) as client:
+                warm.assert_called_once()
+                self.assertEqual(client.get("/health").status_code, 200)
+
+    def test_local_startup_does_not(self):
+        with patch.object(main, "warm_up") as warm:
+            with TestClient(main.create_app()):
+                warm.assert_not_called()
+
+    def test_a_failed_warm_up_does_not_stop_the_app(self):
+        from src import resources
+
+        with patch.object(resources, "load_vector_db", side_effect=OSError("no database")), \
+                self.assertLogs(main.request_log.logger, "INFO") as logs, self.assertLogs("api.main", "WARNING"):
+            main.warm_up()
+        self.assertIn("warmup failed", logs.output[-1])
