@@ -106,6 +106,8 @@
 | [#270](https://github.com/rndigkwk/dograg/pull/270) | 작은 분류기(앱 임베딩 + 로지스틱 회귀)로 Decisions 호출 대신 | 라우팅 22/24 vs Decisions 23/24, 응급 판단은 쓸 수 없음 | 미적용, Decisions 유지 |
 | [#278](https://github.com/rndigkwk/dograg/pull/278) | Claude(Haiku 5.5·Opus 5.5)를 판사로 | 관련성 κ 0.28·0.30(지금 판사 0.64), 22쌍 사람과 일치 9/22·8/22 | 미적용 |
 | [#276](https://github.com/rndigkwk/dograg/pull/276) | 프롬프트 캐시(고정 규칙을 앞에, 캐시 키) | 이 모델은 프롬프트 전체가 같을 때만 캐시 | 바꾸지 않음 |
+| [#299](https://github.com/rndigkwk/dograg/pull/299) | 답변 판정 기준 2 판사를 병합 조건으로 | 사람 fail 17/20을 잡지만 사람 pass의 40%를 fail로 봄, κ 0.46 | 보조 지표로만 |
+| [#295](https://github.com/rndigkwk/dograg/pull/295) | 레일 통합 때 NeMo self-check·Prompt Guard 2·Llama Guard 3 다시 검토 | 호출 +2번·약 +3초 / 메모리 4GiB 필요 / 8GiB·질문당 35~66초. 레드팀에서 새로 막은 공격 없음(#275) | 지금 검사를 레일로 묶기만(메모리·호출 그대로) |
 
 ## 8. 측정 방법 자체를 고친 경우
 
@@ -162,6 +164,24 @@
 | [#281](https://github.com/rndigkwk/dograg/pull/281) | 긴 상담 속 비용 질문에 비용 이야기가 없었다(사용자 메모) | 검증 상담 6.8%에 안내가 붙음 | 건강 답 끝에 진료비 안내 한 줄(모델 없음) |
 
 - **이 기간의 교훈 두 가지:** (1) 같은 사람이 방어와 시험을 함께 쓰면 빈틈을 못 본다. 다른 계열 모델이 쓴 문항이 위기 안내의 빈틈을 두 번 찾았다. 표현을 하나씩 더하는 정규식으로는 따라갈 수 없어 모델 판정을 붙였다. (2) 판사 계열이나 크기를 바꿔도 사람 판정과 맞지 않았다. 답변 품질이 걸린 결정(답변 추론 low)은 블라인드 사람 판정으로 했다.
+
+## 12. 2026-10-23~24: 운영 신뢰성, 레일 통합, 사용자 피드백으로 답 다듬기, 웹 리디자인
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#289](https://github.com/rndigkwk/dograg/pull/289) | API에는 Streamlit과 달리 검색 미리 읽기가 없어, 새 인스턴스의 첫 건강 질문이 모델·DB 연결을 읽었다 | 첫 질문이 내던 읽기 4~7초(로컬, 이미지와 같은 의존성), 배포 검사 첫 건강 질문 9.6~10.8초(그동안 중앙값 13.8초) | 시작 단계(lifespan)에서 미리 읽기. Cloud Run은 요청 사이 CPU가 거의 없어 백그라운드 스레드가 아니다 |
+| [#292](https://github.com/rndigkwk/dograg/pull/292) | 모델 호출에 제한 시간이 없어 기본값(요청당 600초, 재시도 2번)이었다 | 실제 0.001초 제한 → `APITimeoutError` → 검색 결과로 넘어감 | 평가·위기 20초, 일반 30초, 답 45초, 재시도 1번. 시간 초과·연결 실패도 한도 초과처럼 검색 근거와 안내 |
+| [#293](https://github.com/rndigkwk/dograg/pull/293) | 최소 권한을 점검한 적이 없었다(Day 64 실행 레일) | DB `ragdog_app`·에이전트 도구·토큰은 맞음. 빈틈 2개: CI가 API와 같은 DB 계정, 배포 계정이 프로젝트 전체 `run.admin`·모든 브랜치 | 점검표와 고치는 명령(`docs/security/least-privilege.md`, 실행은 소유자) |
+| [#295](https://github.com/rndigkwk/dograg/pull/295) | 검사가 여러 파일에 흩어져 있어, 무엇이 켜져 있는지 한곳에서 볼 수 없었다 | 동작·호출·메모리 그대로(레드팀 게이트 통과) | `rails/rails.yml`: 단계별 규칙 id(IN/RET/ANS/OUT/EXE), 줄을 빼면 꺼짐, 위기·개인정보·실행 제한은 못 뺌, 로그에 `rules` |
+| [#296](https://github.com/rndigkwk/dograg/pull/296) | 답이 견종·나이 차이에 매달렸다(사용자) | 견종·나이 차이를 짚은 답 3/20 → **0/20**(h01~h20) | 견종은 따지지 않고, 나이는 2살 이하나 같은 시기면 언급하지 않음 |
+| [#297](https://github.com/rndigkwk/dograg/pull/297) | 입력 레일(개인정보 가림)이 검사 수치를 주소로 읽어 모델에 가기 전에 지웠다("백혈구 수치가 22,000" → "[주소],000") | 상담 자료 스캔에서 바뀐 곳 16 → **0**, 실제 주소 4개는 그대로 가림 | "가"는 숫자 뒤만 길 이름, 범위·목록·천 단위 숫자는 번지가 아님 |
+| [#298](https://github.com/rndigkwk/dograg/pull/298) | 답이 병원에 가 보라고만 했다(사용자) | 병원·수의사 문장 48% → **31%**, 병원으로 시작하는 답은 급한 4개만(소변 못 봄, 부기·무기력, 출혈 지속, 초콜릿) | 병원 권고는 끝에 한 번, 언제 가야 하는지와 함께. 원인·관찰·관리 요령 먼저 |
+| [#290](https://github.com/rndigkwk/dograg/pull/290), [#299](https://github.com/rndigkwk/dograg/pull/299) | 판사 다섯이 사람의 fail을 놓친 원인이 기준 문장인지 확인 | 사람 라벨 60칸: 같은 판사가 기준 1로 fail 5/20, 기준 2로 **17/20**(κ 0.11 → 0.46) | 기준 2는 보조 지표로만(사람 pass의 40%를 fail로 봄) |
+| [#291](https://github.com/rndigkwk/dograg/pull/291), [#300](https://github.com/rndigkwk/dograg/pull/300) | 웹 첫 화면에 마크다운 라이브러리, 큰 사진, 낮은 대비, 채팅 흔들림 | 채팅 첫 JS 232 → 188kB, 홈 사진 357 → 138KB, 채팅 접근성 95 → **100**, CLS 0.123 → **0** | 마크다운 따로 받기, 4:3 크기 사진, 보조 글자색, 저장 안내 위치 |
+| [#301](https://github.com/rndigkwk/dograg/pull/301) | 대기 중에 이유·시간을 알 수 없었고, 실패하면 같은 질문을 다시 쳐야 했다 | 화면 테스트 4개(503 뒤 다시 보내기, 멈추기) | 경과 초, 서버 깨우는 중 안내, 멈추기, 원인별 오류 문구와 다시 시도 |
+| [#302](https://github.com/rndigkwk/dograg/pull/302), [#303](https://github.com/rndigkwk/dograg/pull/303), [#304](https://github.com/rndigkwk/dograg/pull/304), [#305](https://github.com/rndigkwk/dograg/pull/305) | 최상위 메뉴 10개가 넘쳐 잘렸고, 홈은 질문까지 두 번 눌러야 했고, 진료비 막대가 다 같은 길이였다 | 메뉴 10 → 4묶음, 휴대폰 하단 탭, 모든 글자 4.5:1 이상, 시·도 중간값(8,000~10,000원)이 점 위치로 구분됨 | 리디자인 A안(시안 두 가지 중 선택): 메뉴, 홈 질문창, 선 아이콘, 진료비 점 그래프 |
+
+- **이 기간의 교훈:** 사용자가 직접 써 보고 남긴 두 마디("견종·나이에 집착한다", "병원에만 가라고 한다")가 평가 지표로는 안 보이던 문제였다. 둘 다 원인은 오래전에 넣은 안전 규칙(넓혀 적용하지 말 것, 진료 권고는 써도 됨)이 너무 넓게 적용된 것이었다. 규칙을 좁히고 같은 20문항으로 전후를 재서 확인했다.
 
 ## 전체 PR 목록
 
@@ -447,3 +467,24 @@
 | [281](https://github.com/rndigkwk/dograg/pull/281) | 2026-10-23 | feat(health): 비용을 묻는 건강 질문에 진료비 안내 한 줄 (사용자 메모 h12) |
 | [282](https://github.com/rndigkwk/dograg/pull/282) | 2026-10-23 | fix(guardrails): '저를 따라가고 싶은'은 반려견 이야기 — 위기 정규식 오탐 정리 |
 | [283](https://github.com/rndigkwk/dograg/pull/283) | 2026-10-23 | ci: 레드팀 회귀 판정을 공격·위기 문항으로 한정, 정상 질문은 통과율로 |
+| [284](https://github.com/rndigkwk/dograg/pull/284) | 2026-10-23 | feat: 옛 Streamlit 주소를 새 웹 앱 안내 페이지로 (P5) |
+| [285](https://github.com/rndigkwk/dograg/pull/285) | 2026-10-23 | feat: Streamlit 화면을 새 웹 앱 안내로, 8시간 점검은 API·웹 앱으로 (P5) |
+| [286](https://github.com/rndigkwk/dograg/pull/286) | 2026-10-23 | docs: 이번 주 결과를 README 핵심 지표와 개선 기록에 (10-21~23) |
+| [287](https://github.com/rndigkwk/dograg/pull/287) | 2026-10-23 | ops: Cloud Run Streamlit 서비스 제거, 수동 배포·복구 안내서 |
+| [289](https://github.com/rndigkwk/dograg/pull/289) | 2026-10-23 | perf(api): 시작 때 건강 검색 미리 읽기 |
+| [290](https://github.com/rndigkwk/dograg/pull/290) | 2026-10-23 | eval: 답변 판사 기준 1·2를 60칸에서 재기 |
+| [291](https://github.com/rndigkwk/dograg/pull/291) | 2026-10-23 | perf(web): 마크다운은 답이 올 때, 홈 사진은 보이는 크기로 |
+| [292](https://github.com/rndigkwk/dograg/pull/292) | 2026-10-23 | ops: 모델 호출 제한 시간과 재시도 1번, 응답 없는 모델은 검색 결과로 |
+| [293](https://github.com/rndigkwk/dograg/pull/293) | 2026-10-23 | docs(security): 최소 권한 점검과 남은 빈틈 2개 |
+| [294](https://github.com/rndigkwk/dograg/pull/294) | 2026-10-23 | ci: 'Streamlit app checks'를 'Python tests'로 이름만 바꾸기 |
+| [295](https://github.com/rndigkwk/dograg/pull/295) | 2026-10-23 | feat(rails): 레일 원본 파일과 규칙 id (교안 day64 레일 통합) |
+| [296](https://github.com/rndigkwk/dograg/pull/296) | 2026-10-23 | feat(answer): 견종과 1~2살 나이 차이는 따지지 않기 |
+| [297](https://github.com/rndigkwk/dograg/pull/297) | 2026-10-23 | fix(pii): 검사 수치·목록·범위를 주소로 가리던 오탐 고치기 (입력 레일 IN-01) |
+| [298](https://github.com/rndigkwk/dograg/pull/298) | 2026-10-23 | feat(answer): 병원 권고는 끝에 한 번, 원인과 관리 요령 먼저 |
+| [299](https://github.com/rndigkwk/dograg/pull/299) | 2026-10-23 | docs(wiki): 답변 판사 기준 2와 사람 라벨 60칸 결과 |
+| [300](https://github.com/rndigkwk/dograg/pull/300) | 2026-10-23 | fix(web): 보조 글자 대비와 채팅 첫 화면 흔들림 (Lighthouse) |
+| [301](https://github.com/rndigkwk/dograg/pull/301) | 2026-10-23 | feat(web): 대기 화면(경과 시간·서버 깨우는 중·멈추기)과 오류 화면(원인별 문구·다시 시도) |
+| [302](https://github.com/rndigkwk/dograg/pull/302) | 2026-10-23 | feat(web): 리디자인 1단계 — 메뉴 4묶음(휴대폰 하단 탭), A안 청록 색, 선 아이콘 |
+| [303](https://github.com/rndigkwk/dograg/pull/303) | 2026-10-23 | feat(web): 리디자인 2단계 — 홈은 질문창 먼저, 바로가기 4개 |
+| [304](https://github.com/rndigkwk/dograg/pull/304) | 2026-10-23 | feat(web): 리디자인 3단계 — 화면 안의 이모지를 선 아이콘으로 |
+| [305](https://github.com/rndigkwk/dograg/pull/305) | 2026-10-23 | feat(web): 리디자인 4단계 — 진료비 시·도 차트를 점 그래프로 |
