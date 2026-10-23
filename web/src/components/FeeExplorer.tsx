@@ -124,7 +124,7 @@ function SidoChart({ fees, chosen, onChoose }: { fees: ItemFees; chosen: string;
       <p aria-live="polite" className="mt-3 min-h-5 text-sm text-muted">
         {shown
           ? `${shown.sido}: 중간 ${won(shown.median)} · 평균 ${won(shown.mean)} · ${won(shown.min)} ~ ${won(shown.max)} (${versusNational(shown.median, fees.national.median)})`
-          : "막대에 마우스를 올리거나 Tab으로 옮기면 평균과 범위를 보여 줍니다."}
+          : "줄에 마우스를 올리거나 Tab으로 옮기면 평균과 범위를 보여 줍니다."}
       </p>
     </figure>
   );
