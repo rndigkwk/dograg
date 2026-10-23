@@ -204,12 +204,14 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
   if (!kinds.length) return <Waiting text="시설 정보를 불러오는 중입니다…" />;
 
   return (
-    <div className="space-y-6">
-      <fieldset>
-        <legend className="mb-2 font-semibold">찾을 곳</legend>
+    // Each step a card, as on the other pages (design A, 2026-10-24).
+    <div className="space-y-4">
+      <fieldset className="rounded-2xl border border-line bg-white p-4 md:p-5">
+        <legend className="sr-only">찾을 곳</legend>
+        <p aria-hidden="true" className="mb-2 font-bold">찾을 곳</p>
         <div className="flex flex-wrap gap-2">
           {kinds.map((k) => (
-            <label key={k.kind} className={`cursor-pointer rounded-full border px-3 py-1 text-sm ${k.kind === kind ? "border-accent bg-accent text-white" : "border-line bg-white"}`}>
+            <label key={k.kind} className={`inline-flex min-h-10 cursor-pointer items-center rounded-full border px-3 text-sm ${k.kind === kind ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent"}`}>
               <input
                 type="radio"
                 name="kind"
@@ -239,14 +241,14 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
 
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
-      <section className="space-y-2" aria-label="가까운 곳">
+      <section className="space-y-2 rounded-2xl border border-line bg-white p-4 md:p-5" aria-label="가까운 곳">
         {current && !current.has_location ? (
           <p className="rounded-lg bg-accent/5 p-3 text-sm">{label} 목록에는 좌표가 없어 현재 위치 검색은 지원하지 않고, 지역으로만 찾을 수 있습니다.</p>
         ) : (
           <>
-            <h2 className="text-lg font-bold">현재 위치에서 가까운 {label}</h2>
+            <h2 className="font-bold">현재 위치에서 가까운 {label}</h2>
             <p className="text-sm text-muted">버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다.</p>
-            <button type="button" disabled={busy} onClick={location ? () => findNear() : useLocation} className="rounded-lg border border-line bg-white px-3 py-1 disabled:opacity-40">
+            <button type="button" disabled={busy} onClick={location ? () => findNear() : useLocation} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-4 hover:border-accent disabled:opacity-40">
               <Icon name="locate" size={16} className="mr-1 inline-block align-[-3px]" />{location ? `가까운 ${label} 다시 찾기` : "현재 위치 사용"}
             </button>
             {note ? <p className="text-sm text-muted">{note}</p> : null}
@@ -267,8 +269,8 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
         )}
       </section>
 
-      <section className="space-y-2" aria-label="지역 검색">
-        <h2 className="text-lg font-bold">검색할 지역을 선택하세요.</h2>
+      <section className="space-y-2 rounded-2xl border border-line bg-white p-4 md:p-5" aria-label="지역 검색">
+        <h2 className="font-bold">지역으로 찾기</h2>
         <form onSubmit={findInRegion} className="flex flex-wrap items-end gap-2">
           <label className="text-sm">
             시/도
@@ -278,7 +280,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
                 setProvince(event.target.value);
                 setCity(regionList[event.target.value]?.[0] ?? "");
               }}
-              className="block rounded-lg border border-line bg-white px-2 py-1"
+              className="mt-1 block min-h-11 rounded-lg border border-line bg-white px-3"
             >
               {Object.keys(regionList).map((name) => <option key={name}>{name}</option>)}
             </select>
@@ -286,12 +288,12 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
           {byCity ? (
             <label className="text-sm">
               시/군/구
-              <select value={city} onChange={(event) => setCity(event.target.value)} className="block rounded-lg border border-line bg-white px-2 py-1">
+              <select value={city} onChange={(event) => setCity(event.target.value)} className="mt-1 block min-h-11 rounded-lg border border-line bg-white px-3">
                 {(regionList[province] ?? []).map((name) => <option key={name}>{name}</option>)}
               </select>
             </label>
           ) : null}
-          <button type="submit" disabled={busy || !province} className="rounded-lg bg-accent px-4 py-1.5 font-semibold text-white disabled:opacity-40">
+          <button type="submit" disabled={busy || !province} className="min-h-11 rounded-lg bg-accent px-5 font-semibold text-white disabled:opacity-40">
             조회
           </button>
         </form>
