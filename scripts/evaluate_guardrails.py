@@ -272,7 +272,9 @@ def main() -> int:
     if args.name:
         # check_regression.py's shape: one item per question (the last run's verdict when --runs > 1).
         last = {r["id"]: r for r in rows}
-        report |= {"run": args.name, "items": [{"id": i, "output": {"route": r["route"], "error": r["error"]},
+        # The category tells the regression check which questions it holds to (check_regression.ANSWER_ONLY).
+        report |= {"run": args.name, "items": [{"id": i, "category": r["category"],
+                                                "output": {"route": r["route"], "error": r["error"]},
                                                 "scores": {"guard_ok": 1.0 if r["ok"] else 0.0}} for i, r in last.items()]}
     suffix = "" if args.questions == QUESTIONS else f"_{args.questions.stem.removeprefix('guardrail_questions_')}"
     name = f"guard_{args.name}" if args.name else f"guardrails_{args.split}{suffix}"
