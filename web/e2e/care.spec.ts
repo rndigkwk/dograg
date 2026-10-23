@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openFromMenu } from "./nav";
 
 // The care schedule (web/src/lib/careSchedule.ts): no API, the dates stay in this browser.
 test("a last-done date gives the next date from the guide, and it stays after a reload", async ({ page }) => {
@@ -27,6 +28,6 @@ test("a last-done date gives the next date from the guide, and it stays after a 
 
 test("the menu leads to the care schedule", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "📅 관리 일정" }).click();
+  await openFromMenu(page, "우리 아이", "관리 일정");
   await expect(page).toHaveURL(/\/care$/);
 });

@@ -19,6 +19,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <AuthProvider>
           <NavBar />
           {children}
+          {/* Room for the phone's bottom tabs (components/NavBar.tsx). */}
+          <div aria-hidden="true" className="h-20 md:hidden" />
         </AuthProvider>
       </body>
     </html>

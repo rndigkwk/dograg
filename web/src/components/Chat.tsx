@@ -545,7 +545,7 @@ export default function Chat() {
           </button>
           <span className="text-muted">{locationNote ?? "가까운 병원 검색은 위치 사용을 선택한 경우에만 직선거리로 계산합니다."}</span>
         </div>
-        <form onSubmit={submit} className="sticky bottom-0 flex gap-2 border-t border-line bg-page py-3">
+        <form onSubmit={submit} className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] flex gap-2 border-t border-line bg-page py-3 md:bottom-0">
           <label htmlFor="question" className="sr-only">
             질문
           </label>
