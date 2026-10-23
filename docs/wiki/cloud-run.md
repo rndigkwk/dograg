@@ -192,5 +192,6 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
 
 - **두 곳 모두:** Cloud Run Streamlit 서비스(`ragdog`, main의 `main.py`)와 Streamlit Community Cloud 주소(`streamlit-backup` 브랜치). 옛 페이지 주소(`/rag`, `/hospital` 등)도 같은 안내를 보여 준다.
 - **안내 페이지는 데이터와 모델을 올리지 않는다.** 그래서 Cloud Run Streamlit 서비스의 메모리를 2Gi에서 512Mi로 줄였다.
+- **같은 날 Cloud Run Streamlit 서비스(`ragdog`)는 지웠다.** 안내만 띄우는 서비스를 배포마다 올리고 점검할 이유가 없고, 구글 클라우드 안에 있어 구글 클라우드 장애 때 대비책도 못 된다. 배포 워크플로에서 빼고 서비스를 삭제했다. 대비 화면은 Streamlit Cloud(`streamlit-backup`)다: 평소엔 안내, 장애 때 Secrets에 `STREAMLIT_FULL_APP = "1"`을 넣어 전체 화면으로 바꾼다([수동 배포·복구](../runbook-manual-deploy.md) 5절).
 - **8시간 점검(`keep-alive.yml`):** Streamlit 페이지를 브라우저로 열던 점검을 바꿨다. 지금 서비스 중인 API에 배포 카나리와 같은 네 검사(`canary_check.py`, 커밋 확인은 빼고)를 하고, 웹 앱 주요 페이지 6개가 200인지 본다. 건강 질문이 Supabase 검색을 거치므로 Supabase 휴면 방지와 검색 확인 작업은 그대로다. main에 push할 때는 돌지 않는다. 배포 워크플로가 같은 카나리를 이미 돌린다.
 - **되살리기:** 코드는 `app_pages/`에 그대로 있다. `STREAMLIT_FULL_APP=1`이면 전체 화면이 뜬다. 이원화 배포를 다시 보여 줄 때 메모리를 먼저 줄인 뒤 되살린다(메모리 2Gi, 점검 대상 복원).
