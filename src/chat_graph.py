@@ -43,7 +43,7 @@ REPORT_ABSTAIN = "검색된 보고서에서 이 질문에 답할 근거를 찾�
 # feedback, no extra model call) and how to ask again, instead of only "not found".
 ABSTAIN_SEARCHED = {"rag": "반려견 건강 상담 사례(AI Hub 19,206건)", "report": "반려동물 보고서 5종"}
 ABSTAIN_TIPS = {
-    "rag": "증상이 언제부터·하루 몇 번인지, 나이·품종, 함께 나타난 증상을 넣어 다시 물어봐 주세요.",
+    "rag": "증상이 언제부터·하루 몇 번인지, 나이, 함께 나타난 증상을 넣어 다시 물어봐 주세요.",
     "report": "보고서 이름이나 연도, 알고 싶은 항목(예: 2025 한국 반려동물 보고서의 월평균 양육비)을 넣어 다시 물어봐 주세요.",
 }
 # 스트리밍 중 LangGraph가 근거 평가의 구조화 출력(parsed=RetrievalReview)을 직렬화하며 내는 경고입니다.
