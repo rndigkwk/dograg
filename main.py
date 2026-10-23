@@ -6,7 +6,33 @@ os.environ.setdefault("ARROW_DEFAULT_MEMORY_POOL", "system")
 limit_native_memory()  # before any native library starts its threads
 block_torch_imports()  # the chatbot embeds with ONNX Runtime, not torch
 
+from pathlib import Path
+
 import streamlit as st
+
+from src import settings
+
+# P5 (2026-10-23): the old Streamlit address only points to the web app now, so a UI change is made
+# once (Next.js). The pages stay in app_pages/ and come back with STREAMLIT_FULL_APP=1, e.g. to show
+# the two front ends side by side after cutting the app's memory. The notice loads no data or model.
+WEB_APP = "https://ragdog-rndigkwks-projects.vercel.app"
+if not settings.setting_enabled("STREAMLIT_FULL_APP"):
+    from src.ui import NAVIGATION_GROUPS
+
+    st.set_page_config(page_title="라그도그", page_icon=":material/pets:")
+
+    def moved_notice() -> None:
+        st.title("🐾 라그도그가 새 주소로 옮겼어요")
+        st.write("반려견 건강 상담, 동물병원·약국 찾기, 지역별 진료비, 방문 준비 보고서를 새 웹 앱에서 이어서 쓸 수 있어요. "
+                 "로그인하면 대화와 반려견 정보도 그대로 이어집니다.")
+        st.link_button("새 라그도그 열기", WEB_APP, type="primary")
+        st.caption(f"새 주소: {WEB_APP}")
+
+    # Every old page address (/rag, /hospital, ...) shows the same notice instead of "page not found".
+    st.navigation([st.Page(moved_notice, title=item["title"], url_path=Path(item["path"]).stem,
+                           default=item.get("default", False))
+                   for group in NAVIGATION_GROUPS for item in group["items"]], position="hidden").run()
+    st.stop()
 
 from src import private_data
 from src.conversation_ui import (

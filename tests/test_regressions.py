@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,9 @@ from src import resources, settings
 from src.private_data import needs_private_data
 from src.tools import health, router
 
+# main.py shows only the "moved" notice unless STREAMLIT_FULL_APP is set (P5, 2026-10-23);
+# these tests drive the full Streamlit app.
+os.environ.setdefault("STREAMLIT_FULL_APP", "1")
 
 class HomeFallbackTest(unittest.TestCase):
     @needs_private_data
