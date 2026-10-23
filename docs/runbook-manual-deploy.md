@@ -17,7 +17,7 @@ Claude Code 없이도 배포를 확인하고, 다시 배포하고, 되돌리고,
 
 ## 1. 평소 흐름
 
-1. 작업 브랜치에서 PR을 연다 → GitHub Actions가 단위 테스트(`Streamlit app checks`, `Web CI`)와, 답변 경로·가드레일을 바꾼 PR이면 실제 모델로 `PR quality check`를 돌린다.
+1. 작업 브랜치에서 PR을 연다 → GitHub Actions가 단위 테스트(`Python tests`, `Web CI`)와, 답변 경로·가드레일을 바꾼 PR이면 실제 모델로 `PR quality check`를 돌린다.
 2. 모두 초록이면 병합한다.
 3. main 병합 → "Deploy to Cloud Run"이 이미지를 만들고 새 API를 **트래픽 0%로** 올린다 → 카나리 검사 4개(health·표·날짜 질문·건강 질문) → 통과하면 트래픽을 옮긴다. 웹은 Vercel이 따로 배포한다.
 4. 확인: GitHub → Actions → "Deploy to Cloud Run"의 최근 실행이 초록이고, 요약(Summary)에 `ok   health`, `ok   chat rag` 줄이 보이면 된다.
