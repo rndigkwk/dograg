@@ -196,8 +196,9 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
         except Exception as error:  # noqa: BLE001 - reported to the browser as one error event
             logger.exception("chat failed")
             outcome["error"] = True
-            # The provider out of quota (2026-10-19): show what the search finds, without an answer.
-            outcome["quota"] = model_outage.is_quota_error(error) and not streamed
+            # The provider out of quota (2026-10-19) or not answering in time: show what the search
+            # finds, without an answer.
+            outcome["outage"] = None if streamed else model_outage.outage_kind(error)
         finally:
             events.put(None)
 
@@ -205,8 +206,9 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     threading.Thread(target=contextvars.copy_context().run, args=(work,), name="chat", daemon=True).start()
     while (item := events.get()) is not None:
         yield item
-    if outcome.get("quota"):
-        degraded = guardrails.apply_output_guards(body.question, model_outage.search_only_result(body.question, body.top_k))
+    if kind := outcome.get("outage"):
+        degraded = guardrails.apply_output_guards(
+            body.question, model_outage.search_only_result(body.question, body.top_k, kind=kind))
         yield event("result", {**degraded, "memory": memory})
         return
     if outcome.get("error"):

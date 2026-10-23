@@ -297,6 +297,16 @@ def load_local_report_vector_db():
 # decisions (docs/wiki/deployment-resources.md). CRAG_REVIEW_REASONING_EFFORT overrides it.
 REVIEW_REASONING_EFFORT = "none"
 
+# How long one model request may take before it is given up, and one retry (the client's default
+# was 600 seconds and two retries, so a stalled provider held a guardian for minutes). Generous next
+# to what the calls take (2026-10-23): the grader and the crisis check p90 2.4s, a whole health
+# answer p90 11.4s. For the streamed answer the limit is per wait between pieces, not the whole
+# answer. A timed-out request shows the search without an answer (src/model_outage.py).
+REVIEW_TIMEOUT_SECONDS = 20
+CHAT_TIMEOUT_SECONDS = 30
+ANSWER_TIMEOUT_SECONDS = 45
+MODEL_MAX_RETRIES = 1
+
 
 @st.cache_resource(show_spinner=False)
 def load_review_model():
@@ -304,7 +314,8 @@ def load_review_model():
     if not api_key:
         return None
     effort = settings.get_setting("CRAG_REVIEW_REASONING_EFFORT") or REVIEW_REASONING_EFFORT
-    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort)
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
+                      timeout=REVIEW_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES)
 
 
 @st.cache_resource(show_spinner=False)
@@ -314,4 +325,5 @@ def load_chat_model():
         return None
     # CHAT_REASONING_EFFORT: "none", "low", "medium" (the model default when unset), "high".
     effort = settings.get_setting("CHAT_REASONING_EFFORT")
-    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, **({"reasoning_effort": effort} if effort else {}))
+    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, timeout=CHAT_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
+                      **({"reasoning_effort": effort} if effort else {}))
