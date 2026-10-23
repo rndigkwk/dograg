@@ -64,6 +64,11 @@ class SummaryTests(unittest.TestCase):
         self.assertFalse(fields["check"])
         self.assertGreaterEqual(fields["latency_ms"], 0)
 
+    def test_the_rule_ids_of_the_rails_that_changed_the_answer(self):
+        fields = self.summary([sse("result", {"route": "none", "guards": ["links_removed", "crisis_notice"]})])
+        self.assertEqual(fields["rules"], ["OUT-01", "OUT-02"])
+        self.assertNotIn("rules", self.summary([sse("result", {"route": "rag", "guards": []})]))
+
     def test_limits_errors_and_the_deployment_check(self):
         self.assertEqual(self.summary([sse("limited", {"message": "…", "wait_minutes": 12})])["outcome"], "limited")
         fields = self.summary([sse("urgent", {"notice": "…"}), sse("error", {"message": "…"})], agent="x RagDogCheck")

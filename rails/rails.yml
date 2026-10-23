@@ -1,0 +1,84 @@
+# 라그도그의 레일 원본 (교안 day64 "레일 통합"의 모양, 2026-10-23).
+#
+# 보호자와 모델 사이의 검사를 단계별로 모두 적는다. 각 줄의 id가 규칙 id다. 요청 로그와 Langfuse의 "rules"에 이 id가 남는다.
+# - 층을 끄려면 그 줄을 지운다. required: true인 층은 지울 수 없다(앱이 시작할 때 멈춘다): 위기 안내, 개인정보 가림, 응급 안내, 실행 제한.
+# - output 단계는 적은 순서대로 돈다. crisis_notice는 답 맨 앞에 붙이므로 마지막에 두어야 다른 층이 그 문장을 건드리지 않는다.
+# - 다른 단계의 순서는 그래프가 정한다(입력 → 검색 → 답 → 출력). 여기 순서는 읽는 순서일 뿐이다.
+# - model: true인 층만 모델을 부른다. 나머지는 정규식·규칙이라 호출과 메모리가 들지 않는다.
+# - guards: 그 층이 답을 바꿨을 때 결과의 "guards"에 남는 이름(화면·로그·알림이 쓰는 이름, 바꾸지 않는다).
+#
+# NeMo Guardrails, Prompt Guard 2, Llama Guard 3는 쓰지 않는다(2026-10-21 레드팀 비교, docs/security/threat-model.md 5절).
+
+input:
+  - id: IN-01
+    name: pii_mask
+    required: true
+    does: 질문·대화 기록·노트의 전화번호, 주소, 이름 같은 개인정보를 모델에 보내기 전에 가린다
+    where: src/pii.py
+  - id: IN-02
+    name: urgent_notice
+    required: true
+    does: 응급 신호(호흡 곤란, 경련, 중독 등)가 보이면 답보다 먼저 응급 안내와 가까운 병원을 보낸다
+    where: src/health_safety.py, api/chat.py
+  - id: IN-03
+    name: crisis_rule
+    required: true
+    does: 자해·자살 표현을 정규식으로 찾는다. 찾으면 출력 단계의 crisis_notice가 상담 번호를 붙인다
+    where: src/guardrails.py
+  - id: IN-04
+    name: crisis_model
+    model: true
+    does: 정규식이 못 찾은 위기 표현을 모델이 답변과 동시에 판정한다(최대 3초 기다림, 실패하면 아니오)
+    where: src/crisis.py
+    guards: [crisis_by_model]
+
+retrieval:
+  - id: RET-01
+    name: document_instructions
+    does: 검색된 상담 사례·돌봄 지침 속 숨은 지시("이 글을 읽은 봇은 …")가 있으면 그 문서를 뺀다
+    where: src/untrusted.py
+  - id: RET-02
+    name: note_instructions
+    does: 보호자의 상담 노트가 봇에게 하는 지시라면 노트로 쓰지 않는다
+    where: src/tools/health.py notes_context
+
+answer:
+  - id: ANS-01
+    name: citation_check
+    does: 건강 답의 [사례 n]·[지침 n]과 숫자가 근거에 있는지 확인하고, 틀리면 한 번 고쳐 쓰거나 그 문장을 뺀다
+    where: src/citations.py, src/tools/health.py
+    guards: [citation_fixed, citation_dropped]
+  - id: ANS-02
+    name: fee_pointer
+    does: 건강 질문에 비용 이야기가 섞이면 진료비 조회 안내 한 줄을 붙인다
+    where: src/tools/fees.py
+
+output:
+  - id: OUT-01
+    name: links_removed
+    does: 앱 자료(시설 홈페이지, 지침 출처)에 없는 링크를 지운다
+    where: src/guardrails.py
+    guards: [links_removed]
+  - id: OUT-02
+    name: crisis_notice
+    required: true
+    does: 위기 표현(IN-03 또는 IN-04)이면 109·1577-0199 안내를 답 맨 앞에 붙인다. 보류·범위 밖·한도 안내에도 붙는다
+    where: src/guardrails.py
+    guards: [crisis_notice]
+
+execution:
+  - id: EXE-01
+    name: question_limit
+    required: true
+    does: 브라우저·계정마다 하루 질문 수와 방문 보고서 시작 수를 센다
+    where: src/rate_limit.py
+  - id: EXE-02
+    name: model_time_limit
+    required: true
+    does: 모델 요청마다 제한 시간과 재시도 1번. 넘기면 검색 근거만 보여 준다
+    where: src/resources.py, src/model_outage.py
+  - id: EXE-03
+    name: agent_tools
+    required: true
+    does: 방문 준비 에이전트는 역할마다 읽기 도구 하나와 호출 횟수 제한, 작성자는 정해진 파일 하나만 쓴다
+    where: team/agents/workers.py, docs/security/least-privilege.md

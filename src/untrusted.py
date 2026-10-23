@@ -43,7 +43,12 @@ def document_text(doc) -> str:
 
 
 def drop_instructed(docs: list, kind: str) -> list:
-    """The documents without a hidden instruction. A dropped one is logged by id (no text)."""
+    """The documents without a hidden instruction. A dropped one is logged by id (no text).
+    The retrieval rail RET-01 (rails/rails.yml); off, the documents pass as they are."""
+    from src import rails
+
+    if not rails.enabled("document_instructions"):
+        return docs
     kept = []
     for doc in docs:
         if has_hidden_instruction(document_text(doc)):

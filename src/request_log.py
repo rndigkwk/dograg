@@ -92,4 +92,8 @@ def summarized(kind: str, stream: Iterator[str], agent: str = "") -> Iterator[st
                   "latency_ms": round((time.perf_counter() - started) * 1000),
                   "urgent": "urgent" in kinds, "check": data_gaps.CHECK_AGENT in (agent or ""),
                   **{key: last_data[key] for key in RESULT_KEYS if key in last_data}}
+        if fields.get("guards"):  # the rails' rule ids next to the guard names (rails/rails.yml)
+            from src import rails
+
+            fields["rules"] = rails.rule_ids(fields["guards"])
         logger.info("%s %s", kind, fields["outcome"], extra={"fields": fields})

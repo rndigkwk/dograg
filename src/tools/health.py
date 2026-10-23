@@ -11,7 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from src import resources, settings
+from src import rails, resources, settings
 from src.health_answers import attach_health_answers
 from src.health_safety import detect_urgent_sign
 from src.tools import history
@@ -320,8 +320,9 @@ def notes_context(notes, today: date | None = None) -> str:
         return "없음"
     today = today or date.today()
     lines, used = [], 0
+    check = rails.enabled("note_instructions")  # the retrieval rail RET-02 (rails/rails.yml)
     for note in notes:
-        if has_hidden_instruction(note.text):  # a note telling the bot what to do is not a note (src/untrusted.py)
+        if check and has_hidden_instruction(note.text):  # a note telling the bot what to do is not a note (src/untrusted.py)
             continue
         when = date.fromisoformat(note.date)
         days = (today - when).days

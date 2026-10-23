@@ -57,7 +57,11 @@ UNDER_TEST_RUNNER = _under_test_runner()
 
 
 def enabled() -> bool:
-    return not settings.setting_enabled("DISABLE_CRISIS_MODEL_CHECK") and not UNDER_TEST_RUNNER
+    """On unless DISABLE_CRISIS_MODEL_CHECK, a test run, or the input rail IN-04 left out of rails/rails.yml."""
+    from src import rails
+
+    return (not settings.setting_enabled("DISABLE_CRISIS_MODEL_CHECK") and not UNDER_TEST_RUNNER
+            and rails.enabled("crisis_model"))
 
 
 def _text(question: str, chat_history: list | None) -> str:
