@@ -24,8 +24,8 @@ export type Answer = {
 export type Question = { role: "user"; content: string };
 export type Message = Question | Answer;
 
-/** The answer being written: progress line, places found so far, text so far. */
-export type Pending = { step: string; places: string; text: string; answer: Answer };
+/** The answer being written: progress line, places found so far, its evidence once graded, text so far. */
+export type Pending = { step: string; places: string; evidence: Record<string, unknown>[]; text: string; answer: Answer };
 
 export const FIRST_STEP = "질문을 확인하고 있습니다…";
 
@@ -67,7 +67,7 @@ function safeSession(): Storage | null {
 }
 
 export function startPending(): Pending {
-  return { step: FIRST_STEP, places: "", text: "", answer: { role: "assistant", content: "" } };
+  return { step: FIRST_STEP, places: "", evidence: [], text: "", answer: { role: "assistant", content: "" } };
 }
 
 /** The pending answer after one event; `done` when the stream has nothing more to show for it. */
@@ -78,6 +78,8 @@ export function applyEvent(pending: Pending, { kind, data }: StreamEvent): { pen
       return { pending: pending.text ? pending : { ...pending, step: String(d.message ?? pending.step) } };
     case "places":
       return { pending: { ...pending, places: String(d.text ?? "") } };
+    case "evidence": // the health answer's evidence, sent while the answer is still being written
+      return { pending: { ...pending, evidence: Array.isArray(d.rows) ? (d.rows as Record<string, unknown>[]) : [] } };
     case "token":
       return { pending: { ...pending, text: pending.text + String(d.text ?? "") } };
     case "urgent":

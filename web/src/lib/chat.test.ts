@@ -26,6 +26,15 @@ describe("applyEvent", () => {
     expect(pending.text).toBe("구토가 계속되면");
   });
 
+  it("keeps the evidence sent before the answer, and ignores a malformed one", () => {
+    const { pending } = run([
+      { kind: "evidence", data: { rows: [{ id: "7" }] } },
+      { kind: "token", data: { text: "구토가 " } },
+    ]);
+    expect(pending.evidence).toEqual([{ id: "7" }]);
+    expect(run([{ kind: "evidence", data: { rows: "x" } }]).pending.evidence).toEqual([]);
+  });
+
   it("keeps the urgent warning and drops the repeated safety notice", () => {
     const { pending, memory } = run([
       { kind: "urgent", data: { notice: "지금 병원에 가세요", hospitals: { nearest: [] } } },
