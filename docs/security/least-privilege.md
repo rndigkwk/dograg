@@ -63,3 +63,15 @@ gcloud projects remove-iam-policy-binding $PROJECT --member="serviceAccount:$DEP
 - **`ragdog_app`의 `visit_prep` 읽기·쓰기·지우기:** LangGraph 체크포인트 저장소가 실행마다 쓰고 지운다.
 - **보관 기간 정리 함수(security definer):** API가 지우기 권한 없이 3년 지난 행만 지우게 하려고 일부러 둔 것이다(`scripts/sql/retention.sql`).
 - **DB 연결 수 제한:** API 최대 인스턴스가 2개라 연결이 몇 개뿐이다. 문제가 생기면 그때 `connection limit`을 건다.
+
+## 4. 진행 상황 (2026-10-24)
+
+| 빈틈 | 단계 | 상태 | 확인 |
+| --- | --- | --- | --- |
+| 1 | `ragdog_ci` 계정과 권한 | 완료 | 카탈로그: 로그인 가능, RLS 우회 없음. 읽기 2개, 평가 기록 넣기, 시퀀스 사용만 있음 |
+| 1 | GitHub 비밀을 `ragdog_ci`로 | 완료 | 8시간 점검을 수동 실행: 건강 문서 19,206건 읽기, 평가 기록 넣기(id 603) 성공 |
+| 1 | `ragdog_app`의 평가 기록 넣기 거두기 | 10-26 주간 회귀 뒤 | 회귀가 `ragdog_ci`로 기록을 넣은 것을 보고 실행 |
+| 2 | 신원 연결은 main 브랜치만, `run.admin`은 `ragdog-api`만 + 프로젝트 `run.viewer` | 완료 | 병합 배포 2번(#313, #314)이 좁힌 권한으로 카나리·트래픽 전환까지 통과(리비전 `ragdog-api-00185`) |
+
+- **주의(빈틈 1에서 겪음):** GitHub 비밀에는 **pooler 주소**(`aws-0-ap-northeast-2.pooler.supabase.com`, 사용자 이름 `ragdog_ci.<프로젝트 id>`)를 넣는다. 대시보드의 직접 연결 주소(`db.<프로젝트 id>.supabase.co`)는 IPv6만 있어 GitHub 실행기에서 `Network is unreachable`로 실패했다.
+- **브랜치에서 배포·롤백은 이제 안 된다.** 시험은 PR의 검사로 하고, 배포는 main 병합이나 main에서 수동 실행으로만 한다.
