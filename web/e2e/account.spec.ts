@@ -166,3 +166,18 @@ test("deleting the account removes it and signs out, after a warning", async ({ 
   await expect(page.getByRole("button", { name: "Google로 로그인" })).toBeVisible();
   expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBeNull();
 });
+
+test("signed out, the 우리 아이 menu says where its records live; signed in, it does not", async ({ page }) => {
+  await fakeApi(page, []);
+  await page.goto("/care");
+  const row = page.getByRole("navigation", { name: "우리 아이 메뉴" });
+  await expect(row.getByRole("link", { name: /관리 일정/ })).toContainText("이 기기");
+  await expect(row.getByRole("link", { name: /상담 기억/ })).toContainText("로그인 필요");
+
+  await signIn(page);
+  await fakeAccount(page);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "로그아웃" })).toBeVisible();
+  await expect(row.getByRole("link", { name: /관리 일정/ })).not.toContainText("이 기기");
+  await expect(row.getByRole("link", { name: /상담 기억/ })).not.toContainText("로그인 필요");
+});

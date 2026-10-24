@@ -3,7 +3,8 @@
 
 import type { IconName } from "@/components/Icon";
 
-export type NavPage = { href: string; label: string; icon: IconName };
+/** `signedOut`: a word next to the page in the menu when signed out, where its records live then. */
+export type NavPage = { href: string; label: string; icon: IconName; signedOut?: string };
 export type NavGroup = { id: string; label: string; icon: IconName; pages: NavPage[] };
 
 export const GROUPS: NavGroup[] = [
@@ -31,8 +32,8 @@ export const GROUPS: NavGroup[] = [
     label: "우리 아이",
     icon: "heart",
     pages: [
-      { href: "/care", label: "관리 일정", icon: "calendar" },
-      { href: "/memory", label: "상담 기억", icon: "note" },
+      { href: "/care", label: "관리 일정", icon: "calendar", signedOut: "이 기기" },
+      { href: "/memory", label: "상담 기억", icon: "note", signedOut: "로그인 필요" },
     ],
   },
   { id: "about", label: "소개", icon: "chart", pages: [{ href: "/data", label: "데이터 소개", icon: "chart" }] },
