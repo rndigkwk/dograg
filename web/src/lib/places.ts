@@ -1,6 +1,7 @@
 // The place search (api/places.py, data/places.db): kinds, regions, by region, nearest, one place.
 
 import { API_URL } from "./api";
+import type { Emergency } from "./chat";
 
 export type Source = { title: string; url: string; rows: number; updated: string };
 export type Kind = { kind: string; label: string; has_location: boolean; source: Source | null };
@@ -42,6 +43,8 @@ export const regions = () => get<Record<string, string[]>>("/places/regions");
 export const search = (kind: string, province: string, city?: string) =>
   get<{ total: number; places: Place[] }>("/places/search", { kind, province, city, limit: 1000 });
 export const nearby = (kind: string, [lat, lon]: [number, number]) => get<{ places: Place[] }>("/places/nearby", { kind, lat, lon, limit: 10 });
+// An urgent warning's hospitals (nearest, and nearest named 24시/응급/야간), the same /chat sends.
+export const emergency = ([lat, lon]: [number, number]) => get<Emergency>("/places/emergency", { lat, lon });
 export const place = (id: string) => get<Place>(`/places/${encodeURIComponent(id)}`);
 
 export function located(places: Place[]): (Place & { latitude: number; longitude: number })[] {

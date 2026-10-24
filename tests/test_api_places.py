@@ -41,6 +41,14 @@ class PlacesApiTests(unittest.TestCase):
         self.assertEqual(distances, sorted(distances))
         self.assertLess(distances[0], 3)
 
+    def test_emergency_hospitals_are_the_ones_chat_sends(self):
+        from src.tools.places import emergency_hospitals
+
+        found = self.get("/places/emergency", **CITY_HALL).json()
+        self.assertEqual(len(found["nearest"]), 3)
+        self.assertLess(found["nearest"][0]["distance_km"], 3)
+        self.assertEqual(found, emergency_hospitals((CITY_HALL["lat"], CITY_HALL["lon"])))
+
     def test_one_place_with_readable_details(self):
         found = self.get("/places/search", kind="pet_friendly", province="서울특별시", city="강남구", limit=1).json()
         place = self.get(f"/places/{found['places'][0]['id']}").json()
@@ -56,6 +64,7 @@ class PlacesApiTests(unittest.TestCase):
             ("/places/nearby", {"kind": "funeral", **CITY_HALL}, 422),  # no coordinates for this kind
             ("/places/nearby", {"kind": "hospital", "lat": 10, "lon": 10}, 422),  # outside Korea
             ("/places/nearby", {"kind": "hospital", "limit": 500, **CITY_HALL}, 422),
+            ("/places/emergency", {"lat": 10, "lon": 10}, 422),  # outside Korea
             ("/places/no-such-id", {}, 404),
         ):
             self.assertEqual(self.get(path, **params).status_code, status, (path, params))
