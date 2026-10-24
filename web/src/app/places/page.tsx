@@ -3,10 +3,17 @@ import { Suspense } from "react";
 
 import PageHeader from "@/components/PageHeader";
 import Places from "@/components/Places";
+import { kinds, regions } from "@/lib/places";
+import { prefetched } from "@/lib/prefetch";
 
 export const metadata: Metadata = { title: "시설 찾기 · 라그도그" };
+export const revalidate = 86400; // a day: the kinds and regions change only with a data release
 
-export default function PlacesPage() {
+export default async function PlacesPage() {
+  const initial = await prefetched(async () => {
+    const [k, r] = await Promise.all([kinds(), regions()]);
+    return { kinds: k, regions: r };
+  });
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-12">
       <PageHeader
@@ -16,7 +23,7 @@ export default function PlacesPage() {
       />
       {/* The ?id= of one place is read in the browser. */}
       <Suspense>
-        <Places />
+        <Places initial={initial} />
       </Suspense>
     </main>
   );

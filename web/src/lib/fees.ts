@@ -30,6 +30,8 @@ async function getJson<T>(path: string): Promise<T> {
   return response.json();
 }
 
+export const DEFAULT_ITEM = "초진 진찰료 (체중 5kg)";
+
 export function feeItems(): Promise<{ items: FeeItem[]; source: string; notice: string }> {
   return getJson("/fees/items");
 }
