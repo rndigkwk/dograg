@@ -108,6 +108,19 @@ class CragOffTests(ChatGraphTestCase):
                 self.assertEqual(result["answer"], f"{answer}\n\n💰 진료비 안내")
                 self.assertEqual(self.run_chat(tools, crag=crag)["answer"], answer)
 
+    def test_a_health_answer_without_home_care_gets_the_fixed_line_unless_urgent(self):
+        from src.home_care import NOTE
+
+        gap = "검색된 자료에는 집에서 할 수 있는 관리 방법은 없습니다."
+        tools = make_tools("rag", generate_health_answer=Mock(return_value=gap))
+        result = self.run_chat(tools, question="발을 계속 핥아요", crag=True)
+        self.assertEqual(result["answer"], f"{gap}\n\n{NOTE}")
+        self.assertIn("home_care_note", result["guards"])
+        urgent = self.run_chat(tools, question="숨을 헐떡이고 발을 핥아요", crag=True)
+        self.assertEqual(urgent["answer"], gap)  # the urgent warning already says go now
+        plain = self.run_chat(make_tools("rag"), question="발을 계속 핥아요", crag=True)
+        self.assertNotIn("home_care_note", plain["guards"])
+
     def test_every_route_the_graph_returns_can_be_saved_as_a_turn(self):
         # The fee route reached the deployed app before the stored-turn model accepted it, and
         # saving the conversation failed (2026-10-10).

@@ -23,7 +23,7 @@ STAGES = ("input", "retrieval", "answer", "output", "execution")
 KNOWN = {
     "input": {"pii_mask", "urgent_notice", "crisis_rule", "crisis_model"},
     "retrieval": {"document_instructions", "note_instructions"},
-    "answer": {"citation_check", "fee_pointer"},
+    "answer": {"citation_check", "fee_pointer", "home_care_note"},
     "output": {"links_removed", "crisis_notice"},
     "execution": {"question_limit", "model_time_limit", "agent_tools"},
 }

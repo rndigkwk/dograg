@@ -101,7 +101,7 @@ flowchart TB
     RW --> HR
     HG -->|"근거 있음"| GEN["health_generate"]
     HG -->|"다시 찾아도 없음"| AB["abstain 보류"]
-    GEN --> ANS["ANS-01 인용 · 숫자 확인<br/>ANS-02 진료비 안내"]
+    GEN --> ANS["ANS-01 인용 · 숫자 확인<br/>ANS-02 진료비 안내<br/>ANS-03 집 관리 고정 문구"]
     CL -->|"보고서"| RP["하이브리드 검색 → 답"]
     CL -->|"병원 · 시설"| HOS["SQLite 조회"]
     HOS -->|"증상도 물었으면"| HR
