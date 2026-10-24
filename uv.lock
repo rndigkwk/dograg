@@ -961,13 +961,11 @@ dependencies = [
     { name = "langchain-text-splitters" },
     { name = "langfuse" },
     { name = "langgraph-checkpoint-postgres" },
-    { name = "matplotlib" },
     { name = "numpy" },
     { name = "onnxruntime" },
     { name = "openai" },
     { name = "pandas" },
     { name = "pillow" },
-    { name = "plotly" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -976,7 +974,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "rank-bm25" },
     { name = "requests" },
-    { name = "streamlit" },
     { name = "tokenizers" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -990,6 +987,11 @@ tools = [
     { name = "mlflow" },
     { name = "psutil" },
     { name = "sentence-transformers" },
+]
+ui = [
+    { name = "matplotlib" },
+    { name = "plotly" },
+    { name = "streamlit" },
 ]
 
 [package.metadata]
@@ -1005,13 +1007,11 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = ">=1.0" },
     { name = "langfuse", specifier = ">=4.17.0" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3" },
-    { name = "matplotlib", specifier = ">=3.11.1" },
     { name = "numpy", specifier = ">=2.3,<2.5" },
     { name = "onnxruntime", specifier = ">=1.20" },
     { name = "openai", specifier = ">=1.0" },
     { name = "pandas", specifier = ">=2.3,<3" },
     { name = "pillow", specifier = ">=12.3.0" },
-    { name = "plotly", specifier = ">=6.9.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10" },
@@ -1020,7 +1020,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
     { name = "requests", specifier = ">=2.32" },
-    { name = "streamlit", specifier = ">=1.61.1" },
     { name = "tokenizers", specifier = ">=0.21" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
@@ -1034,6 +1033,11 @@ tools = [
     { name = "mlflow", specifier = ">=3.4" },
     { name = "psutil", specifier = ">=6" },
     { name = "sentence-transformers", specifier = ">=3.0" },
+]
+ui = [
+    { name = "matplotlib", specifier = ">=3.11.1" },
+    { name = "plotly", specifier = ">=6.9.0" },
+    { name = "streamlit", specifier = ">=1.61.1" },
 ]
 
 [[package]]

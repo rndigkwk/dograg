@@ -130,7 +130,8 @@ class WarmupDecisionTests(unittest.TestCase):
 
     def test_loaders_called_from_background_threads_show_no_spinner(self):
         # A spinner sends messages through the attached script run: NoSessionContext without one
-        # (#47), StopException when that run is stopped. Neither can happen without a spinner.
+        # (#47), StopException when that run is stopped. The loaders use src/cache.py, which has no
+        # spinner, rather than st.cache_resource.
         from src import resources
 
         for loader in (resources.load_vector_db, resources.load_health_bm25_index, resources.load_health_answer_table,
@@ -140,7 +141,8 @@ class WarmupDecisionTests(unittest.TestCase):
                        resources.load_search_breaker, resources.load_fallback_vector_db,
                        resources.load_fallback_health_index, resources.load_fallback_report_vector_db,
                        resources.load_fallback_report_index):
-            self.assertFalse(loader._info.show_spinner, loader.__name__)
+            self.assertFalse(hasattr(loader, "_info"), loader.__name__)  # a Streamlit cached function has one
+            self.assertTrue(callable(loader.clear), loader.__name__)
 
 
 if __name__ == "__main__":

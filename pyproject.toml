@@ -17,11 +17,8 @@ dependencies = [
     "langchain-openai>=1.0",
     "langchain-chroma>=0.2",
     "langchain-text-splitters>=1.0",
-    "streamlit>=1.61.1",
     "pyproj>=3.7.2",
     "pillow>=12.3.0",
-    "matplotlib>=3.11.1",
-    "plotly>=6.9.0",
     "kiwipiepy>=0.22.2",
     "rank-bm25>=0.2.2",
     "onnxruntime>=1.20",
@@ -38,6 +35,13 @@ dependencies = [
 ]
 
 [dependency-groups]
+# The Streamlit pages (main.py, app_pages/) and their charts. Installed by default for local
+# runs and CI; the API image leaves it out (Dockerfile), since the API never imports them.
+ui = [
+    "streamlit>=1.61.1",
+    "matplotlib>=3.11.1",
+    "plotly>=6.9.0",
+]
 # PyTorch models for the embedding fine-tuning, evaluation and memory scripts
 # (`uv run --group tools python scripts/...`). The app never imports torch, so the
 # deployment does not install it.
@@ -52,3 +56,6 @@ notebook = [
     "ipykernel>=7.3.0",
     "jupyterlab>=4.6.2",
 ]
+
+[tool.uv]
+default-groups = ["ui"]

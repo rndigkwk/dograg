@@ -343,3 +343,23 @@ Langfuse에서 지연의 대부분이 모델 호출이라는 것을 확인했다
 - Chroma DB가 Git LFS에서 빠지면서 위의 LFS 대역폭 걱정도 사라졌다. `.gitattributes`를 지웠다.
 - 남은 일: 과거 커밋 기록과 GitHub의 PR 기록(refs/pull)에는 파일이 남아 있다. 기록 정리는 강제 푸시와 GitHub 지원 요청이 필요해 따로 진행한다.
 
+
+## API에서 Streamlit 떼기 (2026-10-24)
+
+**누가 불렀나:** API(`api.main`)를 import하면 `api.chat → chat_events → chat_graph → crisis → src/resources.py` 경로로 `import streamlit`이 실행됐다. `resources.py`와 `tools/health.py`가 무거운 로더를 한 번만 만들려고 `@st.cache_resource`를 썼기 때문이다. `/stats`는 `data_stats → data_charts` 경로로 plotly를 불렀다(시·도 이름 정리 함수 하나 때문).
+
+**바꾼 것**
+- `src/cache.py`의 `cache_resource`: 프로세스당 한 번 만들고 `.clear()`로 비우는 점은 `st.cache_resource`와 같다. 동시에 처음 부르면 하나만 만들고 나머지는 기다린다. Streamlit 화면도 같은 로더를 쓴다.
+- 시·도 이름 정리를 `src/provinces.py`로 옮기고, `/stats`는 첫 요청 때 pandas를 불러온다.
+- `pyproject.toml`: streamlit·matplotlib·plotly를 `ui` 의존성 그룹으로 옮겼다. 기본 그룹이라 로컬과 CI(`uv sync`)는 그대로 설치하고, API 이미지는 `--no-default-groups`로 뺀다. Streamlit 대비 화면은 `streamlit-backup` 브랜치에서 돌아서 영향이 없다.
+- Dockerfile 기본 명령을 배포와 같은 uvicorn으로 바꿨다(남아 있던 `streamlit run`은 지운 Cloud Run Streamlit 서비스용).
+
+**측정 (이 PC, 이미지와 같은 패키지 구성의 가상환경, 4번씩)**
+| | 패키지 | 가상환경 크기 | `import api.main` | 그 뒤 메모리 | 불러온 모듈 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 이전 (`--no-dev`) | 150 | 828MB | 13.2~15.4초 | 219MB | 3,140 |
+| **이후 (`--no-default-groups`)** | **131** | **580MB** | **8.3~8.9초** | **128MB** | **2,216** |
+
+- 이미지에서 빠진 패키지 19개: streamlit, altair, pydeck, pyarrow, matplotlib, plotly, narwhals, watchdog 등. API 코드가 쓰는 것은 없다(`python-multipart`·`jinja2`도 Form·템플릿을 안 써서 필요 없음).
+- `tests/test_cache.py`가 `api.main`을 import한 뒤 streamlit·plotly·matplotlib·pandas가 없는지 확인한다.
+- Cloud Run(리눅스, CPU 1개)에서의 콜드 스타트 차이는 배포 뒤 첫 요청 로그로 확인한다.

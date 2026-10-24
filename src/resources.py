@@ -12,10 +12,10 @@ import os
 import shutil
 from pathlib import Path
 
-import streamlit as st
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src import settings
+from src.cache import cache_resource
 from src.health_answers import load_health_answers
 from src.onnx_embeddings import OnnxSentenceEmbeddings
 
@@ -74,7 +74,7 @@ def chroma_dir() -> Path:
     return LOCAL_CHROMA_COPY / "chroma_db"
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def create_embedding_model():
     """Query embeddings must match the stored vectors; None when no API key is set."""
     api_key = settings.get_openai_api_key()
@@ -92,7 +92,7 @@ def search_backend() -> str:
     return "local"
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_search_breaker():
     """One per process, shared by the four Supabase searches, so an outage costs one timeout."""
     from src.supabase_store import Breaker
@@ -133,19 +133,19 @@ class NoKeywordIndex:
         return []
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_fallback_vector_db():
     from src.vector_store import ExactVectorStore
 
     return ExactVectorStore.load(FALLBACK_STORE_DIR / "health", load_health_embeddings())
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_fallback_health_index():
     return NoKeywordIndex()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_fallback_report_vector_db():
     embeddings = create_embedding_model()
     if embeddings is None:
@@ -155,7 +155,7 @@ def load_fallback_report_vector_db():
     return ExactVectorStore.load(FALLBACK_STORE_DIR / "report", embeddings)
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_fallback_report_index():
     from src.hybrid_retrieval import HealthBM25Index, bigram_tokenize
 
@@ -163,12 +163,12 @@ def load_fallback_report_index():
     return None if db is None else HealthBM25Index.from_chroma(db, bigram_tokenize)
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_health_embeddings():
     return OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN"))
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_vector_db():
     if search_backend() == "supabase":
         from src.supabase_store import PgVectorStore
@@ -177,7 +177,7 @@ def load_vector_db():
     return load_local_vector_db()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_local_vector_db():
     # Imported here: chromadb is heavy, and a store that does not use it should not load it
     # (ADR-0003, scripts/measure_memory.py --store).
@@ -190,7 +190,7 @@ def load_local_vector_db():
     )
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_health_answer_table():
     return load_health_answers(HEALTH_CSV_PATH)
 
@@ -200,7 +200,7 @@ def load_health_answer_table():
 # ways: NoSessionContext with no run attached (#47), and StopException when the attached run is
 # stopped by a rerun mid-load (the warm-up died with it on the deployed app, 2026-10-09).
 # The chat page shows its own progress line, and the token cache makes the build quick.
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_health_bm25_index():
     if search_backend() == "supabase":
         # Dense only, as the fallback already was: with the fine-tuned query model, PGroonga's keyword
@@ -211,7 +211,7 @@ def load_health_bm25_index():
     return load_local_health_bm25_index()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_local_health_bm25_index():
     from src.hybrid_retrieval import HealthBM25Index
 
@@ -241,7 +241,7 @@ def make_health_tokenizer():
     return tokenize
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_report_bm25_index():
     if search_backend() == "supabase":
         if create_embedding_model() is None:
@@ -254,7 +254,7 @@ def load_report_bm25_index():
     return load_local_report_bm25_index()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_local_report_bm25_index():
     """BM25 over the report chunks (1,193). Uses the health index's tokenizer, so no second Kiwi
     (about 290MB) is loaded; tokenizing the chunks takes a few seconds once per process."""
@@ -266,7 +266,7 @@ def load_local_report_bm25_index():
     return HealthBM25Index.from_chroma(db, load_local_health_bm25_index().tokenize)
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_report_vector_db():
     if search_backend() == "supabase":
         embeddings = create_embedding_model()
@@ -278,7 +278,7 @@ def load_report_vector_db():
     return load_local_report_vector_db()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_local_report_vector_db():
     embeddings = create_embedding_model()
     if embeddings is None:
@@ -308,7 +308,7 @@ ANSWER_TIMEOUT_SECONDS = 45
 MODEL_MAX_RETRIES = 1
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_review_model():
     api_key = settings.get_openai_api_key()
     if not api_key:
@@ -318,7 +318,7 @@ def load_review_model():
                       timeout=REVIEW_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES)
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_chat_model():
     api_key = settings.get_openai_api_key()
     if not api_key:
