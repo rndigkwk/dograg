@@ -29,6 +29,7 @@ from src.crag import (
     merge_documents,
     needs_decomposition,
 )
+from src.home_care import home_care_note
 from src.pii import mask_history, mask_pii
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
 from src.tools.care_guides import GUIDE_K, is_guide
@@ -367,11 +368,16 @@ def build_chat_graph(tools):
             profile=state.get("pet_profile"), notes=state.get("notes"),
         )
         answer, guards = _check_citations(state, question, docs, answer)
+        safety_notice = tools.detect_urgent_sign(state["question"])
+        # The answer rail ANS-03 (src/home_care.py): not under an urgent sign, which says go now.
+        note = home_care_note(answer) if rails.enabled("home_care_note") and not safety_notice else ""
+        if note:
+            answer, guards = f"{answer}\n\n{note}", [*guards, "home_care_note"]
         return {
             "guards": [*state.get("guards", []), *guards],
             "answer": with_places(with_fee_pointer(answer, state["question"]), state),
             "evidence_rows": [doc.metadata for doc in docs],
-            "safety_notice": tools.detect_urgent_sign(state["question"]),
+            "safety_notice": safety_notice,
         }
 
     def health_review(state: ChatState):

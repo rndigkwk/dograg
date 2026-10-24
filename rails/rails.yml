@@ -52,6 +52,11 @@ answer:
     name: fee_pointer
     does: 건강 질문에 비용 이야기가 섞이면 진료비 조회 안내 한 줄을 붙인다
     where: src/tools/fees.py
+  - id: ANS-03
+    name: home_care_note
+    does: 건강 답이 "자료에 집에서 하는 관리법이 없다"고 하면 관찰·기록·사람 약 금지·병원 기준의 고정 문구를 붙인다(응급 신호면 붙이지 않음)
+    where: src/home_care.py
+    guards: [home_care_note]
 
 output:
   - id: OUT-01
