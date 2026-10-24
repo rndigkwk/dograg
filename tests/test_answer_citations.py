@@ -14,6 +14,17 @@ CASES = ["수의사 답변: 생후 6~8주부터 종합백신을 2~4주 간격으
 GUIDES = ["동물사랑배움터: 산책은 하루 1회 이상 30분"]
 
 
+class FootnoteTests(unittest.TestCase):
+    def test_a_footnote_marker_the_model_added_is_dropped(self):
+        self.assertEqual(citations.attach_citations("기력이 떨어지면 동물병원에 가세요. [^]"), "기력이 떨어지면 동물병원에 가세요.")
+        self.assertEqual(citations.attach_citations("설사가 이어집니다[^1]. 물을 주세요 [사례 1]."),
+                         "설사가 이어집니다. 물을 주세요 [사례 1].")
+
+    def test_citations_and_ordinary_brackets_stay(self):
+        text = "검사를 했습니다 [사례 2]. 체중은 [3kg] 정도입니다."
+        self.assertEqual(citations.attach_citations(text), text)
+
+
 class CheckTests(unittest.TestCase):
     def test_numbers_from_the_cited_evidence_pass(self):
         answer = "종합백신은 생후 6~8주부터 2~4주 간격으로 맞힙니다 [사례 1]. 산책은 하루 30분 이상 하세요 [지침 1]."
