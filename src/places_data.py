@@ -126,6 +126,30 @@ def format_phone(raw: str | None) -> str | None:
     return raw.strip()
 
 
+# The landline area code of each province (after normalize_address). The merged 전남광주통합특별시
+# keeps two codes: its 구 are the former 광주광역시 (062), its 시·군 the former 전라남도 (061).
+AREA_CODES = {
+    "서울특별시": "02", "부산광역시": "051", "대구광역시": "053", "인천광역시": "032", "대전광역시": "042",
+    "울산광역시": "052", "세종특별자치시": "044", "경기도": "031", "강원특별자치도": "033", "충청북도": "043",
+    "충청남도": "041", "전북특별자치도": "063", "경상북도": "054", "경상남도": "055", "제주특별자치도": "064",
+}
+_LOCAL_NUMBER = re.compile(r"[2-9]\d{2,3}-\d{4}")
+
+
+def with_area_code(phone: str | None, address: str | None) -> str | None:
+    """'3672-8441' at a 서울특별시 address -> '02-3672-8441'. Some sources write landlines without the
+    area code, which a phone cannot dial from elsewhere. Only a local number (first digit 2-9, as
+    local numbers are) with a known province changes."""
+    if not phone or not address or not _LOCAL_NUMBER.fullmatch(phone):
+        return phone
+    words = address.split()
+    if words[0] == "전남광주통합특별시":
+        code = "062" if len(words) > 1 and words[1].endswith("구") else "061"
+    else:
+        code = AREA_CODES.get(words[0])
+    return f"{code}-{phone}" if code else phone
+
+
 def province_of(address: str | None) -> str | None:
     if not address:
         return None

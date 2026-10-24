@@ -26,6 +26,7 @@ from src.places_data import (
     format_phone,
     normalize_address,
     province_of,
+    with_area_code,
 )
 from src.private_data import needs_private_data
 from src.tools import places, router
@@ -86,6 +87,20 @@ class AddressTests(unittest.TestCase):
             self.assertEqual(format_phone(raw), expected, raw)
         self.assertIsNone(format_phone("-"))
         self.assertIsNone(format_phone(None))
+
+    def test_local_numbers_get_the_province_area_code(self):
+        cases = [
+            ("3672-8441", "서울특별시 종로구 창경궁로 261", "02-3672-8441"),
+            ("744-9098", "경기도 수원시 팔달구 1", "031-744-9098"),
+            ("943-4567", "전남광주통합특별시 광산구 1", "062-943-4567"),
+            ("723-4567", "전남광주통합특별시 순천시 1", "061-723-4567"),
+            ("02-543-4037", "부산광역시 해운대구 1", "02-543-4037"),  # already has one
+            ("1588-1234", "서울특별시 중구 1", "1588-1234"),  # nationwide number
+            ("3672-8441", None, "3672-8441"),  # no address: unknown province
+        ]
+        for phone, address, expected in cases:
+            self.assertEqual(with_area_code(phone, address), expected, (phone, address))
+        self.assertIsNone(with_area_code(None, "서울특별시 중구 1"))
 
     def test_info_lines_follow_the_label_order(self):
         self.assertEqual(describe_info(CAFE_INFO), ["운영시간: 매일 10:00~22:00", "입장 가능 크기: 소형", "제한사항: 목줄", "추가 요금: 5,000원"])
