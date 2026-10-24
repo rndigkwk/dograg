@@ -16,6 +16,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko">
       <body className="antialiased">
+        {/* The first Tab stop: past the menu (two rows on a group's pages) straight to the page. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-accent focus:shadow"
+        >
+          본문으로 건너뛰기
+        </a>
         <AuthProvider>
           <NavBar />
           {children}

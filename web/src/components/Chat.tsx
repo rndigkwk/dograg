@@ -215,6 +215,10 @@ export default function Chat() {
   // The guardian pressed 멈추기: the abort ends the answer with a notice (leaving the page aborts quietly).
   const stopped = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  // The question went with Enter in the box: the box is disabled while the answer streams, which drops
+  // the focus to the page, so it gets the focus back after (not after a tap on 보내기: a phone keyboard would pop up).
+  const typed = useRef(false);
 
   useEffect(() => {
     warmUp();
@@ -440,6 +444,12 @@ export default function Chat() {
     setPending(null);
   }
 
+  useEffect(() => {
+    if (pending || !typed.current) return;
+    typed.current = false;
+    box.current?.focus();
+  }, [pending]);
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const question = draft.trim();
@@ -561,11 +571,16 @@ export default function Chat() {
             질문
           </label>
           <textarea
+            ref={box}
             id="question"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) submit(event);
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                // Only a question that will go: an empty Enter must not pull the focus back later.
+                typed.current = Boolean(draft.trim());
+                submit(event);
+              }
             }}
             placeholder={PLACEHOLDER}
             maxLength={1000}

@@ -15,7 +15,7 @@ export default async function PlacesPage() {
     return { kinds: k, regions: r };
   });
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-12">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-12">
       <PageHeader
         eyebrow="가까운 반려동물 시설 찾기"
         title="반려동물 시설 찾기"

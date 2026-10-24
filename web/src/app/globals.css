@@ -14,6 +14,16 @@
   --font-sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
 }
 
+/* One focus ring for keyboard users on every control (2026-10-24 keyboard pass); a mouse click shows none. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+/* The skip link's target: focused so the next Tab starts in the page, but it is not a control. */
+main:focus {
+  outline: none;
+}
+
 body {
   background: var(--color-page);
   color: var(--color-ink);
