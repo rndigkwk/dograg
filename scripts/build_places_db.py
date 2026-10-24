@@ -36,7 +36,13 @@ from pyproj import Transformer
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from src.places_data import SCHEMA, format_phone, in_korea, normalize_address
+from src.places_data import (
+    SCHEMA,
+    format_phone,
+    in_korea,
+    normalize_address,
+    with_area_code,
+)
 
 DATA = PROJECT_DIR / "data"
 INPUTS = {
@@ -108,9 +114,10 @@ def date_in_name(path: Path) -> str | None:
 
 def place(place_id, kind, name, road, lot=None, phone=None, homepage=None, category=None, info=None, latitude=None, longitude=None):
     info = {key: value for key, value in (info or {}).items() if value}
+    road, lot = normalize_address(clean(road)), normalize_address(clean(lot))
     return (
-        place_id, kind, clean(name), normalize_address(clean(road)), normalize_address(clean(lot)),
-        phone, clean(homepage), category, json.dumps(info, ensure_ascii=False) if info else None, latitude, longitude,
+        place_id, kind, clean(name), road, lot,
+        with_area_code(phone, road or lot), clean(homepage), category, json.dumps(info, ensure_ascii=False) if info else None, latitude, longitude,
     )
 
 

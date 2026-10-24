@@ -39,7 +39,7 @@ function PlaceTable({ places, withDistance = false }: { places: Place[]; withDis
                 {p.category ? <div className="text-xs text-muted">{p.category}</div> : null}
               </td>
               <td className="px-3 py-2">{p.address ?? "주소 없음"}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{p.phone ? <a href={`tel:${p.phone.replace(/\D/g, "")}`}>{p.phone}</a> : ""}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{p.phone ? <a href={`tel:${p.phone.replace(/\D/g, "")}`}>{p.phone}</a> : <span className="text-muted">없음</span>}</td>
               {details ? TABLE_INFO.map(([key]) => <td key={key} className="px-3 py-2">{p.info[key] ?? ""}</td>) : null}
               {withDistance ? <td className="px-3 py-2 whitespace-nowrap">{p.distance_km?.toFixed(2)}km</td> : null}
             </tr>
