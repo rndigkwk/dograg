@@ -63,3 +63,47 @@ test("after an answer to a question sent with Enter, the box has the focus again
   await expect(page.getByLabel("대화", { exact: true }).getByText("물을 조금씩 주세요.").first()).toBeVisible();
   await expect(page.getByRole("textbox", { name: "질문" })).toBeFocused();
 });
+
+test("a visit-prep report moves the focus to what comes next: the answer box, then the report", async ({ page }) => {
+  const report = { report: "# 방문 준비 보고서\n\n- 설사가 이틀째입니다.", passed: true, status: "검수 통과", round: 1, steps: [], urgent: false, seconds: 42, answered: true };
+  await fakeApi(page, [], {}, {
+    "/visit-prep": [["paused", { thread_id: "t1", questions: ["언제부터였나요?"] }]],
+    "/visit-prep/t1/answer": [["result", report]],
+  });
+  await page.goto("/visit-prep");
+  await page.getByLabel("상담 내용").fill("말티즈가 이틀째 설사를 해요");
+  await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).press("Enter");
+  const answer = page.getByRole("region", { name: "보호자 질문" }).getByLabel(/답변/);
+  await expect(answer).toBeFocused();
+  await page.keyboard.type("어제 저녁부터요");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter"); // 답하고 보고서 만들기
+  await expect(page.getByRole("region", { name: "방문 준비 보고서" })).toBeFocused();
+});
+
+test("on the places page the kind pills show the focus and a search keeps it on 조회", async ({ page }) => {
+  const source = { title: "행정안전부 동물병원 인허가 정보", url: "https://www.data.go.kr", rows: 2, updated: "2026-08-11 22:02:01" };
+  const place = { id: "hospital-1", kind: "hospital", name: "강남동물병원1", address: "서울특별시 강남구 테헤란로 1", phone: null, homepage: null, category: null, latitude: 37.5, longitude: 127.03, info: {}, info_lines: [] };
+  await fakeApi(page, [], {
+    "/places/kinds": [
+      { kind: "hospital", label: "동물병원", has_location: true, source },
+      { kind: "funeral", label: "장묘업체", has_location: false, source: null },
+    ],
+    "/places/regions": { 서울특별시: ["강남구"] },
+    "/places/search": { total: 1, places: [place] },
+  });
+  await page.goto("/places");
+  const radio = page.getByRole("radio", { name: "동물병원" });
+  await radio.focus();
+  await page.keyboard.press("ArrowRight"); // radios move with the arrows
+  const pill = page.locator("label", { has: page.getByRole("radio", { name: "장묘업체" }) });
+  await expect(page.getByRole("radio", { name: "장묘업체" })).toBeChecked();
+  await expect(pill).toHaveCSS("outline-style", "solid");
+
+  await page.keyboard.press("ArrowLeft");
+  const go = page.getByRole("button", { name: "조회" });
+  await go.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toContainText("1곳을 찾았습니다");
+  await expect(go).toBeFocused();
+});
