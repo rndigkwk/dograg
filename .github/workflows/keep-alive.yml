@@ -27,7 +27,7 @@ env:
 
 jobs:
   wake:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -55,7 +55,7 @@ jobs:
     # database activity, so the free project is not paused for inactivity.
     needs: wake
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
       SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}

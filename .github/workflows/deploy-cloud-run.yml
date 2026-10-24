@@ -41,7 +41,7 @@ jobs:
   deploy:
     # Skipped (not failed) until the one-time setup has been done.
     if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out repository
