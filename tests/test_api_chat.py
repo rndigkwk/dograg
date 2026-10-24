@@ -58,6 +58,23 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(seen["pet_profile"].name, "보리")
         self.assertEqual(seen["session_id"], CLIENT)
 
+    def test_the_graded_evidence_is_sent_before_the_answer(self):
+        from langchain_core.documents import Document
+
+        def graded(question, *, on_token=None, on_step=None, **kwargs):
+            on_step("classify", {"route": "rag"})
+            on_step("health_grade", {"documents": [Document("상담", metadata={"id": str(i)}) for i in range(5)]})
+            on_token("구토가 ")
+            on_step("health_grade", {"documents": [Document("상담", metadata={"id": "late"})]})  # after a token: not sent
+            return fake_chatbot(question, on_token=lambda _: None, on_step=lambda *_: None)
+
+        self.chatbot.side_effect = graded
+        got = events(self.post({"question": "강아지가 구토해요", "top_k": 3}))
+        kinds = [kind for kind, _ in got]
+        self.assertEqual(kinds.count("evidence"), 1)
+        self.assertLess(kinds.index("evidence"), kinds.index("token"))
+        self.assertEqual(got[kinds.index("evidence")][1]["rows"], [{"id": "0"}, {"id": "1"}, {"id": "2"}])  # top_k
+
     def test_the_trace_is_sent_before_the_stream_ends(self):
         """The last request before Cloud Run idles lost its trace (src/tracing.flushed, 2026-10-20)."""
         order = []

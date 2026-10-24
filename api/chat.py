@@ -46,7 +46,12 @@ from src import (
     settings,
     tracing,
 )
-from src.chat_events import find_emergency_hospitals, places_first, progress_message
+from src.chat_events import (
+    evidence_first,
+    find_emergency_hospitals,
+    places_first,
+    progress_message,
+)
 from src.health_safety import detect_urgent_sign
 from src.pii import mask_pii
 from src.storage.models import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS, PetProfile
@@ -183,6 +188,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     def on_step(node: str, update: dict) -> None:
         if text := places_first(node, update):
             events.put(event("places", {"text": text}))
+        if not streamed and (rows := evidence_first(node, update, body.top_k)):
+            events.put(event("evidence", {"rows": rows}))
         if not streamed and (message := progress_message(node, update)):
             events.put(event("step", {"message": message}))
 

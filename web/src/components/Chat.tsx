@@ -204,6 +204,8 @@ function PendingView({ pending, onStop, onLocated }: { pending: Pending; onStop:
         // Anything past the first step means the API is awake and working.
         <Waiting text={pending.step} started={pending.step !== FIRST_STEP || Boolean(pending.places)} onStop={onStop} />
       )}
+      {/* Readable during the ~10 s before the first word; the finished answer shows the same rows. */}
+      <Evidence route="rag" rows={pending.evidence} />
     </>
   );
 }
