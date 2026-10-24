@@ -1,223 +1,32 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
-import { type Answer, applyEvent, type Emergency, finish, FIRST_STEP, type Hospital, historyOf, type Message, type Pending, startPending, takeAsked } from "@/lib/chat";
+import { applyEvent, finish, historyOf, type Message, type Pending, startPending, takeAsked } from "@/lib/chat";
 import { failureMessage } from "@/lib/failure";
 
-import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
 import { type AccountRecords, DeviceRecords, moveDeviceToAccount } from "@/lib/records";
 import { messagesOf, recordTurn, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
 
 import { locate, type Location } from "@/lib/location";
-import { emergency } from "@/lib/places";
 import { isEmpty, type MemorySuggestion, type PetProfile } from "@/lib/profile";
 
 import { type ChatNote, forChat, listNotes, notesEnabled } from "@/lib/notes";
 import { supabase } from "@/lib/supabase";
 
 import { useAuth } from "./AuthProvider";
+import { AnswerView, Bubble, PendingView } from "./ChatMessages";
 import Conversations from "./Conversations";
 import MemoryCard from "./MemoryCard";
-import NoteSaver from "./NoteSaver";
 import ProfileForm from "./ProfileForm";
 import { useRecords } from "./useRecords";
 import { deleteAccount } from "@/lib/supabase";
-import Evidence from "./Evidence";
-import Feedback from "./Feedback";
-import Markdown from "./Markdown";
-import Waiting from "./Waiting";
 import Icon from "./Icon";
 
 const FAILED = "답변을 받지 못했습니다. 잠시 뒤 다시 질문해 주세요.";
 const STOPPED = "답변을 멈췄습니다.";
 const PLACEHOLDER = "예: 강아지가 계속 구토해요 / 강남구 병원을 알려주세요.";
-
-function HospitalLine({ row }: { row: Hospital }) {
-  const digits = row.phone?.replace(/\D/g, "");
-  return (
-    <li>
-      <strong>{row.name}</strong> · {row.distance_km.toFixed(1)}km ·{" "}
-      {digits ? <a href={`tel:${digits}`}>{row.phone}</a> : "전화번호 없음"}
-      <div className="text-sm text-muted">{row.road_address || row.lot_address || ""}</div>
-    </li>
-  );
-}
-
-/** Without a shared location the warning has no hospitals: its own button asks for the location and
- * fills them in here, without asking the question again (the button by the box below is far away). */
-function LocateHospitals({ onLocated }: { onLocated?: (location: Location) => void }) {
-  const [found, setFound] = useState<Emergency | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  async function find() {
-    if (busy) return;
-    setBusy(true);
-    setNote("위치를 확인하는 중입니다…");
-    const at = await locate();
-    if (!("location" in at)) {
-      setNote(`${at.error} 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.`);
-      setBusy(false);
-      return;
-    }
-    onLocated?.(at.location);
-    try {
-      const hospitals = await emergency(at.location);
-      setFound(hospitals);
-      setNote(hospitals.nearest?.length ? null : "가까운 동물병원을 찾지 못했습니다. 지역 이름으로 병원을 물어보세요.");
-    } catch {
-      setNote("가까운 병원을 불러오지 못했습니다. 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.");
-    }
-    setBusy(false);
-  }
-  if (found?.nearest?.length) return <HospitalLists hospitals={found} />;
-  return (
-    <>
-      <button type="button" aria-disabled={busy} onClick={() => void find()} className="mt-2 inline-flex min-h-11 items-center rounded-lg bg-danger px-4 font-semibold text-white aria-disabled:opacity-60">
-        <Icon name="locate" size={16} className="mr-1" />현재 위치로 가까운 병원 보기
-      </button>
-      <p role="status" className="mt-1 text-sm text-muted">{note ?? "버튼을 누를 때만 위치를 묻고, 저장하지 않습니다."}</p>
-    </>
-  );
-}
-
-function HospitalLists({ hospitals }: { hospitals: Emergency }) {
-  return (
-    <>
-      <ul className="mt-1 space-y-1">{hospitals.nearest!.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
-      {hospitals.night?.length ? (
-        <>
-          <p className="mt-2">이름에 24시·응급·야간이 들어간 가까운 병원</p>
-          <ul className="mt-1 space-y-1">{hospitals.night.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
-        </>
-      ) : null}
-      <p className="mt-2 text-sm text-muted">거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.</p>
-    </>
-  );
-}
-
-function UrgentBox({ notice, hospitals, onLocated }: { notice: string; hospitals: Emergency; onLocated?: (location: Location) => void }) {
-  return (
-    <div role="alert" className="mb-3 rounded-lg border border-danger/40 bg-danger/5 p-3">
-      <p className="font-semibold text-danger">{notice}</p>
-      <p className="mt-2 font-semibold"><Icon name="alert" size={16} className="mr-1 inline-block align-[-3px]" />가까운 동물병원</p>
-      {hospitals.nearest?.length ? <HospitalLists hospitals={hospitals} /> : <LocateHospitals onLocated={onLocated} />}
-    </div>
-  );
-}
-
-function AnswerView({ answer, question, threadId, onNoteSaved, onRetry, onLocated }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void; onLocated?: (location: Location) => void }) {
-  return (
-    <>
-      {answer.urgent ? <UrgentBox {...answer.urgent} onLocated={onLocated} /> : null}
-      {answer.safetyNotice ? <p role="note" className="mb-3 rounded-lg bg-warn/10 p-3">{answer.safetyNotice}</p> : null}
-      {answer.notice ? (
-        <>
-          <p role={answer.notice === "error" ? "alert" : "status"} className={answer.notice === "error" ? "text-danger" : "text-warn-strong"}>
-            {answer.content}
-          </p>
-          {onRetry ? (
-            <button type="button" onClick={onRetry} className="mt-2 rounded-lg border border-line bg-white px-3 py-1 text-sm">
-              같은 질문 다시 보내기
-            </button>
-          ) : null}
-        </>
-      ) : (
-        <Markdown text={answer.content} />
-      )}
-      {answer.abstained && answer.route === "rag" ? (
-        <p className="mt-2 text-sm text-muted">증상이 걱정되면 지역 이름으로 가까운 동물병원을 물어보세요. 예: “강남구 동물병원 알려줘”</p>
-      ) : null}
-      {answer.notice ? null : (
-        <>
-          <PlaceLinks rows={answer.hospitalRows ?? []} />
-          {question && answer.route === "rag" && !answer.abstained ? (
-            <>
-              <VisitPrepLink question={question} />
-              <NoteSaver question={question} answer={answer.content} threadId={threadId ?? null} onSaved={onNoteSaved} />
-            </>
-          ) : null}
-          <Feedback answer={answer} question={question} />
-          <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
-        </>
-      )}
-    </>
-  );
-}
-
-/** Under a place answer: each place found, opened on the place page's map (app_pages/rag.py render_hospital_links). */
-function PlaceLinks({ rows }: { rows: Record<string, unknown>[] }) {
-  const places = rows.filter((row) => row.id && row.latitude !== null && row.latitude !== undefined);
-  if (!places.length) return null;
-  return (
-    <section className="mt-3" aria-label="지도에서 위치 보기">
-      <h3 className="mb-1 text-sm font-bold">지도에서 위치 보기</h3>
-      <ul className="space-y-1 text-sm">
-        {places.map((row) => (
-          <li key={String(row.id)}>
-            <Link href={`/places?id=${encodeURIComponent(String(row.id))}`} className="text-accent underline">
-              {String(row.name ?? "장소")}
-            </Link>{" "}
-            <span className="text-muted">{String(row.road_address || row.lot_address || "")}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** Under a health answer: carry the question to the visit-prep page (app_pages/rag.py render_visit_prep_button).
- * Not under an abstention: there was no evidence, and a report would spend 10-20 model calls on the same empty search. */
-function VisitPrepLink({ question }: { question: string }) {
-  const router = useRouter();
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        try {
-          sessionStorage.setItem(HANDOFF_KEY, question.slice(0, MAX_CONSULTATION_CHARS));
-        } catch {
-          // storage blocked: the page opens with an empty box
-        }
-        router.push("/visit-prep");
-      }}
-      className="mt-3 rounded-lg border border-line px-3 py-1 text-sm"
-    >
-      <Icon name="file" size={16} className="mr-1 inline-block align-[-3px]" />이 상담으로 방문 준비 보고서 만들기
-    </button>
-  );
-}
-
-function PendingView({ pending, onStop, onLocated }: { pending: Pending; onStop: () => void; onLocated?: (location: Location) => void }) {
-  return (
-    <>
-      {pending.answer.urgent ? <UrgentBox {...pending.answer.urgent} onLocated={onLocated} /> : null}
-      {pending.places ? <Markdown text={pending.places} /> : null}
-      {pending.text ? (
-        <div aria-live="polite">
-          <Markdown text={pending.text + " ▌"} />
-        </div>
-      ) : (
-        // Anything past the first step means the API is awake and working.
-        <Waiting text={pending.step} started={pending.step !== FIRST_STEP || Boolean(pending.places)} onStop={onStop} />
-      )}
-      {/* Readable during the ~10 s before the first word; the finished answer shows the same rows. */}
-      <Evidence route="rag" rows={pending.evidence} />
-    </>
-  );
-}
-
-function Bubble({ role, children }: { role: "user" | "assistant"; children: React.ReactNode }) {
-  const mine = role === "user";
-  return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`} data-role={role}>
-      <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${mine ? "bg-accent text-white" : "border border-line bg-white"}`}>{children}</div>
-    </div>
-  );
-}
 
 /** The question an answer replied to (for the review a guardian may send). */
 function askedBefore(messages: Message[], index: number): string | undefined {
