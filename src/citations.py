@@ -32,6 +32,9 @@ SENTENCE_END = re.compile(r"(?<=[.!?。])\s+|\n+")
 CITATION_AFTER_STOP = re.compile(r"([.!?。])[ \t]*((?:\[(?:사례|지침)\s*\d+(?:\s*[,，]\s*\d+)*\][ \t]*)+)")
 # Numbers that are not claims: list markers ("1."), citations themselves.
 LIST_MARKER = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s*")
+# A Markdown footnote marker the model sometimes adds ("[^1]", "[^]"). The app cites with [사례 n] and
+# defines no footnotes, so the marker reached the guardian as is ("…가세요. [^]", seen 2026-10-24).
+FOOTNOTE = re.compile(r"[ \t]*\[\^[^\]\n]{0,20}\]")
 
 
 @dataclass
@@ -45,8 +48,9 @@ class Problems:
 
 
 def attach_citations(answer: str) -> str:
-    """'…했습니다. [사례 1] 다음 문장' -> '…했습니다 [사례 1]. 다음 문장'."""
-    moved = CITATION_AFTER_STOP.sub(lambda match: f" {match.group(2).strip()}{match.group(1)} ", answer or "")
+    """'…했습니다. [사례 1] 다음 문장' -> '…했습니다 [사례 1]. 다음 문장'; footnote markers dropped."""
+    moved = CITATION_AFTER_STOP.sub(lambda match: f" {match.group(2).strip()}{match.group(1)} ",
+                                    FOOTNOTE.sub("", answer or ""))
     return re.sub(r"[ \t]+\n", "\n", moved).strip()
 
 
