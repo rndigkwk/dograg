@@ -147,7 +147,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
   const byCity = kind !== "funeral"; // the funeral list names provinces only
 
   async function findNear(at: Location | null = location) {
-    if (!at || !current?.has_location) return;
+    if (!at || !current?.has_location || busy) return;
     setBusy(true);
     try {
       setNear((await nearby(kind, at)).places);
@@ -159,6 +159,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
   }
 
   async function useLocation() {
+    if (busy) return;
     setNote("위치를 확인하는 중입니다…");
     const result = await locate();
     if ("location" in result) {
@@ -170,6 +171,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
 
   async function findInRegion(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -211,7 +213,8 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
         <p aria-hidden="true" className="mb-2 font-bold">찾을 곳</p>
         <div className="flex flex-wrap gap-2">
           {kinds.map((k) => (
-            <label key={k.kind} className={`inline-flex min-h-10 cursor-pointer items-center rounded-full border px-3 text-sm ${k.kind === kind ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent"}`}>
+            // The radio itself is hidden: its focus shows as a ring on the pill.
+            <label key={k.kind} className={`inline-flex min-h-10 cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent items-center rounded-full border px-3 text-sm ${k.kind === kind ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent"}`}>
               <input
                 type="radio"
                 name="kind"
@@ -248,7 +251,8 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
           <>
             <h2 className="font-bold">현재 위치에서 가까운 {label}</h2>
             <p className="text-sm text-muted">버튼을 누를 때만 위치 권한을 요청합니다. 거리는 직선거리이며 이동거리·소요시간과 다릅니다.</p>
-            <button type="button" disabled={busy} onClick={location ? () => findNear() : useLocation} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-4 hover:border-accent disabled:opacity-40">
+            {/* aria-disabled, not disabled, while a search runs: a disabled button drops the keyboard focus to the page. */}
+            <button type="button" aria-disabled={busy} onClick={location ? () => findNear() : useLocation} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-4 hover:border-accent aria-disabled:opacity-40">
               <Icon name="locate" size={16} className="mr-1 inline-block align-[-3px]" />{location ? `가까운 ${label} 다시 찾기` : "현재 위치 사용"}
             </button>
             {note ? <p className="text-sm text-muted">{note}</p> : null}
@@ -293,7 +297,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
               </select>
             </label>
           ) : null}
-          <button type="submit" disabled={busy || !province} className="min-h-11 rounded-lg bg-accent px-5 font-semibold text-white disabled:opacity-40">
+          <button type="submit" disabled={!province} aria-disabled={busy} className="min-h-11 rounded-lg bg-accent px-5 font-semibold text-white disabled:opacity-40 aria-disabled:opacity-40">
             조회
           </button>
         </form>

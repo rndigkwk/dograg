@@ -169,6 +169,11 @@ export default function VisitPrep() {
   const [run, setRun] = useState<Run | null>(null);
   const [working, setWorking] = useState(false);
   const controller = useRef<AbortController | null>(null);
+  // Where the focus goes when a step ends: the fields are disabled while the report is made, which
+  // drops the focus to the page (keyboard pass, 2026-10-24).
+  const answerBox = useRef<HTMLTextAreaElement>(null);
+  const resultBox = useRef<HTMLElement>(null);
+  const retryButton = useRef<HTMLButtonElement>(null);
   const { records } = useRecords();
   const { session } = useAuth();
   const notesOn = records?.where === "account" && notesEnabled(session);
@@ -214,6 +219,14 @@ export default function VisitPrep() {
   }, [records]);
 
   useEffect(() => setCare(loadRecord(browserStorage())), []);
+
+  // The next thing to do gets the focus: the answer to the questions, the report, or 이어서 만들기.
+  useEffect(() => {
+    if (working || !run) return;
+    if (run.paused) answerBox.current?.focus();
+    else if (run.result) resultBox.current?.focus();
+    else if (run.retry) retryButton.current?.focus();
+  }, [working, run]);
 
   useEffect(() => {
     warmUp();
@@ -354,7 +367,7 @@ export default function VisitPrep() {
       ) : null}
 
       {run?.retry && !working ? (
-        <button type="button" onClick={retryRun} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white">
+        <button ref={retryButton} type="button" onClick={retryRun} className="rounded-lg bg-accent px-4 py-2 font-semibold text-white">
           ↻ 이어서 만들기
         </button>
       ) : null}
@@ -370,6 +383,7 @@ export default function VisitPrep() {
           <label className="block">
             <span className="text-sm">답변 (아는 것만 적어도 됩니다)</span>
             <textarea
+              ref={answerBox}
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
               maxLength={MAX_ANSWER_CHARS}
@@ -392,7 +406,7 @@ export default function VisitPrep() {
       ) : null}
 
       {run?.result ? (
-        <section aria-label="방문 준비 보고서" className="space-y-3">
+        <section ref={resultBox} tabIndex={-1} aria-label="방문 준비 보고서" className="space-y-3">
           {run.result.urgent && !run.urgent ? <UrgentNotice /> : null}
           <p role="status" className={run.result.passed ? "rounded-lg bg-accent/10 p-3" : "rounded-lg bg-warn/10 p-3"}>
             {outcomeLine(run.result)}
