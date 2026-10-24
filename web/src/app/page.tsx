@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "라그도그 · 반려동물 건강 
 
 export default function Home() {
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 md:py-12">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 md:py-12">
       <section className="grid items-center gap-8 md:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-4">
           <p className="text-sm font-semibold text-accent">반려견 건강 상담</p>

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "보고서 분석 · 라그도그" };
 
 export default function ReportsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-12">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-12">
       <PageHeader
         eyebrow="반려동물 보고서 5종"
         title="보고서 분석"

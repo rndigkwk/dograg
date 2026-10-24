@@ -16,7 +16,7 @@ export default async function FeesPage() {
     return { items, fees: await itemFees(first) };
   });
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-12">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-12">
       <PageHeader
         eyebrow="2025 동물병원 진료비 조사"
         title="지역별 진료비"

@@ -9,10 +9,12 @@ import { GROUPS, groupOf, isOn, type NavGroup } from "@/lib/nav";
 import AccountButton from "./AccountButton";
 import Icon from "./Icon";
 
-/** A desktop group with several pages: a button that opens its list (closes on a pick, Escape or a click outside). */
+/** A desktop group with several pages: a button that opens its list (closes on a pick, Escape, a click
+ * outside or Tab past its last page; Escape puts the focus back on the button). */
 function GroupMenu({ group, active }: { group: NavGroup; active: boolean }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const path = usePathname();
 
   useEffect(() => setOpen(false), [path]);
@@ -22,7 +24,9 @@ function GroupMenu({ group, active }: { group: NavGroup; active: boolean }) {
       if (!box.current?.contains(event.target as Node)) setOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      if (box.current?.contains(document.activeElement)) button.current?.focus();
     };
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", escape);
@@ -33,8 +37,18 @@ function GroupMenu({ group, active }: { group: NavGroup; active: boolean }) {
   }, [open]);
 
   return (
-    <div ref={box} className="relative">
+    <div
+      ref={box}
+      className="relative"
+      onBlur={(event) => {
+        // Only when the focus moved to another control: a click that focuses nothing (Safari on a link)
+        // must not close the list before the link is followed; clicks outside close it above.
+        const next = event.relatedTarget as Node | null;
+        if (next && !box.current?.contains(next)) setOpen(false);
+      }}
+    >
       <button
+        ref={button}
         type="button"
         aria-expanded={open}
         aria-controls={`menu-${group.id}`}

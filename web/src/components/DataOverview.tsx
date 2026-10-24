@@ -98,7 +98,20 @@ export default function DataOverview({ initial = null }: { initial?: Overview | 
   ];
   return (
     <div>
-      <div role="tablist" aria-label="데이터 종류" className="mb-4 flex gap-1 overflow-x-auto border-b border-line">
+      {/* Tabs as the ARIA pattern: one Tab stop, arrows (and Home/End) move between them. */}
+      <div
+        role="tablist"
+        aria-label="데이터 종류"
+        className="mb-4 flex gap-1 overflow-x-auto border-b border-line"
+        onKeyDown={(event) => {
+          const last = TABS.length - 1;
+          const next = { ArrowRight: tab === last ? 0 : tab + 1, ArrowLeft: tab === 0 ? last : tab - 1, Home: 0, End: last }[event.key];
+          if (next === undefined) return;
+          event.preventDefault();
+          setTab(next);
+          document.getElementById(`tab-${next}`)?.focus();
+        }}
+      >
         {TABS.map((label, index) => (
           <button
             key={label}
@@ -106,6 +119,7 @@ export default function DataOverview({ initial = null }: { initial?: Overview | 
             role="tab"
             id={`tab-${index}`}
             aria-selected={tab === index}
+            tabIndex={tab === index ? 0 : -1}
             aria-controls={`panel-${index}`}
             onClick={() => setTab(index)}
             className={`shrink-0 border-b-2 px-3 py-2 text-sm ${tab === index ? "border-accent font-semibold text-accent" : "border-transparent text-muted"}`}
@@ -114,7 +128,7 @@ export default function DataOverview({ initial = null }: { initial?: Overview | 
           </button>
         ))}
       </div>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0}>
         {panels[tab]}
       </div>
     </div>

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "방문 준비 보고서 · 라그도
 
 export default function VisitPrepPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-12">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl px-4 pb-12">
       <PageHeader
         eyebrow="멀티에이전트 팀"
         title="병원 방문 준비 보고서"
