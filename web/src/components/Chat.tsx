@@ -13,6 +13,7 @@ import { type AccountRecords, DeviceRecords, moveDeviceToAccount } from "@/lib/r
 import { messagesOf, recordTurn, STORAGE_NOTICE, takeNotice, type Thread } from "@/lib/store";
 
 import { locate, type Location } from "@/lib/location";
+import { emergency } from "@/lib/places";
 import { isEmpty, type MemorySuggestion, type PetProfile } from "@/lib/profile";
 
 import { type ChatNote, forChat, listNotes, notesEnabled } from "@/lib/notes";
@@ -46,33 +47,72 @@ function HospitalLine({ row }: { row: Hospital }) {
   );
 }
 
-function UrgentBox({ notice, hospitals }: { notice: string; hospitals: Emergency }) {
+/** Without a shared location the warning has no hospitals: its own button asks for the location and
+ * fills them in here, without asking the question again (the button by the box below is far away). */
+function LocateHospitals({ onLocated }: { onLocated?: (location: Location) => void }) {
+  const [found, setFound] = useState<Emergency | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function find() {
+    if (busy) return;
+    setBusy(true);
+    setNote("위치를 확인하는 중입니다…");
+    const at = await locate();
+    if (!("location" in at)) {
+      setNote(`${at.error} 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.`);
+      setBusy(false);
+      return;
+    }
+    onLocated?.(at.location);
+    try {
+      const hospitals = await emergency(at.location);
+      setFound(hospitals);
+      setNote(hospitals.nearest?.length ? null : "가까운 동물병원을 찾지 못했습니다. 지역 이름으로 병원을 물어보세요.");
+    } catch {
+      setNote("가까운 병원을 불러오지 못했습니다. 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.");
+    }
+    setBusy(false);
+  }
+  if (found?.nearest?.length) return <HospitalLists hospitals={found} />;
+  return (
+    <>
+      <button type="button" aria-disabled={busy} onClick={() => void find()} className="mt-2 inline-flex min-h-11 items-center rounded-lg bg-danger px-4 font-semibold text-white aria-disabled:opacity-60">
+        <Icon name="locate" size={16} className="mr-1" />현재 위치로 가까운 병원 보기
+      </button>
+      <p role="status" className="mt-1 text-sm text-muted">{note ?? "버튼을 누를 때만 위치를 묻고, 저장하지 않습니다."}</p>
+    </>
+  );
+}
+
+function HospitalLists({ hospitals }: { hospitals: Emergency }) {
+  return (
+    <>
+      <ul className="mt-1 space-y-1">{hospitals.nearest!.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
+      {hospitals.night?.length ? (
+        <>
+          <p className="mt-2">이름에 24시·응급·야간이 들어간 가까운 병원</p>
+          <ul className="mt-1 space-y-1">{hospitals.night.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
+        </>
+      ) : null}
+      <p className="mt-2 text-sm text-muted">거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.</p>
+    </>
+  );
+}
+
+function UrgentBox({ notice, hospitals, onLocated }: { notice: string; hospitals: Emergency; onLocated?: (location: Location) => void }) {
   return (
     <div role="alert" className="mb-3 rounded-lg border border-danger/40 bg-danger/5 p-3">
       <p className="font-semibold text-danger">{notice}</p>
       <p className="mt-2 font-semibold"><Icon name="alert" size={16} className="mr-1 inline-block align-[-3px]" />가까운 동물병원</p>
-      {hospitals.nearest?.length ? (
-        <>
-          <ul className="mt-1 space-y-1">{hospitals.nearest.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
-          {hospitals.night?.length ? (
-            <>
-              <p className="mt-2">이름에 24시·응급·야간이 들어간 가까운 병원</p>
-              <ul className="mt-1 space-y-1">{hospitals.night.map((row) => <HospitalLine key={row.name} row={row} />)}</ul>
-            </>
-          ) : null}
-          <p className="mt-2 text-sm text-muted">거리는 직선거리입니다. 영업 여부와 진료 시간은 데이터에 없으니 출발 전에 전화로 지금 진료가 가능한지 확인하세요.</p>
-        </>
-      ) : (
-        <p className="mt-1 text-sm text-muted">아래의 “현재 위치 사용”을 누르면 다음부터 가까운 병원을 여기에 바로 보여 드립니다. 지금은 지역 이름으로 병원을 물어보거나 가까운 동물병원에 바로 연락하세요.</p>
-      )}
+      {hospitals.nearest?.length ? <HospitalLists hospitals={hospitals} /> : <LocateHospitals onLocated={onLocated} />}
     </div>
   );
 }
 
-function AnswerView({ answer, question, threadId, onNoteSaved, onRetry }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void }) {
+function AnswerView({ answer, question, threadId, onNoteSaved, onRetry, onLocated }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void; onLocated?: (location: Location) => void }) {
   return (
     <>
-      {answer.urgent ? <UrgentBox {...answer.urgent} /> : null}
+      {answer.urgent ? <UrgentBox {...answer.urgent} onLocated={onLocated} /> : null}
       {answer.safetyNotice ? <p role="note" className="mb-3 rounded-lg bg-warn/10 p-3">{answer.safetyNotice}</p> : null}
       {answer.notice ? (
         <>
@@ -151,10 +191,10 @@ function VisitPrepLink({ question }: { question: string }) {
   );
 }
 
-function PendingView({ pending, onStop }: { pending: Pending; onStop: () => void }) {
+function PendingView({ pending, onStop, onLocated }: { pending: Pending; onStop: () => void; onLocated?: (location: Location) => void }) {
   return (
     <>
-      {pending.answer.urgent ? <UrgentBox {...pending.answer.urgent} /> : null}
+      {pending.answer.urgent ? <UrgentBox {...pending.answer.urgent} onLocated={onLocated} /> : null}
       {pending.places ? <Markdown text={pending.places} /> : null}
       {pending.text ? (
         <div aria-live="polite">
@@ -370,12 +410,17 @@ export default function Chat() {
     setSuggestion(null);
   }
 
+  // Shared from an urgent warning's button: later questions use it too, as with the button below.
+  function located(at: Location) {
+    setLocation(at);
+    setLocationNote("현재 위치를 사용합니다. 응급 안내와 가까운 병원 찾기에 씁니다(저장하지 않음).");
+  }
+
   async function useLocation() {
     setLocationNote("위치를 확인하는 중입니다…");
     const found = await locate();
     if ("location" in found) {
-      setLocation(found.location);
-      setLocationNote("현재 위치를 사용합니다. 응급 안내와 가까운 병원 찾기에 씁니다(저장하지 않음).");
+      located(found.location);
     } else {
       setLocationNote(`${found.error} 지역명으로 병원을 검색할 수 있습니다.`);
     }
@@ -546,6 +591,7 @@ export default function Chat() {
                   question={askedBefore(messages, index)}
                   threadId={current}
                   onNoteSaved={() => setNotesVersion((v) => v + 1)}
+                  onLocated={located}
                   // The last answer only, when it failed (not a question-limit notice: retrying would not help).
                   onRetry={message.notice === "error" && index === messages.length - 1 && !pending ? () => retry(index) : undefined}
                 />
@@ -554,7 +600,7 @@ export default function Chat() {
           ))}
           {pending ? (
             <Bubble role="assistant">
-              <PendingView pending={pending} onStop={stop} />
+              <PendingView pending={pending} onStop={stop} onLocated={located} />
             </Bubble>
           ) : null}
           {suggestion && !pending ? <MemoryCard suggestion={suggestion} onSave={() => answerSuggestion(true)} onDismiss={() => answerSuggestion(false)} /> : null}

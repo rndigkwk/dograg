@@ -92,6 +92,41 @@ test("an urgent warning comes before the answer, with the nearest hospitals", as
   expect(api.chats[0].location).toEqual([37.5, 127.03]);
 });
 
+test("an urgent warning without a location has its own button that shows the nearest hospitals there", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 37.5, longitude: 127.03 });
+  const api = await fakeApi(
+    page,
+    [
+      [
+        ["urgent", { notice: "응급 징후가 의심됩니다. 지체하지 말고 가까운 동물병원에 연락하세요.", hospitals: {} }],
+        result("바로 병원에 가세요.", { safety_notice: "응급 징후가 의심됩니다." }),
+      ],
+      [result("물을 조금씩 주세요.")],
+    ],
+    {
+      "/places/emergency": {
+        nearest: [{ name: "강남24시동물병원", distance_km: 1.24, phone: "02-123-4567", road_address: "서울 강남구 테헤란로 1" }],
+        night: [{ name: "서초응급동물의료센터", distance_km: 3.1, phone: null, road_address: "서울 서초구 1" }],
+      },
+    },
+  );
+  await page.goto("/chat");
+  await ask(page, "강아지가 경련을 하고 쓰러졌어요");
+
+  const alert = page.getByRole("alert").filter({ hasText: "가까운 동물병원" });
+  await alert.getByRole("button", { name: "현재 위치로 가까운 병원 보기" }).click();
+  await expect(alert.getByRole("link", { name: "02-123-4567" })).toHaveAttribute("href", "tel:021234567");
+  await expect(alert).toContainText("서초응급동물의료센터");
+  await expect(alert).toContainText("전화번호 없음");
+  expect(api.gets.some((path) => path.startsWith("/places/emergency?lat=37.5&lon=127.03"))).toBe(true);
+
+  // The next question carries the location, as with the button by the box.
+  await ask(page, "물은 줘도 되나요");
+  await expect(page.getByLabel("대화", { exact: true }).getByText("물을 조금씩 주세요.").first()).toBeVisible();
+  expect(api.chats[1].location).toEqual([37.5, 127.03]);
+});
+
 test("the question limit shows a notice that is neither stored nor sent back", async ({ page }) => {
   const api = await fakeApi(page, [
     [["limited", { message: "질문 한도를 넘었습니다. 40분 뒤에 다시 질문해 주세요.", wait_minutes: 40 }]],
