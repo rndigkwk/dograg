@@ -183,6 +183,19 @@
 
 - **이 기간의 교훈:** 사용자가 직접 써 보고 남긴 두 마디("견종·나이에 집착한다", "병원에만 가라고 한다")가 평가 지표로는 안 보이던 문제였다. 둘 다 원인은 오래전에 넣은 안전 규칙(넓혀 적용하지 말 것, 진료 권고는 써도 됨)이 너무 넓게 적용된 것이었다. 규칙을 좁히고 같은 20문항으로 전후를 재서 확인했다.
 
+## 13. 2026-10-24: 첫 화면 속도, 각주 결함, 권한 좁히기, 키보드만으로 쓰기
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#307](https://github.com/rndigkwk/dograg/pull/307), [#308](https://github.com/rndigkwk/dograg/pull/308) | 데이터·시설·진료비 페이지가 고정 자료를 브라우저에서 받느라 늦게 그려졌고, 시설 찾기만 카드가 아니었다 | 운영 Lighthouse LCP 데이터 3.0 → **2.4초**, 시설 3.1 → **2.2초**, 진료비 2.9 → **2.0초**(성능 89/91/90 → 92/96/96), 접근성 100 유지 | 하루 한 번 서버에서 미리 받기(ISR), 시설 찾기 카드·44px 컨트롤 |
+| [#309](https://github.com/rndigkwk/dograg/pull/309), [#311](https://github.com/rndigkwk/dograg/pull/311) | README 화면이 옛 Streamlit이었고, 구조 그림이 없었다 | 웹 앱 화면 5장, 구성도 2장 | 전체 구성도(Vercel·Cloud Run·Supabase·외부 API·운영)와 API 안(레일·LangGraph) 그림 |
+| [#310](https://github.com/rndigkwk/dograg/pull/310) | 화면 캡처 중 답 끝에 `[^]`·`[^1]` 각주 표시가 보였다 | 인용 정리 뒤 남는 각주 0 | 인용을 붙일 때 각주 표시를 지움(테스트 추가) |
+| 권한 빈틈 1·2 (사용자 실행, [점검 문서](security/least-privilege.md)) | CI가 API와 같은 DB 계정을 썼고, 배포 계정이 모든 브랜치에서 프로젝트 전체 `run.admin`이었다 | CI 계정 권한 4개만(읽기 2·평가 기록 넣기·시퀀스), 배포는 main·`ragdog-api`만. 좁힌 뒤 점검·배포 모두 통과 | `ragdog_ci` 계정, WIF 조건, 서비스 단위 `run.admin`. 직접 연결 주소는 IPv6 전용이라 pooler 주소를 씀 |
+| [#313](https://github.com/rndigkwk/dograg/pull/313), [#315](https://github.com/rndigkwk/dograg/pull/315)(시험, 닫음) | `ubuntu-latest`가 Ubuntu 26으로 바뀐다는 안내 | 26.04에서 Python 테스트·웹 검사 통과 | 워크플로 10개를 `ubuntu-24.04`로 고정. 26은 통과를 확인해 두고 나중에 옮김 |
+| [#314](https://github.com/rndigkwk/dograg/pull/314), [#316](https://github.com/rndigkwk/dograg/pull/316) | 키보드로 쓸 때 포커스가 사라지는 곳: 답·보고서를 기다리는 동안 칸이 비활성이 되면 포커스가 페이지로 떨어짐, 메뉴 Escape, 숨긴 라디오 | 키보드 화면 테스트 0 → **6개**(데스크톱·휴대폰) | 본문으로 건너뛰기, 공통 포커스 테두리, 단계가 끝나면 다음 칸으로 포커스, 찾는 동안 `aria-disabled`, ARIA 탭 |
+
+- **이 기간의 교훈:** "비활성(`disabled`)으로 두 번 누르기를 막는다"는 흔한 습관이 키보드 사용자에게는 포커스를 잃게 했다. 화면 테스트가 마우스 클릭으로만 짜여 있어서 이 문제를 못 봤다. 이제 키보드 테스트를 따로 둔다.
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -488,3 +501,12 @@
 | [303](https://github.com/rndigkwk/dograg/pull/303) | 2026-10-23 | feat(web): 리디자인 2단계 — 홈은 질문창 먼저, 바로가기 4개 |
 | [304](https://github.com/rndigkwk/dograg/pull/304) | 2026-10-23 | feat(web): 리디자인 3단계 — 화면 안의 이모지를 선 아이콘으로 |
 | [305](https://github.com/rndigkwk/dograg/pull/305) | 2026-10-23 | feat(web): 리디자인 4단계 — 진료비 시·도 차트를 점 그래프로 |
+| [306](https://github.com/rndigkwk/dograg/pull/306) | 2026-10-23 | docs: README 핵심 지표와 개선 기록에 10-23~24 반영 |
+| [307](https://github.com/rndigkwk/dograg/pull/307) | 2026-10-23 | feat(web): 시설 찾기도 카드로, 선택 상자·버튼은 44px |
+| [308](https://github.com/rndigkwk/dograg/pull/308) | 2026-10-24 | perf(web): 데이터·시설·진료비의 고정 자료를 서버에서 미리 받기 (ISR, 하루) |
+| [309](https://github.com/rndigkwk/dograg/pull/309) | 2026-10-24 | docs: README 대표 화면을 리디자인한 웹 앱으로, 첫 화면 속도 측정 기록 |
+| [310](https://github.com/rndigkwk/dograg/pull/310) | 2026-10-24 | fix(citations): 모델이 가끔 붙이는 각주 표시 [^]·[^1] 지우기 |
+| [311](https://github.com/rndigkwk/dograg/pull/311) | 2026-10-24 | docs(readme): 전체 구성도와 API 내부(레일·LangGraph) 구성도 |
+| [313](https://github.com/rndigkwk/dograg/pull/313) | 2026-10-24 | ci: 실행기를 ubuntu-24.04로 고정 |
+| [314](https://github.com/rndigkwk/dograg/pull/314) | 2026-10-24 | feat(web): 키보드만으로 쓰기 (건너뛰기·포커스 테두리·메뉴·채팅·탭) |
+| [316](https://github.com/rndigkwk/dograg/pull/316) | 2026-10-24 | feat(web): 키보드 점검 2 (방문 준비 보고서·시설 찾기) |
