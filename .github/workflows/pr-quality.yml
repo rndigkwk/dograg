@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   decide:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run: ${{ steps.decide.outputs.run }}
       guard: ${{ steps.decide.outputs.guard }}
@@ -72,7 +72,7 @@ jobs:
   quality:
     needs: decide
     if: needs.decide.outputs.run == 'true' || needs.decide.outputs.guard == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
