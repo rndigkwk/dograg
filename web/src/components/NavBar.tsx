@@ -4,10 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { GROUPS, groupOf, isOn, type NavGroup } from "@/lib/nav";
+import { GROUPS, groupOf, isOn, type NavGroup, type NavPage } from "@/lib/nav";
 
 import AccountButton from "./AccountButton";
+import { useAuth } from "./AuthProvider";
 import Icon from "./Icon";
+
+/** Where a page's records live when signed out (lib/nav.ts `signedOut`); nothing once signed in or before
+ * the session is known (no flash for a signed-in guardian). */
+function SignedOutHint({ page }: { page: NavPage }) {
+  const { session, ready } = useAuth();
+  if (!page.signedOut || !ready || session) return null;
+  return <span className="ml-auto pl-2 text-xs font-normal text-muted">{page.signedOut}</span>;
+}
 
 /** A desktop group with several pages: a button that opens its list (closes on a pick, Escape, a click
  * outside or Tab past its last page; Escape puts the focus back on the button). */
@@ -69,6 +78,7 @@ function GroupMenu({ group, active }: { group: NavGroup; active: boolean }) {
               >
                 <Icon name={page.icon} size={18} />
                 {page.label}
+                <SignedOutHint page={page} />
               </Link>
             </li>
           ))}
@@ -129,6 +139,7 @@ export default function NavBar() {
               >
                 <Icon name={page.icon} size={16} />
                 {page.label}
+                <SignedOutHint page={page} />
               </Link>
             ))}
           </nav>
