@@ -6,12 +6,12 @@ import logging
 import re
 from datetime import date
 
-import streamlit as st
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from src import rails, resources, settings
+from src.cache import cache_resource
 from src.health_answers import attach_health_answers
 from src.health_safety import detect_urgent_sign
 from src.tools import history
@@ -103,7 +103,7 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
 ANSWER_REASONING_EFFORT = "low"
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def load_rag_chain():
     api_key = settings.get_openai_api_key()
     if not api_key:
@@ -118,7 +118,7 @@ def load_rag_chain():
                                    max_retries=resources.MODEL_MAX_RETRIES) | StrOutputParser()
 
 
-@st.cache_resource(show_spinner=False)
+@cache_resource
 def initialize_rag():
     db = resources.load_vector_db()
     return db, load_rag_chain()
@@ -199,7 +199,7 @@ def check_citations(question: str, retrieved_docs, answer: str, context: str = "
             revised = (REVISE_PROMPT | writer | StrOutputParser()).invoke({
                 "context": format_rag_context(retrieved_docs), "question": question,
                 "answer": answer, "unsupported": unsupported}).strip()
-        except Exception:  # noqa: BLE001 - the rewrite is a repair; without it the sentences are dropped
+        except Exception:
             logger.warning("citation rewrite failed", exc_info=True)
             revised = ""
         if revised:
@@ -288,7 +288,7 @@ def health_top_similarity(search_query) -> float | None:
             return db.top_similarity(search_query)
         found = db.similarity_search_with_score(search_query, k=1)  # Chroma: cosine distance
         return 1.0 - float(found[0][1]) if found else None
-    except Exception:  # noqa: BLE001 - the floor is a shortcut; without it the grader decides
+    except Exception:
         logger.warning("health similarity not measured", exc_info=True)
         return None
 

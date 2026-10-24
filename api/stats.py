@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from src import data_stats
-
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 
@@ -19,6 +17,9 @@ def _counts(series) -> list[dict]:
 
 @router.get("/overview")
 def overview() -> dict:
+    # Imported here so pandas loads on the first request, not when a chat instance starts.
+    from src import data_stats
+
     try:
         return {"diseases": _counts(data_stats.disease_counts()),
                 "departments": _counts(data_stats.department_counts()),

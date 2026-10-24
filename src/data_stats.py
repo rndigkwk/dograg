@@ -16,8 +16,8 @@ from functools import lru_cache
 import pandas as pd
 
 from src import resources, settings
-from src.data_charts import normalize_province
 from src.places_data import KIND_LABELS
+from src.provinces import normalize_province
 
 CONSULTATIONS = settings.PROJECT_DIR / "data" / "df.csv"
 REQUIRED_COLUMNS = {"meta.disease", "meta.department"}
