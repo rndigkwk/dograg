@@ -37,24 +37,100 @@
 
 ## 아키텍처
 
+### 전체 구성
+
 ```mermaid
 flowchart LR
-  U([보호자]) --> W[Next.js 웹<br/>Vercel]
-  W -->|SSE 스트리밍| A[FastAPI<br/>Cloud Run 서울, 최대 2개]
-  W -->|본인 기록, JWT| S[(Supabase<br/>Auth · RLS)]
-  A --> G[LangGraph 챗봇<br/>라우터 → 검색 → CRAG → 답변/보류]
-  A --> T[방문 준비 팀<br/>계획 → 병렬 조사 → 작성 → 검수]
-  G --> V[(Supabase pgvector<br/>상담 19,206건 · 보고서 5종)]
-  G --> D[(돌봄 지침 5종<br/>공공기관 자료, 메모리)]
-  G --> P[(SQLite 시설 38,529곳<br/>진료비 표)]
-  T --> V
-  T --> C[(Supabase visit_prep<br/>멈춘 실행 30분)]
-  A -. 마스킹 .-> L[Langfuse]
+  U(["보호자 브라우저"])
+  subgraph VERCEL["Vercel"]
+    W["Next.js 웹 앱<br/>고정 자료 페이지는 하루 보관(ISR)"]
+  end
+  subgraph GCP["Google Cloud 서울"]
+    A["FastAPI · Cloud Run<br/>ragdog-api, 인스턴스 0~2개<br/>시설 SQLite·진료비 표·돌봄 지침은 이미지 안"]
+    SM[["Secret Manager<br/>키·DB 주소"]]
+    MON[["Cloud Monitoring<br/>알림 5종 → 메일"]]
+  end
+  subgraph SB["Supabase"]
+    AU[("Auth · 보호자 기록<br/>RLS: 본인 행만")]
+    PG[("pgvector<br/>상담 19,206건 · 보고서 5종")]
+    VP[("visit_prep<br/>멈춘 보고서 실행 30분")]
+  end
+  subgraph EXT["외부 서비스"]
+    OAI["OpenAI<br/>답변·근거 평가·위기 판정"]
+    DEC["분류 API<br/>라우팅·응급 판단"]
+    LF["Langfuse<br/>문장은 길이만 남긴 트레이스"]
+  end
+  subgraph GH["GitHub"]
+    GA["Actions<br/>테스트·병합 게이트(실제 모델)<br/>카나리 배포·롤백·주간 회귀·8시간 점검"]
+    HF[("Hugging Face 비공개<br/>상담 데이터 data-v11")]
+  end
+  U -->|"페이지"| W
+  U -->|"질문·답 SSE"| A
+  U -->|"본인 기록 JWT"| AU
+  W -.->|"빌드·하루 1번"| A
+  A --> PG
+  A --> VP
+  A --> OAI
+  A --> DEC
+  A -.-> LF
+  SM --> A
+  A -.->|"요약 로그"| MON
+  HF -->|"이미지 빌드 때"| GA
+  GA -->|"이미지 → 후보 리비전 검사 → 트래픽"| A
 ```
 
-- **챗봇** (`src/chat_graph.py`, [그림](docs/architecture.svg)): 신호가 하나뿐인 질문(약 85%)은 키워드 규칙, 나머지는 분류 API(약 0.3초)로 경로를 고릅니다. 보고서는 Dense + BM25 하이브리드(RRF), 건강은 의미 검색(운영 측정으로 키워드 쪽을 뺌)에 공공 돌봄 지침을 더하고 CRAG(근거 평가 → 재검색 → 보류)를 거칩니다. 시설과 진료비는 벡터 검색 대신 SQL·표 조회로 정확히 답합니다.
-- **방문 준비 보고서** (`team/`): 멀티에이전트 팀입니다. 빠진 정보를 보호자에게 되묻고(`interrupt`), 증상·병원·비용을 `Send`로 병렬 조사하고, 문장마다 근거와 대조해 검수합니다. 멈춘 실행은 Supabase에 30분 두어 어느 인스턴스에서든 이어 갑니다. [팀 상세](docs/details.md#멀티에이전트-팀-상세)
-- **화면 / API 분리** ([ADR-0008](docs/adr/0008-nextjs-frontend-fastapi-backend.md)): 로그인 사용자의 기록은 브라우저가 사용자 JWT로 직접 읽고 쓰며, RLS가 본인 행만 허용합니다. API 계정은 사용자 표에 권한이 없습니다.
+- **화면 / API 분리** ([ADR-0008](docs/adr/0008-nextjs-frontend-fastapi-backend.md)): 브라우저는 API를 직접 부르고 답을 SSE로 받습니다. 로그인 사용자의 기록은 브라우저가 사용자 JWT로 Supabase에 직접 읽고 쓰며, RLS가 본인 행만 허용합니다. API 계정(`ragdog_app`)은 사용자 표에 권한이 없습니다([최소 권한 점검](docs/security/least-privilege.md)).
+- **배포:** 병합하면 이미지를 빌드해 트래픽 0%인 후보 리비전으로 올리고, health·표·날짜·건강 질문을 물어 통과해야 트래픽을 넘깁니다. 실패하면 이전 리비전이 계속 받고 이슈가 열립니다([수동 배포·복구](docs/runbook-manual-deploy.md)).
+
+### API 안: 레일과 LangGraph
+
+```mermaid
+flowchart TB
+  Q(["질문"]) --> IN1
+  subgraph IN["입력 레일"]
+    IN1["IN-01 개인정보 가림"] --> IN2["IN-02 응급 신호 → 응급 안내를 답보다 먼저"]
+    IN2 --> IN3["IN-03 위기 표현 정규식"]
+    IN4["IN-04 위기 모델 판정<br/>답변과 동시에, 최대 3초"]
+  end
+  IN3 --> CL
+  subgraph G["LangGraph 상담 그래프 · src/chat_graph.py"]
+    CL{"classify<br/>키워드 규칙 → 분류 API"}
+    CL -->|"건강"| HR["health_retrieve<br/>pgvector + 돌봄 지침"]
+    HR --> RET["RET-01·02 숨은 지시가 든 문서·노트 빼기"]
+    RET --> HG{"health_grade<br/>CRAG 근거 평가"}
+    HG -->|"근거 없음"| RW["health_rewrite<br/>검색어 다시 쓰기"]
+    RW --> HR
+    HG -->|"근거 있음"| GEN["health_generate"]
+    HG -->|"다시 찾아도 없음"| AB["abstain 보류"]
+    GEN --> ANS["ANS-01 인용·숫자가 근거에 있는지<br/>ANS-02 진료비 안내 한 줄"]
+    CL -->|"보고서"| RP["보고서 하이브리드 검색 → 답"]
+    CL -->|"병원·시설"| HOS["hospital: SQLite 조회"]
+    HOS -->|"증상도 물었으면"| HR
+    CL -->|"진료비"| FEE["fee_answer: 조사 표"]
+    CL -->|"날짜·범위 밖"| GN["date · general"]
+  end
+  subgraph OUT["출력 레일"]
+    O1["OUT-01 자료에 없는 링크 지우기"] --> O2["OUT-02 위기 상담 번호를 맨 앞에"]
+  end
+  ANS --> O1
+  AB --> O1
+  RP --> O1
+  HOS --> O1
+  FEE --> O1
+  GN --> O1
+  IN4 -.-> O2
+  O2 --> R(["답 · 근거 · 거친 규칙 id"])
+  subgraph EXE["실행 레일 (전 구간)"]
+    E1["EXE-01 질문 한도"]
+    E2["EXE-02 모델 제한 시간·재시도 1번 → 검색 결과로"]
+    E3["EXE-03 방문 준비 에이전트: 역할별 읽기 도구 하나"]
+  end
+```
+
+- **레일** ([`rails/rails.yml`](rails/rails.yml), [위협 표](docs/security/threat-model.md)): 교안의 NeMo Guardrails 레일 구조(입력·검색·출력·실행, 규칙 id)를 따르되 NeMo 라이브러리는 쓰지 않고 함수로 구현했습니다. NeMo·Prompt Guard·Llama Guard는 레드팀 68문항으로 비교했지만 앱이 놓친 공격을 막지 못하고 정당한 질문을 막아 넣지 않았습니다. 모델을 부르는 레일은 위기 판정(IN-04) 하나입니다.
+- **LangGraph:** 경로마다 노드가 다르고, 건강 경로는 CRAG(근거 평가 → 검색어 다시 쓰기 → 보류)입니다. 신호가 하나뿐인 질문(약 85%)은 키워드 규칙으로, 나머지는 분류 API(약 0.3초)로 경로를 고릅니다. 시설과 진료비는 벡터 검색 대신 SQL·표 조회로 정확히 답합니다.
+- **LangChain:** 모델 호출(`ChatOpenAI`, 근거 평가·위기 판정은 `with_structured_output`), 프롬프트(`ChatPromptTemplate`), 검색 문서(`Document`)에 씁니다. 하이브리드 검색(Dense + BM25, RRF)과 Supabase 저장소는 직접 구현했습니다.
+- **방문 준비 보고서** (`team/`): 별도 LangGraph 멀티에이전트 팀입니다. 빠진 정보를 보호자에게 되묻고(`interrupt`), 증상·병원·비용을 `Send`로 병렬 조사하고, 문장마다 근거와 대조해 검수합니다. 멈춘 실행은 Supabase에 30분 두어 어느 인스턴스에서든 이어 갑니다. [팀 상세](docs/details.md#멀티에이전트-팀-상세)
 
 ## 문제를 숫자로 찾고 고친 사례
 
