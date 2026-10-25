@@ -54,14 +54,18 @@ class DisplayEvidenceTests(unittest.TestCase):
         return {"page": page, "excerpt": excerpt, "source": self.SOURCE, "title": "2025 한국 반려동물 보고서",
                 **({"scanned": True} if scanned else {})}
 
-    def test_a_figureless_pdf_chunk_goes_when_its_page_has_an_ocr_chunk(self):
+    def test_a_pdf_chunk_that_lost_a_figure_goes_when_its_page_has_an_ocr_chunk(self):
         from src.report_evidence import evidence_for_display
 
-        rows = [self.row(62, "반려동물양육비로매달평균 만 천원"), self.row(62, "1마리당 16만 1천 원", scanned=True),
-                self.row(74, "월평균저축액은평균 만 천원"), self.row(2, "평균 19만 4천 원")]
+        rows = [self.row(62, "반려동물양육비로매달평균 만 천원 2025 15.6%"), self.row(62, "1마리당 16만 1천 원", scanned=True),
+                self.row(74, "월평균저축액은평균 만 천원"), self.row(2, "평균 19만 4천 원"),
+                self.row(102, "양육비는 배 병원비는 배더지출했다"), self.row(102, "양육비는 1.3배", scanned=True),
+                self.row(61, "반려가구의 방문 경험"), self.row(61, "66.0%", scanned=True)]
         shown = evidence_for_display(rows, "")
-        # p.62 keeps the OCR chunk only; p.74 has nothing else, so its text stays; nothing is cited
-        self.assertEqual([(row["page"], row.get("scanned", False)) for row in shown], [(62, True), (74, False), (2, False)])
+        # p.62 and p.102 keep the OCR chunk only (other digits in the chunk do not save it); p.74 has
+        # nothing else, so its text stays; p.61's text lost no figure, so it stays; nothing is cited
+        self.assertEqual([(row["page"], row.get("scanned", False)) for row in shown],
+                         [(62, True), (74, False), (2, False), (102, True), (61, False), (61, True)])
         self.assertFalse(any("cited" in row for row in shown))
 
     def test_cited_pages_come_first_and_are_marked(self):

@@ -53,18 +53,23 @@ def cited_pages(answer: str) -> set[int]:
     return {int(next(group for group in match.groups() if group)) for match in _CITED_PAGE.finditer(answer or "")}
 
 
+# Where the KB text layer lost a figure: "매달평균 만 천원" (was 17만 8천원), "양육비는 배" (1.3배).
+_DROPPED_FIGURE = re.compile(r"(?<![0-9])\s만\s*천\s*원|(?<![0-9])\s만\s+원|[은는]\s배\s")
+
+
 def evidence_for_display(rows: list[dict], answer: str) -> list[dict]:
     """The evidence rows as the screens show them; the model's context is not changed.
 
-    - A PDF-text chunk with no digit at all is dropped when the same page has an OCR chunk: the KB
-      text layer loses the figures ("매달평균 만 천원"), the page image keeps them (2026-10-25
-      re-review: 11 cards for one question, 3 of them figure-less copies of a page already shown).
+    - A PDF-text chunk that lost a figure is dropped when the same page has an OCR chunk: the KB
+      text layer drops the numbers ("매달평균 만 천원"), the page image keeps them (2026-10-25
+      re-review: 11 cards for one question). The first rule, "no digit at all", missed them: the
+      same chunk keeps other numbers (26 digits on p.62), so it is the gap that is matched now.
     - Pages the answer cites come first, marked "cited"; the screens fold the others.
     """
     scanned = {(row.get("source"), row.get("page")) for row in rows if row.get("scanned")}
     kept = [row for row in rows
             if row.get("scanned") or (row.get("source"), row.get("page")) not in scanned
-            or re.search(r"\d", str(row.get("excerpt", "")))]
+            or not _DROPPED_FIGURE.search(str(row.get("excerpt", "")))]
     cited = cited_pages(answer)
     if not any(row.get("page") in cited for row in kept):
         return kept
