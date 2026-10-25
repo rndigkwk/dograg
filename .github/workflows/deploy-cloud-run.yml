@@ -12,7 +12,10 @@ name: Deploy to Cloud Run
 on:
   push:
     branches: [main]
-    paths-ignore: ["web/**", ".github/workflows/web-ci.yml"]  # the frontend is not in the image
+    # Not in the image or never read by it: the frontend (Vercel), the docs (.dockerignore) and
+    # Markdown anywhere (README and notes; no .md is read at run time). A push that also changes
+    # code still deploys.
+    paths-ignore: ["web/**", ".github/workflows/web-ci.yml", "docs/**", "**/*.md"]
   workflow_dispatch:
     inputs:
       fault:
