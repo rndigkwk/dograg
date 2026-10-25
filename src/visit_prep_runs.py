@@ -182,6 +182,9 @@ def generate(consultation: str, region: str, profile: str, *, run_team, prepare=
     forget_paused_run(thread_id)
     run_status = status_of(state)
     seconds = round(time.perf_counter() - started) + (pending["seconds"] if pending else 0)
+    review = state.get("review") or {}
     return {"paused": False, "report": report, "passed": run_status == config.PASSED, "status": run_status,
             "round": state["round"], "steps": steps, "urgent": bool(detect_urgent_sign(todays_text(consultation))),
-            "seconds": seconds, "answered": bool(pending and answer and not retry)}
+            "seconds": seconds, "answered": bool(pending and answer and not retry),
+            # what "검수 통과" stands on: the claims the reviewer checked against the evidence
+            "claims": int(review.get("supported") or 0) + len(review.get("unsupported") or [])}

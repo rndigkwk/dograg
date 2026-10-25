@@ -33,6 +33,7 @@ describe("applyVisitEvent", () => {
 describe("outcomeLine", () => {
   it("names the review result", () => {
     expect(outcomeLine({ ...report, answered: true })).toBe("검수 통과 · 다시 쓰기 1회 · 42초 · 보호자 답변 반영");
+    expect(outcomeLine({ ...report, claims: 11 })).toBe("검수 통과 · 주장 11개 모두 근거 확인 · 다시 쓰기 1회 · 42초");
     expect(outcomeLine({ ...report, passed: false, status: "검수 미통과" })).toContain("수의사(사람)의 확인이 필요한 초안");
   });
 });

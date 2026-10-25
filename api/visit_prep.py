@@ -184,7 +184,7 @@ def _stream(person: str, consultation: str, region: str, profile: str, agent: st
         yield event("paused", {"thread_id": value["thread_id"], "questions": value["questions"]})
     else:
         yield event("result", {key: value[key] for key in
-                               ("report", "passed", "status", "round", "steps", "urgent", "seconds", "answered")})
+                               ("report", "passed", "status", "round", "steps", "urgent", "seconds", "answered", "claims")})
 
 
 def _response(stream: Iterator[str], agent: str = "") -> StreamingResponse:
