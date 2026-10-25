@@ -6,27 +6,36 @@ import Markdown from "./Markdown";
 export default function Evidence({ route, rows }: { route?: string; rows: Row[] }) {
   if (!rows.length) return null;
   if (route === "analysis") {
+    // The pages the answer cites come first (src/report_evidence.py evidence_for_display); the rest fold.
+    const cited = rows.filter((row) => row.cited === true);
+    const page = (row: Row, index: number) => {
+      const item = reportPage(row, index);
+      return (
+        <li key={index} className="rounded-lg border border-line p-3">
+          <p className="font-semibold">
+            {item.title}
+            {item.scanned ? <span className="ml-2 rounded bg-warn/15 px-1.5 py-0.5 text-xs font-normal text-warn-strong">스캔 글(OCR)</span> : null}
+          </p>
+          {item.scanned ? <p className="mt-0.5 text-xs text-muted">{SCANNED_NOTE}</p> : null}
+          <details className="mt-1 text-sm">
+            <summary className="cursor-pointer text-muted">{item.preview || "내용 없음"}</summary>
+            <p className="mt-2 whitespace-pre-wrap">{item.excerpt}</p>
+          </details>
+        </li>
+      );
+    };
+    const shown = cited.length ? cited : rows;
+    const rest = rows.slice(shown.length);
     return (
       <section className="mt-4" aria-label="보고서 근거">
-        <h3 className="mb-2 font-bold">보고서 근거</h3>
-        <ul className="space-y-2">
-          {rows.map((row, index) => {
-            const page = reportPage(row, index);
-            return (
-              <li key={index} className="rounded-lg border border-line p-3">
-                <p className="font-semibold">
-                  {page.title}
-                  {page.scanned ? <span className="ml-2 rounded bg-warn/15 px-1.5 py-0.5 text-xs font-normal text-warn-strong">스캔 글(OCR)</span> : null}
-                </p>
-                {page.scanned ? <p className="mt-0.5 text-xs text-muted">{SCANNED_NOTE}</p> : null}
-                <details className="mt-1 text-sm">
-                  <summary className="cursor-pointer text-muted">{page.preview || "내용 없음"}</summary>
-                  <p className="mt-2 whitespace-pre-wrap">{page.excerpt}</p>
-                </details>
-              </li>
-            );
-          })}
-        </ul>
+        <h3 className="mb-2 font-bold">{cited.length ? "답에 인용된 보고서 근거" : "보고서 근거"}</h3>
+        <ul className="space-y-2">{shown.map(page)}</ul>
+        {rest.length ? (
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer text-muted">함께 찾은 다른 근거 {rest.length}개</summary>
+            <ul className="mt-2 space-y-2">{rest.map((row, index) => page(row, shown.length + index))}</ul>
+          </details>
+        ) : null}
       </section>
     );
   }
