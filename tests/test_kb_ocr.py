@@ -45,5 +45,35 @@ class ScannedEvidenceTests(unittest.TestCase):
         self.assertNotIn("scanned", rows[1])
 
 
+class DisplayEvidenceTests(unittest.TestCase):
+    """src/report_evidence.py evidence_for_display, with the cards of the 2026-10-25 re-review."""
+
+    SOURCE = "data/source/2025 한국 반려동물 보고서.pdf"
+
+    def row(self, page, excerpt, scanned=False):
+        return {"page": page, "excerpt": excerpt, "source": self.SOURCE, "title": "2025 한국 반려동물 보고서",
+                **({"scanned": True} if scanned else {})}
+
+    def test_a_figureless_pdf_chunk_goes_when_its_page_has_an_ocr_chunk(self):
+        from src.report_evidence import evidence_for_display
+
+        rows = [self.row(62, "반려동물양육비로매달평균 만 천원"), self.row(62, "1마리당 16만 1천 원", scanned=True),
+                self.row(74, "월평균저축액은평균 만 천원"), self.row(2, "평균 19만 4천 원")]
+        shown = evidence_for_display(rows, "")
+        # p.62 keeps the OCR chunk only; p.74 has nothing else, so its text stays; nothing is cited
+        self.assertEqual([(row["page"], row.get("scanned", False)) for row in shown], [(62, True), (74, False), (2, False)])
+        self.assertFalse(any("cited" in row for row in shown))
+
+    def test_cited_pages_come_first_and_are_marked(self):
+        from src.report_evidence import cited_pages, evidence_for_display
+
+        self.assertEqual(cited_pages("— 「보고서」, 페이지 62 · 63쪽, p.7"), {62, 63, 7})
+        rows = [self.row(2, "19만 4천 원"), self.row(62, "17만 8천 원"), self.row(61, "66.0%")]
+        shown = evidence_for_display(rows, "월평균 17만 8천 원입니다. (「2025 한국 반려동물 보고서」, 페이지 62)")
+        self.assertEqual([(row["page"], row.get("cited", False)) for row in shown], [(62, True), (2, False), (61, False)])
+        # a cited page that is not among the rows: the order stays
+        self.assertEqual(evidence_for_display(rows, "페이지 9"), rows)
+
+
 if __name__ == "__main__":
     unittest.main()

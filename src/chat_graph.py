@@ -31,6 +31,7 @@ from src.crag import (
 )
 from src.home_care import home_care_note
 from src.pii import mask_history, mask_pii
+from src.report_evidence import evidence_for_display
 from src.run_log import log_chat_run, question_fingerprint, summarize_usage
 from src.tools.care_guides import GUIDE_K, is_guide
 from src.tools.health import HEALTH_SIMILARITY_FLOOR
@@ -189,7 +190,7 @@ def build_chat_graph(tools):
 
     def report_simple(state: ChatState):
         result = tools.analyze_report(state["question"])
-        return {"answer": result["answer"], "evidence_rows": result["evidence_rows"]}
+        return {"answer": result["answer"], "evidence_rows": evidence_for_display(result["evidence_rows"], result["answer"])}
 
     def hospital(state: ChatState):
         answer, rows = tools.run_sql_search(state["contextual_question"], location=state.get("location"))
@@ -412,7 +413,7 @@ def build_chat_graph(tools):
     def report_generate(state: ChatState):
         docs = state["documents"]
         answer = tools.generate_report_answer(state["question"], docs)
-        return {"answer": answer, "evidence_rows": tools.report_evidence_from_docs(docs)}
+        return {"answer": answer, "evidence_rows": evidence_for_display(tools.report_evidence_from_docs(docs), answer)}
 
     builder = StateGraph(ChatState)
     for name, node in {

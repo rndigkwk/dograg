@@ -1,5 +1,6 @@
 """Safe report excerpts and 1-based PDF page rendering."""
 
+import re
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 
@@ -42,6 +43,33 @@ def report_evidence_from_docs(docs: list) -> list[dict]:
             row["scanned"] = True
         result.append(row)
     return result
+
+
+# "페이지 62", "62쪽", "p.62": the pages an answer cites (REPORT_ANALYSIS_PROMPT asks for the page).
+_CITED_PAGE = re.compile(r"페이지\s*(\d{1,4})|(\d{1,4})\s*쪽|p\.\s*(\d{1,4})", re.IGNORECASE)
+
+
+def cited_pages(answer: str) -> set[int]:
+    return {int(next(group for group in match.groups() if group)) for match in _CITED_PAGE.finditer(answer or "")}
+
+
+def evidence_for_display(rows: list[dict], answer: str) -> list[dict]:
+    """The evidence rows as the screens show them; the model's context is not changed.
+
+    - A PDF-text chunk with no digit at all is dropped when the same page has an OCR chunk: the KB
+      text layer loses the figures ("매달평균 만 천원"), the page image keeps them (2026-10-25
+      re-review: 11 cards for one question, 3 of them figure-less copies of a page already shown).
+    - Pages the answer cites come first, marked "cited"; the screens fold the others.
+    """
+    scanned = {(row.get("source"), row.get("page")) for row in rows if row.get("scanned")}
+    kept = [row for row in rows
+            if row.get("scanned") or (row.get("source"), row.get("page")) not in scanned
+            or re.search(r"\d", str(row.get("excerpt", "")))]
+    cited = cited_pages(answer)
+    if not any(row.get("page") in cited for row in kept):
+        return kept
+    first = [{**row, "cited": True} for row in kept if row.get("page") in cited]
+    return first + [row for row in kept if row.get("page") not in cited]
 
 
 def resolve_report_pdf(project_dir: Path, source: object) -> Path | None:
