@@ -70,6 +70,7 @@ class VisitPrepApiTests(unittest.TestCase):
         self.assertEqual(got[0][1]["line"], visit_prep_runs.PREPARED)
         result = got[-1][1]
         self.assertTrue(result["passed"])
+        self.assertEqual(result["claims"], 3)  # the claims the reviewer checked, for "검수 통과"
         self.assertIn("방문 준비 보고서", result["report"])
         self.assertNotIn("[qa-5250]", result["report"])  # evidence ids become readable citations
         self.assertEqual(self.team.calls, [("말티즈가 설사를 해요", "강남구", "말티즈, 4살")])

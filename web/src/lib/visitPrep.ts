@@ -21,6 +21,7 @@ export type Report = {
   urgent: boolean;
   seconds: number;
   answered: boolean;
+  claims?: number; // the claims the reviewer checked against the evidence (src/visit_prep_runs.py)
 };
 
 export type Run = {
@@ -59,7 +60,10 @@ export function applyVisitEvent(run: Run, { kind, data }: StreamEvent): Run {
 
 /** What the report's outcome line says (app_pages/visit_prep.py render_result). */
 export function outcomeLine(report: Report): string {
-  if (report.passed) return `검수 통과 · 다시 쓰기 ${report.round}회 · ${report.seconds}초${report.answered ? " · 보호자 답변 반영" : ""}`;
+  if (report.passed) {
+    const checked = report.claims ? ` · 주장 ${report.claims}개 모두 근거 확인` : "";
+    return `검수 통과${checked} · 다시 쓰기 ${report.round}회 · ${report.seconds}초${report.answered ? " · 보호자 답변 반영" : ""}`;
+  }
   if (report.status === "필수 조사 실패: 수의사(사람) 확인 필요")
     return "비슷한 상담 사례 조사가 오류로 실패해 보고서를 쓰지 않았습니다. 잠시 뒤 다시 시도하거나 병원에 바로 문의하세요.";
   if (report.status === "같은 지적 반복: 수의사(사람) 확인 필요")
