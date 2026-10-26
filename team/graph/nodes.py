@@ -143,9 +143,16 @@ def planner(state: State) -> dict:
     if any(task["kind"] == "place" for task in state["plan"]):
         # The hospital tool takes only the region, so a second place task returns the same list.
         tasks = [task for task in tasks if task["kind"] != "place"]
-    if not state["plan"] and (state["region"] or state.get("location")) and not any(task["kind"] == "place" for task in tasks):
-        # The guardian gave an area: the report always lists hospitals there.
-        tasks = tasks[: max_tasks - 1] + [{"kind": "place", "query": state["region"] or "보호자의 현재 위치", "angle": "가까운 동물병원"}]
+    if not state["plan"] and (state["region"] or state.get("location")):
+        # The guardian gave an area: the report always lists hospitals there and the area's clinic
+        # fees (2026-10-26: the planner left the fees out unless costs were asked, so the report
+        # named hospitals without what a first visit usually costs there).
+        forced = [{"kind": "place", "query": state["region"] or "보호자의 현재 위치", "angle": "가까운 동물병원"},
+                  {"kind": "cost", "query": f"{state['region'] or '전국'} 초진 진찰료·재진·기본 검사 진료비",
+                   "angle": "그 지역 진료비 중간값(농림축산식품부 2025 조사)"}]
+        forced = [task for task in forced if not any(planned["kind"] == task["kind"] for planned in tasks)]
+        if forced:
+            tasks = tasks[: max_tasks - len(forced)] + forced
     for offset, task in enumerate(tasks, start=1):
         task["task_id"] = f"t{len(state['plan']) + offset}"  # numbered in code so ids never repeat
         task["extra"] = bool(state["plan"])  # added after a rejection or a research request
@@ -329,6 +336,22 @@ def repeats_last_rejection(previous: dict | None, unsupported: list[str]) -> boo
 
 
 # --- publisher --------------------------------------------------------------------------
+def add_fixed_notes(path, state: State) -> None:
+    """The fee notice under the report's fee heading (or at the end), and why a report without an
+    area has no hospital or fee section. Written by code after the review, so the wording is fixed."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    kinds = {task["kind"] for task in state["plan"]}
+    if "cost" in kinds:
+        heading = next((i for i, line in enumerate(lines) if line.startswith("#") and "진료비" in line), None)
+        if heading is None:
+            lines += ["", config.FEE_NOTE]
+        else:
+            lines[heading + 1:heading + 1] = ["", config.FEE_NOTE]
+    if "place" not in kinds:
+        lines += ["", config.NO_AREA_NOTE]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def publisher(state: State, runtime: Runtime[Context]) -> dict:
     run_dir = runtime.context["run_dir"]
     status = run_status(state)
@@ -349,6 +372,8 @@ def publisher(state: State, runtime: Runtime[Context]) -> dict:
         # Keep the draft, but nobody may mistake it for a checked report.
         path.write_text(f"> ⚠️ {status}. 아래 내용 중 근거가 확인되지 않은 문장이 있습니다.\n\n" + path.read_text(encoding="utf-8"),
                         encoding="utf-8")
+    if not held and path.exists():
+        add_fixed_notes(path, state)
     if missing and not held:
         # Stated by code, not left to the writer: the reader must know what is missing.
         with path.open("a", encoding="utf-8") as file:

@@ -32,6 +32,12 @@ RESEARCH_HELD = "필수 조사 실패: 수의사(사람) 확인 필요"
 # out ("degraded"); when every health task fails the team stops before writing ("held").
 REQUIRED_KINDS = ("health",)
 KIND_LABELS = {"health": "비슷한 상담 사례", "place": "지역 동물병원 목록", "cost": "진료비 통계"}
+# Added by code, not left to the writer (publisher): what the fee figures are, and why a report
+# without an area has no hospitals or fees.
+FEE_NOTE = ("> ⚠️ **진료비는 실제 가격이 아닙니다.** 농림축산식품부 「2025 동물병원 진료비 현황 조사」의 "
+            "**지역 통계(중간값·평균)**입니다. 병원·검사 항목·반려견 상태에 따라 달라지니 방문 전에 병원에 전화로 확인하세요.")
+NO_AREA_NOTE = ("> 가까운 동물병원과 진료비: 지역을 적지 않아 찾지 않았습니다. 지역을 적고 다시 만들거나, "
+                "'시설 찾기'와 '지역별 진료비' 메뉴에서 바로 확인할 수 있습니다.")
 # Fallback (day56): when an optional research task fails or finds nothing, the report still gets
 # a fixed, checked guide for that section instead of a gap. It is evidence like any other (the
 # reviewer checks the report against it), carries its own id, and the run stays "degraded".

@@ -567,10 +567,49 @@ class LocationTests(unittest.TestCase):
         with patch.object(config, "llm", return_value=FakeLLM(tasks)):
             result = nodes.planner({"consultation": "설사", "region": "", "location": [37.5, 127.03], "profile": "", "plan": [], "urgent": "",
                                     "feedback": "", "instruction": "", "findings": {}})
-        self.assertEqual([task["kind"] for task in result["plan"]], ["health", "place"])
-        self.assertEqual(result["plan"][-1]["query"], "보호자의 현재 위치")
+        self.assertEqual([task["kind"] for task in result["plan"]], ["health", "place", "cost"])
+        self.assertEqual(result["plan"][1]["query"], "보호자의 현재 위치")
+        self.assertTrue(result["plan"][2]["query"].startswith("전국"))  # no area name: the national fees
+
+    def test_an_area_adds_the_fee_task_too(self):
+        tasks = [VisitTask(kind="health", query=f"증상 {i}", angle="a") for i in range(5)]
+        with patch.object(config, "llm", return_value=FakeLLM(tasks)):
+            result = nodes.planner({**initial_state(), "location": None})
+        # five planned, but the place and fee tasks take the last two of the five slots
+        self.assertEqual([task["kind"] for task in result["plan"]], ["health", "health", "health", "place", "cost"])
+        self.assertTrue(result["plan"][-1]["query"].startswith("강남구"))
 
     def test_dispatch_passes_the_location_to_each_researcher(self):
         sends = edges.dispatch({"plan": [{"task_id": "t1", "kind": "place"}], "findings": {}, "failures": {},
                                 "consultation": "c", "urgent": "", "region": "", "profile": "", "location": [37.5, 127.03]})
         self.assertEqual(sends[0].arg["location"], [37.5, 127.03])
+
+
+class FixedNoteTests(unittest.TestCase):
+    """Notes the publisher adds by code (2026-10-26): what the fee figures are, and why there are none."""
+
+    def write(self, text):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / config.REPORT_FILE
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_the_fee_note_goes_under_the_fee_heading(self):
+        path = self.write("# 보고서\n\n## 진료비 참고\n초진 중간값 1만 원\n\n## 질문\n- 무엇")
+        nodes.add_fixed_notes(path, {"plan": [{"kind": "health"}, {"kind": "place"}, {"kind": "cost"}]})
+        lines = path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(lines[lines.index("## 진료비 참고") + 2], config.FEE_NOTE)
+        self.assertNotIn(config.NO_AREA_NOTE, lines)
+        self.assertIn("농림축산식품부", config.FEE_NOTE)
+
+    def test_without_an_area_the_report_says_why_there_are_no_hospitals(self):
+        path = self.write("# 보고서\n\n## 질문\n- 무엇")
+        nodes.add_fixed_notes(path, {"plan": [{"kind": "health"}]})
+        self.assertEqual(path.read_text(encoding="utf-8").splitlines()[-1], config.NO_AREA_NOTE)
+        self.assertNotIn(config.FEE_NOTE, path.read_text(encoding="utf-8"))
+
+    def test_a_fee_section_without_a_heading_gets_the_note_at_the_end(self):
+        path = self.write("# 보고서\n본문")
+        nodes.add_fixed_notes(path, {"plan": [{"kind": "place"}, {"kind": "cost"}]})
+        self.assertEqual(path.read_text(encoding="utf-8").splitlines()[-1], config.FEE_NOTE)
