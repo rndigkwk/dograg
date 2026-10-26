@@ -53,6 +53,9 @@ export function ProjectAbout() {
         <p className="text-sm text-muted">
           엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 오현탁이 혼자 이어서(2026-09~10, PR 300여 개) 측정하며 개선했습니다.
         </p>
+        <a href={REPO} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-4 font-semibold hover:border-accent">
+          GitHub에서 코드 보기 (rndigkwk/dograg)
+        </a>
       </section>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

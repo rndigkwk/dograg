@@ -33,6 +33,7 @@ test("the data page shows the counts as bars, with shares and a table", async ({
   await page.goto("/data");
   // The first tab says what the project is; the charts follow.
   await expect(page.getByRole("heading", { name: "라그도그는 무엇인가요" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /GitHub에서 코드 보기/ })).toHaveAttribute("href", "https://github.com/rndigkwk/dograg");
   await page.getByRole("tab", { name: "기타를 제외한 질병 순위" }).click();
   const chart = page.getByRole("list", { name: "기타를 제외한 질병 분류 TOP 10" });
   await expect(chart.getByRole("listitem")).toHaveCount(2);
