@@ -19,6 +19,7 @@ import {
 } from "@/lib/fees";
 import { failureMessage } from "@/lib/failure";
 
+import FeeSourceNotice from "./FeeSourceNotice";
 import Waiting, { LoadError } from "./Waiting";
 
 const ALL = "";
@@ -224,6 +225,7 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
 
   return (
     <div className="space-y-4">
+      <FeeSourceNotice />
       <div className="grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-3">
         <label className="text-sm">
           <span className="mb-1 block font-semibold">진료 항목</span>

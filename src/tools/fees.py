@@ -21,8 +21,10 @@ from src.tools import places
 
 FEE_CSV = resources.DATA_DIR / "vet_fees" / "vet_fees.csv"
 SOURCE = "농림축산식품부 동물병원 진료비 현황 조사(2025, animalclinicfee.or.kr)"
-NOTICE = (f"출처: {SOURCE}. 지역별 조사 통계이며 개별 병원의 가격이 아닙니다. "
-          "병원마다 다르니 방문 전에 전화로 확인하세요.")
+# First in a fee answer and again under it (2026-10-26): the figures read like a price list otherwise.
+HEADLINE = "⚠️ **실제 가격이 아닙니다.** 농림축산식품부 2025 조사의 **지역 통계(중간값·평균)**예요."
+NOTICE = (f"출처: {SOURCE}. 지역별 조사 통계(중간값·평균)이며 개별 병원의 가격이 아닙니다. "
+          "같은 항목도 병원·검사 범위·반려견 상태에 따라 다르니 방문 전에 전화로 확인하세요.")
 
 COST_WORDS = ("진료비", "병원비", "비용", "가격", "요금", "값", "금액", "드나요", "들어요", "몇만원", "비싸",
               "검사비", "촬영비", "접종비", "입원비", "진찰료", "상담료", "예방비", "구충비", "판독료")
@@ -292,7 +294,7 @@ def fee_answer(question: str, profile=None) -> str:
     results = fee_lookup(question, profile)
     if not results:
         return "진료비 조사 자료에서 이 항목을 찾지 못했습니다. " + NOTICE
-    lines = []
+    lines = [HEADLINE]
     general = not requested_items(question)
     if general:
         lines.append("자주 쓰는 진료 항목의 지역별 진료비입니다(개, 체중 5kg 기준).")
