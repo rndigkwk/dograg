@@ -13,7 +13,8 @@ const ANSWER = result("펫보험 가입률은 2023년 11.9%에서 2025년 15.2%�
 test("the report page sends questions straight to the reports and shows the page evidence", async ({ page }) => {
   const api = await fakeApi(page, [[["step", { message: "보고서에서 근거를 찾고 있습니다…" }], ["token", { text: "펫보험 " }], ANSWER]]);
   await page.goto("/reports");
-  await expect(page.getByRole("region", { name: "보고서 목록" }).getByRole("button")).toHaveCount(5);
+  await expect(page.getByRole("region", { name: "보고서 목록" }).getByRole("button")).toHaveCount(6);
+  await expect(page.getByRole("button", { name: /^5종 통합 질문/ })).toHaveAttribute("aria-pressed", "true");
 
   // A suggested question that spans several reports, with no report chosen.
   await page.getByRole("button", { name: /^KB 2025 보고서와 복지실태 보고서에서/ }).click();
