@@ -307,6 +307,52 @@ CHAT_TIMEOUT_SECONDS = 30
 ANSWER_TIMEOUT_SECONDS = 45
 MODEL_MAX_RETRIES = 1
 
+# When OpenAI does not answer, the same call goes once to Claude. The OpenAI key is the academy's and
+# its limit ran out on 2026-10-19: four rate-limit errors that week, the weekly SLO's only errors.
+# Only the provider's own failures switch (rate limit or quota, timeout, no connection, 5xx); a
+# request of ours that OpenAI rejects stays an error. When Claude fails too (any Anthropic API error,
+# a bad key included), OpenAI's error is raised, so src/model_outage.py still shows the search.
+# No ANTHROPIC_API_KEY: OpenAI alone.
+# Thinking off: the grader runs without reasoning on OpenAI too, and Haiku 5.5 rejects the forced
+# tool call of with_structured_output while thinking is on.
+FALLBACK_MODEL_NAME = "claude-haiku-5-5"
+FALLBACK_MAX_TOKENS = 4096
+# The outage drill (deploy-cloud-run.yml, fault=openai, a candidate that never gets traffic): the
+# chat models send to an address nothing listens on, so every call fails to connect and the canary
+# health question passes only when Claude answers it.
+OPENAI_FAULT = "openai"
+UNREACHABLE_OPENAI_URL = "http://127.0.0.1:9/v1"
+
+
+def openai_base_url() -> str | None:
+    """None (OpenAI) except in the drill."""
+    return UNREACHABLE_OPENAI_URL if settings.get_setting("RAGDOG_FAULT") == OPENAI_FAULT else None
+
+
+def fallback_errors() -> tuple[type[BaseException], ...]:
+    """OpenAI's errors that go to Claude, and Claude's own: LangChain raises the first error only
+    when every error on the way is one of these (APITimeoutError is an APIConnectionError)."""
+    import anthropic
+    import openai
+
+    return openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError, anthropic.APIError
+
+
+def with_claude_fallback(model, timeout: float):
+    """`model` that hands a failed call to Claude, or `model` itself without an Anthropic key."""
+    api_key = settings.get_setting("ANTHROPIC_API_KEY")
+    if not api_key:
+        return model
+    from langchain_anthropic import ChatAnthropic
+
+    workspace = settings.get_setting("ANTHROPIC_WORKSPACE_ID")
+    claude = ChatAnthropic(
+        model=FALLBACK_MODEL_NAME, api_key=api_key, timeout=timeout, max_retries=MODEL_MAX_RETRIES,
+        max_tokens=FALLBACK_MAX_TOKENS, thinking={"type": "disabled"},
+        default_headers={"anthropic-workspace-id": workspace} if workspace else None,
+    )
+    return model.with_fallbacks([claude], exceptions_to_handle=fallback_errors())
+
 
 @cache_resource
 def load_review_model():
@@ -314,8 +360,10 @@ def load_review_model():
     if not api_key:
         return None
     effort = settings.get_setting("CRAG_REVIEW_REASONING_EFFORT") or REVIEW_REASONING_EFFORT
-    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
-                      timeout=REVIEW_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES)
+    return with_claude_fallback(ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
+                                           timeout=REVIEW_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
+                                           base_url=openai_base_url()),
+                                REVIEW_TIMEOUT_SECONDS)
 
 
 @cache_resource
@@ -325,5 +373,7 @@ def load_chat_model():
         return None
     # CHAT_REASONING_EFFORT: "none", "low", "medium" (the model default when unset), "high".
     effort = settings.get_setting("CHAT_REASONING_EFFORT")
-    return ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, timeout=CHAT_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
-                      **({"reasoning_effort": effort} if effort else {}))
+    return with_claude_fallback(
+        ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, timeout=CHAT_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
+                   base_url=openai_base_url(), **({"reasoning_effort": effort} if effort else {})),
+        CHAT_TIMEOUT_SECONDS)

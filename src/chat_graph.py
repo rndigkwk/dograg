@@ -453,7 +453,7 @@ def _execute(graph, inputs: dict, on_token, on_step, config: dict | None = None)
     for mode, payload in graph.stream(inputs, config=config, stream_mode=["messages", "updates", "values"]):
         if mode == "messages":
             chunk, metadata = payload
-            text = getattr(chunk, "content", "")
+            text = getattr(chunk, "text", "")  # Claude streams content blocks, not a string
             if on_token and isinstance(text, str) and text and metadata.get("langgraph_node") in ANSWER_NODES:
                 on_token(text)
         elif mode == "updates":

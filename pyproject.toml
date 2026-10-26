@@ -32,6 +32,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pyjwt[crypto]>=2.10",
     "langgraph-checkpoint-postgres>=3",
+    "langchain-anthropic>=1.0",
 ]
 
 [dependency-groups]

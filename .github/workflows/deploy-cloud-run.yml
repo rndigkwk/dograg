@@ -19,9 +19,9 @@ on:
   workflow_dispatch:
     inputs:
       fault:
-        description: "Canary drill: chat = a broken API candidate (the check must fail), supabase = its database down (the check must pass on local search). Never promoted."
+        description: "Canary drill: chat = a broken API candidate (the check must fail), supabase = its database down (the check must pass on local search), openai = OpenAI unreachable (the check must pass on Claude). Never promoted."
         type: choice
-        options: [none, chat, supabase]
+        options: [none, chat, supabase, openai]
         default: none
 
 permissions:
@@ -81,6 +81,8 @@ jobs:
           WEB_ORIGIN_REGEX: ${{ vars.RAGDOG_WEB_ORIGIN_REGEX }}
         run: |
           secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,LANGFUSE_PUBLIC_KEY=LANGFUSE_PUBLIC_KEY:latest,LANGFUSE_SECRET_KEY=LANGFUSE_SECRET_KEY:latest"
+          # Claude Haiku answers when OpenAI fails (src/resources.py with_claude_fallback).
+          secrets="$secrets,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,ANTHROPIC_WORKSPACE_ID=ANTHROPIC_WORKSPACE_ID:latest"
           backend=local
           if [ "$SEARCH_BACKEND" = supabase ]; then
             backend=supabase
@@ -107,6 +109,8 @@ jobs:
         # the revision that was serving: the job fails, and alert-on-failure.yml opens an issue.
         # No 10% step: at a few questions an hour, a share of the traffic says nothing in minutes.
         # fault=supabase: the candidate's database is down; the answers must come from local search.
+        # fault=openai: the candidate cannot reach OpenAI; the health question must be answered by
+        # Claude (src/resources.py), as the quota notice ("degraded") fails the check.
         env:
           FAULT: ${{ inputs.fault || 'none' }}
         run: |
