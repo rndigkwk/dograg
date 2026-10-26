@@ -12,6 +12,8 @@
 | [vet-fees.md](vet-fees.md) | 지역별 진료비: 정부 조사 통계 수집·검증, 챗봇 진료비 경로, 방문 보고서 진료비 근거 |
 | [retrieval-experiments.md](retrieval-experiments.md) | 검색 실험: Dense → 재정렬(기각) → Dense+BM25 RRF(채택), 벡터 저장소 비교, 보고서 근거 품질(목차·참고문헌 제외, KB 보고서 OCR, 같은 쪽 한 자리, 두 보고서 질문은 보고서마다) |
 | [embedding-finetune.md](embedding-finetune.md) | 건강 검색 임베딩 미세조정: 합성 질의 생성, Colab T4 학습, 짧은 질문 `useful@3` 0.625 → 0.800. KURE-v1 미세조정 비교(앱 유지)와 MLflow 기록 |
+| [kb-ocr-gpu.md](kb-ocr-gpu.md) | KB 보고서 숫자 다시 읽기: Tesseract 대 EasyOCR 대 비전 모델(Qwen3-VL-4B). 알려진 오독 0/9 대 9/9, 되풀이 5쪽, 아직 바꾸지 않은 이유 |
+| [grader-distill.md](grader-distill.md) | 근거 채점기 증류: 작은 cross-encoder 4종이 채점 호출을 대신할 수 있나. "모두 쓴다" 기준선(질문 판단 0.88)을 넘지 못해 채택하지 않음 |
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
 | [judge-validation.md](judge-validation.md) | LLM 판사 검증(Day 60): 다시 묻기·순서 뒤집기·다른 판사 비교, 길이·권위 편향과 양방향 판정, 사람 판정 성적표 |
