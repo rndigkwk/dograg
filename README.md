@@ -188,8 +188,10 @@ flowchart TB
 | ![웹 앱 홈, 질문창과 바로 가기](docs/images/web_home.png) | ![건강 상담 답변, 사례 인용과 펼친 근거](docs/images/web_chat.png) |
 | **지역별 진료비: 시·도 중간값과 전국** | **시설 찾기: 지역 진료비와 지도** |
 | ![시·도별 진료비 중간값 점 그래프](docs/images/web_fees.png) | ![종로구 동물병원 목록과 지도](docs/images/web_places.png) |
+| **보고서 분석: 5종 통합 질문과 보고서별 추천 질문** | **소개: 프로젝트·데이터·출처 탭, 진료과 비율** |
+| ![보고서 5종 카드와 통합 추천 질문](docs/images/web_reports.png) | ![진료과별 상담 비율 원 그래프](docs/images/web_about.png) |
 
-화면은 2026-10-24 운영 웹 앱(Next.js)입니다. 휴대폰 화면: [홈](docs/images/web_mobile_home.png)
+화면은 2026-10-24 운영 웹 앱(Next.js)입니다(보고서·소개는 2026-10-26). 휴대폰 화면: [홈](docs/images/web_mobile_home.png)
 
 더 많은 화면: [데모 상세](docs/details.md#데모-상세)
 
