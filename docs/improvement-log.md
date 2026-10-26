@@ -107,6 +107,8 @@
 | [#278](https://github.com/rndigkwk/dograg/pull/278) | Claude(Haiku 5.5·Opus 5.5)를 판사로 | 관련성 κ 0.28·0.30(지금 판사 0.64), 22쌍 사람과 일치 9/22·8/22 | 미적용 |
 | [#276](https://github.com/rndigkwk/dograg/pull/276) | 프롬프트 캐시(고정 규칙을 앞에, 캐시 키) | 이 모델은 프롬프트 전체가 같을 때만 캐시 | 바꾸지 않음 |
 | [#299](https://github.com/rndigkwk/dograg/pull/299) | 답변 판정 기준 2 판사를 병합 조건으로 | 사람 fail 17/20을 잡지만 사람 pass의 40%를 fail로 봄, κ 0.46 | 보조 지표로만 |
+| [#347](https://github.com/rndigkwk/dograg/pull/347) | 근거 채점 호출을 작은 cross-encoder로 증류(Colab L4, 4개 모델) | CPU 1초 안에 드는 가장 나은 모델(roberta-small)이 채점기와 κ 0.19, 질문 판단 일치 0.80. 후보를 모두 쓰는 기준선이 0.88 ([기록](wiki/grader-distill.md)) | 미적용, 채점 호출 유지 |
+| [#347](https://github.com/rndigkwk/dograg/pull/347) | KB 보고서를 비전 모델(Qwen3-VL-4B)·EasyOCR로 다시 읽기 | 알려진 오독 9곳: Tesseract 0, 비전 모델 9. 기준 답 숫자 26 → 27/38. 비전 모델은 5쪽에서 되풀이 ([기록](wiki/kb-ocr-gpu.md)) | 보류: 되풀이를 막고 보고서 평가를 다시 잰 뒤 결정 |
 | [#295](https://github.com/rndigkwk/dograg/pull/295) | 레일 통합 때 NeMo self-check·Prompt Guard 2·Llama Guard 3 다시 검토 | 호출 +2번·약 +3초 / 메모리 4GiB 필요 / 8GiB·질문당 35~66초. 레드팀에서 새로 막은 공격 없음(#275) | 지금 검사를 레일로 묶기만(메모리·호출 그대로) |
 
 ## 8. 측정 방법 자체를 고친 경우
