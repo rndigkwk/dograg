@@ -88,6 +88,7 @@ class FeeTests(unittest.TestCase):
         self.assertIn("전국: 중간 10,000원", answer)
         self.assertNotIn("11,400원", answer)  # 10kg row: the dog weighs 7 kg
         self.assertIn("개별 병원의 가격이 아닙니다", answer)
+        self.assertTrue(answer.startswith(fees.HEADLINE))  # said first, not only under the figures
 
     def test_species_picks_the_row(self):
         self.assertIn("입원비 (고양이)", fees.fee_answer("고양이 입원비 얼마야?"))

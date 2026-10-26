@@ -10,6 +10,7 @@ import { locate, type Location } from "@/lib/location";
 import { type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
 import { failureMessage } from "@/lib/failure";
 
+import FeeSourceNotice from "./FeeSourceNotice";
 import Waiting, { LoadError } from "./Waiting";
 import Icon from "./Icon";
 
@@ -71,6 +72,9 @@ function RegionFeeNote({ province, city }: { province: string; city: string }) {
       <summary className="cursor-pointer font-semibold">
         {regionName} 진료비 중간값 ({fees.basis}){allProvince ? ` · ${city} 자료가 없어 ${regionName} 기준` : ""}
       </summary>
+      <div className="mt-2">
+        <FeeSourceNotice compact />
+      </div>
       <ul className="mt-2 space-y-1">
         {fees.items.map((row) => (
           <li key={row.label}>

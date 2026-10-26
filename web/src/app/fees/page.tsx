@@ -20,7 +20,7 @@ export default async function FeesPage() {
       <PageHeader
         eyebrow="2025 동물병원 진료비 조사"
         title="지역별 진료비"
-        description="진찰료·예방접종·검사·입원비가 우리 지역에서 보통 얼마인지, 전국과 비교해 확인하세요."
+        description="농림축산식품부 2025 조사의 지역 통계로 진찰료·예방접종·검사·입원비가 우리 지역에서 보통 얼마인지 전국과 비교해 보세요. 실제 병원 가격은 아닙니다."
       />
       <FeeExplorer initial={initial} />
     </main>
