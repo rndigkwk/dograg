@@ -97,6 +97,10 @@ LIMITS = {
         # 0 in the merged runs; a model or API change that makes it common fails here first.
         ("reask_rate", "max", 0.25, 0.0),
         ("no_answer_rate", "max", 0.09, 0.0),
+        # The care schedule's due items reach the writer (#247): v04 and v09 carry care_days_ago and
+        # the report should ask about them. 1.0 in the first weekly run (2026-10-26); one of the two
+        # may miss run to run, neither means the schedule stopped reaching the report.
+        ("care_raised_rate", "min", 0.5, 1.0),
     ],
 }
 
