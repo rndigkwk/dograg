@@ -32,6 +32,22 @@ function ReportCard({ report, chosen, onChoose }: { report: Report; chosen: bool
   );
 }
 
+/** The first card: all five reports at once, chosen when no single report is. */
+function AllCard({ chosen, onChoose }: { chosen: boolean; onChoose: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onChoose}
+      aria-pressed={chosen}
+      className={`rounded-xl border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent ${chosen ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line bg-white hover:border-accent/50"}`}
+    >
+      <span className="block font-semibold">5종 통합 질문</span>
+      <span className="mt-0.5 block text-xs text-muted">보고서 5종 전체 · {REPORTS.reduce((sum, r) => sum + r.pages, 0)}쪽</span>
+      <span className="mt-1 block text-sm">같은 주제를 여러 보고서에서 찾아 비교합니다 (펫보험 가입률, 혼자 있는 시간, 장례 방법 등)</span>
+    </button>
+  );
+}
+
 /** The report page: the five PDF reports as cards, suggested questions, and answers that go straight to
  * the report search (api/chat.py route "report", no classification call) with their page evidence. */
 export default function ReportAsk() {
@@ -82,17 +98,18 @@ export default function ReportAsk() {
       <section aria-label="보고서 목록">
         <h2 className="mb-2 font-bold">보고서 5종</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <AllCard chosen={!chosen} onChoose={() => setChosen(null)} />
           {REPORTS.map((report) => (
             <ReportCard key={report.id} report={report} chosen={chosen?.id === report.id} onChoose={() => setChosen(chosen?.id === report.id ? null : report)} />
           ))}
         </div>
         <p className="mt-2 text-sm text-muted">
-          {chosen ? `「${chosen.title}」에서 찾습니다. 카드를 다시 누르면 5종 전체에서 찾습니다.` : "카드를 고르면 그 보고서에서, 고르지 않으면 5종 전체에서 찾습니다."}
+          {chosen ? `「${chosen.title}」에서 찾습니다. 첫 카드나 같은 카드를 다시 누르면 5종 전체에서 찾습니다.` : "5종 전체에서 찾습니다. 보고서 카드를 고르면 그 보고서에서만 찾습니다."}
         </p>
       </section>
 
       <section aria-label="질문하기" className="rounded-xl border border-line bg-white p-4">
-        <p className="mb-2 text-sm font-semibold">{chosen ? "이 보고서에 물어보기 좋은 질문" : "여러 보고서를 함께 보는 질문"}</p>
+        <p className="mb-2 text-sm font-semibold">{chosen ? `「${chosen.title}」 추천 질문` : "5종 통합 추천 질문 — 여러 보고서를 함께 봅니다"}</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {suggestions.map((question) => (
             <button

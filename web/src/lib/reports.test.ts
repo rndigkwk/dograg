@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { CROSS_QUESTIONS, REPORTS, scoped } from "./reports";
 
 describe("reports", () => {
-  it("lists the five reports, each with a question", () => {
+  it("lists the five reports, five questions each, and five across them", () => {
     expect(REPORTS).toHaveLength(5);
     expect(new Set(REPORTS.map((r) => r.id)).size).toBe(5);
-    for (const report of REPORTS) expect(report.questions.length).toBeGreaterThan(0);
-    expect(CROSS_QUESTIONS).toHaveLength(3);
+    for (const report of REPORTS) expect(new Set(report.questions).size).toBe(5);
+    expect(new Set(CROSS_QUESTIONS).size).toBe(5);
   });
 
   it("names the chosen report in the question, once", () => {
