@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import add_kb_ocr_chunks
 from add_kb_ocr_chunks import OCR_CORRECTIONS, clean_ocr, correct_ocr
 
 
@@ -30,6 +31,18 @@ class CleanOcrTests(unittest.TestCase):
     def test_figures_stay(self):
         text = "12.8%로 2024년 말 591만 가구, 2023 1월, 14.6%, 2014년, 26.7%, 사료로 100%변경, 30190%, 1,234%"
         self.assertEqual(clean_ocr(text), text)
+
+
+class OcrPageTests(unittest.TestCase):
+    def test_a_page_that_lost_an_amount_gets_ocr_under_the_digit_gap(self):
+        from unittest.mock import patch
+
+        data = {"pages": {"62": {"needs_ocr": True}, "70": {"needs_ocr": False}, "71": {"needs_ocr": False}, "2": {"needs_ocr": False}}}
+        chunks = [({"page": 70}, "입양비로 년보다 만원증가한평균 만원을지출했다 42만원"), ({"page": 71}, "평균 42만원, 29만원"),
+                  ({"page": 2}, "치과치료 20.9\n(단위: 만원, %)")]
+        with patch.object(add_kb_ocr_chunks, "pdf_chunks", return_value=chunks):
+            # p.62 by the digit gap; p.70 lost "만원" amounts; p.71 kept its figures; p.2's "단위: 만원" is a unit label
+            self.assertEqual(add_kb_ocr_chunks.ocr_pages(data), [62, 70])
 
 
 class ScannedEvidenceTests(unittest.TestCase):
