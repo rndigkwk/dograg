@@ -31,6 +31,9 @@ def set_metrics(set_name: str, run_name: str) -> tuple[dict, dict] | None:
     metrics = {key: float(value) for key, value in result["run_scores"].items() if isinstance(value, (int, float))}
     metrics["passed"] = 1.0 if ok else 0.0
     params = {"set": set_name, "judge_model": result.get("judge_model") or "-", "items": len(result.get("items", []))}
+    prompts = result.get("prompts")  # src/prompt_versions.py: the digest, and each prompt's hash
+    if prompts:
+        params |= {"prompts": prompts["digest"], **{f"prompt.{k}": v for k, v in prompts["versions"].items()}}
     return metrics, params
 
 
