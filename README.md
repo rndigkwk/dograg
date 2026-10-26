@@ -3,7 +3,7 @@
 > 반려견 건강 상담, 반려동물 시설 찾기(38,529곳), 지역별 진료비, 반려동물 보고서 분석, 수의사 방문 준비 보고서, 예방·접종 관리 일정을 하나로 묶은 RAG 서비스입니다. **근거가 없으면 지어내지 않고 보류하고, 모든 개선은 같은 평가 세트로 전후를 재서 결정했습니다.**
 
 - **웹 앱:** <https://ragdog-rndigkwks-projects.vercel.app> (Next.js, Vercel) · **API:** FastAPI on Google Cloud Run(서울) · 옛 Streamlit 화면은 2026-10-23부터 새 웹 앱 안내만 보여 줍니다(코드는 `app_pages/`에 남김)
-- **문서:** [수동 배포·복구](docs/runbook-manual-deploy.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 11개](docs/adr/README.md) · [보안 정리](docs/security/README.md) · [데이터 명세](docs/data-sources.md)
+- **문서:** [구조](docs/architecture/README.md) · [수동 배포·복구](docs/runbook-manual-deploy.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 11개](docs/adr/README.md) · [보안 정리](docs/security/README.md) · [데이터 명세](docs/data-sources.md)
 - 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 **오현탁이 혼자 이어서**(2026-09~10, PR 300여 개) 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
 
 ## 30초 요약
@@ -124,7 +124,7 @@ flowchart TB
 - **레일** ([`rails/rails.yml`](rails/rails.yml), [위협 표](docs/security/threat-model.md)): 교안의 NeMo Guardrails 레일 구조(입력·검색·출력·실행, 규칙 id)를 따르되 NeMo 라이브러리는 쓰지 않고 함수로 구현했습니다. NeMo·Prompt Guard·Llama Guard는 레드팀 68문항으로 비교했지만 앱이 놓친 공격을 막지 못하고 정당한 질문을 막아 넣지 않았습니다. 모델을 부르는 레일은 위기 판정(IN-04) 하나입니다. 그림 밖의 **실행 레일**은 모든 요청에 걸립니다: 질문 한도(EXE-01), 모델 요청마다 제한 시간과 재시도 1번(넘기면 검색 근거만 보여 줌, EXE-02), 방문 준비 에이전트는 역할마다 읽기 도구 하나(EXE-03).
 - **LangGraph:** 경로마다 노드가 다르고, 건강 경로는 CRAG(근거 평가 → 검색어 다시 쓰기 → 보류)입니다. 신호가 하나뿐인 질문(약 85%)은 키워드 규칙으로, 나머지는 분류 API(약 0.3초)로 경로를 고릅니다. 시설과 진료비는 벡터 검색 대신 SQL·표 조회로 정확히 답합니다.
 - **LangChain:** 모델 호출(`ChatOpenAI`, 근거 평가·위기 판정은 `with_structured_output`), 프롬프트(`ChatPromptTemplate`), 검색 문서(`Document`)에 씁니다. 하이브리드 검색(Dense + BM25, RRF)과 Supabase 저장소는 직접 구현했습니다.
-- **방문 준비 보고서** (`team/`): 별도 LangGraph 멀티에이전트 팀입니다. 빠진 정보를 보호자에게 되묻고(`interrupt`), 증상·병원·비용을 `Send`로 병렬 조사하고, 문장마다 근거와 대조해 검수합니다. 멈춘 실행은 Supabase에 30분 두어 어느 인스턴스에서든 이어 갑니다. [팀 상세](docs/details.md#멀티에이전트-팀-상세)
+- **방문 준비 보고서** (`team/`): 별도 LangGraph 멀티에이전트 팀입니다. 빠진 정보를 보호자에게 되묻고(`interrupt`), 증상·병원·비용을 `Send`로 병렬 조사하고, 문장마다 근거와 대조해 검수합니다. 멈춘 실행은 Supabase에 30분 두어 어느 인스턴스에서든 이어 갑니다. [팀 구조](docs/architecture/visit-prep-team.md)
 
 ## 문제를 숫자로 찾고 고친 사례
 
