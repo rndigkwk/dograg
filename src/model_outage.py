@@ -11,6 +11,9 @@ that answers are paused. A question far from the material gets the notice alone.
 Only quota errors took this path at first. Since 2026-10-23 the model calls have time limits
 (src/resources.py), and a provider that does not answer in time or cannot be reached takes it too,
 with its own notice ("unavailable"). Other failures stay one error event, as before (api/chat.py).
+
+Since 2026-10-27 such a call goes to Claude first (src/resources.py with_claude_fallback, ADR-0012);
+this path is what is left when Claude fails too, or when there is no Anthropic key.
 """
 
 from __future__ import annotations
