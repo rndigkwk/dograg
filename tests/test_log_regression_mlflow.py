@@ -40,6 +40,15 @@ class LogRegressionTests(unittest.TestCase):
         self.write("routing", bad)
         self.assertEqual(log_regression_mlflow.set_metrics("routing", "ci-test")[0]["passed"], 0.0)
 
+    def test_prompt_hashes_become_params(self):
+        good = {name: (limit + 1 if direction == "min" else limit - 0.01)
+                for name, direction, limit, _ in check_regression.LIMITS["routing"]}
+        self.write("routing", good)
+        self.assertNotIn("prompts", log_regression_mlflow.set_metrics("routing", "ci-test")[1])
+        self.write("routing", good, prompts={"digest": "e8b835e5", "versions": {"router": "202ae888"}})
+        params = log_regression_mlflow.set_metrics("routing", "ci-test")[1]
+        self.assertEqual((params["prompts"], params["prompt.router"]), ("e8b835e5", "202ae888"))
+
     def test_a_missing_set_is_left_out(self):
         self.assertIsNone(log_regression_mlflow.set_metrics("crag", "ci-test"))
 

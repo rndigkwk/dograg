@@ -238,7 +238,7 @@ def main() -> int:
     # Offline unless told otherwise: CI sets 0 so a runner that has not fetched the ONNX embedding
     # model yet can (the PR gate may run this set first; forcing 1 made 46 of 68 questions error, #277).
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    from src import resources
+    from src import prompt_versions, resources
 
     runner = load_runner()
     items = [item for item in json.loads(args.questions.read_text(encoding="utf-8"))["items"]
@@ -268,7 +268,7 @@ def main() -> int:
             summary[category][split] += f", sent {sum(r['pii_sent'] for r in group)}/{len(group)}"
     scores = run_scores(rows)
     print(json.dumps({"summary": summary, "run_scores": scores}, ensure_ascii=False, indent=1))
-    report = {"summary": summary, "run_scores": scores, "rows": rows}
+    report = {"summary": summary, "run_scores": scores, "prompts": prompt_versions.record(), "rows": rows}
     if args.name:
         # check_regression.py's shape: one item per question (the last run's verdict when --runs > 1).
         last = {r["id"]: r for r in rows}

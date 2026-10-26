@@ -509,7 +509,7 @@ def run_local(kind: str, concurrency: int):
 
 
 def run(langfuse, kind: str, run_name: str, description: str | None, concurrency: int):
-    from src import resources, settings
+    from src import prompt_versions, resources, settings
 
     name, _ = DATASETS[kind]
     dataset = langfuse.get_dataset(name)
@@ -518,6 +518,7 @@ def run(langfuse, kind: str, run_name: str, description: str | None, concurrency
         "model": resources.CHAT_MODEL_NAME,
         "reasoning_effort": settings.get_setting("CHAT_REASONING_EFFORT") or "default",
         "commit": git_commit(),
+        "prompts": prompt_versions.digest(),
         **extra,
     }
     return dataset.run_experiment(
@@ -546,7 +547,7 @@ def main() -> int:
     if local:
         os.environ["LANGFUSE_TRACING_ENABLED"] = "false"  # the app's own traces stay off too (src/tracing.py)
 
-    from src import resources, tracing
+    from src import prompt_versions, resources, tracing
 
     langfuse = None if local else tracing.client()
     if langfuse is None and not local:
@@ -567,7 +568,7 @@ def main() -> int:
         saved = PROJECT_DIR / "output" / "experiments" / f"{args.set}_{args.name}.json"
         saved.parent.mkdir(parents=True, exist_ok=True)
         saved.write_text(json.dumps({
-            "run": args.name, "url": result.dataset_run_url,
+            "run": args.name, "url": result.dataset_run_url, "prompts": prompt_versions.record(),
             "run_scores": {e.name: e.value for e in result.run_evaluations},
             "items": [{"id": r.item.metadata["id"], "output": r.output,
                        "scores": {e.name: e.value for e in r.evaluations}} for r in result.item_results],

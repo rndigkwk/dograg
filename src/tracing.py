@@ -41,6 +41,8 @@ SAFE_KEYS = frozenset({
     # visit-prep team run records: the status word and the kinds of research that failed
     # (error messages stay masked: they can quote the request)
     "status", "failed_kinds", "failed_errors", "fallback_kinds",
+    # the prompts' hash (src/prompt_versions.py)
+    "prompts",
 })
 
 

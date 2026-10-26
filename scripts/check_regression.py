@@ -253,6 +253,8 @@ def main(argv: list[str]) -> int:
         metrics = dict(result["run_scores"])
         if result.get("judge_model"):
             metrics["judge_model"] = result["judge_model"]
+        if result.get("prompts"):
+            metrics["prompts"] = result["prompts"]["digest"]  # src/prompt_versions.py
         eval_history.record("regression", set_name, ok, metrics, run=run_name)  # only with SUPABASE_DB_URL
         all_ok &= ok
     table = "\n".join(lines)

@@ -20,7 +20,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from src import crisis, guardrails, model_outage, rails, resources, tracing
+from src import crisis, guardrails, model_outage, prompt_versions, rails, resources, tracing
 from src.crag import (
     HEALTH_CANDIDATE_K,
     MAX_REWRITES,
@@ -524,7 +524,8 @@ def run_chat(
     fingerprint = question_fingerprint(question)
     with tracing.chat_trace(
         fingerprint, session=tracing.session_id(session_id),
-        metadata={"crag": crag, "crag_reports": crag_reports, "top_k": top_k, "search_backend": resources.search_backend()},
+        metadata={"crag": crag, "crag_reports": crag_reports, "top_k": top_k, "search_backend": resources.search_backend(),
+                  "prompts": prompt_versions.digest()},
     ) as chat_trace:
         try:
             with get_usage_metadata_callback() as usage:
