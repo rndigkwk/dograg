@@ -16,7 +16,7 @@ import Icon from "./Icon";
 
 const PlaceMap = dynamic(() => import("./PlaceMap"), { ssr: false, loading: () => <p className="text-sm text-muted">지도를 불러오는 중입니다…</p> });
 
-function PlaceTable({ places, withDistance = false }: { places: Place[]; withDistance?: boolean }) {
+export function PlaceTable({ places, withDistance = false }: { places: Place[]; withDistance?: boolean }) {
   const details = places.some((p) => p.kind === "pet_friendly");
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-white">
@@ -53,7 +53,7 @@ function PlaceTable({ places, withDistance = false }: { places: Place[]; withDis
 
 /** The region's median clinic fees next to the nation, above a hospital list (api/fees.py /fees/region).
  * Regional survey statistics, not these hospitals' prices: the notice says so under the figures. */
-function RegionFeeNote({ province, city }: { province: string; city: string }) {
+export function RegionFeeNote({ province, city }: { province: string; city: string }) {
   const [fees, setFees] = useState<RegionFees | null>(null);
   useEffect(() => {
     let live = true;

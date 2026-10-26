@@ -23,13 +23,15 @@ import { type CareRecord, dueItems, loadRecord } from "@/lib/careSchedule";
 import { forChat, listNotes, type Note, NOTES_PER_QUESTION, noteDate, notesEnabled } from "@/lib/notes";
 import { browserStorage } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
-import { nearby } from "@/lib/places";
+import { failureMessage } from "@/lib/failure";
+import { nearby, type Place, regions as loadRegions, search as searchPlaces } from "@/lib/places";
 import { REPORT_FILE, saveFile, toDocx, toPlainText } from "@/lib/reportFiles";
 
 import { useAuth } from "./AuthProvider";
 import Markdown from "./Markdown";
 import { useRecords } from "./useRecords";
 import Icon from "./Icon";
+import { PlaceTable, RegionFeeNote } from "./Places";
 
 const FAILED = "보고서를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 
@@ -134,6 +136,96 @@ function PrintReport({ report, outcome }: { report: string; outcome: string }) {
   );
 }
 
+/** A report made without an area has no hospital or fee section (team NO_AREA_NOTE): the guardian picks one
+ * here and the list and the area's fees come from the facility and fee lists, with no model call and
+ * no new report (2026-10-26). */
+function AreaFill() {
+  const [regionList, setRegionList] = useState<Record<string, string[]> | null>(null);
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [found, setFound] = useState<{ total: number; places: Place[]; province: string; city: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadRegions().then(
+      (r) => {
+        const first = Object.keys(r)[0] ?? "";
+        setRegionList(r);
+        setProvince(first);
+        setCity(r[first]?.[0] ?? "");
+      },
+      () => setError("지역 목록을 불러오지 못했습니다. 시설 찾기 탭에서 찾아 주세요."),
+    );
+  }, []);
+
+  async function find(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || !province) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await searchPlaces("hospital", province, city);
+      setFound({ total: result.total, places: result.places.slice(0, 10), province, city });
+    } catch (e) {
+      setError(failureMessage(e, "동물병원을 찾지 못했습니다. 잠시 뒤 다시 시도해 주세요."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const select = "mt-1 block min-h-11 rounded-lg border border-line bg-white px-3";
+  return (
+    <section aria-label="지역의 동물병원과 진료비" className="space-y-2 rounded-xl border border-line bg-white p-4 text-sm">
+      <p className="font-semibold">지역을 고르면 동물병원과 그 지역 진료비를 여기에 더해 보여 드려요</p>
+      <p className="text-xs text-muted">보고서를 다시 만들지 않고, 질문 한도에도 세지 않습니다.</p>
+      {regionList ? (
+        <form onSubmit={find} className="flex flex-wrap items-end gap-2">
+          <label>
+            시/도
+            <select
+              value={province}
+              onChange={(event) => {
+                setProvince(event.target.value);
+                setCity(regionList[event.target.value]?.[0] ?? "");
+              }}
+              className={select}
+            >
+              {Object.keys(regionList).map((name) => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          <label>
+            시/군/구
+            <select value={city} onChange={(event) => setCity(event.target.value)} className={select}>
+              {(regionList[province] ?? []).map((name) => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          <button type="submit" aria-disabled={busy} className="min-h-11 rounded-lg bg-accent px-5 font-semibold text-white aria-disabled:opacity-40">
+            찾기
+          </button>
+        </form>
+      ) : null}
+      {error ? <p role="alert" className="text-danger">{error}</p> : null}
+      {found ? (
+        <div className="space-y-2">
+          <RegionFeeNote province={found.province} city={found.city} />
+          {found.total ? (
+            <>
+              <p role="status">
+                {found.province} {found.city}의 동물병원 {found.total.toLocaleString()}곳
+                {found.total > found.places.length ? ` 가운데 ${found.places.length}곳` : ""}입니다. 진료 가능 여부와 시간은 전화로 확인해 주세요.
+              </p>
+              <PlaceTable places={found.places} />
+            </>
+          ) : (
+            <p role="status" className="text-warn-strong">{found.province} {found.city}의 동물병원 정보를 찾지 못했습니다.</p>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 /** "서울특별시 강남구" from a full road address: the region box shows where "near me" is. */
 function districtOf(address: string | null | undefined): string {
   return (address ?? "").split(/\s+/).slice(0, 2).join(" ").slice(0, 30);
@@ -167,6 +259,8 @@ export default function VisitPrep() {
   const [profile, setProfile] = useState("");
   const [answer, setAnswer] = useState("");
   const [run, setRun] = useState<Run | null>(null);
+  // Whether this run was given an area: without one the report has no hospitals, and AreaFill offers them.
+  const [withArea, setWithArea] = useState(false);
   const [working, setWorking] = useState(false);
   const controller = useRef<AbortController | null>(null);
   // Where the focus goes when a step ends: the fields are disabled while the report is made, which
@@ -267,6 +361,7 @@ export default function VisitPrep() {
     const text = consultation.trim();
     if (!text || working) return;
     setAnswer("");
+    setWithArea(Boolean(region.trim() || location));
     const notes = forChat(savedNotes.filter((note) => chosenNotes.has(note.id)));
     void stream(
       "/visit-prep",
@@ -414,6 +509,7 @@ export default function VisitPrep() {
           <article className="rounded-xl border border-line bg-white p-4">
             <Markdown text={run.result.report} />
           </article>
+          {withArea ? null : <AreaFill />}
           <Downloads report={run.result.report} />
           <p className="text-xs text-muted">인쇄 창에서 대상(프린터)을 &quot;PDF로 저장&quot;으로 고르면 PDF 파일로 저장됩니다.</p>
           <PrintReport report={run.result.report} outcome={outcomeLine(run.result)} />
