@@ -55,9 +55,9 @@ export default function Home() {
       </section>
 
       <p className="text-xs text-muted">
-        상담·시설 데이터는{" "}
+        프로젝트 설명과 상담·시설 데이터, 데이터 출처는{" "}
         <Link href="/data" className="text-accent underline">
-          데이터 소개
+          프로젝트·데이터 소개
         </Link>
         에서 볼 수 있습니다.
       </p>

@@ -36,7 +36,7 @@ export const GROUPS: NavGroup[] = [
       { href: "/memory", label: "상담 기억", icon: "note", signedOut: "로그인 필요" },
     ],
   },
-  { id: "about", label: "소개", icon: "chart", pages: [{ href: "/data", label: "데이터 소개", icon: "chart" }] },
+  { id: "about", label: "소개", icon: "chart", pages: [{ href: "/data", label: "프로젝트·데이터 소개", icon: "chart" }] },
 ];
 
 export function isOn(path: string, href: string): boolean {
