@@ -46,7 +46,7 @@ class CheckRegressionTests(unittest.TestCase):
         results = Path(directory.name)
         scores = {"dog_pass_rate": 1.0, "scope_handled_rate": 1.0, "urgent_accuracy": 1.0,
                   "hospitals_listed_rate": 1.0, "repeat_suspect_rate": 0.0, "latency_p90_s": 80.0,
-                  "reask_rate": 0.0, "no_answer_rate": 0.0}
+                  "reask_rate": 0.0, "no_answer_rate": 0.0, "care_raised_rate": 1.0}
         (results / "visit_ok.json").write_text(json.dumps({"run_scores": scores}), encoding="utf-8")
         (results / "visit_loop.json").write_text(
             json.dumps({"run_scores": {**scores, "repeat_suspect_rate": 0.5}}), encoding="utf-8")
@@ -60,8 +60,9 @@ class CheckRegressionTests(unittest.TestCase):
         results = Path(directory.name)
         scores = {"dog_pass_rate": 1.0, "scope_handled_rate": 1.0, "urgent_accuracy": 1.0,
                   "hospitals_listed_rate": 1.0, "repeat_suspect_rate": 0.0, "latency_p90_s": 80.0,
-                  "reask_rate": 2 / 12, "no_answer_rate": 1 / 12}
+                  "reask_rate": 2 / 12, "no_answer_rate": 1 / 12, "care_raised_rate": 0.5}
         runs = {"ok": scores, "reasks": {**scores, "reask_rate": 4 / 12}, "lost": {**scores, "no_answer_rate": 2 / 12},
+                "no_care": {**scores, "care_raised_rate": 0.0},
                 "old": {key: value for key, value in scores.items() if key not in ("reask_rate", "no_answer_rate")}}
         for name, run_scores in runs.items():
             (results / f"visit_{name}.json").write_text(json.dumps({"run_scores": run_scores}), encoding="utf-8")
@@ -69,6 +70,7 @@ class CheckRegressionTests(unittest.TestCase):
             self.assertEqual(check_regression.main(["visit", "ok"]), 0)  # 2 asked again, 1 lost: within the limits
             self.assertEqual(check_regression.main(["visit", "reasks"]), 1)
             self.assertEqual(check_regression.main(["visit", "lost"]), 1)
+            self.assertEqual(check_regression.main(["visit", "no_care"]), 1)  # the schedule reached neither report
             self.assertEqual(check_regression.main(["visit", "old"]), 1)  # a run without the scores is not a pass
 
     def test_health_answer_correctness_has_a_floor(self):
