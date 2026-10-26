@@ -2,7 +2,7 @@
 
 되돌리기 비싼 결정을 한 장씩 남긴다. 형식은 Nygard의 다섯 칸이다: 제목, 상태, 맥락, 결정, 결과. 결과 칸에는 **다시 검토할 조건**을 적는다.
 
-- 2026-10-13에 소급해 썼다. 결정은 그 전에 내렸고, 근거 수치는 당시 기록에서 옮겼다. 원래 기록은 [improvement-log.md](../improvement-log.md), [design.md](../design.md), [wiki/](../wiki/)에 있다.
+- 2026-10-13에 소급해 썼다. 결정은 그 전에 내렸고, 근거 수치는 당시 기록에서 옮겼다. 원래 기록은 [improvement-log.md](../improvement-log.md), [design.md](../design.md)(지금은 [architecture/](../architecture/README.md)), [wiki/](../wiki/)에 있다.
 - 채택한 ADR은 고치지 않는다. 결정이 바뀌면 새 ADR을 쓰고, 옛 ADR의 상태를 "대체됨"으로 바꾼다.
 - 작은 기본 설정은 관련 ADR에 한 줄로만 남긴다. 예: 검색기마다 후보 12건, 근거 평가 후보 5건.
 

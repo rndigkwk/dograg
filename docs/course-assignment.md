@@ -33,7 +33,7 @@ flowchart LR
 | 결과 파일 저장 | `output/visit_prep/<시각>/visit_report.md`, `result.json`(상태, 판정, 반복 횟수, 계획, 근거 id) |
 | (추가) 사람에게 되묻기·관측·실패 처리 | `interrupt` 되묻기(상담 12개 중 8개 질문, 응급 0개), Langfuse 트레이스, 노드 방문 횟수 감시, 진료비 조사 실패 시 기본 안내 |
 
-실행: `uv run python -m team.main "4살 말티즈가 어제부터 설사를 하고 오늘 아침에 두 번 토했어요." --region 강남구`. 팀 구성·실행 결과·평가 전체: [멀티에이전트 팀 상세](details.md#멀티에이전트-팀-상세)
+실행: `uv run python -m team.main "4살 말티즈가 어제부터 설사를 하고 오늘 아침에 두 번 토했어요." --region 강남구`. 팀 구성·실행 결과·평가 전체: [방문 준비 보고서 팀 구조](architecture/visit-prep-team.md)
 
 ## 교안 적용 (Day 46~56)
 
