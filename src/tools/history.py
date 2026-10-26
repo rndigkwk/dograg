@@ -47,7 +47,7 @@ def summarize_turns(previous_summary: str, messages: list[dict]) -> str:
         ("system", SUMMARY_PROMPT.format(max_chars=SUMMARY_MAX_CHARS)),
         ("user", f"[기존 요약]\n{previous_summary or '없음'}\n\n[새 대화]\n{format_chat_history(_plain(messages))}"),
     ])
-    return str(reply.content).strip()[: SUMMARY_MAX_CHARS * 2]
+    return reply.text.strip()[: SUMMARY_MAX_CHARS * 2]
 
 
 def summary_due(messages, memory: dict, max_turns: int = SHORT_TERM_MEMORY_TURNS,
@@ -159,7 +159,7 @@ def memory_search_query(question, chat_history=None):
         reply = model.bind(reasoning_effort="low").invoke(messages)
     except Exception:  # noqa: BLE001 - a failed rewrite keeps the rule-built query
         return query
-    rewritten = " ".join(str(reply.content).split())
+    rewritten = " ".join(reply.text.split())
     return rewritten[:200] or query
 
 

@@ -113,9 +113,10 @@ def load_rag_chain():
     # 22 answered pairs gave low 6, medium 5, same 11 (docs/wiki/deployment-resources.md). The grader
     # has its own (resources.REVIEW_REASONING_EFFORT).
     effort = settings.get_setting("ANSWER_REASONING_EFFORT") or ANSWER_REASONING_EFFORT
-    return RAG_PROMPT | ChatOpenAI(model=resources.CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
-                                   timeout=resources.ANSWER_TIMEOUT_SECONDS,
-                                   max_retries=resources.MODEL_MAX_RETRIES) | StrOutputParser()
+    model = ChatOpenAI(model=resources.CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
+                       timeout=resources.ANSWER_TIMEOUT_SECONDS, max_retries=resources.MODEL_MAX_RETRIES,
+                       base_url=resources.openai_base_url())
+    return RAG_PROMPT | resources.with_claude_fallback(model, resources.ANSWER_TIMEOUT_SECONDS) | StrOutputParser()
 
 
 @cache_resource

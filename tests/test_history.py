@@ -121,13 +121,14 @@ class MemorySearchQueryTests(unittest.TestCase):
         self.assertEqual(history.build_rag_search_query("사료는요?", health, health=True), "강아지가 설사를 해요\n사료는요?")
 
     def test_earlier_health_questions_go_to_a_standalone_rewrite(self):
-        from types import SimpleNamespace
         from unittest.mock import Mock, patch
+
+        from langchain_core.messages import AIMessage
 
         from src import resources
 
         model = Mock()
-        model.bind.return_value.invoke.return_value = SimpleNamespace(content=" 설사하는 강아지  사료 ")
+        model.bind.return_value.invoke.return_value = AIMessage(content=" 설사하는 강아지  사료 ")
         earlier = [{"role": "user", "content": "강아지가 이틀째 설사를 해요"}, {"role": "assistant", "content": "답"},
                    {"role": "user", "content": "강남구 엑스레이 얼마야?"}, {"role": "assistant", "content": "표"}]
         with patch.object(resources, "load_chat_model", return_value=model):
@@ -141,13 +142,14 @@ class MemorySearchQueryTests(unittest.TestCase):
             self.assertEqual(history.memory_search_query("그럼 사료는요?", earlier), "강아지가 이틀째 설사를 해요\n그럼 사료는요?")
 
     def test_with_a_summary_the_model_rewrites_the_query(self):
-        from types import SimpleNamespace
         from unittest.mock import Mock, patch
+
+        from langchain_core.messages import AIMessage
 
         from src import resources
 
         model = Mock()
-        model.bind.return_value.invoke.return_value = SimpleNamespace(content=" 췌장염 퇴원 후  기름진 음식 급여 시기 ")
+        model.bind.return_value.invoke.return_value = AIMessage(content=" 췌장염 퇴원 후  기름진 음식 급여 시기 ")
         shown = [{"role": history.SUMMARY_ROLE, "content": "슈나우저가 췌장염으로 입원했다가 어제 퇴원했다"},
                  {"role": "user", "content": "목욕은 얼마나 자주?"}]
         with patch.object(resources, "load_chat_model", return_value=model):

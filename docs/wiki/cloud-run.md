@@ -170,6 +170,7 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
 - **고장 연습:** 수동 실행(workflow_dispatch)의 `fault`를 고르면 후보 리비전만 `RAGDOG_FAULT`를 달고 올라가고, 결과와 상관없이 승격하지 않는다(승격과 배포 확인 단계에 `if: fault == none`). 다음 정상 배포는 환경 변수를 통째로 다시 정해서 이 값이 남지 않는다.
   - `fault=chat`: 모든 질문에 오류를 낸다. 검사가 **실패**해야 한다(트래픽이 넘어가지 않음).
   - `fault=supabase`: 데이터베이스 연결이 모두 실패한다(`src/supabase_store.fault_injected`). 검색은 로컬 저장소로, 질문 한도는 메모리로, 진료 준비 보관은 메모리로 넘어가 검사가 **통과**해야 하고, 건강 답변 결과에 `"search": "local"`이 붙어야 한다(`--expect-search local`).
+  - `fault=openai`: 채팅 모델의 OpenAI 주소를 아무도 듣지 않는 주소로 바꾼다(`src/resources.openai_base_url`). 모든 OpenAI 호출이 연결 실패하고 Claude Haiku가 대신 답해야 한다([ADR-0012](../adr/0012-claude-fallback.md)). 낮춘 화면("degraded")이면 건강 질문 검사가 실패하므로, 검사가 **통과**해야 한다.
 - **연습 기록(2026-10-20):**
   - `fault=chat` (run 39377965715): `FAIL no answer to '오늘 날짜 알려줘'`(주입한 오류) → 승격 skipped, 운영은 3326c23c 그대로 정상 응답. 경보 이슈 #254가 자동으로 열려 기록 후 닫았다.
     - 발견 1: 실패하면 앞서 통과한 검사 줄이 로그에 없었다(run()이 끝난 뒤 한꺼번에 출력). 통과할 때마다 출력하게 고쳤다.
