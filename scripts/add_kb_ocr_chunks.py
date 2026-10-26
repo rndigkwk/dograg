@@ -37,13 +37,30 @@ KB_SOURCE = "data/source/2025 한국 반려동물 보고서.pdf"
 def page_metadata() -> dict[int, dict]:
     """The first PDF chunk's metadata of each KB page (from the exact store, the same rows as Supabase)."""
     pages: dict[int, dict] = {}
+    for meta, _ in pdf_chunks():
+        pages.setdefault(meta["page"], meta)
+    return pages
+
+
+def pdf_chunks():
+    """(metadata, text) of each KB PDF-text chunk in the exact store."""
     with (STORE / "documents.jsonl").open(encoding="utf-8") as file:
         for line in file:
             row = json.loads(line)
             meta = row["metadata"]
-            if meta.get("source") == KB_SOURCE and meta.get("page") not in pages and meta.get("text_source") != "ocr":
-                pages[meta["page"]] = meta
-    return pages
+            if meta.get("source") == KB_SOURCE and meta.get("text_source") != "ocr":
+                yield meta, row.get("text") or row.get("page_content") or ""
+
+
+def ocr_pages(data: dict) -> list[int]:
+    """Pages that get OCR chunks: the OCR read at least MIN_EXTRA_DIGITS more digits than the PDF text
+    (needs_ocr, scripts/ocr_kb_report.py), or the PDF text shows a lost figure ("평균 만 천원").
+    The second rule (2026-10-26) adds p.70 and p.82: they lost a few amounts ("보유자금은 평균 만
+    천원") but kept enough other digits to stay under the digit gap."""
+    from src.report_evidence import DROPPED_FIGURE
+
+    lost = {meta["page"] for meta, text in pdf_chunks() if DROPPED_FIGURE.search(text)}
+    return sorted(int(p) for p, v in data["pages"].items() if v["needs_ocr"] or int(p) in lost)
 
 
 # Tesseract's common misreads in this report (counted in its 91 OCR pages, 2026-10-17/18):
@@ -93,7 +110,7 @@ def ocr_chunks() -> list[dict]:
     data = json.loads(OCR_FILE.read_text(encoding="utf-8"))
     base = page_metadata()
     chunks = []
-    for page in sorted(int(p) for p, v in data["pages"].items() if v["needs_ocr"]):
+    for page in ocr_pages(data):
         text = correct_ocr(page, clean_ocr(data["pages"][str(page)]["ocr"]))
         for index, piece in enumerate(splitter.split_text(text)):
             meta = {**base[page], "text_source": "ocr", "ocr_method": data["method"], "chunk_index": index,

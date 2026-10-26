@@ -54,7 +54,7 @@ def cited_pages(answer: str) -> set[int]:
 
 
 # Where the KB text layer lost a figure: "매달평균 만 천원" (was 17만 8천원), "양육비는 배" (1.3배).
-_DROPPED_FIGURE = re.compile(r"(?<![0-9])\s만\s*천\s*원|(?<![0-9])\s만\s+원|[은는]\s배\s")
+DROPPED_FIGURE = re.compile(r"(?<![0-9])\s만\s*천\s*원|(?<![0-9:])\s만\s*원|[은는]\s배\s")
 
 
 def evidence_for_display(rows: list[dict], answer: str) -> list[dict]:
@@ -69,7 +69,7 @@ def evidence_for_display(rows: list[dict], answer: str) -> list[dict]:
     scanned = {(row.get("source"), row.get("page")) for row in rows if row.get("scanned")}
     kept = [row for row in rows
             if row.get("scanned") or (row.get("source"), row.get("page")) not in scanned
-            or not _DROPPED_FIGURE.search(str(row.get("excerpt", "")))]
+            or not DROPPED_FIGURE.search(str(row.get("excerpt", "")))]
     cited = cited_pages(answer)
     if not any(row.get("page") in cited for row in kept):
         return kept
