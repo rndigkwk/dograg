@@ -196,6 +196,24 @@
 
 - **이 기간의 교훈:** "비활성(`disabled`)으로 두 번 누르기를 막는다"는 흔한 습관이 키보드 사용자에게는 포커스를 잃게 했다. 화면 테스트가 마우스 클릭으로만 짜여 있어서 이 문제를 못 봤다. 이제 키보드 테스트를 따로 둔다.
 
+## 14. 2026-10-24~26: 응급 안내 안의 위치 버튼, API 가볍게, 보고서 근거 정리, 진료비는 통계라고 먼저 말하기
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#318](https://github.com/rndigkwk/dograg/pull/318) | 위치를 허용하지 않고 응급 질문을 하면 응급 안내가 "다음부터 보여 드립니다"만 말했다 | 응급 안내 안에서 버튼 한 번으로 가까운 병원 3곳 + 24시·응급 2곳(모델 호출 0) | `GET /places/emergency`, 응급 안내 안 `현재 위치로 가까운 병원 보기` |
+| [#319](https://github.com/rndigkwk/dograg/pull/319), [#320](https://github.com/rndigkwk/dograg/pull/320) | 외부 재검토: 시설 전화번호가 비거나 지역번호가 빠졌다, 로그인 전에는 저장 위치를 페이지를 열어야 알았다 | 병원 전화 없음 2,428/5,459(44%), 지역번호 없는 번호 115개 → 주소로 지역번호를 붙임 | 빈 번호는 '없음', README에 결측 비율, 메뉴에 "이 기기"·"로그인 필요" |
+| [#321](https://github.com/rndigkwk/dograg/pull/321) | API가 `st.cache_resource` 하나 때문에 Streamlit을, 시·도 이름 정리 때문에 plotly를 불러왔다 | 패키지 150 → **131**, `import api.main` 13.2~15.4 → **8.3~8.9초**, 메모리 219 → **128MB** | 프로세스 캐시 `src/cache.py`, 화면 라이브러리는 `ui` 그룹으로 빼고 API 이미지는 `--no-default-groups` |
+| [#322](https://github.com/rndigkwk/dograg/pull/322) | 건강 질문은 근거 평가가 약 3초에 끝나는데 첫 글자는 13초였다 | 근거가 첫 글자보다 약 **3초 먼저** 화면에 나옴(모델 호출 수 같음) | 근거가 통과하면 `evidence` 이벤트를 먼저 보냄 |
+| [#323](https://github.com/rndigkwk/dograg/pull/323) | `Chat.tsx`가 응급 박스·메시지·상태를 한 파일에 담았다 | 동작 그대로 | 세 부분으로 나눔 |
+| [#324](https://github.com/rndigkwk/dograg/pull/324) | 10-15 이후 "자료에 없다" 답 17건 중 6건이 집에서 하는 관리법이 없음 | 해당 답 끝에 고정 안내 한 줄(모델 호출 0, 응급이면 붙이지 않음) | 답변 레일 `ANS-03 home_care_note` |
+| [#325](https://github.com/rndigkwk/dograg/pull/325), [#326](https://github.com/rndigkwk/dograg/pull/326) | 기능별 응답 시간을 잰 적이 없었고, 문서만 바뀐 PR도 API를 다시 배포했다 | 잠든 API 첫 `/health` **22.8초**, 건강 답 첫 글자 중앙 6.1초·끝 7.1초, 방문 준비 보고서 51초, 조회 API 0.1~0.3초 | `scripts/measure_latency_by_feature.py`, 배포가 `docs/**`·`*.md`만 바뀌면 건너뜀 |
+| [#327](https://github.com/rndigkwk/dograg/pull/327), [#329](https://github.com/rndigkwk/dograg/pull/329), [#332](https://github.com/rndigkwk/dograg/pull/332) | 외부 재검토(Fable): 보고서 근거 카드가 11장이고 금액이 빠진 조각("평균 만 천원")이 보였다. 확인해 보니 숫자를 잃은 쪽은 OCR이 아니라 PDF 글 층이었다 | 운영 카드 11 → **9장**, 인용된 쪽이 먼저. 금액을 잃었는데 OCR 조각이 없던 p.70·82에 4조각 추가, 정답 쪽 적중 35/36 그대로 | 빠진 자리 패턴(`DROPPED_FIGURE`)으로 PDF 조각을 숨기고, 같은 패턴으로 OCR 대상 쪽을 정함 |
+| [#328](https://github.com/rndigkwk/dograg/pull/328) | "검수 통과"만으로는 무엇을 대조했는지 보이지 않았다 | 운영 보고서 "주장 14개 모두 근거 확인" | 검수자가 센 주장 수를 결과에 넣음 |
+| [#330](https://github.com/rndigkwk/dograg/pull/330), [#331](https://github.com/rndigkwk/dograg/pull/331), [#333](https://github.com/rndigkwk/dograg/pull/333) | 진료비가 병원 가격표처럼 읽혔고, 지역을 준 방문 준비 보고서에도 비용 조사가 빠질 때가 있었다 | 지역을 주면 계획에 병원·비용 조사가 항상 들어감(운영: "증상, 증상, 병원, 비용", 46초, 통과) | 진료비 답·탭·보고서 맨 위에 "실제 가격이 아닙니다. 농림축산식품부 2025 조사의 지역 통계(중간값·평균)", 지역 없이 만든 보고서는 이유를 쓰고 아래에서 지역을 고르면 병원·진료비를 채움(모델 호출 0) |
+
+- **외부 재검토를 다루는 법:** 다른 모델이 쓴 재검토(Fable)는 지적 하나하나를 운영에서 다시 확인한 뒤에만 고쳤다. 카드 수와 숫자 빠진 근거는 맞았고, "지역을 줘도 병원이 빠진다"는 다시 해 보니 나오지 않았다. 고치는 방향("OCR 조각을 숨긴다")은 반대였다. 실제로 숫자를 잃은 것은 PDF 조각이었다.
+- **이 기간의 교훈:** "숫자가 없는 조각"이라는 첫 기준(#327)은 다른 숫자가 26개 남은 p.62를 놓쳤다. 무엇이 빠졌는지("만 천원" 같은 빈자리)를 직접 찾는 기준(#329)이 맞았고, 같은 기준으로 OCR이 필요한 쪽도 찾을 수 있었다(#332).
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -510,3 +528,20 @@
 | [313](https://github.com/rndigkwk/dograg/pull/313) | 2026-10-24 | ci: 실행기를 ubuntu-24.04로 고정 |
 | [314](https://github.com/rndigkwk/dograg/pull/314) | 2026-10-24 | feat(web): 키보드만으로 쓰기 (건너뛰기·포커스 테두리·메뉴·채팅·탭) |
 | [316](https://github.com/rndigkwk/dograg/pull/316) | 2026-10-24 | feat(web): 키보드 점검 2 (방문 준비 보고서·시설 찾기) |
+| [317](https://github.com/rndigkwk/dograg/pull/317) | 2026-10-24 | docs: 10-24 작업 정리 (개선 기록 13절, 최소 권한 진행 상황) |
+| [318](https://github.com/rndigkwk/dograg/pull/318) | 2026-10-24 | feat: 응급 안내 안에 위치 버튼, 누르면 가까운 병원을 그 자리에 |
+| [319](https://github.com/rndigkwk/dograg/pull/319) | 2026-10-24 | feat: 시설 전화번호에 지역번호 붙이기, 빈 번호는 '없음', README에 결측 비율 |
+| [320](https://github.com/rndigkwk/dograg/pull/320) | 2026-10-24 | feat(web): 로그인 전 '우리 아이' 메뉴에 저장 위치 표시 |
+| [321](https://github.com/rndigkwk/dograg/pull/321) | 2026-10-24 | perf(api): API 프로세스와 이미지에서 Streamlit·차트 라이브러리 빼기 |
+| [322](https://github.com/rndigkwk/dograg/pull/322) | 2026-10-24 | feat(chat): 답변을 쓰는 동안 근거를 먼저 보여 주기 |
+| [323](https://github.com/rndigkwk/dograg/pull/323) | 2026-10-24 | refactor(web): Chat.tsx를 응급 박스·메시지 화면·채팅 상태로 나누기 |
+| [324](https://github.com/rndigkwk/dograg/pull/324) | 2026-10-24 | feat(health): 자료에 집 관리법이 없을 때 고정 안내 한 줄 (레일 ANS-03) |
+| [325](https://github.com/rndigkwk/dograg/pull/325) | 2026-10-25 | docs(wiki): 기능별 응답 시간 실측과 #321 Cloud Run 시작 시간 |
+| [326](https://github.com/rndigkwk/dograg/pull/326) | 2026-10-25 | ci(deploy): 문서·Markdown만 바뀌면 Cloud Run 배포 건너뛰기 |
+| [327](https://github.com/rndigkwk/dograg/pull/327) | 2026-10-25 | feat(report): 답에 인용된 보고서 쪽을 먼저, 숫자 빠진 PDF 조각은 숨김 |
+| [328](https://github.com/rndigkwk/dograg/pull/328) | 2026-10-25 | feat(visit-prep): 검수 통과 옆에 대조한 주장 수 표시 |
+| [329](https://github.com/rndigkwk/dograg/pull/329) | 2026-10-25 | fix(report): 숫자 빠진 PDF 조각을 '숫자 없음' 대신 빠진 자리로 찾기 |
+| [330](https://github.com/rndigkwk/dograg/pull/330) | 2026-10-26 | feat(visit-prep): 지역을 받으면 진료비도 조사, 진료비는 조사 통계임을 고정 문구로, 지역 없으면 이유 표시 |
+| [331](https://github.com/rndigkwk/dograg/pull/331) | 2026-10-26 | feat(fees): 진료비는 농림축산식품부 지역 통계이고 실제 가격이 아님을 맨 위에 강조 |
+| [332](https://github.com/rndigkwk/dograg/pull/332) | 2026-10-26 | feat(report): 숫자가 빠졌는데 숫자 차이 기준에 안 걸린 KB 쪽(p.70·82)에도 OCR 조각 |
+| [333](https://github.com/rndigkwk/dograg/pull/333) | 2026-10-26 | feat(visit-prep): 지역 없이 만든 보고서 아래에서 지역을 골라 병원·진료비 채우기 |
