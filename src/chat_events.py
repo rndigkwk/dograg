@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from src.chat_graph import HEALTH_PART_HEADING, answer_documents
+from src.health_answers import evidence_row
 from src.tools.places import emergency_hospitals
 
 ROUTE_PROGRESS = {
@@ -52,7 +53,7 @@ def evidence_first(node: str, update: dict, top_k: int) -> list[dict] | None:
     The grade passes 3 s in and the answer's first token comes about 10 s later (the model's
     reasoning, 2026-10-24 probe). These are the rows the result sends as evidence_rows."""
     if node == "health_grade" and update.get("documents"):
-        return [doc.metadata for doc in answer_documents(update["documents"], top_k)]
+        return [evidence_row(doc) for doc in answer_documents(update["documents"], top_k)]
     return None
 
 def find_emergency_hospitals(location) -> dict:

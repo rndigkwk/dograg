@@ -29,6 +29,7 @@ from src.crag import (
     merge_documents,
     needs_decomposition,
 )
+from src.health_answers import evidence_row
 from src.home_care import home_care_note
 from src.pii import mask_history, mask_pii
 from src.report_evidence import evidence_for_display
@@ -377,7 +378,7 @@ def build_chat_graph(tools):
         return {
             "guards": [*state.get("guards", []), *guards],
             "answer": with_places(with_fee_pointer(answer, state["question"]), state),
-            "evidence_rows": [doc.metadata for doc in docs],
+            "evidence_rows": [evidence_row(doc) for doc in docs],
             "safety_notice": safety_notice,
         }
 

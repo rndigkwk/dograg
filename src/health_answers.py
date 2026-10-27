@@ -17,6 +17,16 @@ def load_health_answers(csv_path: Path) -> dict[str, str]:
         }
 
 
+def evidence_row(doc) -> dict:
+    """What a screen shows of one retrieved document: its metadata, and for a consultation the
+    other guardian's question too, so the card can be titled by what was asked. The metadata labels
+    (life stage, department, disease) often disagree with the text ("골절" over a question about
+    diarrhoea, review of 2026-10-27), so they are no longer the title. Care guides carry their piece."""
+    if doc.metadata.get("kind") == "care_guide":
+        return doc.metadata
+    return {**doc.metadata, "question": doc.page_content}
+
+
 def attach_health_answers(docs: list, answers: dict[str, str]) -> list:
     """Fill `qa.output` in place for documents whose metadata lacks it."""
     for doc in docs:

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { type Answer, FIRST_STEP, type Pending } from "@/lib/chat";
 import type { Location } from "@/lib/location";
+import { linkCitations } from "@/lib/evidence";
 import { HANDOFF_CUT_KEY, HANDOFF_KEY } from "@/lib/visitPrep";
 
 import Evidence from "./Evidence";
@@ -19,7 +20,7 @@ import Waiting from "./Waiting";
 
 export function AnswerView({ answer, question, consultation, threadId, onNoteSaved, onRetry, onLocated }: { answer: Answer; question?: string; consultation?: { text: string; cut: boolean }; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void; onLocated?: (location: Location) => void }) {
   return (
-    <>
+    <div data-answer>
       {answer.urgent ? <UrgentBox {...answer.urgent} onLocated={onLocated} /> : null}
       {answer.safetyNotice ? <p role="note" className="mb-3 rounded-lg bg-warn/10 p-3">{answer.safetyNotice}</p> : null}
       {answer.notice ? (
@@ -34,7 +35,8 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
           ) : null}
         </>
       ) : (
-        <Markdown text={answer.content} />
+        // Its [사례 n] open the card below (Evidence), on a health answer that has cards.
+        <Markdown text={answer.route === "rag" && answer.evidenceRows?.length ? linkCitations(answer.content) : answer.content} />
       )}
       {answer.abstained && answer.route === "rag" ? (
         <p className="mt-2 text-sm text-muted">증상이 걱정되면 지역 이름으로 가까운 동물병원을 물어보세요. 예: “강남구 동물병원 알려줘”</p>
@@ -52,7 +54,7 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
           <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
         </>
       )}
-    </>
+    </div>
   );
 }
 

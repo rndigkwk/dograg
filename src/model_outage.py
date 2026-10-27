@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 
+from src.health_answers import evidence_row
 from src.health_safety import detect_urgent_sign
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ def search_only_result(question: str, top_k: int, screen: str = "web", kind: str
             similarity = health.health_top_similarity(question)
             cases = (health.retrieve_health(question, k=top_k)
                      if isinstance(similarity, float) and similarity >= health.HEALTH_SIMILARITY_FLOOR else [])
-            rows = [doc.metadata for doc in [*guides, *cases]]
+            rows = [evidence_row(doc) for doc in [*guides, *cases]]
     except Exception:  # noqa: BLE001 - the notice still goes out without the search
         logger.warning("search-only answer failed", exc_info=True)
     return {

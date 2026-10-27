@@ -12,7 +12,7 @@ from langchain_openai import ChatOpenAI
 
 from src import rails, resources, settings
 from src.cache import cache_resource
-from src.health_answers import attach_health_answers
+from src.health_answers import attach_health_answers, evidence_row
 from src.health_safety import detect_urgent_sign
 from src.tools import history
 from src.tools import profile as pet_profile
@@ -368,7 +368,7 @@ def ask_rag(question, k=DEFAULT_RAG_TOP_K, filters=None, chat_history=None, prof
                                     notes=notes)
     return {
         "answer": answer,
-        "evidence_rows": [doc.metadata for doc in retrieved_docs],
+        "evidence_rows": [evidence_row(doc) for doc in retrieved_docs],
         "safety_notice": safety_notice,
     }
 

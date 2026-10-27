@@ -45,11 +45,16 @@ def _connect():
     return conn
 
 
+# The other guardian's question (src/health_answers.evidence_row) and the vet's answer: a short one
+# would pass the length rule.
+CONSULTATION_TEXT = {"question", "qa.output", "answer"}
+
+
 def evidence_summary(row: dict) -> dict:
     """What identifies an evidence row (labels, source, page), without its long texts (the
     consultation and the vet answer stay in the private data, not in this table)."""
-    return {key: value for key, value in row.items()
-            if isinstance(value, (int, float)) or (isinstance(value, str) and len(value) <= 80)}
+    return {key: value for key, value in row.items() if key not in CONSULTATION_TEXT
+            and (isinstance(value, (int, float)) or (isinstance(value, str) and len(value) <= 80))}
 
 
 def save_review(*, question: str, answer: str, reason: str | None, route: str | None,

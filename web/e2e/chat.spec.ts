@@ -64,6 +64,26 @@ test("a care guide shows among the evidence with its source and link", async ({ 
   await expect(page.getByText("사례 1 · 성견 / 외과 / 기타")).toBeVisible(); // the consultation keeps its own number
 });
 
+test("a consultation card is titled by what was asked, and its citation opens it", async ({ page }) => {
+  await fakeApi(page, [[
+    result("이틀 넘게 설사하면 병원에 가세요. [사례 2]", {
+      evidence_rows: [
+        { "meta.lifeCycle": "성견", "meta.department": "외과", "meta.disease": "골절", question: "다리를 절어요", "qa.output": "엑스레이를 찍어 보세요." },
+        { "meta.lifeCycle": "노령견", "meta.department": "내과", "meta.disease": "골절", question: "강아지가 이틀째 설사를 해요", "qa.output": "수액 치료를 합니다." },
+      ],
+    }),
+  ]]);
+  await page.goto("/chat");
+  await ask(page, "강아지가 설사를 해요");
+  const card = page.locator("details", { hasText: "사례 2 · 강아지가 이틀째 설사를 해요" });
+  await expect(card).not.toHaveAttribute("open");
+  await conversation(page).getByRole("link", { name: "사례 2" }).click();
+  await expect(card).toHaveAttribute("open");
+  await expect(card.getByText("수액 치료를 합니다.")).toBeVisible();
+  await expect(card.getByText("자료 분류: 노령견 / 내과 / 골절 (상담 내용과 다를 수 있어요)")).toBeVisible();
+  await expect(page).toHaveURL(/\/chat$/); // not a page anchor
+});
+
 test("an urgent warning comes before the answer, with the nearest hospitals", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 37.5, longitude: 127.03 });
