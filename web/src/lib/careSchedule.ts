@@ -6,6 +6,8 @@
 import type { KeyValue } from "./store";
 
 export const CARE_SCHEDULE_KEY = "ragdog:v1:care_schedule";
+// The next dates the guardian set with the vet (2026-10-27), kept apart from the last-done dates.
+export const CARE_PLANNED_KEY = "ragdog:v1:care_planned";
 export const SOON_DAYS = 7;
 
 const GUIDELINE = "건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인";
@@ -54,7 +56,14 @@ function add(date: Date, unit: "day" | "month", amount: number): Date {
   return target;
 }
 
-export type Due = { from: string; to: string; status: "overdue" | "due" | "soon" | "later"; days: number };
+export type Due = { from: string; to: string; status: "overdue" | "due" | "soon" | "later"; days: number; planned?: boolean };
+
+function standing(from: Date, to: Date, today: Date): Due {
+  const now = startOfDay(today);
+  const days = Math.round((from.getTime() - now.getTime()) / 86_400_000);
+  const status = now > to ? "overdue" : days <= 0 ? "due" : days <= SOON_DAYS ? "soon" : "later";
+  return { from: formatDate(from), to: formatDate(to), status, days };
+}
 
 /** When the item is next due after `last`, and where today stands: overdue after the latest date,
  * due between the earliest and the latest, soon within SOON_DAYS before the earliest, later otherwise.
@@ -62,12 +71,16 @@ export type Due = { from: string; to: string; status: "overdue" | "due" | "soon"
 export function nextDue(item: CareItem, last: string, today = new Date()): Due | null {
   const done = parseDate(last);
   if (!done) return null;
-  const from = add(done, item.interval.unit, item.interval.min);
-  const to = add(done, item.interval.unit, item.interval.max);
-  const now = startOfDay(today);
-  const days = Math.round((from.getTime() - now.getTime()) / 86_400_000);
-  const status = now > to ? "overdue" : days <= 0 ? "due" : days <= SOON_DAYS ? "soon" : "later";
-  return { from: formatDate(from), to: formatDate(to), status, days };
+  return standing(add(done, item.interval.unit, item.interval.min), add(done, item.interval.unit, item.interval.max), today);
+}
+
+/** The item's next date: the one set with the vet while it is still ahead of the last-done date, else
+ * the guide's. The guide never overwrites a set date; doing the item after it retires it. */
+export function scheduleFor(item: CareItem, last: string | undefined, planned: string | undefined, today = new Date()): Due | null {
+  const set = planned ? parseDate(planned) : null;
+  const done = last ? parseDate(last) : null;
+  if (set && (!done || set > done)) return { ...standing(set, set, today), planned: true };
+  return last ? nextDue(item, last, today) : null;
 }
 
 /** Only known items with a real date that is not in the future; anything else read back is dropped. */
@@ -83,10 +96,22 @@ export function cleanRecord(raw: unknown, today = new Date()): CareRecord {
   return record;
 }
 
-/** The items due now or overdue in a record: what the visit report mentions. */
-export function dueItems(record: CareRecord, today = new Date()): CareItem[] {
+/** Set dates by item id, as YYYY-MM-DD: real dates of known items, past or future. */
+export function cleanPlanned(raw: unknown): CareRecord {
+  if (!raw || typeof raw !== "object") return {};
+  const planned: CareRecord = {};
+  for (const item of CARE_ITEMS) {
+    const value = (raw as Record<string, unknown>)[item.id];
+    const date = typeof value === "string" ? parseDate(value) : null;
+    if (date) planned[item.id] = formatDate(date);
+  }
+  return planned;
+}
+
+/** The items due now or overdue: what the visit report mentions. */
+export function dueItems(record: CareRecord, today = new Date(), planned: CareRecord = {}): CareItem[] {
   return CARE_ITEMS.filter((item) => {
-    const due = record[item.id] ? nextDue(item, record[item.id], today) : null;
+    const due = scheduleFor(item, record[item.id], planned[item.id], today);
     return due !== null && (due.status === "overdue" || due.status === "due");
   });
 }
@@ -99,10 +124,18 @@ export function loadRecord(storage: KeyValue | null, today = new Date()): CareRe
   }
 }
 
-export function saveRecord(storage: KeyValue | null, record: CareRecord): void {
+export function loadPlanned(storage: KeyValue | null): CareRecord {
   try {
-    if (Object.keys(record).length) storage?.setItem(CARE_SCHEDULE_KEY, JSON.stringify(record));
-    else storage?.removeItem(CARE_SCHEDULE_KEY);
+    return cleanPlanned(JSON.parse(storage?.getItem(CARE_PLANNED_KEY) ?? "{}"));
+  } catch {
+    return {};
+  }
+}
+
+export function saveRecord(storage: KeyValue | null, record: CareRecord, key = CARE_SCHEDULE_KEY): void {
+  try {
+    if (Object.keys(record).length) storage?.setItem(key, JSON.stringify(record));
+    else storage?.removeItem(key);
   } catch {
     // storage full or blocked: the schedule still shows for this visit
   }

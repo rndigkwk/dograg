@@ -79,6 +79,8 @@ class StartRequest(BaseModel):
     # The care schedule's last-done dates by item (web/src/lib/careSchedule.ts), when the guardian keeps it:
     # the items due or overdue go into the report (src/care_schedule.py works out the dates).
     care: dict[str, str] = Field(default_factory=dict, max_length=10)
+    # The next dates set with the vet by item (careSchedule.ts CARE_PLANNED_KEY): they win over the guide's.
+    planned: dict[str, str] = Field(default_factory=dict, max_length=10)
 
     @field_validator("location")
     @classmethod
@@ -102,9 +104,9 @@ def with_notes(consultation: str, notes: list[Note]) -> str:
     return f"{consultation}\n\n{SAVED_NOTES_HEADING}\n{notes_context(masked)}"
 
 
-def with_care(consultation: str, care: dict[str, str]) -> str:
+def with_care(consultation: str, care: dict[str, str], planned: dict[str, str] | None = None) -> str:
     """The consultation with the care-schedule items that are due or overdue, if any."""
-    section = care_section(care)
+    section = care_section(care, planned=planned)
     return f"{consultation}\n\n{section}" if section else consultation
 
 
@@ -217,7 +219,7 @@ def start(body: StartRequest, request: Request, x_ragdog_client: str | None = He
     visit_prep_store.store().expire(visit_prep_store.now())
     if not _take_report(person, visit_prep_store.now()):
         return _refused("limited", {"message": REPORTS_USED, "wait_minutes": None})
-    return _response(_stream(person, with_notes(with_care(consultation, body.care), body.notes), body.region.strip(), body.profile.strip(), agent,
+    return _response(_stream(person, with_notes(with_care(consultation, body.care, body.planned), body.notes), body.region.strip(), body.profile.strip(), agent,
                              location=body.location), agent=agent)
 
 

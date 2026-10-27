@@ -103,6 +103,13 @@ class VisitPrepApiTests(unittest.TestCase):
         self.assertNotIn("종합백신", consultation)  # done today: not due
         self.assertLess(consultation.index("관리 일정"), consultation.index("지난 상담 기록"))
 
+    def test_a_date_set_with_the_vet_reaches_the_report(self):
+        from datetime import date, timedelta
+
+        set_day = (date.today() - timedelta(days=3)).isoformat()
+        events(self.start(care={"vaccine": date.today().replace(year=date.today().year - 1).isoformat()}, planned={"vaccine": set_day}))
+        self.assertIn(f"수의사와 정한 날 {set_day} — 기한이 지났음", self.team.calls[0][0])
+
     def test_a_schedule_with_nothing_due_adds_nothing(self):
         from datetime import date
 

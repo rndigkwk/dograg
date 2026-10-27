@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CARE_ITEMS, CARE_SCHEDULE_KEY, cleanRecord, dueItems, loadRecord, nextDue, saveRecord } from "./careSchedule";
+import { CARE_ITEMS, CARE_PLANNED_KEY, CARE_SCHEDULE_KEY, cleanPlanned, cleanRecord, dueItems, loadPlanned, loadRecord, nextDue, saveRecord, scheduleFor } from "./careSchedule";
 
 const item = (id: string) => CARE_ITEMS.find((entry) => entry.id === id)!;
 const day = (value: string) => new Date(`${value}T09:00:00`);
@@ -65,5 +65,32 @@ describe("dueItems", () => {
     const record = { rabies: "2025-09-01", vaccine: "2026-10-01", deworming: "2026-06-10", nails: "2026-10-15" };
     expect(dueItems(record, day("2026-10-20")).map((item) => item.id)).toEqual(["deworming", "rabies"]);
     expect(dueItems({}, day("2026-10-20"))).toEqual([]);
+  });
+});
+
+describe("dates set with the vet", () => {
+  it("follow the set date instead of the guide's, until the item is done after it", () => {
+    const heartworm = item("heartworm");
+    // Guide: 2026-10-01 + 1 month = 11-01. The vet said 11-10.
+    expect(scheduleFor(heartworm, "2026-10-01", "2026-11-10", day("2026-11-03"))).toMatchObject({ from: "2026-11-10", to: "2026-11-10", status: "soon", planned: true });
+    expect(scheduleFor(heartworm, undefined, "2026-11-10", day("2026-11-03"))?.planned).toBe(true);
+    // Done on 11-10: the set date is used up, the guide counts from the new last date.
+    const after = scheduleFor(heartworm, "2026-11-10", "2026-11-10", day("2026-11-11"));
+    expect(after?.from).toBe("2026-12-10");
+    expect(after?.planned).toBeUndefined();
+    expect(scheduleFor(heartworm, undefined, undefined)).toBeNull();
+  });
+
+  it("put a set date into the report's due items", () => {
+    expect(dueItems({ vaccine: "2026-03-01" }, day("2026-10-20")).map((i) => i.id)).toEqual([]);
+    expect(dueItems({ vaccine: "2026-03-01" }, day("2026-10-20"), { vaccine: "2026-10-15" }).map((i) => i.id)).toEqual(["vaccine"]);
+  });
+
+  it("are stored apart, future dates kept, unknown ones dropped", () => {
+    const storage = new MemoryStorage();
+    saveRecord(storage, { rabies: "2027-01-05" }, CARE_PLANNED_KEY);
+    expect(loadPlanned(storage)).toEqual({ rabies: "2027-01-05" });
+    expect(storage.getItem(CARE_SCHEDULE_KEY)).toBeNull();
+    expect(cleanPlanned({ rabies: "2027-02-30", nope: "2027-01-01", nails: "2026-12-01" })).toEqual({ nails: "2026-12-01" });
   });
 });
