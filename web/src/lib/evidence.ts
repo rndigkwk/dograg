@@ -5,14 +5,38 @@ export type Row = Record<string, unknown>;
 
 const text = (value: unknown): string => (value === undefined || value === null ? "" : String(value));
 
-/** A health answer's evidence: a vet consultation, labelled by life stage, department, disease.
- * "사례 n" is the number the answer cites ([사례 n], src/citations.py). */
-export function consultation(row: Row, index: number): { title: string; answer: string } {
+export const CASE_TITLE_CHARS = 60; // about one line on a phone
+
+/** A health answer's evidence: a vet consultation, titled by the other guardian's question.
+ * "사례 n" is the number the answer cites ([사례 n], src/citations.py). The life stage, department and
+ * disease labels often disagree with the text ("골절" over a question about diarrhoea, review of
+ * 2026-10-27), so they come second; a row saved before the question was sent keeps them as the title. */
+export function consultation(row: Row, index: number): { title: string; labels: string; question: string; answer: string } {
   const pick = (...keys: string[]) => keys.map((key) => text(row[key])).find(Boolean) || "-";
+  const labels = `${pick("meta.lifeCycle", "lifeCycle")} / ${pick("meta.department", "department")} / ${pick("meta.disease", "disease")}`;
+  const question = text(row.question).trim();
+  const flat = question.split(/\s+/).filter(Boolean).join(" ");
+  const short = flat.length <= CASE_TITLE_CHARS ? flat : `${flat.slice(0, CASE_TITLE_CHARS).trimEnd()}…`;
   return {
-    title: `사례 ${index + 1} · ${pick("meta.lifeCycle", "lifeCycle")} / ${pick("meta.department", "department")} / ${pick("meta.disease", "disease")}`,
+    title: `사례 ${index + 1} · ${short || labels}`,
+    labels,
+    question,
     answer: text(row["qa.output"]) || text(row.answer),
   };
+}
+
+/** The evidence card a citation opens: data-cite on the card, "#cite-..." on the link. */
+export const citeKey = (kind: "case" | "guide", number: number): string => `${kind}-${number}`;
+
+const CITATION = /\[(사례|지침)\s*(\d+(?:\s*[,，]\s*\d+)*)\]/g; // src/citations.py CITATION
+
+/** An answer's [사례 2] and [지침 1, 3] as links to their cards, the brackets kept as text. */
+export function linkCitations(answer: string): string {
+  return answer.replace(CITATION, (_, label: string, numbers: string) => {
+    const kind = label === "사례" ? "case" : "guide";
+    const links = numbers.split(/\s*[,，]\s*/).map((n, i) => `[${i ? "" : `${label} `}${n}](#cite-${citeKey(kind, Number(n))})`);
+    return `\\[${links.join(", ")}\\]`; // escaped: "[" before a link would be read as one
+  });
 }
 
 /** A public care guide (동물사랑배움터, src/tools/care_guides.py) among a health answer's evidence. */

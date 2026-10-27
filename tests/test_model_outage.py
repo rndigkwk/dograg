@@ -80,7 +80,7 @@ class SearchOnlyTests(unittest.TestCase):
 
     def test_near_the_material_the_guides_and_cases_are_shown_with_the_notice(self):
         result, cases = self.search(0.7)
-        self.assertEqual(result["evidence_rows"], [GUIDE.metadata, CASE.metadata])
+        self.assertEqual(result["evidence_rows"], [GUIDE.metadata, {**CASE.metadata, "question": "발톱"}])
         self.assertEqual(result["route"], "rag")
         self.assertTrue(result["answer"].startswith(model_outage.PAUSED))
         self.assertIn(model_outage.FOUND, result["answer"])

@@ -1,13 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { consultation, EXCERPT_PREVIEW_CHARS, guide, isGuide, reportPage } from "./evidence";
+import { CASE_TITLE_CHARS, consultation, EXCERPT_PREVIEW_CHARS, guide, isGuide, linkCitations, reportPage } from "./evidence";
 
 describe("consultation", () => {
-  it("labels a consultation by its metadata, with dashes for what is missing", () => {
+  it("is titled by the other guardian's question, the labels kept second", () => {
+    const question = "저희 강아지가 어제부터   설사를 하고 밥을 잘 안 먹어요. 열은 없는 것 같은데 병원에 가야 할까요? 그리고 사료를 바꿔야 하나요?";
+    const got = consultation({ "meta.lifeCycle": "노령견", "meta.department": "내과", "meta.disease": "골절", question, "qa.output": "수액" }, 1);
+    expect(got.title).toBe(`사례 2 · ${question.replace(/\s+/g, " ").slice(0, CASE_TITLE_CHARS).trimEnd()}…`);
+    expect(got).toMatchObject({ labels: "노령견 / 내과 / 골절", question, answer: "수액" });
+  });
+
+  it("keeps the labels as the title for a row saved before the question was sent, with dashes for what is missing", () => {
     expect(consultation({ "meta.lifeCycle": "성견", "meta.disease": "장염", "qa.output": "수액 치료를 합니다" }, 0)).toEqual({
       title: "사례 1 · 성견 / - / 장염",
+      labels: "성견 / - / 장염",
+      question: "",
       answer: "수액 치료를 합니다",
     });
+  });
+});
+
+describe("linkCitations", () => {
+  it("links each cited number to its card, the brackets kept as text", () => {
+    expect(linkCitations("설사가 계속되면 병원에 가세요. [사례 1] 물을 주세요 [사례 2, 3][지침 1]"))
+      .toBe("설사가 계속되면 병원에 가세요. \\[[사례 1](#cite-case-1)\\] 물을 주세요 \\[[사례 2](#cite-case-2), [3](#cite-case-3)\\]\\[[지침 1](#cite-guide-1)\\]");
+    expect(linkCitations("인용 없음")).toBe("인용 없음");
   });
 });
 

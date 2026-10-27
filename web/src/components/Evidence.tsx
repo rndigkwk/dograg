@@ -1,4 +1,4 @@
-import { consultation, guide, isGuide, reportPage, type Row, SCANNED_NOTE } from "@/lib/evidence";
+import { citeKey, consultation, guide, isGuide, reportPage, type Row, SCANNED_NOTE } from "@/lib/evidence";
 
 import Markdown from "./Markdown";
 
@@ -48,7 +48,7 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
         {guides.map((row, index) => {
           const item = guide(row, index);
           return (
-            <details key={`guide-${index}`} className="rounded-lg border border-line px-3 py-2 text-sm">
+            <details key={`guide-${index}`} data-cite={citeKey("guide", index + 1)} className="rounded-lg border border-line px-3 py-2 text-sm">
               <summary className="cursor-pointer">{item.title}</summary>
               <div className="mt-2 space-y-1">
                 <p className="whitespace-pre-wrap">{item.excerpt}</p>
@@ -70,11 +70,21 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
         {cases.map((row, index) => {
           const item = consultation(row, index);
           return (
-            <details key={index} className="rounded-lg border border-line px-3 py-2 text-sm">
+            <details key={index} data-cite={citeKey("case", index + 1)} className="rounded-lg border border-line px-3 py-2 text-sm">
               <summary className="cursor-pointer">{item.title}</summary>
-              <div className="mt-2">
-                <p className="font-semibold">답변</p>
-                <Markdown text={item.answer} />
+              <div className="mt-2 space-y-2">
+                {item.question ? (
+                  <div>
+                    <p className="font-semibold">다른 보호자의 질문</p>
+                    <p className="whitespace-pre-wrap">{item.question}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="font-semibold">수의사 답변</p>
+                  <Markdown text={item.answer} />
+                </div>
+                {/* The source's labels, which often do not match the text: kept, but last and quiet. */}
+                <p className="text-xs text-muted">자료 분류: {item.labels} (상담 내용과 다를 수 있어요)</p>
               </div>
             </details>
           );

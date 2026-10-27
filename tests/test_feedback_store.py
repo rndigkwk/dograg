@@ -55,6 +55,9 @@ class FeedbackStoreTests(unittest.TestCase):
     def test_evidence_keeps_labels_not_long_texts(self):
         row = {"meta.lifeCycle": "성견", "page": 3, "qa.output": "수의사 답변 " * 40}
         self.assertEqual(feedback_store.evidence_summary(row), {"meta.lifeCycle": "성견", "page": 3})
+        # A short consultation is still the consultation (the card's title since 2026-10-27).
+        short = {"meta.lifeCycle": "성견", "question": "설사해요", "qa.output": "수액"}
+        self.assertEqual(feedback_store.evidence_summary(short), {"meta.lifeCycle": "성견"})
 
 
 if __name__ == "__main__":

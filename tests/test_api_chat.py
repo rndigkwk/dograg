@@ -73,7 +73,8 @@ class ChatTests(unittest.TestCase):
         kinds = [kind for kind, _ in got]
         self.assertEqual(kinds.count("evidence"), 1)
         self.assertLess(kinds.index("evidence"), kinds.index("token"))
-        self.assertEqual(got[kinds.index("evidence")][1]["rows"], [{"id": "0"}, {"id": "1"}, {"id": "2"}])  # top_k
+        self.assertEqual(got[kinds.index("evidence")][1]["rows"],  # top_k, each with the question its card is titled by
+                         [{"id": str(i), "question": "상담"} for i in range(3)])
 
     def test_the_trace_is_sent_before_the_stream_ends(self):
         """The last request before Cloud Run idles lost its trace (src/tracing.flushed, 2026-10-20)."""
