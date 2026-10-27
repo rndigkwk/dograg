@@ -39,7 +39,8 @@ def main() -> int:
     from src import resources
 
     for filename in (resources.HEALTH_ONNX_FILE, "tokenizer.json"):
-        path = hf_hub_download(resources.HEALTH_EMBEDDING_MODEL_NAME, filename, token=token)
+        path = hf_hub_download(resources.HEALTH_EMBEDDING_MODEL_NAME, filename, revision=resources.HEALTH_EMBEDDING_REVISION,
+                               token=token)
         print("model file:", path)
     return 0
 

@@ -43,6 +43,10 @@ HEALTH_COLLECTION_NAME = "pet_care"
 HEALTH_EMBEDDING_MODEL_NAME = "blanden77/ko-sroberta-dograg-b"
 # int8 ONNX export (scripts/export_finetuned_onnx.py); questions are embedded with onnxruntime, not torch.
 HEALTH_ONNX_FILE = "onnx/model_qint8.onnx"
+# The model repo's commit, fixed like the data's (src/private_data.REVISION): a new build of the same
+# code then gets the same model even if the repo moves on (the ONNX export of 2026-10-09). Change it
+# with the Chroma and Supabase vectors, which are this model's.
+HEALTH_EMBEDDING_REVISION = "8c90f9c5903ec49b8349bd08ff888d85b9a4e224"
 # Reports use OpenAI text-embedding-3-small (built by scripts/ingest_openai_chroma.py);
 # the hash suffix pins the exact source PDFs the vectors were built from.
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
@@ -167,7 +171,8 @@ def load_fallback_report_index():
 
 @cache_resource
 def load_health_embeddings():
-    return OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, token=settings.get_setting("HF_TOKEN"))
+    return OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, revision=HEALTH_EMBEDDING_REVISION,
+                                           token=settings.get_setting("HF_TOKEN"))
 
 
 @cache_resource
