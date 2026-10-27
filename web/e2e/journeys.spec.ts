@@ -24,9 +24,13 @@ test("care schedule → home question → two chat turns → citation → visit 
     { "/visit-prep": [["result", REPORT]] },
   );
 
-  // 1. The care schedule: the last rabies shot was over a year ago.
+  // 1. The care schedule: the last rabies shot was over a year ago. The heartworm pill is overdue by
+  // the guide, but the vet set a later date, so it is not due.
   await page.goto("/care");
   await page.getByLabel("광견병 추가접종 마지막으로 한 날").fill("2025-09-01");
+  await page.getByLabel("심장사상충 예방약 마지막으로 한 날").fill("2026-09-10");
+  await page.getByLabel("심장사상충 예방약 수의사와 정한 다음 날").fill("2026-11-15");
+  await expect(page.getByText("다음: 2026-11-15 (수의사와 정한 날)")).toBeVisible();
 
   // 2. A question from the home page, then a follow-up in the chat.
   await page.goto("/");
@@ -41,11 +45,13 @@ test("care schedule → home question → two chat turns → citation → visit 
   await conversation(page).getByRole("link", { name: "사례 1" }).click();
   await expect(card).toHaveAttribute("open");
 
-  // 4. The report gets both questions and the overdue shot, and nothing from the model's answers.
+  // 4. The report gets both questions, the overdue shot and the vet's date, and nothing from the
+  // model's answers. The heartworm pill is not listed as due: the vet's date wins over the guide.
   await page.getByRole("button", { name: "이 상담으로 방문 준비 보고서 만들기" }).last().click();
   await expect(page).toHaveURL(/\/visit-prep$/);
   await expect(page.getByLabel("상담 내용")).toHaveValue("강아지가 어제부터 설사를 해요\n5살이고 7kg입니다. 구토는 없어요");
-  await expect(page.getByText(/관리 일정에서 지금 할 때이거나 기한이 지난 항목 넣기: 광견병 추가접종/)).toBeVisible();
+  // The hint below the list follows the labels directly, so this also fails if another item is listed.
+  await expect(page.getByText(/관리 일정에서 지금 할 때이거나 기한이 지난 항목 넣기: 광견병 추가접종수의사에게/)).toBeVisible();
   await page.getByRole("button", { name: /방문 준비 보고서 만들기/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "검수 통과" })).toBeVisible();
 
@@ -53,7 +59,8 @@ test("care schedule → home question → two chat turns → citation → visit 
   const facts = ["어제부터 설사", "5살", "7kg", "구토는 없어요"];
   expect(facts.filter((fact) => !String(sent.consultation).includes(fact))).toEqual([]);
   expect(String(sent.consultation)).not.toContain("병원에 가세요"); // the model's words stay out
-  expect(sent.care).toEqual({ rabies: "2025-09-01" });
+  expect(sent.care).toEqual({ rabies: "2025-09-01", heartworm: "2026-09-10" });
+  expect(sent.planned).toEqual({ heartworm: "2026-11-15" });
   expect(api.chats.map((chat) => chat.question)).toEqual(["강아지가 어제부터 설사를 해요", "5살이고 7kg입니다. 구토는 없어요"]);
 });
 
