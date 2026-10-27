@@ -20,7 +20,7 @@ import {
 } from "@/lib/visitPrep";
 
 import { type Location, locate } from "@/lib/location";
-import { type CareRecord, dueItems, loadRecord } from "@/lib/careSchedule";
+import { type CareRecord, dueItems, loadPlanned, loadRecord } from "@/lib/careSchedule";
 import { forChat, listNotes, type Note, NOTES_PER_QUESTION, noteDate, notesEnabled } from "@/lib/notes";
 import { browserStorage } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -277,8 +277,9 @@ export default function VisitPrep() {
   const [chosenNotes, setChosenNotes] = useState<Set<string>>(new Set());
   // The care schedule (/care, this browser): its due or overdue items go into the report unless unticked.
   const [care, setCare] = useState<CareRecord>({});
+  const [carePlanned, setCarePlanned] = useState<CareRecord>({});
   const [useCare, setUseCare] = useState(true);
-  const careDue = dueItems(care);
+  const careDue = dueItems(care, new Date(), carePlanned);
 
   useEffect(() => {
     if (!notesOn) {
@@ -314,7 +315,10 @@ export default function VisitPrep() {
       .catch(() => {});
   }, [records]);
 
-  useEffect(() => setCare(loadRecord(browserStorage())), []);
+  useEffect(() => {
+    setCare(loadRecord(browserStorage()));
+    setCarePlanned(loadPlanned(browserStorage()));
+  }, []);
 
   // The next thing to do gets the focus: the answer to the questions, the report, or 이어서 만들기.
   useEffect(() => {
