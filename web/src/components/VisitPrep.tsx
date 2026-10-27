@@ -373,7 +373,7 @@ export default function VisitPrep() {
     const notes = forChat(savedNotes.filter((note) => chosenNotes.has(note.id)));
     void stream(
       "/visit-prep",
-      { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}), ...(notes.length ? { notes } : {}), ...(useCare && careDue.length ? { care } : {}) },
+      { consultation: text, region: region.trim(), profile: profile.trim(), ...(location ? { location } : {}), ...(notes.length ? { notes } : {}), ...(useCare && careDue.length ? { care, ...(Object.keys(carePlanned).length ? { planned: carePlanned } : {}) } : {}) },
       emptyRun(),
     );
   }

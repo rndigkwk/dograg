@@ -4,7 +4,9 @@
 
 The visit report gets the items that are due or overdue (api/visit_prep.py): the browser sends only
 the last-done dates, and the dates and states are worked out here, so the report never repeats a
-number the browser made up.
+number the browser made up. A next date the guardian set with the vet (2026-10-27) is the one
+exception the browser sends: it wins over the guide's while it is ahead of the last-done date, as on
+the page (scheduleFor).
 """
 
 from __future__ import annotations
@@ -13,7 +15,8 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-CARE_HEADING = "[보호자가 기록한 관리 일정: 동물사랑배움터 「건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인」의 주기로 계산한 다음 날짜]"
+CARE_HEADING = ("[보호자가 기록한 관리 일정: 동물사랑배움터 「건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인」의 주기로 계산한 다음 날짜,"
+                " 또는 보호자가 수의사와 정한 다음 날짜]")
 
 
 @dataclass(frozen=True)
@@ -54,8 +57,9 @@ def next_due(item: CareItem, last: date, today: date) -> tuple[date, date, str]:
     return earliest, latest, state
 
 
-def clean_record(raw: dict | None, today: date) -> dict[str, date]:
-    """Known items with a real date that is not in the future; anything else is dropped."""
+def clean_record(raw: dict | None, today: date | None) -> dict[str, date]:
+    """Known items with a real date, not in the future unless `today` is None (the set dates);
+    anything else is dropped."""
     record = {}
     for item_id, value in (raw or {}).items():
         if item_id not in ITEMS_BY_ID or not isinstance(value, str):
@@ -64,18 +68,26 @@ def clean_record(raw: dict | None, today: date) -> dict[str, date]:
             day = date.fromisoformat(value)
         except ValueError:
             continue
-        if day <= today:
+        if today is None or day <= today:
             record[item_id] = day
     return record
 
 
-def due_lines(raw: dict | None, today: date | None = None) -> list[str]:
+def due_lines(raw: dict | None, today: date | None = None, planned: dict | None = None) -> list[str]:
     """One line per item that is overdue or due now, for the report; nothing for the rest."""
     today = today or date.today()
     record = clean_record(raw, today)
+    set_dates = clean_record(planned, None)
     lines = []
     for item in CARE_ITEMS:
-        last = record.get(item.id)
+        last, set_day = record.get(item.id), set_dates.get(item.id)
+        if set_day and (last is None or set_day > last):
+            if set_day > today:
+                continue
+            status = "기한이 지났음" if set_day < today else "지금 할 때"
+            done = f"마지막 {last.isoformat()}, " if last else ""
+            lines.append(f"- {item.label}: {done}수의사와 정한 날 {set_day.isoformat()} — {status}")
+            continue
         if last is None:
             continue
         earliest, latest, state = next_due(item, last, today)
@@ -87,6 +99,6 @@ def due_lines(raw: dict | None, today: date | None = None) -> list[str]:
     return lines
 
 
-def care_section(raw: dict | None, today: date | None = None) -> str:
-    lines = due_lines(raw, today)
+def care_section(raw: dict | None, today: date | None = None, planned: dict | None = None) -> str:
+    lines = due_lines(raw, today, planned)
     return f"{CARE_HEADING}\n" + "\n".join(lines) if lines else ""
