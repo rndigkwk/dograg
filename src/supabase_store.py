@@ -149,10 +149,13 @@ class PgroongaIndex(_Table):
 
 
 class Breaker:
-    """After a database error, send searches to the local stores for `cooldown` seconds."""
+    """After a database error, send searches to the local stores for `cooldown` seconds (also the
+    OpenAI breaker of src/resources.py, with its own name and cooldown)."""
 
-    def __init__(self, cooldown: float = 300.0, clock: Callable[[], float] = time.monotonic):
+    def __init__(self, cooldown: float = 300.0, clock: Callable[[], float] = time.monotonic,
+                 name: str = "Supabase search", instead: str = "local search"):
         self.cooldown, self.clock = cooldown, clock
+        self.name, self.instead = name, instead
         self.open_until = 0.0
         self.failures = 0
 
@@ -160,11 +163,11 @@ class Breaker:
     def open(self) -> bool:
         return self.clock() < self.open_until
 
-    def trip(self, error: BaseException) -> None:
+    def trip(self, error: BaseException | None = None) -> None:
         self.failures += 1
         self.open_until = self.clock() + self.cooldown
-        logger.warning("Supabase search failed (%s: %s); using local search for %.0fs",
-                       type(error).__name__, error, self.cooldown)
+        reason = f" ({type(error).__name__}: {error})" if error is not None else ""
+        logger.warning("%s failed%s; using %s for %.0fs", self.name, reason, self.instead, self.cooldown)
 
 
 def database_errors() -> tuple[type[BaseException], ...]:
