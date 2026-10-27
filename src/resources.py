@@ -324,6 +324,12 @@ OPENAI_FAULT = "openai"
 UNREACHABLE_OPENAI_URL = "http://127.0.0.1:9/v1"
 
 
+def openai_max_retries() -> int:
+    """No retry of OpenAI when Claude is behind it: a failed call takes 6.6 s with its retry (the
+    drill, 2026-10-27), and a health question makes 8-10 calls (73 s in all)."""
+    return 0 if settings.get_setting("ANTHROPIC_API_KEY") else MODEL_MAX_RETRIES
+
+
 def openai_base_url() -> str | None:
     """None (OpenAI) except in the drill."""
     return UNREACHABLE_OPENAI_URL if settings.get_setting("RAGDOG_FAULT") == OPENAI_FAULT else None
@@ -361,7 +367,7 @@ def load_review_model():
         return None
     effort = settings.get_setting("CRAG_REVIEW_REASONING_EFFORT") or REVIEW_REASONING_EFFORT
     return with_claude_fallback(ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
-                                           timeout=REVIEW_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
+                                           timeout=REVIEW_TIMEOUT_SECONDS, max_retries=openai_max_retries(),
                                            base_url=openai_base_url()),
                                 REVIEW_TIMEOUT_SECONDS)
 
@@ -374,6 +380,6 @@ def load_chat_model():
     # CHAT_REASONING_EFFORT: "none", "low", "medium" (the model default when unset), "high".
     effort = settings.get_setting("CHAT_REASONING_EFFORT")
     return with_claude_fallback(
-        ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, timeout=CHAT_TIMEOUT_SECONDS, max_retries=MODEL_MAX_RETRIES,
+        ChatOpenAI(model=CHAT_MODEL_NAME, api_key=api_key, timeout=CHAT_TIMEOUT_SECONDS, max_retries=openai_max_retries(),
                    base_url=openai_base_url(), **({"reasoning_effort": effort} if effort else {})),
         CHAT_TIMEOUT_SECONDS)
