@@ -163,3 +163,16 @@ test("an overdue care-schedule item goes with the report unless unticked", async
   await expect.poll(() => api.posts.length).toBe(2);
   expect(api.posts[1].body).toEqual({ consultation: "설사를 해요", region: "", profile: "" });
 });
+
+test("the chat carries every health question of the conversation to the report, not only the last", async ({ page }) => {
+  await fakeApi(page, [[result("첫 답")], [result("이어진 답")]]);
+  await page.goto("/chat");
+  await ask(page, "강아지가 어제부터 설사를 해요");
+  await expect(page.getByText("첫 답")).toBeVisible();
+  await ask(page, "5살이고 7kg입니다. 구토는 없어요");
+  await expect(page.getByText("이어진 답")).toBeVisible();
+  await page.getByRole("button", { name: "이 상담으로 방문 준비 보고서 만들기" }).last().click();
+  await expect(page).toHaveURL(/\/visit-prep$/);
+  await expect(page.getByLabel("상담 내용")).toHaveValue("강아지가 어제부터 설사를 해요\n5살이고 7kg입니다. 구토는 없어요");
+  await expect(page.getByText(/상담이 길어/)).toHaveCount(0);
+});
