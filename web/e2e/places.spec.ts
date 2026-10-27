@@ -29,6 +29,9 @@ const PLACES = {
   "/places/hospital-1": hospital(1, { info_lines: ["운영시간: 매일 09:00~21:00"] }),
 };
 
+const friendly = (n: number, name: string, category: string, info: Record<string, string>) =>
+  hospital(n, { id: `pet-${n}`, kind: "pet_friendly", name, category, info, address: `서울특별시 마포구 ${name}길 ${n}` });
+
 test("places are found by region and opened on the map", async ({ page }) => {
   const api = await fakeApi(page, [], PLACES);
   await page.goto("/places");
@@ -55,7 +58,8 @@ test("the nearest places use the browser's position; kinds without coordinates s
   const api = await fakeApi(page, [], PLACES);
   await page.goto("/places");
   await page.getByRole("button", { name: /현재 위치 사용/ }).click();
-  await expect(page.getByRole("cell", { name: "0.42km" })).toBeVisible();
+  // A cell on a wide screen, a card on a phone (the other one is hidden).
+  await expect(page.getByText("0.42km").filter({ visible: true })).toBeVisible();
   expect(api.gets.some((path) => path.startsWith("/places/nearby?kind=hospital&lat=37.5&lon=127.03"))).toBe(true);
 
   await page.locator("label", { hasText: "장묘업체" }).click();
@@ -108,4 +112,36 @@ test("the mouse wheel over the map zooms it", async ({ page, isMobile }) => {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, -400);
   await expect.poll(gap).toBeGreaterThan(before * 1.5);
+});
+
+test("pet-friendly places read as cards on a phone, narrow by name and category, and open directions", async ({ page }) => {
+  const cafe = friendly(1, "멍멍카페", "카페", { size: "모두 가능", restrictions: "목줄 착용", extra_fee: "없음", written: "2022-11-30" });
+  const pension = friendly(2, "바다펜션", "펜션", { size: "소형견", extra_fee: "1만원" });
+  await fakeApi(page, [], {
+    ...PLACES,
+    "/places/kinds": [{ kind: "pet_friendly", label: "반려동물 동반 시설", has_location: true, source }],
+    "/places/search": { total: 2, places: [cafe, pension] },
+    "/places/pet-1": { ...cafe, info_lines: ["입장 가능 크기: 모두 가능"] },
+  });
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/places");
+  await page.getByLabel("시/군/구").selectOption("강남구");
+  await page.getByRole("button", { name: "조회" }).click();
+
+  const cards = page.getByRole("list", { name: "장소 목록" }).getByRole("listitem");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.first()).toContainText("목줄 착용");
+  await expect(cards.first()).toContainText("정보 작성일2022-11-30");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); // no sideways scroll
+
+  await page.getByLabel("업종").selectOption("펜션");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText("바다펜션");
+  await page.getByLabel("업종").selectOption("");
+  await page.getByPlaceholder("이름이나 주소로 좁히기").fill("멍멍");
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByText("1곳이 조건에 맞습니다.")).toBeVisible();
+
+  await cards.first().getByRole("link", { name: "멍멍카페" }).click();
+  await expect(page.getByRole("link", { name: "카카오맵에서 길찾기" })).toHaveAttribute("href", /^https:\/\/map\.kakao\.com\/link\/to\/.+,37\.501,127\.03$/);
 });

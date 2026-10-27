@@ -20,6 +20,16 @@ export type Place = {
   distance_km?: number;
 };
 
+// pet_friendly details on a phone's card: the conditions first, then the information's own date
+// (the source's 최종작성일; some are years old, so the card says when, not "now").
+export const CARD_INFO: [key: string, label: string][] = [
+  ["size", "입장 가능 크기"],
+  ["restrictions", "제한사항"],
+  ["extra_fee", "추가 요금"],
+  ["hours", "운영시간"],
+  ["written", "정보 작성일"],
+];
+
 // pet_friendly details worth a column; the rest show on the place view (app_pages/hospital.py).
 export const TABLE_INFO: [key: string, label: string][] = [
   ["size", "입장 가능 크기"],
@@ -46,6 +56,26 @@ export const nearby = (kind: string, [lat, lon]: [number, number]) => get<{ plac
 // An urgent warning's hospitals (nearest, and nearest named 24시/응급/야간), the same /chat sends.
 export const emergency = ([lat, lon]: [number, number]) => get<Emergency>("/places/emergency", { lat, lon });
 export const place = (id: string) => get<Place>(`/places/${encodeURIComponent(id)}`);
+
+/** The places a name or address contains `query` in, of `category` when one is picked. */
+export function filterPlaces(places: Place[], query: string, category: string): Place[] {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return places.filter((p) => (!category || p.category === category)
+    && words.every((word) => `${p.name} ${p.address ?? ""}`.toLowerCase().includes(word)));
+}
+
+/** The categories among the places, most common first (카페, 펜션, 숙박…), for the filter. */
+export function categoriesOf(places: Place[]): string[] {
+  const counts = new Map<string, number>();
+  for (const p of places) if (p.category) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).map(([name]) => name);
+}
+
+/** Directions in Kakao Map to the place, or null without coordinates. */
+export function directionsUrl(p: Place): string | null {
+  if (p.latitude === null || p.longitude === null) return null;
+  return `https://map.kakao.com/link/to/${encodeURIComponent(p.name.replace(/,/g, " "))},${p.latitude},${p.longitude}`;
+}
 
 export function located(places: Place[]): (Place & { latitude: number; longitude: number })[] {
   return places.filter((p): p is Place & { latitude: number; longitude: number } => p.latitude !== null && p.longitude !== null);
