@@ -512,6 +512,11 @@ class StreamingTests(ChatGraphTestCase):
 
     def test_progress_messages_follow_the_graph(self):
         self.assertIn("건강 상담", rag.progress_message("classify", {"route": "rag"}))
+        self.assertEqual(rag.progress_message("classify", {"route": "sql"}), "동물병원을 찾고 있습니다…")
+        self.assertEqual(rag.progress_message("classify", {"route": "sql", "contextual_question": "마포구 동물약국 알려줘"}),
+                         "동물약국을 찾고 있습니다…")
+        self.assertEqual(rag.progress_message("classify", {"route": "sql", "contextual_question": "애견미용 어디야?\n강남구는?"}),
+                         "동물미용업체를 찾고 있습니다…")
         self.assertIn("확인", rag.progress_message("health_retrieve", {}))
         self.assertIn("답변", rag.progress_message("health_grade", {"documents": [doc("a")]}))
         self.assertIn("다시 찾고", rag.progress_message("health_grade", {"documents": []}))
