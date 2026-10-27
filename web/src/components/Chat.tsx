@@ -14,6 +14,7 @@ import { isEmpty, type MemorySuggestion, type PetProfile } from "@/lib/profile";
 
 import { type ChatNote, forChat, listNotes, notesEnabled } from "@/lib/notes";
 import { supabase } from "@/lib/supabase";
+import { consultationFrom } from "@/lib/visitPrep";
 
 import { useAuth } from "./AuthProvider";
 import { AnswerView, Bubble, PendingView } from "./ChatMessages";
@@ -400,6 +401,7 @@ export default function Chat() {
                 <AnswerView
                   answer={message}
                   question={askedBefore(messages, index)}
+                  consultation={consultationFrom(messages, index)}
                   threadId={current}
                   onNoteSaved={() => setNotesVersion((v) => v + 1)}
                   onLocated={located}
