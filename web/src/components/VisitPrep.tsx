@@ -10,6 +10,7 @@ import {
   applyVisitEvent,
   emptyRun,
   EXPIRED,
+  HANDOFF_CUT_KEY,
   HANDOFF_KEY,
   MAX_ANSWER_CHARS,
   MAX_CONSULTATION_CHARS,
@@ -234,6 +235,7 @@ function districtOf(address: string | null | undefined): string {
 /** The visit-prep report page (app_pages/visit_prep.py): consultation in, a reviewed report out. */
 export default function VisitPrep() {
   const [consultation, setConsultation] = useState("");
+  const [carriedCut, setCarriedCut] = useState(false); // the chat's questions did not all fit
   const [region, setRegion] = useState("");
   // "현재 위치 사용": the team lists the nearest hospitals by distance (api/visit_prep.py). Not stored.
   const [location, setLocation] = useState<Location | null>(null);
@@ -328,7 +330,9 @@ export default function VisitPrep() {
       const carried = sessionStorage.getItem(HANDOFF_KEY);
       if (carried) {
         setConsultation(carried.slice(0, MAX_CONSULTATION_CHARS));
+        setCarriedCut(sessionStorage.getItem(HANDOFF_CUT_KEY) === "1");
         sessionStorage.removeItem(HANDOFF_KEY);
+        sessionStorage.removeItem(HANDOFF_CUT_KEY);
       }
     } catch {
       // storage blocked: the box starts empty
@@ -399,6 +403,11 @@ export default function VisitPrep() {
             className={field}
           />
         </label>
+        {carriedCut ? (
+          <p role="note" className="text-sm text-warn-strong">
+            상담이 길어 앞 {MAX_CONSULTATION_CHARS}자만 가져왔습니다. 뒤쪽에 빠진 증상이나 시점이 있으면 고쳐 적어 주세요.
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block">

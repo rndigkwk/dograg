@@ -121,9 +121,9 @@ def is_contents_page(text: str) -> bool:
 
 def embed(texts: list[str]) -> np.ndarray:
     from src.onnx_embeddings import OnnxSentenceEmbeddings
-    from src.resources import HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE
+    from src.resources import HEALTH_EMBEDDING_MODEL_NAME, HEALTH_EMBEDDING_REVISION, HEALTH_ONNX_FILE
 
-    model = OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE)
+    model = OnnxSentenceEmbeddings.from_hub(HEALTH_EMBEDDING_MODEL_NAME, HEALTH_ONNX_FILE, revision=HEALTH_EMBEDDING_REVISION)
     vectors = np.asarray(model.embed_documents(texts), dtype=np.float32)
     return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
 

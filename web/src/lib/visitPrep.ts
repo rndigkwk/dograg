@@ -1,6 +1,7 @@
 // The visit-prep report (api/visit_prep.py): one streamed run that may pause to ask the guardian,
 // then resume with the answer. Pure state, tested in visitPrep.test.ts.
 
+import type { Message } from "./chat";
 import type { StreamEvent } from "./sse";
 
 export const MAX_CONSULTATION_CHARS = 500; // src/visit_prep_runs.py
@@ -11,6 +12,22 @@ export const EXPIRED = "질문을 받은 지 30분이 지나 답변 대기가 �
 // A consultation carried from the chat ("이 상담으로 방문 준비 보고서 만들기"): in sessionStorage,
 // not in the URL, so the text stays out of browser history and server logs.
 export const HANDOFF_KEY = "ragdog:v1:visit_prep_consultation";
+// Set with HANDOFF_KEY when the carried consultation did not fit MAX_CONSULTATION_CHARS.
+export const HANDOFF_CUT_KEY = "ragdog:v1:visit_prep_consultation_cut";
+
+/** What the chat carries to the report: the guardian's own words, each health question of the
+ * conversation up to the answer at `index`, oldest first. Only the last question went before
+ * (2026-10-27): "어제부터" in the first turn was lost. Not the answers: the report should start from
+ * what the guardian said, not from the model's advice. `cut` when it does not fit, so the page says so. */
+export function consultationFrom(messages: Message[], index: number): { text: string; cut: boolean } {
+  const asked: string[] = [];
+  messages.slice(0, index + 1).forEach((message, i) => {
+    const reply = messages[i + 1];
+    if (message.role === "user" && reply?.role === "assistant" && reply.route === "rag" && !reply.notice) asked.push(message.content.trim());
+  });
+  const text = asked.filter(Boolean).join("\n");
+  return { text: text.slice(0, MAX_CONSULTATION_CHARS), cut: text.length > MAX_CONSULTATION_CHARS };
+}
 
 export type Report = {
   report: string;

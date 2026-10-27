@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { type Answer, FIRST_STEP, type Pending } from "@/lib/chat";
 import type { Location } from "@/lib/location";
 import { linkCitations } from "@/lib/evidence";
-import { HANDOFF_KEY, MAX_CONSULTATION_CHARS } from "@/lib/visitPrep";
+import { HANDOFF_CUT_KEY, HANDOFF_KEY } from "@/lib/visitPrep";
 
 import Evidence from "./Evidence";
 import Feedback from "./Feedback";
@@ -18,7 +18,7 @@ import Waiting from "./Waiting";
 
 // One turn of the chat: a finished answer with what goes under it, the answer being written, a bubble.
 
-export function AnswerView({ answer, question, threadId, onNoteSaved, onRetry, onLocated }: { answer: Answer; question?: string; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void; onLocated?: (location: Location) => void }) {
+export function AnswerView({ answer, question, consultation, threadId, onNoteSaved, onRetry, onLocated }: { answer: Answer; question?: string; consultation?: { text: string; cut: boolean }; threadId?: string | null; onNoteSaved?: () => void; onRetry?: () => void; onLocated?: (location: Location) => void }) {
   return (
     <div data-answer>
       {answer.urgent ? <UrgentBox {...answer.urgent} onLocated={onLocated} /> : null}
@@ -46,7 +46,7 @@ export function AnswerView({ answer, question, threadId, onNoteSaved, onRetry, o
           <PlaceLinks rows={answer.hospitalRows ?? []} />
           {question && answer.route === "rag" && !answer.abstained ? (
             <>
-              <VisitPrepLink question={question} />
+              <VisitPrepLink consultation={consultation ?? { text: question, cut: false }} />
               <NoteSaver question={question} answer={answer.content} threadId={threadId ?? null} onSaved={onNoteSaved} />
             </>
           ) : null}
@@ -79,16 +79,18 @@ function PlaceLinks({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
-/** Under a health answer: carry the question to the visit-prep page (app_pages/rag.py render_visit_prep_button).
+/** Under a health answer: carry the conversation's questions to the visit-prep page (consultationFrom).
  * Not under an abstention: there was no evidence, and a report would spend 10-20 model calls on the same empty search. */
-function VisitPrepLink({ question }: { question: string }) {
+function VisitPrepLink({ consultation }: { consultation: { text: string; cut: boolean } }) {
   const router = useRouter();
   return (
     <button
       type="button"
       onClick={() => {
         try {
-          sessionStorage.setItem(HANDOFF_KEY, question.slice(0, MAX_CONSULTATION_CHARS));
+          sessionStorage.setItem(HANDOFF_KEY, consultation.text);
+          if (consultation.cut) sessionStorage.setItem(HANDOFF_CUT_KEY, "1");
+          else sessionStorage.removeItem(HANDOFF_CUT_KEY);
         } catch {
           // storage blocked: the page opens with an empty box
         }
