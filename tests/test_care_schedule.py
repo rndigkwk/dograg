@@ -34,6 +34,17 @@ class NextDueTests(unittest.TestCase):
         ])
         self.assertEqual(care.care_section({"vaccine": "2026-03-01"}, TODAY), "")
 
+    def test_a_date_set_with_the_vet_wins_until_the_item_is_done_after_it(self):
+        planned = {"vaccine": "2026-10-15", "rabies": "2026-11-30", "nails": "2026-10-20", "deworming": "2026-05-01", "bogus": "2026-10-01"}
+        lines = care.due_lines({"vaccine": "2026-03-01", "rabies": "2025-09-01", "deworming": "2026-06-10"}, TODAY, planned)
+        self.assertEqual(lines, [
+            # Done (06-10) after the set date (05-01): the guide again.
+            "- 내부 기생충 구충제: 마지막 2026-06-10, 다음 예정 2026-09-10 ~ 2026-12-10 (3~6개월 간격, 지침 40쪽) — 지금 할 때",
+            "- 종합백신(DHPPL) 추가접종: 마지막 2026-03-01, 수의사와 정한 날 2026-10-15 — 기한이 지났음",
+            "- 발톱 손질: 수의사와 정한 날 2026-10-20 — 지금 할 때",
+        ])  # 광견병: overdue by the guide, but the vet set 11-30, still ahead
+        self.assertIn("수의사와 정한", care.care_section({}, TODAY, {"nails": "2026-10-20"}))
+
     def test_the_server_and_the_web_page_use_the_same_items(self):
         web = WEB.read_text(encoding="utf-8")
         found = re.findall(r'\{ id: "(\w+)", label: "([^"]+)", interval: \{ unit: "(\w+)", min: (\d+), max: (\d+) \}, '
