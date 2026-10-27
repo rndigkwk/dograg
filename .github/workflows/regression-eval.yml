@@ -122,6 +122,7 @@ jobs:
           .venv/bin/python scripts/recheck_items.py crag "$RUN_NAME"
           .venv/bin/python scripts/recheck_items.py routing "$RUN_NAME"
           .venv/bin/python scripts/recheck_items.py guard "$RUN_NAME"
+          .venv/bin/python scripts/recheck_items.py guide "$RUN_NAME"  # the missed questions, when a guide rate failed
           .venv/bin/python scripts/check_regression.py crag "$RUN_NAME" routing "$RUN_NAME" guide "$RUN_NAME" visit "$RUN_NAME" guard "$RUN_NAME" answer "$RUN_NAME"
 
       - name: Log to MLflow (DagsHub)
