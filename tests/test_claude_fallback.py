@@ -45,6 +45,12 @@ class FallbackWiringTests(unittest.TestCase):
         self.assertEqual(claude.default_headers, {"anthropic-workspace-id": "test-workspace"})
         self.assertEqual(claude.default_request_timeout, 20)
 
+    def test_openai_is_not_retried_when_claude_is_behind_it(self):
+        with patch.object(resources.settings, "get_setting", side_effect=setting):
+            self.assertEqual(resources.openai_max_retries(), 0)
+        with patch.object(resources.settings, "get_setting", return_value=None):
+            self.assertEqual(resources.openai_max_retries(), resources.MODEL_MAX_RETRIES)
+
     def test_the_outage_drill_points_openai_at_nothing(self):
         with patch.object(resources.settings, "get_setting", return_value="openai"):
             self.assertEqual(resources.openai_base_url(), resources.UNREACHABLE_OPENAI_URL)

@@ -114,7 +114,7 @@ def load_rag_chain():
     # has its own (resources.REVIEW_REASONING_EFFORT).
     effort = settings.get_setting("ANSWER_REASONING_EFFORT") or ANSWER_REASONING_EFFORT
     model = ChatOpenAI(model=resources.CHAT_MODEL_NAME, api_key=api_key, reasoning_effort=effort,
-                       timeout=resources.ANSWER_TIMEOUT_SECONDS, max_retries=resources.MODEL_MAX_RETRIES,
+                       timeout=resources.ANSWER_TIMEOUT_SECONDS, max_retries=resources.openai_max_retries(),
                        base_url=resources.openai_base_url())
     return RAG_PROMPT | resources.with_claude_fallback(model, resources.ANSWER_TIMEOUT_SECONDS) | StrOutputParser()
 
