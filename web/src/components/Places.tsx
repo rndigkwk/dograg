@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { compareText, type RegionFees, regionFees, regionOfAddress } from "@/lib/fees";
 import { locate, type Location } from "@/lib/location";
-import { type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
+import { CARD_INFO, categoriesOf, directionsUrl, filterPlaces, type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
 import { failureMessage } from "@/lib/failure";
 
 import FeeSourceNotice from "./FeeSourceNotice";
@@ -16,38 +16,75 @@ import Icon from "./Icon";
 
 const PlaceMap = dynamic(() => import("./PlaceMap"), { ssr: false, loading: () => <p className="text-sm text-muted">지도를 불러오는 중입니다…</p> });
 
+const phoneLink = (p: Place) => (p.phone ? <a href={`tel:${p.phone.replace(/\D/g, "")}`}>{p.phone}</a> : <span className="text-muted">없음</span>);
+
+/** On a phone, one card a place: the table's seven columns needed sideways scrolling (36rem wide,
+ * review of 2026-10-27). The conditions come first, then where the information is from and when. */
+function PlaceCards({ places, withDistance }: { places: Place[]; withDistance: boolean }) {
+  return (
+    <ul className="space-y-2 sm:hidden" aria-label="장소 목록">
+      {places.map((p) => (
+        <li key={p.id} className="rounded-xl border border-line bg-white p-3 text-sm">
+          <div className="flex items-baseline justify-between gap-2">
+            <Link href={`/places?id=${encodeURIComponent(p.id)}`} className="font-semibold text-accent underline">
+              {p.name}
+            </Link>
+            {withDistance ? <span className="whitespace-nowrap text-muted">{p.distance_km?.toFixed(2)}km</span> : null}
+          </div>
+          {p.category ? <p className="text-xs text-muted">{p.category}</p> : null}
+          {p.kind === "pet_friendly" ? (
+            <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2">
+              {CARD_INFO.map(([key, label]) => (p.info[key] ? (
+                <div key={key} className="contents">
+                  <dt className="text-muted">{label}</dt>
+                  <dd>{p.info[key]}</dd>
+                </div>
+              ) : null))}
+            </dl>
+          ) : null}
+          <p className="mt-1">{p.address ?? "주소 없음"}</p>
+          <p>{phoneLink(p)}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function PlaceTable({ places, withDistance = false }: { places: Place[]; withDistance?: boolean }) {
   const details = places.some((p) => p.kind === "pet_friendly");
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-white">
-      <table className="w-full min-w-[36rem] text-left text-sm">
-        <thead className="bg-page text-muted">
-          <tr>
-            <th className="px-3 py-2">이름</th>
-            <th className="px-3 py-2">주소</th>
-            <th className="px-3 py-2">전화번호</th>
-            {details ? TABLE_INFO.map(([key, label]) => <th key={key} className="px-3 py-2">{label}</th>) : null}
-            {withDistance ? <th className="px-3 py-2">직선거리</th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {places.map((p) => (
-            <tr key={p.id} className="border-t border-line">
-              <td className="px-3 py-2">
-                <Link href={`/places?id=${encodeURIComponent(p.id)}`} className="text-accent underline">
-                  {p.name}
-                </Link>
-                {p.category ? <div className="text-xs text-muted">{p.category}</div> : null}
-              </td>
-              <td className="px-3 py-2">{p.address ?? "주소 없음"}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{p.phone ? <a href={`tel:${p.phone.replace(/\D/g, "")}`}>{p.phone}</a> : <span className="text-muted">없음</span>}</td>
-              {details ? TABLE_INFO.map(([key]) => <td key={key} className="px-3 py-2">{p.info[key] ?? ""}</td>) : null}
-              {withDistance ? <td className="px-3 py-2 whitespace-nowrap">{p.distance_km?.toFixed(2)}km</td> : null}
+    <>
+      <PlaceCards places={places} withDistance={withDistance} />
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-white sm:block">
+        <table className="w-full min-w-[36rem] text-left text-sm">
+          <thead className="bg-page text-muted">
+            <tr>
+              <th className="px-3 py-2">이름</th>
+              <th className="px-3 py-2">주소</th>
+              <th className="px-3 py-2">전화번호</th>
+              {details ? TABLE_INFO.map(([key, label]) => <th key={key} className="px-3 py-2">{label}</th>) : null}
+              {withDistance ? <th className="px-3 py-2">직선거리</th> : null}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {places.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-3 py-2">
+                  <Link href={`/places?id=${encodeURIComponent(p.id)}`} className="text-accent underline">
+                    {p.name}
+                  </Link>
+                  {p.category ? <div className="text-xs text-muted">{p.category}</div> : null}
+                </td>
+                <td className="px-3 py-2">{p.address ?? "주소 없음"}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{phoneLink(p)}</td>
+                {details ? TABLE_INFO.map(([key]) => <td key={key} className="px-3 py-2">{p.info[key] ?? ""}</td>) : null}
+                {withDistance ? <td className="px-3 py-2 whitespace-nowrap">{p.distance_km?.toFixed(2)}km</td> : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -105,9 +142,45 @@ function PlaceView({ id }: { id: string }) {
       {found.category ? <p className="text-sm text-muted">{found.category}</p> : null}
       {found.phone ? <p>전화번호: <a href={`tel:${found.phone.replace(/\D/g, "")}`}>{found.phone}</a></p> : null}
       {found.homepage ? <p><a href={found.homepage} target="_blank" rel="noreferrer" className="text-accent underline">홈페이지</a></p> : null}
+      {directionsUrl(found) ? (
+        <p><a href={directionsUrl(found) ?? ""} target="_blank" rel="noreferrer" className="text-accent underline">카카오맵에서 길찾기</a></p>
+      ) : null}
       {found.info_lines.map((line) => <p key={line}>{line}</p>)}
       <PlaceMap places={[found]} />
     </article>
+  );
+}
+
+/** A region's places, narrowed by name or address and by category (카페, 펜션…), on the table and the map. */
+function ResultFilter({ places }: { places: Place[] }) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const categories = categoriesOf(places);
+  const shown = filterPlaces(places, query, category);
+  const field = "min-h-11 rounded-lg border border-line bg-white px-3";
+  return (
+    <>
+      {places.length > 1 ? (
+        <div className="flex flex-wrap gap-2">
+          <label className="flex-1">
+            <span className="sr-only">이름이나 주소로 좁히기</span>
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이름이나 주소로 좁히기" className={`${field} w-full`} />
+          </label>
+          {categories.length > 1 ? (
+            <label>
+              <span className="sr-only">업종</span>
+              <select value={category} onChange={(event) => setCategory(event.target.value)} className={field}>
+                <option value="">모든 업종</option>
+                {categories.map((name) => <option key={name}>{name}</option>)}
+              </select>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+      {shown.length < places.length ? <p className="text-sm text-muted" role="status">{shown.length.toLocaleString()}곳이 조건에 맞습니다.</p> : null}
+      {shown.length ? <PlaceTable places={shown} /> : <p className="text-sm text-warn-strong">조건에 맞는 곳이 없습니다.</p>}
+      <PlaceMap places={shown} />
+    </>
   );
 }
 
@@ -313,8 +386,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
                 {found.total > found.places.length ? ` 앞의 ${found.places.length.toLocaleString()}곳을 보여 줍니다.` : ""}
               </p>
               {found.kind === "hospital" ? <RegionFeeNote province={found.province} city={found.city} /> : null}
-              <PlaceTable places={found.places} />
-              <PlaceMap places={found.places} />
+              <ResultFilter places={found.places} />
             </>
           ) : (
             <p role="status" className="text-warn-strong">{found.area} 지역의 {label} 정보를 찾지 못했습니다.</p>
