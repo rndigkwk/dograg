@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { askChat, type Memory, warmUp } from "@/lib/api";
@@ -382,7 +383,10 @@ export default function Chat() {
         <div className="flex-1 space-y-4 pb-4" aria-label="대화">
           {messages.length === 0 && !pending ? (
             <p className="rounded-xl bg-accent/5 p-4 text-muted">
-              반려견의 증상, 가까운 병원, 반려동물 관련 보고서 내용을 물어보세요. 응급 징후가 보이면 답보다 먼저 알려 드립니다.
+              반려견의 증상, 가까운 병원, 반려동물 관련 보고서 내용을 물어보세요. 응급 징후가 보이면 답보다 먼저 알려 드립니다.{" "}
+              <Link href="/demo" className="font-semibold text-accent underline">
+                어떻게 답하는지 예시 보기
+              </Link>
             </p>
           ) : null}
           {/* Below the greeting, not above the conversation: it is known only once the browser's records
