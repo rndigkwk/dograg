@@ -134,7 +134,7 @@ docker run --rm -p 8080:8080 --memory=2g --env-file <키만 담은 파일> ragdo
   | revision | 코드의 `REVISION`이 HF에 있는지 |
   | local data | 받아 둔 비공개 데이터가 그 리비전인지 |
   | report table | Supabase 보고서 표와 로컬 정확 검색 저장소의 조각 id와 글(SHA-256)이 모두 같은지 |
-  | health table | 건강 표의 행 수가 같은지 |
+  | health table | 건강 표의 id와 글(SHA-256, DB 안에서 계산)이 모두 같은지, 고르게 뽑은 20행의 벡터가 같은지(float16 오차 안). 2026-10-27 전에는 행 수만 봤다 |
   | api | 운영 API `/health`의 커밋이 HEAD인지 |
 
 - 검증:

@@ -13,7 +13,9 @@ passed. This compares each piece against the checkout and prints the command tha
 2. private data: the code's REVISION is on Hugging Face, and the local files are that revision
 3. Supabase report table: the same chunk ids as the local exact store, and the same text for every
    chunk (text_sha256), so stale OCR chunks show up
-4. Supabase health table: the same number of rows as the local exact store
+4. Supabase health table: the same ids and text (hashed in the database) as the local exact store,
+   and for 20 rows the same vectors: a row count alone passed a table with the right number of rows
+   and other text or another model's vectors (2026-10-27)
 5. API: /health reports this commit
 
 Nothing is written anywhere. SUPABASE_DB_URL and HF_TOKEN come from .env (never printed).
@@ -34,6 +36,7 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 API_URL = "https://ragdog-api-892238791473.asia-northeast3.run.app"
 STORE = PROJECT_DIR / "data" / "vector_store"
+VECTOR_SAMPLE = 20
 FIX = {
     "git": "git checkout main && git pull --ff-only",
     "revision": 'uv run python -c "from src import private_data; private_data.upload(revision=\'{revision}\')"',
@@ -87,23 +90,45 @@ def check_revision() -> list[tuple[str, bool, str]]:
     ]
 
 
+def compare_rows(local: dict[str, str], remote: dict[str, str]) -> tuple[bool, str]:
+    """Chunk id -> text hash on both sides: the same ids and the same text for each."""
+    missing, extra = local.keys() - remote.keys(), remote.keys() - local.keys()
+    changed = [chunk for chunk in local.keys() & remote.keys() if local[chunk] != remote[chunk]]
+    detail = f"{len(remote)} rows; missing {len(missing)}, extra {len(extra)}, different text {len(changed)}"
+    if changed:
+        detail += f" (e.g. {min(changed)})"
+    return not (missing or extra or changed), detail
+
+
 def check_tables() -> list[tuple[str, bool, str]]:
+    import numpy as np
+
     from src import resources, settings
     from src.supabase_store import connector
 
     report, health = local_rows("report"), local_rows("health")
+    # The same text with another model's vectors passes a text check: a few rows' vectors too.
+    # vectors.npy holds documents.jsonl's rows in order (src/vector_store.py).
+    vectors = np.load(STORE / "health" / "vectors.npy")
+    ids = list(health)
+    sample = ids[::max(1, len(ids) // VECTOR_SAMPLE)][:VECTOR_SAMPLE]
     with connector(settings.get_setting("SUPABASE_DB_URL"))() as conn:
-        remote = {row[0]: text_hash(row[1]) for row in
-                  conn.execute(f"select id, body from {resources.SUPABASE_REPORT_TABLE}").fetchall()}
-        health_rows = conn.execute(f"select count(*) from {resources.SUPABASE_HEALTH_TABLE}").fetchone()[0]
-    missing, extra = report.keys() - remote.keys(), remote.keys() - report.keys()
-    changed = [chunk for chunk in report.keys() & remote.keys() if report[chunk] != remote[chunk]]
-    report_ok = not (missing or extra or changed)
-    detail = f"{len(remote)} rows; missing {len(missing)}, extra {len(extra)}, different text {len(changed)}"
-    if changed:
-        detail += f" (e.g. {min(changed)})"
-    return [("report table", report_ok, detail),
-            ("health table", health_rows == len(health), f"{health_rows} rows, local {len(health)}")]
+        remote_report = {row[0]: text_hash(row[1]) for row in
+                         conn.execute(f"select id, body from {resources.SUPABASE_REPORT_TABLE}").fetchall()}
+        # Hashed in the database: 19,206 consultations are 17 MB of text.
+        remote_health = dict(conn.execute(
+            f"select id, encode(sha256(convert_to(body, 'UTF8')), 'hex') from {resources.SUPABASE_HEALTH_TABLE}").fetchall())
+        remote_vectors = dict(conn.execute(
+            f"select id, embedding::text from {resources.SUPABASE_HEALTH_TABLE} where id = any(%s)", [sample]).fetchall())
+    report_ok, report_detail = compare_rows(report, remote_report)
+    health_ok, health_detail = compare_rows(health, remote_health)
+    position = {chunk: i for i, chunk in enumerate(ids)}
+    # halfvec keeps float16: the local vector rounded the same way, within float16's step near 1.
+    differ = [chunk for chunk in sample if chunk not in remote_vectors or not np.allclose(
+        np.asarray(json.loads(remote_vectors[chunk]), dtype=np.float32),
+        vectors[position[chunk]].astype(np.float16).astype(np.float32), atol=1e-3)]
+    health_detail += f", vectors differ {len(differ)}/{len(sample)}" + (f" (e.g. {differ[0]})" if differ else "")
+    return [("report table", report_ok, report_detail), ("health table", health_ok and not differ, health_detail)]
 
 
 def check_api() -> tuple[bool, str]:

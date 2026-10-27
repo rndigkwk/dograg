@@ -45,6 +45,7 @@ class OnnxSentenceEmbeddings(Embeddings):
         threads: int = 2,
         normalize: bool = True,
         token: str | None = None,
+        revision: str | None = None,
     ) -> OnnxSentenceEmbeddings:
         import onnxruntime as ort
         from huggingface_hub import hf_hub_download
@@ -54,10 +55,10 @@ class OnnxSentenceEmbeddings(Embeddings):
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1
         session = ort.InferenceSession(
-            hf_hub_download(repo_id, onnx_file, token=token), options, providers=["CPUExecutionProvider"]
+            hf_hub_download(repo_id, onnx_file, revision=revision, token=token), options, providers=["CPUExecutionProvider"]
         )
         # tokenizer.json already truncates to 128 tokens and pads to the batch's longest.
-        tokenizer = Tokenizer.from_file(hf_hub_download(repo_id, "tokenizer.json", token=token))
+        tokenizer = Tokenizer.from_file(hf_hub_download(repo_id, "tokenizer.json", revision=revision, token=token))
         return cls(session, tokenizer, normalize=normalize)
 
     def _embed(self, texts: Sequence[str]) -> np.ndarray:
