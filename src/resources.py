@@ -11,7 +11,9 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
+from langchain_core.runnables.fallbacks import RunnableWithFallbacks
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src import settings
@@ -344,6 +346,36 @@ def fallback_errors() -> tuple[type[BaseException], ...]:
     return openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError, anthropic.APIError
 
 
+# After an OpenAI call fails over to Claude, the next calls go to Claude alone for this long. A timed
+# out call waits its whole limit (20-45 s) before Claude answers, and without the breaker every call
+# of a health question (8-10) would wait again while OpenAI stalls.
+OPENAI_BREAKER_SECONDS = 120
+
+
+@cache_resource
+def load_openai_breaker():
+    """One per process, shared by the chat, review and answer models: one provider, one state."""
+    from src.supabase_store import Breaker
+
+    return Breaker(cooldown=OPENAI_BREAKER_SECONDS, name="OpenAI call", instead="Claude alone")
+
+
+class BreakerFallbacks(RunnableWithFallbacks):
+    """with_fallbacks that skips OpenAI while the breaker is open. Every LangChain call (invoke,
+    stream, their async forms, batch) walks `runnables` and asks for the next one only after the one
+    before raised a handled error, so asking past OpenAI is the failure that trips it.
+    with_structured_output and bind_tools copy the breaker over (RunnableWithFallbacks.__getattr__)."""
+
+    breaker: Any = None
+
+    @property
+    def runnables(self):
+        if not self.breaker.open:
+            yield self.runnable
+            self.breaker.trip()
+        yield from self.fallbacks
+
+
 def with_claude_fallback(model, timeout: float):
     """`model` that hands a failed call to Claude, or `model` itself without an Anthropic key."""
     api_key = settings.get_setting("ANTHROPIC_API_KEY")
@@ -357,7 +389,8 @@ def with_claude_fallback(model, timeout: float):
         max_tokens=FALLBACK_MAX_TOKENS, thinking={"type": "disabled"},
         default_headers={"anthropic-workspace-id": workspace} if workspace else None,
     )
-    return model.with_fallbacks([claude], exceptions_to_handle=fallback_errors())
+    return BreakerFallbacks(runnable=model, fallbacks=[claude], exceptions_to_handle=fallback_errors(),
+                            breaker=load_openai_breaker())
 
 
 @cache_resource

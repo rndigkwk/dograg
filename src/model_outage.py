@@ -13,7 +13,9 @@ Only quota errors took this path at first. Since 2026-10-23 the model calls have
 with its own notice ("unavailable"). Other failures stay one error event, as before (api/chat.py).
 
 Since 2026-10-27 such a call goes to Claude first (src/resources.py with_claude_fallback, ADR-0012);
-this path is what is left when Claude fails too, or when there is no Anthropic key.
+this path is what is left when Claude fails too, or when there is no Anthropic key. After such a
+failure the next calls skip OpenAI for a while (the breaker, OPENAI_BREAKER_SECONDS), so Claude's
+error alone can arrive here; it counts as "unavailable".
 """
 
 from __future__ import annotations
@@ -57,7 +59,12 @@ def outage_kind(error: BaseException | None) -> str | None:
     """"quota", "unavailable" (timed out, unreachable, the provider's own failure) or None (a bug of ours)."""
     if is_quota_error(error):
         return "quota"
-    return "unavailable" if any(type(e).__name__ in UNAVAILABLE_ERRORS for e in _chain(error)) else None
+    chain = list(_chain(error))
+    if any(type(e).__name__ in UNAVAILABLE_ERRORS for e in chain):
+        return "unavailable"
+    # Claude's own error (a bad key included) reaches here only while the OpenAI breaker sends calls
+    # to Claude alone (src/resources.py): OpenAI failed moments ago and Claude now, an outage.
+    return "unavailable" if any(type(e).__module__.split(".")[0] == "anthropic" for e in chain) else None
 
 
 def paused(screen: str = "web", kind: str = "quota") -> str:
