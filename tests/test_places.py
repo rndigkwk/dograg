@@ -435,6 +435,23 @@ class NightCareTests(unittest.TestCase):
         self.assertTrue(places.wants_night_care("밤에 여는 병원 있어?"))
 
 
+class StockNoticeTests(unittest.TestCase):
+    """The data has no stock: a pharmacy list says so instead of skipping that part of the question."""
+
+    def test_a_stock_request_gets_the_list_and_says_the_stock_is_unknown(self):
+        with TemporaryDirectory() as directory, patch.object(resources, "DB_PATH", make_db(directory)), \
+                patch.object(resources, "load_chat_model", return_value=None):
+            answer, rows = places.run_sql_search("강남구 동물약국과 실시간 약품 재고를 알려주세요")
+            self.assertTrue(rows)
+            self.assertTrue(answer.startswith(places.STOCK_NOTICE))
+            answer, _ = places.run_sql_search("강남구 동물약국 알려줘")
+            self.assertNotIn(places.STOCK_NOTICE, answer)
+
+    def test_only_pharmacies_get_the_stock_notice(self):
+        self.assertTrue(places.wants_stock("심장사상충약 파는 약국"))
+        self.assertEqual(places._with_stock_notice("목록", "grooming", "재고 있어?"), "목록")
+
+
 class GeneratedSqlLimitTests(unittest.TestCase):
     """A model-written query is shaped by validate_sql but not bounded in cost (2026-10-16 review)."""
 

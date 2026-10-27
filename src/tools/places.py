@@ -389,6 +389,19 @@ NIGHT_NOTICE = ("영업시간 정보가 없어, 이름에 24시·응급·야간�
                 "실제로 지금 진료하는지는 전화로 확인하세요.")
 
 
+# r19 (2026-10-27): "문을 연 동물약국과 실시간 약품 재고" got a list with no word about the stock.
+STOCK_WORDS = ("재고", "구비", "팔아", "파는", "판매")
+STOCK_NOTICE = "약국마다 어떤 약이 있는지(재고)는 자료에 없어 목록만 보여 드립니다. 찾는 약이 있는지는 전화로 확인하세요."
+
+
+def wants_stock(question: str) -> bool:
+    return any(word in _compact(question) for word in STOCK_WORDS)
+
+
+def _with_stock_notice(answer: str, kind: str, question: str) -> str:
+    return f"{STOCK_NOTICE}\n\n{answer}" if kind == "pharmacy" and wants_stock(question) else answer
+
+
 def wants_night_care(question: str) -> bool:
     """"24시간 하는 곳", "밤에 여는 병원": the data has no opening hours, so the names decide."""
     return any(word.replace(" ", "") in _compact(question) for word in NIGHT_CARE_WORDS)
@@ -496,8 +509,8 @@ def run_sql_search(question: str, location: tuple[float, float] | None = None) -
     if len(rows) == 1 and "count" in rows[0]:
         return format_sql_result(rows, kind), rows
     if not used_model:
-        return _with_notice(format_sql_result(rows, kind), rows), rows
+        return _with_stock_notice(_with_notice(format_sql_result(rows, kind), rows), kind, question), rows
     answer = (SQL_ANSWER_PROMPT | model | StrOutputParser()).invoke(
         {"label": KIND_LABELS[kind], "question": question, "rows": json.dumps(rows, ensure_ascii=False)}
     )
-    return _with_notice(answer, rows), rows
+    return _with_stock_notice(_with_notice(answer, rows), kind, question), rows
