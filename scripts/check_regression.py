@@ -11,7 +11,8 @@ the PR quality check requires before a pull request that changes the answer path
 3. relative floor: every quality score within its allowed drop (DROPS) of the baseline's mean
 4. regression: every stable question (passed in every baseline run) passes again; one that failed
    but passed every recheck (scripts/recheck_items.py) is the grader's wobble, not a regression
-A set without a baseline (visit, answer) gets check 2 only. The baseline is made from several runs
+A set without a baseline (visit, answer, guide) gets check 2 only; for the guide set's rates a missed
+question that passes every recheck counts as passed (RECHECKED_RATES). The baseline is made from several runs
 of the merged code (--make-baseline): one run moves by a question or two, so a question counts as
 stable only when it passed every time.
 
@@ -124,6 +125,35 @@ DROPS = {
 ANSWER_ONLY = {"guard": {"benign", "crisis_lookalike", "pii"}}
 
 
+# Rates of a set without a baseline, each the mean of one item score. When one falls below its limit,
+# the questions it missed are asked again (scripts/recheck_items.py) and one that passes every recheck
+# counts as passed, as a stable question's wobble does. On 2026-10-26 the guide set's guide_rate was
+# 0.688 (g05-g07, g10, g11 without a guide); asked again locally the same day, all 16 used a guide.
+RECHECKED_RATES = {"guide": {"answered_rate": "answered", "guide_rate": "guide_used"}}
+
+
+def recheck_rates(set_name: str, result: dict) -> tuple[dict, list[str]]:
+    """The run's scores with RECHECKED_RATES counted again after a recheck, and the questions the
+    recheck passed. Before a recheck, writes the missed questions for scripts/recheck_items.py."""
+    scores, rates = dict(result["run_scores"]), RECHECKED_RATES.get(set_name, {})
+    items = [item for item in result.get("items") or [] if isinstance(item, dict) and "id" in item]
+    missed = sorted(item["id"] for item in items if any((item.get("scores") or {}).get(s) != 1.0 for s in rates.values()))
+    limits = {name: limit for name, _, limit, _ in LIMITS.get(set_name, [])}
+    if not missed or all(scores.get(rate) is not None and scores[rate] >= limits[rate] for rate in rates):
+        return scores, []
+    run = result.get("run")
+    recheck_path = RESULTS_DIR / f"{set_name}_{run}_recheck.json"
+    if not recheck_path.exists():
+        (RESULTS_DIR / f"{set_name}_{run}_regressed.json").write_text(json.dumps(missed), encoding="utf-8")
+        return scores, []
+    recheck = json.loads(recheck_path.read_text(encoding="utf-8"))
+    passed = [i for i in missed if recheck.get(i) and all(recheck[i])]
+    for rate, score in rates.items():
+        scores[rate] = sum(1.0 if item["id"] in passed else (item.get("scores") or {}).get(score, 0.0)
+                           for item in items) / len(items)
+    return scores, passed
+
+
 def regression_checked(set_name: str, item: dict) -> bool:
     return item.get("category") not in ANSWER_ONLY.get(set_name, ())
 
@@ -215,7 +245,7 @@ def check(set_name: str, run_name: str) -> tuple[list[str], bool, dict]:
     path = RESULTS_DIR / f"{set_name}_{run_name}.json"
     result = json.loads(path.read_text(encoding="utf-8"))
     result.setdefault("run", run_name)
-    scores = result["run_scores"]
+    scores, rechecked = recheck_rates(set_name, result)
     rows, ok = [], True
     if set_name in JUDGES and result.get("judge_model") != JUDGES[set_name]:
         rows.append(f"| {set_name} | 판사 | judge_model | {result.get('judge_model') or '기록 없음'} | = {JUDGES[set_name]} | "
@@ -227,6 +257,8 @@ def check(set_name: str, run_name: str) -> tuple[list[str], bool, dict]:
         ok &= passed
         sign = "≥" if direction == "min" else "≤"
         shown = "없음" if value is None else f"{value:.3f}"
+        if rechecked and name in RECHECKED_RATES[set_name]:
+            shown += f" (재확인 전 {result['run_scores'].get(name, 0.0):.3f}, 재확인 통과 {', '.join(rechecked)})"
         kind = "경보" if name in ALARMS else "절대"
         rows.append(f"| {set_name} | {kind} | {name} | {shown} | {sign} {limit} | {reference} | {'✅' if passed else '❌'} |")
     baseline = load_baseline(set_name)

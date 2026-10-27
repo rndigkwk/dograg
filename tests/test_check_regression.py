@@ -208,6 +208,31 @@ class MergeGateTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertNotIn("완전성", "\n".join(rows))
 
+    def save_guide(self, missed):
+        """Ten guide questions, the ids in missed answered without a guide."""
+        items = [{"id": f"g{n}", "output": {}, "scores": {"answered": 1.0, "guide_used": 0.0 if f"g{n}" in missed else 1.0}}
+                 for n in range(10)]
+        scores = {"answered_rate": 1.0, "guide_rate": 1 - len(missed) / 10, "latency_p90_s": 10.0}
+        (self.dir / "guide_ci.json").write_text(json.dumps({"run_scores": scores, "items": items}), encoding="utf-8")
+
+    def test_guide_questions_that_pass_their_rechecks_count_toward_the_rate(self):
+        self.save_guide({"g1", "g2", "g3"})  # 0.7, below 0.81
+        rows, ok, _ = check_regression.check("guide", "ci")
+        self.assertFalse(ok)
+        self.assertEqual(json.loads((self.dir / "guide_ci_regressed.json").read_text(encoding="utf-8")), ["g1", "g2", "g3"])
+        (self.dir / "guide_ci_recheck.json").write_text(
+            json.dumps({"g1": [True, True], "g2": [True, True], "g3": [True, False]}), encoding="utf-8")
+        rows, ok, result = check_regression.check("guide", "ci")
+        self.assertTrue(ok, rows)  # 0.9: only g3 still misses
+        self.assertIn("| guide | 절대 | guide_rate | 0.900 (재확인 전 0.700, 재확인 통과 g1, g2) |", "\n".join(rows))
+        self.assertEqual(result["run_scores"]["guide_rate"], 0.7)  # the recorded score stays the run's own
+
+    def test_guide_misses_within_the_limit_are_not_rechecked(self):
+        self.save_guide({"g1"})  # 0.9
+        rows, ok, _ = check_regression.check("guide", "ci")
+        self.assertTrue(ok)
+        self.assertFalse((self.dir / "guide_ci_regressed.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
