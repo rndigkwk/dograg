@@ -1,0 +1,1109 @@
+{
+ "강원특별자치도": {
+  "columns": 5,
+  "rows": 5,
+  "tiles": [
+   {
+    "name": "고성군",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "속초시",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "화천군",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "인제군",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "양양군",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "춘천시",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "홍천군",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "강릉시",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "동해시",
+    "column": 4,
+    "row": 2
+   },
+   {
+    "name": "횡성군",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "정선군",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "삼척시",
+    "column": 4,
+    "row": 3
+   },
+   {
+    "name": "원주시",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "영월군",
+    "column": 2,
+    "row": 4
+   },
+   {
+    "name": "태백시",
+    "column": 4,
+    "row": 4
+   }
+  ]
+ },
+ "경기도": {
+  "columns": 6,
+  "rows": 8,
+  "tiles": [
+   {
+    "name": "동두천시",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "포천시",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "파주시",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "양주시",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "남양주시",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "가평군",
+    "column": 4,
+    "row": 1
+   },
+   {
+    "name": "김포시",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "고양시",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "의정부시",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "구리시",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "부천시",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "광명시",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "과천시",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "하남시",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "양평군",
+    "column": 4,
+    "row": 3
+   },
+   {
+    "name": "시흥시",
+    "column": 0,
+    "row": 4
+   },
+   {
+    "name": "안양시",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "의왕시",
+    "column": 2,
+    "row": 4
+   },
+   {
+    "name": "성남시",
+    "column": 3,
+    "row": 4
+   },
+   {
+    "name": "광주시",
+    "column": 4,
+    "row": 4
+   },
+   {
+    "name": "안산시",
+    "column": 0,
+    "row": 5
+   },
+   {
+    "name": "군포시",
+    "column": 1,
+    "row": 5
+   },
+   {
+    "name": "수원시",
+    "column": 2,
+    "row": 5
+   },
+   {
+    "name": "용인시",
+    "column": 3,
+    "row": 5
+   },
+   {
+    "name": "이천시",
+    "column": 4,
+    "row": 5
+   },
+   {
+    "name": "여주시",
+    "column": 5,
+    "row": 5
+   },
+   {
+    "name": "화성시",
+    "column": 1,
+    "row": 6
+   },
+   {
+    "name": "오산시",
+    "column": 2,
+    "row": 6
+   },
+   {
+    "name": "평택시",
+    "column": 2,
+    "row": 7
+   },
+   {
+    "name": "안성시",
+    "column": 3,
+    "row": 7
+   }
+  ]
+ },
+ "경상남도": {
+  "columns": 6,
+  "rows": 5,
+  "tiles": [
+   {
+    "name": "거창군",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "산청군",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "합천군",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "창녕군",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "밀양시",
+    "column": 4,
+    "row": 1
+   },
+   {
+    "name": "진주시",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "함안군",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "창원시",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "김해시",
+    "column": 4,
+    "row": 2
+   },
+   {
+    "name": "양산시",
+    "column": 5,
+    "row": 2
+   },
+   {
+    "name": "하동군",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "사천시",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "고성군",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "남해군",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "통영시",
+    "column": 2,
+    "row": 4
+   },
+   {
+    "name": "거제시",
+    "column": 3,
+    "row": 4
+   }
+  ]
+ },
+ "경상북도": {
+  "columns": 5,
+  "rows": 5,
+  "tiles": [
+   {
+    "name": "예천군",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "영주시",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "상주시",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "문경시",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "안동시",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "영덕군",
+    "column": 4,
+    "row": 1
+   },
+   {
+    "name": "김천시",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "구미시",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "영천시",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "성주군",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "칠곡군",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "경산시",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "경주시",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "포항시",
+    "column": 4,
+    "row": 3
+   },
+   {
+    "name": "청도군",
+    "column": 2,
+    "row": 4
+   }
+  ]
+ },
+ "광주광역시": {
+  "columns": 3,
+  "rows": 3,
+  "tiles": [
+   {
+    "name": "광산구",
+    "column": 0,
+    "row": 0
+   },
+   {
+    "name": "북구",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "서구",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "동구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "남구",
+    "column": 2,
+    "row": 2
+   }
+  ]
+ },
+ "대구광역시": {
+  "columns": 4,
+  "rows": 4,
+  "tiles": [
+   {
+    "name": "북구",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "서구",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "중구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "동구",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "달서구",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "남구",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "수성구",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "달성군",
+    "column": 0,
+    "row": 3
+   }
+  ]
+ },
+ "대전광역시": {
+  "columns": 4,
+  "rows": 2,
+  "tiles": [
+   {
+    "name": "유성구",
+    "column": 0,
+    "row": 0
+   },
+   {
+    "name": "대덕구",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "서구",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "중구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "동구",
+    "column": 3,
+    "row": 1
+   }
+  ]
+ },
+ "부산광역시": {
+  "columns": 6,
+  "rows": 5,
+  "tiles": [
+   {
+    "name": "금정구",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "기장군",
+    "column": 5,
+    "row": 0
+   },
+   {
+    "name": "북구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "동래구",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "사상구",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "부산진구",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "연제구",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "해운대구",
+    "column": 4,
+    "row": 2
+   },
+   {
+    "name": "서구",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "동구",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "남구",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "수영구",
+    "column": 4,
+    "row": 3
+   },
+   {
+    "name": "강서구",
+    "column": 0,
+    "row": 4
+   },
+   {
+    "name": "사하구",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "중구",
+    "column": 2,
+    "row": 4
+   },
+   {
+    "name": "영도구",
+    "column": 3,
+    "row": 4
+   }
+  ]
+ },
+ "서울특별시": {
+  "columns": 7,
+  "rows": 6,
+  "tiles": [
+   {
+    "name": "도봉구",
+    "column": 4,
+    "row": 0
+   },
+   {
+    "name": "노원구",
+    "column": 5,
+    "row": 0
+   },
+   {
+    "name": "은평구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "성북구",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "강북구",
+    "column": 4,
+    "row": 1
+   },
+   {
+    "name": "서대문구",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "중구",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "종로구",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "동대문구",
+    "column": 4,
+    "row": 2
+   },
+   {
+    "name": "중랑구",
+    "column": 5,
+    "row": 2
+   },
+   {
+    "name": "강서구",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "양천구",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "마포구",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "용산구",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "성동구",
+    "column": 4,
+    "row": 3
+   },
+   {
+    "name": "광진구",
+    "column": 5,
+    "row": 3
+   },
+   {
+    "name": "강동구",
+    "column": 6,
+    "row": 3
+   },
+   {
+    "name": "구로구",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "영등포구",
+    "column": 2,
+    "row": 4
+   },
+   {
+    "name": "동작구",
+    "column": 3,
+    "row": 4
+   },
+   {
+    "name": "서초구",
+    "column": 4,
+    "row": 4
+   },
+   {
+    "name": "강남구",
+    "column": 5,
+    "row": 4
+   },
+   {
+    "name": "송파구",
+    "column": 6,
+    "row": 4
+   },
+   {
+    "name": "금천구",
+    "column": 1,
+    "row": 5
+   },
+   {
+    "name": "관악구",
+    "column": 2,
+    "row": 5
+   }
+  ]
+ },
+ "세종특별자치시": {
+  "columns": 1,
+  "rows": 1,
+  "tiles": [
+   {
+    "name": "세종특별자치시",
+    "column": 0,
+    "row": 0
+   }
+  ]
+ },
+ "울산광역시": {
+  "columns": 3,
+  "rows": 3,
+  "tiles": [
+   {
+    "name": "북구",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "울주군",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "중구",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "남구",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "동구",
+    "column": 2,
+    "row": 2
+   }
+  ]
+ },
+ "인천광역시": {
+  "columns": 4,
+  "rows": 4,
+  "tiles": [
+   {
+    "name": "강화군",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "서구",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "계양구",
+    "column": 3,
+    "row": 1
+   },
+   {
+    "name": "중구",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "동구",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "미추홀구",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "부평구",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "연수구",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "남동구",
+    "column": 3,
+    "row": 3
+   }
+  ]
+ },
+ "전라남도": {
+  "columns": 6,
+  "rows": 4,
+  "tiles": [
+   {
+    "name": "영광군",
+    "column": 0,
+    "row": 0
+   },
+   {
+    "name": "장성군",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "담양군",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "곡성군",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "구례군",
+    "column": 4,
+    "row": 0
+   },
+   {
+    "name": "나주시",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "화순군",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "순천시",
+    "column": 4,
+    "row": 1
+   },
+   {
+    "name": "광양시",
+    "column": 5,
+    "row": 1
+   },
+   {
+    "name": "목포시",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "무안군",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "여수시",
+    "column": 5,
+    "row": 2
+   },
+   {
+    "name": "해남군",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "장흥군",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "고흥군",
+    "column": 3,
+    "row": 3
+   }
+  ]
+ },
+ "전북특별자치도": {
+  "columns": 4,
+  "rows": 4,
+  "tiles": [
+   {
+    "name": "군산시",
+    "column": 0,
+    "row": 0
+   },
+   {
+    "name": "익산시",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "완주군",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "부안군",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "김제시",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "전주시",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "정읍시",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "고창군",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "순창군",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "남원시",
+    "column": 3,
+    "row": 3
+   }
+  ]
+ },
+ "제주특별자치도": {
+  "columns": 1,
+  "rows": 2,
+  "tiles": [
+   {
+    "name": "제주시",
+    "column": 0,
+    "row": 0
+   },
+   {
+    "name": "서귀포시",
+    "column": 0,
+    "row": 1
+   }
+  ]
+ },
+ "충청남도": {
+  "columns": 5,
+  "rows": 5,
+  "tiles": [
+   {
+    "name": "당진시",
+    "column": 1,
+    "row": 0
+   },
+   {
+    "name": "아산시",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "천안시",
+    "column": 3,
+    "row": 0
+   },
+   {
+    "name": "서산시",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "홍성군",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "예산군",
+    "column": 2,
+    "row": 1
+   },
+   {
+    "name": "태안군",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "부여군",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "공주시",
+    "column": 3,
+    "row": 2
+   },
+   {
+    "name": "보령시",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "논산시",
+    "column": 2,
+    "row": 3
+   },
+   {
+    "name": "계룡시",
+    "column": 3,
+    "row": 3
+   },
+   {
+    "name": "서천군",
+    "column": 1,
+    "row": 4
+   },
+   {
+    "name": "금산군",
+    "column": 4,
+    "row": 4
+   }
+  ]
+ },
+ "충청북도": {
+  "columns": 3,
+  "rows": 6,
+  "tiles": [
+   {
+    "name": "제천시",
+    "column": 2,
+    "row": 0
+   },
+   {
+    "name": "음성군",
+    "column": 0,
+    "row": 1
+   },
+   {
+    "name": "충주시",
+    "column": 1,
+    "row": 1
+   },
+   {
+    "name": "진천군",
+    "column": 0,
+    "row": 2
+   },
+   {
+    "name": "증평군",
+    "column": 1,
+    "row": 2
+   },
+   {
+    "name": "괴산군",
+    "column": 2,
+    "row": 2
+   },
+   {
+    "name": "청주시",
+    "column": 0,
+    "row": 3
+   },
+   {
+    "name": "보은군",
+    "column": 1,
+    "row": 3
+   },
+   {
+    "name": "옥천군",
+    "column": 0,
+    "row": 4
+   },
+   {
+    "name": "영동군",
+    "column": 1,
+    "row": 5
+   }
+  ]
+ }
+}

@@ -5,11 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   byMedian,
   DEFAULT_ITEM,
-  dotAxis,
   type FeeItem,
   feeItems,
   type FeeValues,
-  gapLabel,
   groupByCategory,
   type ItemFees,
   itemFees,
@@ -18,6 +16,7 @@ import {
   won,
 } from "@/lib/fees";
 import { failureMessage } from "@/lib/failure";
+import { districtGrid, PROVINCES, type TileGrid } from "@/lib/feeTiles";
 
 import FeeSourceNotice from "./FeeSourceNotice";
 import Waiting, { LoadError } from "./Waiting";
@@ -49,99 +48,87 @@ function Summary({ title, values, national }: { title: string; values: FeeValues
   );
 }
 
-/** Provinces' medians as dots, ranked, with the national median as a dashed rule; the chosen province
- * stays solid and the rest fade. Dots, not bars (2026-10-24): the medians sit close together, and bars
- * from zero all looked the same length; a dot is read by position, so the axis starts near the data
- * (lib/fees.ts dotAxis). Hover or focus reads a row out; a click chooses it. */
-function SidoChart({ fees, chosen, onChoose }: { fees: ItemFees; chosen: string; onChoose: (sido: string) => void }) {
+type Region = FeeValues & { name: string };
+
+/** Regions as equal tiles laid out like the map (lib/feeTiles.ts), each with its name and median, as
+ * animalclinicfee.or.kr labels its map. No colour by amount (2026-10-27): the medians mostly sit on
+ * 1,000원 steps, so shades would say little; the numbers say it. Hover or focus reads a tile's mean and
+ * range out; a click chooses it. */
+function TileMap({ grid, regions, label, chosen, national, onChoose }: {
+  grid: TileGrid;
+  regions: Map<string, Region>;
+  label: (name: string) => string;
+  chosen: string;
+  national: number;
+  onChoose: (name: string) => void;
+}) {
   const [active, setActive] = useState<string | null>(null);
-  const rows = useMemo(() => byMedian(fees.sido), [fees.sido]);
-  const axis = useMemo(() => dotAxis(rows.map((row) => row.median), fees.national.median), [rows, fees.national.median]);
-  const scale = (value: number) => ((value - axis.lo) / (axis.hi - axis.lo)) * 100;
-  const shown = rows.find((row) => row.sido === active);
+  const shown = active ? regions.get(active) : undefined;
   return (
-    <figure className="rounded-xl border border-line bg-white p-4">
-      <figcaption className="mb-3">
-        <span className="font-bold">시·도별 중간값</span>
-        <span className="ml-2 text-sm text-muted">점선은 전국 중간값 {won(fees.national.median)} · 오른쪽 숫자는 전국과의 차이 · 줄을 누르면 그 시·도를 고릅니다</span>
-      </figcaption>
-      <ol className="space-y-1.5" aria-label="시·도별 중간값">
-        {rows.map((row) => {
-          const faded = (chosen && chosen !== row.sido) || (active !== null && active !== row.sido);
+    <>
+      <div
+        role="group"
+        aria-label="지도"
+        className="grid justify-center gap-0.5 sm:gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, ${grid.columns > 4 ? "6rem" : "7.5rem"}))` }}
+      >
+        {grid.tiles.map((tile) => {
+          const region = regions.get(tile.name);
+          const place = { gridColumn: tile.column + 1, gridRow: tile.row + 1 };
+          if (!region)
+            return (
+              <div key={tile.name} style={place} className="rounded-lg border border-dashed border-line px-0 py-1.5 text-center text-[10px] leading-tight text-muted sm:py-2 sm:text-sm">
+                <span className="block break-keep">{label(tile.name)}</span>
+                <span className="block">자료 없음</span>
+              </div>
+            );
+          const picked = chosen === tile.name;
           return (
-            <li key={row.sido}>
-              <button
-                type="button"
-                onMouseEnter={() => setActive(row.sido)}
-                onMouseLeave={() => setActive(null)}
-                onFocus={() => setActive(row.sido)}
-                onBlur={() => setActive(null)}
-                onClick={() => onChoose(chosen === row.sido ? ALL : row.sido)}
-                aria-pressed={chosen === row.sido}
-                aria-label={`${row.sido} 중간값 ${won(row.median)}`}
-                className="grid w-full grid-cols-[2.5rem_1fr_auto] items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <span className={`text-sm ${chosen === row.sido ? "font-bold text-accent" : ""}`}>{shortSido(row.sido)}</span>
-                {/* The track: the dot, the national rule and the axis ticks share one scale. */}
-                <span className="relative h-6 min-w-0">
-                  <span aria-hidden className="absolute inset-x-0 top-1/2 border-t border-line" />
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 border-l-2 border-dashed border-ink/50"
-                    style={{ left: `${scale(fees.national.median)}%` }}
-                  />
-                  <span
-                    className={`absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent transition-opacity ${faded ? "opacity-35" : ""}`}
-                    style={{ left: `${scale(row.median)}%` }}
-                  />
-                </span>
-                <span className="w-[7.5rem] text-right text-sm tabular-nums text-ink">
-                  {row.median.toLocaleString("ko-KR")} <span className="text-xs text-muted">{gapLabel(row.median, fees.national.median)}</span>
-                </span>
-              </button>
-            </li>
+            <button
+              key={tile.name}
+              type="button"
+              style={place}
+              onMouseEnter={() => setActive(tile.name)}
+              onMouseLeave={() => setActive(null)}
+              onFocus={() => setActive(tile.name)}
+              onBlur={() => setActive(null)}
+              onClick={() => onChoose(tile.name)}
+              aria-pressed={picked}
+              aria-label={`${tile.name} 중간값 ${won(region.median)}`}
+              className={`rounded-lg border px-0 py-1.5 text-center text-[10px] leading-tight outline-none focus-visible:ring-2 focus-visible:ring-accent sm:py-2 sm:text-sm ${
+                picked ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent"
+              }`}
+            >
+              <span className="block break-keep font-semibold">{label(tile.name)}</span>
+              <span className="block tabular-nums">
+                {region.median.toLocaleString("ko-KR")}
+                <span className="hidden sm:inline">원</span>
+              </span>
+            </button>
           );
         })}
-      </ol>
-      {/* The axis under the dots, in the rows' columns: the end ticks always, the ones between on wider screens. */}
-      <div aria-hidden className="mt-1 grid grid-cols-[2.5rem_1fr_auto] gap-2 text-xs text-muted tabular-nums">
-        <span />
-        <span className="relative h-4">
-          {axis.ticks.map((tick, index) => (
-            <span
-              key={tick}
-              className={`absolute -translate-x-1/2 whitespace-nowrap ${index === 0 || index === axis.ticks.length - 1 ? "" : "hidden sm:inline"}`}
-              style={{ left: `${scale(tick)}%` }}
-            >
-              {tick.toLocaleString("ko-KR")}
-            </span>
-          ))}
-        </span>
-        <span className="w-[7.5rem]" />
       </div>
-      {fees.no_data.length ? (
-        <p className="mt-2 text-xs text-muted">자료 없음: {fees.no_data.map(shortSido).join(", ")} (해당 진료가 없거나 병원이 1곳 이하인 지역은 공개되지 않습니다)</p>
-      ) : null}
       <p aria-live="polite" className="mt-3 min-h-5 text-sm text-muted">
         {shown
-          ? `${shown.sido}: 중간 ${won(shown.median)} · 평균 ${won(shown.mean)} · ${won(shown.min)} ~ ${won(shown.max)} (${versusNational(shown.median, fees.national.median)})`
-          : "줄에 마우스를 올리거나 Tab으로 옮기면 평균과 범위를 보여 줍니다."}
+          ? `${shown.name}: 중간 ${won(shown.median)} · 평균 ${won(shown.mean)} · ${won(shown.min)} ~ ${won(shown.max)} (${versusNational(shown.median, national)})`
+          : "칸에 마우스를 올리거나 Tab으로 옮기면 평균과 범위를 보여 줍니다."}
       </p>
-    </figure>
+    </>
   );
 }
 
-function SigunguTable({ fees, sido, chosen, onChoose }: { fees: ItemFees; sido: string; chosen: string; onChoose: (gu: string) => void }) {
-  const rows = byMedian(fees.sigungu.filter((row) => row.sido === sido));
-  if (!rows.length) return <p className="text-sm text-muted">{sido}의 시·군·구 자료가 없습니다(병원이 1곳 이하인 지역은 공개되지 않습니다).</p>;
+/** The same regions as a table, highest median first, for exact numbers and screen readers. */
+function RegionTable({ heading, regions, chosen, onChoose }: { heading: string; regions: Region[]; chosen: string; onChoose: (name: string) => void }) {
+  const rows = byMedian(regions);
   return (
-    <section className="rounded-xl border border-line bg-white p-4">
-      <h2 className="mb-2 font-bold">{sido} 시·군·구 ({rows.length}곳, 중간값 높은 순)</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[28rem] text-left text-sm">
+    <details className="mt-1">
+      <summary className="cursor-pointer text-sm text-accent">표로 보기</summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full min-w-[24rem] text-left text-sm">
+          <caption className="sr-only">{heading}</caption>
           <thead className="text-muted">
             <tr>
-              <th className="py-1 pr-3">시·군·구</th>
+              <th className="py-1 pr-3">지역</th>
               <th className="py-1 pr-3 text-right">중간값</th>
               <th className="py-1 pr-3 text-right">평균</th>
               <th className="py-1 text-right">최저 ~ 최고</th>
@@ -150,11 +137,11 @@ function SigunguTable({ fees, sido, chosen, onChoose }: { fees: ItemFees; sido: 
           <tbody>
             {rows.map((row) => (
               <tr
-                key={row.sigungu}
-                onClick={() => onChoose(chosen === row.sigungu ? ALL : row.sigungu)}
-                className={`cursor-pointer border-t border-line hover:bg-accent/5 ${chosen === row.sigungu ? "bg-accent/10 font-semibold" : ""}`}
+                key={row.name}
+                onClick={() => onChoose(row.name)}
+                className={`cursor-pointer border-t border-line hover:bg-accent/5 ${chosen === row.name ? "bg-accent/10 font-semibold" : ""}`}
               >
-                <td className="py-1 pr-3">{row.sigungu}</td>
+                <td className="py-1 pr-3">{row.name}</td>
                 <td className="py-1 pr-3 text-right tabular-nums">{won(row.median)}</td>
                 <td className="py-1 pr-3 text-right tabular-nums">{won(row.mean)}</td>
                 <td className="py-1 text-right tabular-nums">
@@ -165,12 +152,55 @@ function SigunguTable({ fees, sido, chosen, onChoose }: { fees: ItemFees; sido: 
           </tbody>
         </table>
       </div>
-    </section>
+    </details>
   );
 }
 
-/** The fee page: pick a surveyed item and a region; see that region's numbers, every province against
- * the national median, and the districts of the chosen province (animalclinicfee.or.kr's view). */
+/** The map: the provinces, or the chosen province's cities and districts with a way back. */
+function FeeMap({ fees, sido, gu, onSido, onGu }: { fees: ItemFees; sido: string; gu: string; onSido: (sido: string) => void; onGu: (gu: string) => void }) {
+  const provinces = useMemo(() => new Map(fees.sido.map((row) => [row.sido, { ...row, name: row.sido }])), [fees.sido]);
+  const districts = useMemo(
+    () => new Map(fees.sigungu.filter((row) => row.sido === sido).map((row) => [row.sigungu, { ...row, name: row.sigungu }])),
+    [fees.sigungu, sido],
+  );
+  const grid = sido ? districtGrid(sido) : PROVINCES;
+  const province = provinces.get(sido);
+  const chooseGu = (name: string) => onGu(gu === name ? ALL : name);
+  return (
+    <figure className="rounded-xl border border-line bg-white p-3 sm:p-4">
+      <figcaption className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+        {sido ? (
+          <button type="button" onClick={() => onSido(ALL)} className="rounded-lg border border-line px-2 py-0.5 text-sm">
+            ← 전국 지도
+          </button>
+        ) : null}
+        <span className="font-bold">{sido ? `${sido} 시·군·구별 중간값` : "시·도별 중간값"}</span>
+        <span className="text-sm text-muted">
+          전국 {won(fees.national.median)}
+          {province ? ` · ${shortSido(sido)} ${won(province.median)}` : ""} · 단위 원 · {sido ? "칸을 누르면 그 시·군·구를 고릅니다" : "칸을 누르면 그 시·도의 시·군·구를 봅니다"}
+        </span>
+      </figcaption>
+      {!grid || (sido && !districts.size) ? (
+        <p className="text-sm text-muted">{sido}의 시·군·구 자료가 없습니다(병원이 1곳 이하인 지역은 공개되지 않습니다).</p>
+      ) : sido ? (
+        <TileMap key={sido} grid={grid} regions={districts} label={(name) => name} chosen={gu} national={fees.national.median} onChoose={chooseGu} />
+      ) : (
+        <TileMap grid={grid} regions={provinces} label={shortSido} chosen={sido} national={fees.national.median} onChoose={onSido} />
+      )}
+      {!sido && fees.no_data.length ? (
+        <p className="mb-2 text-xs text-muted">자료 없음: {fees.no_data.map(shortSido).join(", ")} (해당 진료가 없거나 병원이 1곳 이하인 지역은 공개되지 않습니다)</p>
+      ) : null}
+      {sido ? (
+        districts.size ? <RegionTable heading={`${sido} 시·군·구별 중간값`} regions={[...districts.values()]} chosen={gu} onChoose={chooseGu} /> : null
+      ) : (
+        <RegionTable heading="시·도별 중간값" regions={[...provinces.values()]} chosen={sido} onChoose={onSido} />
+      )}
+    </figure>
+  );
+}
+
+/** The fee page: pick a surveyed item and a region; see that region's numbers, the provinces on a tile
+ * map, and the chosen province's districts on its own map (animalclinicfee.or.kr's view). */
 export type FeesStart = { items: FeeItem[]; fees: ItemFees };
 
 export default function FeeExplorer({ initial = null }: { initial?: FeesStart | null }) {
@@ -260,8 +290,7 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
       </div>
 
       <Summary title={`${title} · ${fees.label}`} values={values} national={title === "전국" ? null : fees.national} />
-      <SidoChart fees={fees} chosen={sido} onChoose={chooseSido} />
-      {sido ? <SigunguTable fees={fees} sido={sido} chosen={gu} onChoose={setGu} /> : null}
+      <FeeMap fees={fees} sido={sido} gu={gu} onSido={chooseSido} onGu={setGu} />
 
       <aside className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm">
         <p className="font-semibold text-warn-strong">꼭 읽어 주세요</p>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { byMedian, compareText, dotAxis, gapLabel, groupByCategory, regionOfAddress, shortSido, versusNational, won } from "./fees";
+import { byMedian, compareText, groupByCategory, regionOfAddress, shortSido, versusNational, won } from "./fees";
 
 describe("fees", () => {
   it("shortens province names like the survey site", () => {
@@ -17,8 +17,8 @@ describe("fees", () => {
   });
 
   it("ranks provinces by median, then by name", () => {
-    const row = (sido: string, median: number) => ({ sido, median, mean: median, min: 0, max: median });
-    expect(byMedian([row("대구광역시", 9000), row("강원특별자치도", 10000), row("경기도", 9000)]).map((r) => r.sido)).toEqual([
+    const row = (name: string, median: number) => ({ name, median, mean: median, min: 0, max: median });
+    expect(byMedian([row("대구광역시", 9000), row("강원특별자치도", 10000), row("경기도", 9000)]).map((r) => r.name)).toEqual([
       "강원특별자치도",
       "경기도",
       "대구광역시",
@@ -30,7 +30,6 @@ describe("fees", () => {
     expect(versusNational(11000, 10000)).toBe("전국보다 1,000원 높음");
     expect(versusNational(8500, 10000)).toBe("전국보다 1,500원 낮음");
     expect(versusNational(10000, 10000)).toBe("전국과 같음");
-    expect([gapLabel(11000, 10000), gapLabel(9500, 10000), gapLabel(10000, 10000)]).toEqual(["+1,000", "−500", "±0"]);
   });
 
   it("groups items by category in order", () => {
@@ -57,24 +56,5 @@ describe("the hospital list's fee comparison", () => {
     expect(compareText({ ...row, median: 9000, level: "sido", region: "경기도" })).toBe("중간 9,000원 · 전국보다 1,000원 낮음 (전국 10,000원)");
     expect(compareText({ ...row, median: 10000, level: "sigungu", region: "중구" })).toBe("중간 10,000원 · 전국과 같음 (전국 10,000원)");
     expect(compareText({ ...row, median: null, level: null, region: null })).toBe("전국 중간 10,000원 (이 지역 자료 없음)");
-  });
-});
-
-describe("dotAxis", () => {
-  it("starts near the data, on round steps, with the national median inside", () => {
-    const axis = dotAxis([8000, 9000, 10000, 10000], 10000);
-    expect(axis.lo).toBeLessThan(8000);
-    expect(axis.lo).toBeGreaterThan(0);
-    expect(axis.hi).toBeGreaterThan(10000);
-    expect(axis.ticks[0]).toBe(axis.lo);
-    expect(axis.ticks.at(-1)).toBe(axis.hi);
-    expect(axis.ticks.every((tick) => tick % 500 === 0)).toBe(true);
-  });
-
-  it("spreads one value out and never goes below zero", () => {
-    const flat = dotAxis([20000, 20000], 20000);
-    expect(flat.lo).toBeLessThan(20000);
-    expect(flat.hi).toBeGreaterThan(20000);
-    expect(dotAxis([100, 900000], 500000).lo).toBe(0);
   });
 });

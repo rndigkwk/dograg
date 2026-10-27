@@ -36,21 +36,30 @@ const fees = (url: URL) => {
   };
 };
 
-test("the fee page shows a region's numbers against the national median, by province and district", async ({ page }) => {
+test("the fee page shows the provinces on a tile map, then a province's districts", async ({ page }) => {
   const api = await fakeApi(page, [], { "/fees/items": ITEMS, "/fees": fees });
   await page.goto("/fees");
   await expect(page.getByRole("region", { name: "전국 · 초진 진찰료 (체중 5kg) 진료비" })).toContainText("10,000원");
-  const chart = page.getByRole("list", { name: "시·도별 중간값" });
-  await expect(chart.getByRole("button")).toHaveCount(2);
-  await expect(chart.getByRole("button").first()).toHaveAccessibleName("서울특별시 중간값 11,000원");
-  await expect(chart).toContainText("+1,000");
+  const map = page.getByRole("group", { name: "지도" });
+  // The provinces as tiles with their names and medians; one without a figure says so, not 0원.
+  await expect(map.getByRole("button")).toHaveCount(2);
+  await expect(map.getByRole("button", { name: "서울특별시 중간값 11,000원" })).toContainText("서울11,000원");
+  await expect(map).toContainText("부산자료 없음");
 
-  // A bar chooses its province: the summary and the district table follow.
-  await chart.getByRole("button", { name: "서울특별시 중간값 11,000원" }).click();
+  // A tile opens its province's districts: the summary follows, and a district tile chooses it.
+  await map.getByRole("button", { name: "서울특별시 중간값 11,000원" }).click();
   await expect(page.getByRole("region", { name: "서울특별시 · 초진 진찰료 (체중 5kg) 진료비" })).toContainText("전국보다 1,000원 높음");
-  await expect(page.getByRole("row").nth(1)).toContainText("강남구");
-  await page.getByRole("combobox", { name: "시·군·구" }).selectOption("강동구");
+  await expect(map.getByRole("button")).toHaveCount(2);
+  await expect(map).toContainText("종로구자료 없음");
+  await map.getByRole("button", { name: "강동구 중간값 9,500원" }).click();
   await expect(page.getByRole("region", { name: "서울특별시 강동구 · 초진 진찰료 (체중 5kg) 진료비" })).toContainText("9,500원");
+  await page.getByText("표로 보기").click();
+  await expect(page.getByRole("row").nth(1)).toContainText("강남구");
+
+  // Back to the provinces.
+  await page.getByRole("button", { name: "← 전국 지도" }).click();
+  await expect(page.getByRole("region", { name: "전국 · 초진 진찰료 (체중 5kg) 진료비" })).toBeVisible();
+  await expect(map.getByRole("button", { name: "경기도 중간값 9,000원" })).toBeVisible();
 
   // Another item: a province with no figure is named, not drawn as 0원.
   await page.getByRole("combobox", { name: "진료 항목" }).selectOption("자기공명영상검사(MRI)비와 판독료 (체중 5kg)");

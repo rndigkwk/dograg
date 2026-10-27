@@ -85,9 +85,9 @@ export function shortSido(sido: string): string {
   return SHORT[sido] ?? sido.replace(/(특별자치시|특별자치도|특별시|광역시|도)$/, "");
 }
 
-/** Provinces by median, highest first (ties by name), so the chart reads as a ranking. */
-export function byMedian<T extends FeeValues & { sido: string }>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => b.median - a.median || a.sido.localeCompare(b.sido, "ko"));
+/** Regions by median, highest first (ties by name), so the fee page's table reads as a ranking. */
+export function byMedian<T extends FeeValues & { name: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.median - a.median || a.name.localeCompare(b.name, "ko"));
 }
 
 /** How a median compares with the national one, in words: "전국보다 1,000원 높음". */
@@ -95,35 +95,6 @@ export function versusNational(value: number, national: number): string {
   const gap = value - national;
   if (gap === 0) return "전국과 같음";
   return `전국보다 ${won(Math.abs(gap))} ${gap > 0 ? "높음" : "낮음"}`;
-}
-
-/** The gap to the national median in a few characters, for a chart label: "+1,000", "−500", "±0". */
-export function gapLabel(value: number, national: number): string {
-  const gap = value - national;
-  if (gap === 0) return "±0";
-  return `${gap > 0 ? "+" : "−"}${Math.abs(gap).toLocaleString("ko-KR")}`;
-}
-
-/** The x axis of the province dot chart (2026-10-24): province medians sit close together (초진
- * 8,000~10,000원), so bars from zero all looked the same length. Dots are read by position, so the axis
- * can start near the data: the span of the medians and the national one, padded and cut at round
- * steps (1, 2 or 5 x 10^k), with the step's ticks. */
-export function dotAxis(values: number[], national: number): { lo: number; hi: number; ticks: number[] } {
-  const all = [...values, national];
-  let lo = Math.min(...all);
-  let hi = Math.max(...all);
-  if (hi === lo) {
-    lo -= Math.max(1, lo * 0.1);
-    hi += Math.max(1, hi * 0.1);
-  }
-  const rough = (hi - lo) / 4;
-  const power = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 5, 10].map((m) => m * power).find((candidate) => candidate >= rough) ?? 10 * power;
-  lo = Math.max(0, Math.floor((lo - step / 2) / step) * step);
-  hi = Math.ceil((hi + step / 2) / step) * step;
-  const ticks: number[] = [];
-  for (let tick = lo; tick <= hi + step / 2; tick += step) ticks.push(tick);
-  return { lo, hi, ticks };
 }
 
 /** The items grouped by category, in the API's order. */
