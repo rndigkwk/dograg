@@ -30,6 +30,9 @@ export default function Home() {
           <p className="text-sm text-muted">
             수의사 상담 19,206건과 공공 돌봄 지침을 근거로 답합니다. 응급 신호가 보이면 답보다 먼저 알려 드립니다. 진료를 대신하지 않습니다.
           </p>
+          <Link href="/demo" className="inline-block text-sm font-semibold text-accent underline">
+            처음이라면 예시로 2분 둘러보기 →
+          </Link>
         </div>
         {/* The photo is for wide screens: on a phone the question box and the shortcuts come first. */}
         <div className="hidden md:block">
