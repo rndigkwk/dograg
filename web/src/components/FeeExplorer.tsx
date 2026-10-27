@@ -78,7 +78,7 @@ function TileMap({ grid, regions, label, chosen, national, onChoose }: {
           if (!region)
             return (
               <div key={tile.name} style={place} className="rounded-lg border border-dashed border-line px-0 py-1.5 text-center text-[10px] leading-tight text-muted sm:py-2 sm:text-sm">
-                <span className="block break-keep">{label(tile.name)}</span>
+                <span className="block">{label(tile.name)}</span>
                 <span className="block">자료 없음</span>
               </div>
             );
@@ -99,7 +99,7 @@ function TileMap({ grid, regions, label, chosen, national, onChoose }: {
                 picked ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent"
               }`}
             >
-              <span className="block break-keep font-semibold">{label(tile.name)}</span>
+              <span className="block font-semibold">{label(tile.name)}</span>
               <span className="block tabular-nums">
                 {region.median.toLocaleString("ko-KR")}
                 <span className="hidden sm:inline">원</span>
