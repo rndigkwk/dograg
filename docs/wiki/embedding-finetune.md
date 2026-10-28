@@ -328,7 +328,7 @@ uv run --group tools python scripts/compare_kure.py --finetuned
 
 KURE-v1이 bge-m3에서 출발했으니, 기본 bge-m3는 KURE-v1 기본(0.723)과 비슷하거나 낮을 것으로 본다. 그래도 `open-questions.md`에 "건강 컬렉션을 bge-m3로 재지 않았다"가 남아 있어 같은 방법으로 잰다.
 
-- **문서 벡터:** `notebooks/bge_m3_embed_colab.ipynb` (Colab T4). KURE-v1과 같은 구조라 같은 설정이다: float16, 1,024토큰, 배치 64, 짧은 글부터.
+- **문서 벡터:** `notebooks/bge_m3_embed_colab.ipynb` (Colab T4, [Colab에서 열기](https://colab.research.google.com/github/rndigkwk/dograg/blob/main/notebooks/bge_m3_embed_colab.ipynb)). KURE-v1과 같은 구조라 같은 설정이다: float16, 1,024토큰, 배치 64, 짧은 글부터.
   - 예상 GPU 메모리 최대 약 3~6GB, 문서 임베딩 약 5~10분이다(가중치 float16 약 1.1GB에 가장 긴 배치 64×1,024토큰의 활성값). 노트북이 실제 값을 출력한다.
 - **비교:** `scripts/compare_kure.py --bge-m3`. 위와 같은 220문항, 이미 채점한 문서는 다시 채점하지 않는다. KURE-v1 기본 비교 때 새 문서 294개, 미세조정 비교 때 판사 호출 156번이었다. 이번에도 100~150번으로 예상하며, `--dry-run`으로 먼저 센다.
 - **읽을 행:** 2026-10-20부터 운영 건강 검색은 의미 검색만 쓴다. 그래서 이번에는 **Dense**가 판단 기준이다. 하이브리드는 이전 기록과 비교하려고 남긴다.
