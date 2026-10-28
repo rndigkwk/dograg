@@ -6,7 +6,7 @@
 - 도메인 특화 모델 튜닝
 - 서빙과 운영
 
-이미 지난 교안(Day 46~56)의 적용 여부는 [wiki/lecture-review.md](wiki/lecture-review.md)에 있다.
+지난 교안(Day 02~69)의 Day별 적용 여부는 [wiki/lecture-review.md](wiki/lecture-review.md)에 있다.
 
 **결론:** 이 프로젝트는 수업 내용의 상당 부분을 이미 직접 만들었다. 그래서 새로 배울 내용은 두 가지에 쓴다.
 - 이미 만든 것을 **표준 도구로 다시 검증**한다.
