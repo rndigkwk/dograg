@@ -153,6 +153,22 @@ class ReportEvidenceTests(unittest.TestCase):
         self.assertEqual(result["evidence_rows"], [])
         self.assertIn("근거", result["answer"])
 
+    def test_a_no_evidence_answer_is_marked_with_its_reason(self):
+        from langchain_core.documents import Document
+
+        docs = [Document(page_content="펫보험 가입률", metadata={"source_id": "p1", "title": "의료", "page": 30})]
+        with patch.object(resources, "load_report_vector_db", return_value=object()), \
+                patch.object(report, "search_reports_hybrid", return_value=docs), \
+                patch.object(report, "generate_report_answer", return_value=" [근거 없음] 경주마 수치는 자료에 없습니다."):
+            result = report.analyze_report("경주마의 펫보험 가입률은?")
+        self.assertEqual(result["no_evidence"], "경주마 수치는 자료에 없습니다.")
+        self.assertEqual(result["searched_ids"], ["p1"])
+        self.assertEqual(result["evidence_rows"], [])
+        with patch.object(resources, "load_report_vector_db", return_value=object()), \
+                patch.object(report, "search_reports_hybrid", return_value=docs), \
+                patch.object(report, "generate_report_answer", return_value="가입률은 낮습니다(페이지 30)."):
+            self.assertNotIn("no_evidence", report.analyze_report("펫보험 가입률은?"))
+
     def test_saved_assistant_message_replays_notice_and_page_evidence(self):
         message = {"role": "assistant", "content": "요약", "route": "analysis", "safety_notice": "진료 권고", "evidence_rows": [{"page": 2, "excerpt": "보고서 근거"}]}
         with patch.object(rag, "render_pdf_page", return_value=None):

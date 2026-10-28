@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from src import resources
-from src.crag import merge_documents
+from src.crag import evidence_id, merge_documents
 from src.report_evidence import report_evidence_from_docs
 
 REPORT_ANALYSIS_TOP_K = 6
@@ -95,13 +95,17 @@ REPORT_ANALYSIS_KEYWORDS = (
     "펫보험",
     "연도별",
 )
+REPORT_NO_EVIDENCE = "[근거 없음]"
 REPORT_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
     (
         "system",
         """반려동물 관련 보고서(2025 한국 반려동물 보고서, 복지실태, 산업 실태조사, 의료보험, 장묘서비스)의
 검색 자료만 근거로 분석 결과를 작성하세요. 아래 분석 항목은 2025 한국 반려동물 보고서의 목차 기준입니다.
 분석 항목에 해당하는 수치, 차이, 추이를 우선 정리하고, 자료에 없는 수치나 원인은 추측하지 마세요.
-검색 자료가 부족하면 부족한 부분을 명시하세요. 답변에는 분석 대상, 핵심 결과, 근거 보고서명과 페이지를 포함하세요.
+검색 자료가 부족하면 부족한 부분을 명시하세요.
+질문이 묻는 대상(예: 보고서가 다루지 않는 동물)이나 기간·연도의 수치와 사실이 검색 자료에 하나도 없으면, 다른 대상이나 다른 기간의 비슷한 수치로 답하지 말고
+"[근거 없음]" 뒤에 질문의 무엇이 자료에 없었는지 한 문장만 쓰세요. 질문의 일부라도 자료로 답할 수 있으면 이 표시 없이 그 부분을 답하세요.
+답변에는 분석 대상, 핵심 결과, 근거 보고서명과 페이지를 포함하세요.
 페이지는 각 검색 자료 머리표의 "페이지 N"을 그대로 쓰세요. 본문에 인쇄된 쪽 번호나 목차의 숫자는 화면의 근거 목록과 달라 쓰지 마세요.
 검색 데이터 밖 내용은 말하지 마세요.
 
@@ -149,7 +153,14 @@ def analyze_report(question: str) -> dict:
     evidence_rows = report_evidence_from_docs(report_docs)
     if not report_docs:
         return {"answer": "검색된 보고서 근거가 부족해 분석할 수 없습니다.", "evidence_rows": []}
-    return {"answer": generate_report_answer(question, report_docs), "evidence_rows": evidence_rows}
+    answer = generate_report_answer(question, report_docs)
+    if answer.lstrip().startswith(REPORT_NO_EVIDENCE):
+        # 2026-10-28: "경주마의 펫보험 가입률" was answered with the pet figure and "not for horses";
+        # the graph turns this into the usual abstention (what was searched, what was missing).
+        reason = answer.lstrip()[len(REPORT_NO_EVIDENCE):].strip()
+        return {"answer": answer, "evidence_rows": [], "no_evidence": reason,
+                "searched_ids": [evidence_id(doc) for doc in report_docs]}
+    return {"answer": answer, "evidence_rows": evidence_rows}
 
 
 REPORT_CANDIDATE_K = 20
