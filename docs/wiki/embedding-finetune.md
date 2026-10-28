@@ -324,6 +324,22 @@ uv run --group tools python scripts/compare_kure.py --finetuned
 - **결정: 바꾸지 않는다.** 위 "바꿀 조건"(하이브리드 전체가 유의하게 높을 것)을 채우지 못했다. 같은 정확도라면 질문 임베딩이 8배 빠르고 모델이 12분의 1인 지금 모델이 낫다. 메모리 1GB 제한이 사라져도 결론은 같다. 이번 이유는 메모리가 아니라 이득이 없다는 것이다.
 - **다시 볼 조건:** Dense만으로 검색하는 경로가 생기거나(긴 상담 글 +0.05가 의미 있어짐), 더 많은 문항으로 다시 재서 차이가 유의해질 때. 평가 세트를 늘리는 것이 모델을 바꾸는 것보다 먼저다.
 
+### 기본 bge-m3 (준비, 2026-10-28)
+
+KURE-v1이 bge-m3에서 출발했으니, 기본 bge-m3는 KURE-v1 기본(0.723)과 비슷하거나 낮을 것으로 본다. 그래도 `open-questions.md`에 "건강 컬렉션을 bge-m3로 재지 않았다"가 남아 있어 같은 방법으로 잰다.
+
+- **문서 벡터:** `notebooks/bge_m3_embed_colab.ipynb` (Colab T4). KURE-v1과 같은 구조라 같은 설정이다: float16, 1,024토큰, 배치 64, 짧은 글부터.
+  - 예상 GPU 메모리 최대 약 3~6GB, 문서 임베딩 약 5~10분이다(가중치 float16 약 1.1GB에 가장 긴 배치 64×1,024토큰의 활성값). 노트북이 실제 값을 출력한다.
+- **비교:** `scripts/compare_kure.py --bge-m3`. 위와 같은 220문항, 이미 채점한 문서는 다시 채점하지 않는다. KURE-v1 기본 비교 때 새 문서 294개, 미세조정 비교 때 판사 호출 156번이었다. 이번에도 100~150번으로 예상하며, `--dry-run`으로 먼저 센다.
+- **읽을 행:** 2026-10-20부터 운영 건강 검색은 의미 검색만 쓴다. 그래서 이번에는 **Dense**가 판단 기준이다. 하이브리드는 이전 기록과 비교하려고 남긴다.
+  - 같은 이유로 KURE-v1 미세조정의 "다시 볼 조건"(Dense만 쓰는 경로)은 이미 생겼다. 그 Dense 전체는 0.841 대 앱 0.827(p=0.75)로 유의하지 않아, 결론(앱 유지)은 그대로다.
+
+```bash
+uv run --group tools python scripts/compare_kure.py --bge-m3 --dry-run
+```
+
+- 결과: `output/experiments/bge_m3.json`, MLflow 실행 "compare bge-m3 base vs app"
+
 ### MLflow에서 보기 (2026-10-16)
 
 [DagsHub MLflow](https://dagshub.com/rndigkwk/dograg.mlflow)의 실험 `health-embedding`에 이전 비교 4개를 기준선으로 올렸다(`scripts/mlflow_backfill_embeddings.py`, 모델 호출 없음, 원래 JSON을 첨부).
