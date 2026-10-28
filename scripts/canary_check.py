@@ -76,10 +76,15 @@ def chat_events(base: str, question: str, timeout: float = 180) -> list[tuple[st
 
 def check_health(base: str, commit: str | None, sleep=time.sleep) -> str:
     """The revision answers /health with the expected commit (any commit when none is expected: the
-    scheduled check of the serving API, keep-alive.yml, which may run in the middle of a deploy)."""
+    scheduled check of the serving API, keep-alive.yml, which may run in the middle of a deploy).
+    A request that times out is tried again too: the scheduled check wakes an API scaled to zero, and
+    on 2026-10-27 two of its runs failed on a first /health that took more than 30 seconds."""
     last = ""
     for _ in range(HEALTH_ATTEMPTS):
-        status, last = get(f"{base}/health")
+        try:
+            status, last = get(f"{base}/health")
+        except OSError as error:  # TimeoutError, URLError: still starting
+            status, last = 0, str(error)
         if status == 200 and (commit is None or json.loads(last).get("commit") == commit):
             return f"health: commit {json.loads(last).get('commit', '?')[:7]}"
         sleep(HEALTH_WAIT_S)

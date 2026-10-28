@@ -80,6 +80,26 @@ class CanaryCheckTests(unittest.TestCase):
         self.assertEqual(lines[0], "health: commit old0000")
         self.assertEqual(len(lines), 4)
 
+    def test_a_health_request_that_times_out_while_waking_is_tried_again(self):
+        url = self.serve()
+        real_get = canary_check.get
+        calls = iter([TimeoutError("The read operation timed out")])
+
+        def waking(target, timeout=30):
+            error = next(calls, None)
+            if error is not None:
+                raise error
+            return real_get(target, timeout)
+
+        with patch.object(canary_check, "get", side_effect=waking):
+            lines = list(canary_check.run(url, None, sleep=lambda s: None))
+        self.assertEqual(len(lines), 4)
+
+    def test_a_health_check_that_never_wakes_fails_with_the_reason(self):
+        with patch.object(canary_check, "get", side_effect=TimeoutError("The read operation timed out")), \
+                self.assertRaisesRegex(canary_check.CheckFailed, "timed out"):
+            canary_check.check_health("http://127.0.0.1:9", None, sleep=lambda s: None)
+
     def test_the_old_revision_answering_fails(self):
         with self.assertRaisesRegex(canary_check.CheckFailed, "did not report"):
             list(canary_check.run(self.serve(commit="old0000"), COMMIT, sleep=lambda s: None))
