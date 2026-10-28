@@ -324,9 +324,27 @@ uv run --group tools python scripts/compare_kure.py --finetuned
 - **결정: 바꾸지 않는다.** 위 "바꿀 조건"(하이브리드 전체가 유의하게 높을 것)을 채우지 못했다. 같은 정확도라면 질문 임베딩이 8배 빠르고 모델이 12분의 1인 지금 모델이 낫다. 메모리 1GB 제한이 사라져도 결론은 같다. 이번 이유는 메모리가 아니라 이득이 없다는 것이다.
 - **다시 볼 조건:** Dense만으로 검색하는 경로가 생기거나(긴 상담 글 +0.05가 의미 있어짐), 더 많은 문항으로 다시 재서 차이가 유의해질 때. 평가 세트를 늘리는 것이 모델을 바꾸는 것보다 먼저다.
 
-### 기본 bge-m3 (준비, 2026-10-28)
+### 기본 bge-m3 — **바꾸지 않음** (2026-10-28)
 
-KURE-v1이 bge-m3에서 출발했으니, 기본 bge-m3는 KURE-v1 기본(0.723)과 비슷하거나 낮을 것으로 본다. 그래도 `open-questions.md`에 "건강 컬렉션을 bge-m3로 재지 않았다"가 남아 있어 같은 방법으로 잰다.
+**결론:** 기본 bge-m3는 앱보다 유의하게 낮다. Dense 전체 0.755 대 0.827, p=0.026이다. 건강 컬렉션을 bge-m3로 바꾸지 않는다.
+
+`open-questions.md`에 "건강 컬렉션을 bge-m3로 재지 않았다"가 남아 있어 KURE-v1과 같은 방법으로 쟀다. KURE-v1이 bge-m3에서 출발했으니 비슷하거나 낮을 것으로 예상했다.
+
+| | 앱 (미세조정 ko-sroberta) | bge-m3 기본 | KURE-v1 기본 (10-13) | bge-m3 대 앱 p |
+| --- | ---: | ---: | ---: | --- |
+| **Dense 짧은 질문** | **0.817** | 0.733 | 0.708 | 0.052 |
+| Dense 긴 상담 글 | 0.84 | 0.78 | 0.83 | 0.31 |
+| **Dense 전체 (운영 방식)** | **0.827** | 0.755 | 0.764 | **0.026** |
+| 하이브리드 전체 | 0.809 | 0.750 | 0.723 | 0.079 |
+| 질문 임베딩 (CPU, 중앙값) | 24ms (int8) | 221ms (float) | 275ms | |
+
+- **운영 방식(Dense)에서 유의하게 낮다.** 차이는 대부분 짧은 질문에서 난다(0.817 대 0.733). 우리 말투로 미세조정한 효과로, KURE-v1 때와 같은 모양이다.
+- **bge-m3와 KURE-v1 기본은 거의 같다**(Dense 전체 0.755 대 0.764). KURE-v1의 한국어 추가 학습이 우리 과제에서는 큰 차이를 만들지 않았다.
+- 판사 호출 116번(짧은 질문 69, 긴 상담 47), 질문 임베딩은 9배 느리다.
+- **문서 벡터 확인:** Colab 벡터는 19,206×1024, 모두 정규화됐다. 로컬에서 같은 글 4개를 다시 임베딩하니 코사인 1.000이었다(행 순서 확인). 같은 행의 KURE-v1 벡터와는 중앙값 0.956이다.
+- **다시 볼 조건:** 없다. 바꾸려면 미세조정이 필요한데, 같은 계열을 미세조정한 KURE-v1도 앱과 같았다(위 "KURE-v1 미세조정").
+
+**준비했던 방법:**
 
 - **문서 벡터:** `notebooks/bge_m3_embed_colab.ipynb` (Colab T4, [Colab에서 열기](https://colab.research.google.com/github/rndigkwk/dograg/blob/main/notebooks/bge_m3_embed_colab.ipynb)). KURE-v1과 같은 구조라 같은 설정이다: float16, 1,024토큰, 배치 64, 짧은 글부터.
   - 예상 GPU 메모리 최대 약 3~6GB, 문서 임베딩 약 5~10분이다(가중치 float16 약 1.1GB에 가장 긴 배치 64×1,024토큰의 활성값). 노트북이 실제 값을 출력한다.
@@ -338,7 +356,7 @@ KURE-v1이 bge-m3에서 출발했으니, 기본 bge-m3는 KURE-v1 기본(0.723)�
 uv run --group tools python scripts/compare_kure.py --bge-m3 --dry-run
 ```
 
-- 결과: `output/experiments/bge_m3.json`, MLflow 실행 "compare bge-m3 base vs app"
+- 결과: `output/experiments/bge_m3.json`, MLflow 실행 "compare bge-m3 base vs app"(첫 기록은 MLflow가 cp949 콘솔에 이모지를 쓰다 멈춰 FAILED로 두고, 결과 JSON으로 다시 기록했다. `scripts/mlflow_tracking.py`를 고쳤다)
 
 ### MLflow에서 보기 (2026-10-16)
 
