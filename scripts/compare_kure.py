@@ -3,6 +3,7 @@
     uv run --group tools python scripts/compare_kure.py                         # KURE-v1 as published
     uv run --group tools python scripts/compare_kure.py --finetuned --dry-run   # judge calls it would need
     uv run --group tools python scripts/compare_kure.py --finetuned             # + notebooks/kure_finetune_colab.ipynb
+    uv run --group tools python scripts/compare_kure.py --bge-m3 --dry-run      # + notebooks/bge_m3_embed_colab.ipynb
 
 nlpai-lab/KURE-v1 (BGE-M3 further trained for Korean retrieval, 1024 dimensions, 8,192 tokens) leads
 the Korean MTEB health task PublicHealthQA among the models of the Day 58 lesson (81.92 vs 73.70 for
@@ -26,6 +27,12 @@ vectors from the private dataset's experiments branch (downloaded when missing).
 script counts those questions first and asks scripts/cost_guard.py; --dry-run stops there. The
 results go to MLflow on DagsHub (experiment health-embedding, scripts/mlflow_tracking.py) unless
 --no-mlflow, and to output/experiments/kure_v1_ft.json.
+
+--bge-m3 (2026-10-28) compares BAAI/bge-m3 as published, the model KURE-v1 was trained from
+(open-questions: the health collection was never measured with it). Document vectors from
+notebooks/bge_m3_embed_colab.ipynb (1,024 tokens, as KURE-v1), downloaded from the experiments
+branch when missing; otherwise as --finetuned. The health search has used the embedding alone since
+2026-10-20, so Dense is the row to read; the hybrid is kept to compare with the earlier runs.
 """
 
 from __future__ import annotations
@@ -50,7 +57,11 @@ OUT = PROJECT_DIR / "output" / "experiments" / "kure_v1.json"
 CANDIDATES = 12
 DATA_REPO = "blanden77/dograg-data"
 FINETUNED = {"model": "blanden77/kure-v1-dograg", "rows": PROJECT_DIR / "output" / "experiments" / "kure_v1_ft_rows.npy",
-             "remote_rows": "kure/kure_v1_ft_rows.npy", "out": PROJECT_DIR / "output" / "experiments" / "kure_v1_ft.json"}
+             "remote_rows": "kure/kure_v1_ft_rows.npy", "out": PROJECT_DIR / "output" / "experiments" / "kure_v1_ft.json",
+             "run": "kure-v1 ft-b"}
+BGE_M3 = {"model": "BAAI/bge-m3", "rows": PROJECT_DIR / "output" / "experiments" / "bge_m3_rows.npy",
+          "remote_rows": "bgem3/bge_m3_rows.npy", "out": PROJECT_DIR / "output" / "experiments" / "bge_m3.json",
+          "run": "bge-m3 base"}
 
 
 def mcnemar(a: list[bool], b: list[bool]) -> float:
@@ -83,15 +94,18 @@ def rows_file(path: Path, remote: str) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--finetuned", action="store_true", help="KURE-v1 fine-tuned on our synthetic queries")
+    which = parser.add_mutually_exclusive_group()
+    which.add_argument("--finetuned", action="store_true", help="KURE-v1 fine-tuned on our synthetic queries")
+    which.add_argument("--bge-m3", action="store_true", help="BAAI/bge-m3 as published")
     parser.add_argument("--dry-run", action="store_true", help="count the judge calls and stop")
     parser.add_argument("--yes", action="store_true", help="go on above scripts/cost_guard.py's threshold")
     parser.add_argument("--no-mlflow", action="store_true")
     args = parser.parse_args(argv)
-    if args.finetuned:
-        model_name, rows, out = FINETUNED["model"], rows_file(FINETUNED["rows"], FINETUNED["remote_rows"]), FINETUNED["out"]
+    other = FINETUNED if args.finetuned else BGE_M3 if args.bge_m3 else None
+    if other:
+        model_name, rows, out, run = other["model"], rows_file(other["rows"], other["remote_rows"]), other["out"], other["run"]
     else:
-        model_name, rows, out = "nlpai-lab/KURE-v1", KURE_ROWS, OUT
+        model_name, rows, out, run = "nlpai-lab/KURE-v1", KURE_ROWS, OUT, "kure-v1 base"
 
     import torch
     from sentence_transformers import SentenceTransformer
@@ -164,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(f"[dry run] judge calls needed: {calls} ({detail})")
         return 0
-    if calls and not confirm(f"compare_kure{' --finetuned' if args.finetuned else ''} judge", calls=calls,
+    if calls and not confirm(f"compare_kure {run} judge", calls=calls,
                              detail=detail, yes=args.yes):
         return 1
     judge_llm = judge_model() if calls else None
@@ -194,16 +208,16 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps(report, ensure_ascii=False, indent=1))
     out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     if not args.no_mlflow:
-        log_to_mlflow(report, out, finetuned=args.finetuned, judge_calls=calls)
+        log_to_mlflow(report, out, run=run, judge_calls=calls)
     return 0
 
 
-def log_to_mlflow(report: dict, out: Path, *, finetuned: bool, judge_calls: int) -> None:
+def log_to_mlflow(report: dict, out: Path, *, run: str, judge_calls: int) -> None:
     """The comparison as a parent run with one child per system, named like the baselines that
     scripts/mlflow_backfill_embeddings.py logged (the training run is separate)."""
     from mlflow_tracking import log_comparison, system_metrics
 
-    kure = "kure-v1 ft-b" if finetuned else "kure-v1 base"
+    kure = run
     systems = {}
     for key, name in (("app", "ko-sroberta ft-b (app)"), ("kure", kure)):
         systems[name] = {**system_metrics(report["useful@3"], "dense", key),

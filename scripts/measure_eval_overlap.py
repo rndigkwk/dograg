@@ -17,7 +17,9 @@ embedding alone joins different dogs told with the same template. So a candidate
 
 Every candidate was read and labelled by hand (tests/data/eval_overlap_labels.json). On the 100
 graded questions (tests/data/health_relevance_100.json) the app's saved hybrid ranking and the
-grades give useful@3 with and without the copies. The short set (tests/data/emergency_signs.json)
+grades give useful@3 with and without the copies. On all 561 long questions the label hit@3 (a top-3
+post with the same life stage, department and disease) is split the same way, with the health search
+as it runs now: the app's embedding alone, exact search (BM25 left the health search on 2026-10-20). The short set (tests/data/emergency_signs.json)
 was written by hand and is checked for candidates only. Corpus vectors are cached in
 output/experiments/. Results: output/experiments/eval_overlap.json.
 """
@@ -40,6 +42,7 @@ OUT = PROJECT_DIR / "output" / "experiments" / "eval_overlap.json"
 CACHE = PROJECT_DIR / "output" / "experiments" / "eval_overlap_corpus_vectors.npy"
 LABELS = PROJECT_DIR / "tests" / "data" / "eval_overlap_labels.json"
 MIN_COSINE, MIN_OVERLAP, NEIGHBOURS = 0.8, 0.4, 20
+LABELS_FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 WORD_TAGS = ("NNG", "NNP", "SN", "SL", "XR")
 
 
@@ -70,7 +73,8 @@ def candidates(questions: list[str], corpus: list[str], corpus_vectors: np.ndarr
         best = max(np.argsort(-scores)[:NEIGHBOURS], key=lambda k: sum(idf(w) for w in words & corpus_words[k]))
         overlap = sum(idf(w) for w in words & corpus_words[best]) / total
         rows.append({"corpus": int(best), "cosine": round(float(scores[best]), 3), "overlap": round(overlap, 3),
-                     "candidate": bool(scores[best] >= MIN_COSINE and overlap >= MIN_OVERLAP)})
+                     "candidate": bool(scores[best] >= MIN_COSINE and overlap >= MIN_OVERLAP),
+                     "top3": [int(k) for k in np.argsort(-scores)[:3]]})
     return rows
 
 
@@ -95,7 +99,8 @@ def main() -> int:
     document_frequency = Counter(word for words in corpus_words for word in words)
     idf = lambda word: math.log(len(corpus) / (1 + document_frequency.get(word, 0)))
 
-    val = [row["qa.input"] for row in read_csv(PROJECT_DIR / "data" / "df_val.csv")]
+    val_rows = read_csv(PROJECT_DIR / "data" / "df_val.csv")
+    val = [row["qa.input"] for row in val_rows]
     short = json.loads((PROJECT_DIR / "tests" / "data" / "emergency_signs.json").read_text(encoding="utf-8"))["items"]
     relevance = json.loads((PROJECT_DIR / "tests" / "data" / "health_relevance_100.json").read_text(encoding="utf-8"))["items"]
     labels = json.loads(LABELS.read_text(encoding="utf-8"))
@@ -127,6 +132,25 @@ def main() -> int:
         "useful@3_all": round(sum(every) / len(every), 3),
         "useful@3_with_copy": round(sum(split["copy"]) / len(split["copy"]), 3) if split["copy"] else None,
         "useful@3_without_copy": round(sum(split["other"]) / len(split["other"]), 3),
+    }
+    split, copy_in_top3 = {"copy": [], "other": []}, 0
+    for i, (row, found_row) in enumerate(zip(val_rows, long_rows, strict=True)):
+        hit = any(all(corpus_rows[k][f] == row[f] for f in LABELS_FIELDS) for k in found_row["top3"])
+        if i in same:
+            split["copy"].append(hit)
+            copy_in_top3 += found_row["corpus"] in found_row["top3"]
+        else:
+            split["other"].append(hit)
+    copies = [(val_rows[i], corpus_rows[long_rows[i]["corpus"]]) for i in sorted(same)]
+    agree = {f: sum(q[f] == c[f] for q, c in copies) for f in LABELS_FIELDS}
+    agree["all three"] = sum(all(q[f] == c[f] for f in LABELS_FIELDS) for q, c in copies)
+    every = split["copy"] + split["other"]
+    report["long_hit"] = {
+        "search": "app embedding, exact, top 3", "n": len(every), "with_copy": len(split["copy"]),
+        "copy_in_top3": copy_in_top3, "hit@3_all": round(sum(every) / len(every), 3),
+        "hit@3_with_copy": round(sum(split["copy"]) / len(split["copy"]), 3),
+        "hit@3_without_copy": round(sum(split["other"]) / len(split["other"]), 3),
+        "copy_labels_agree": agree,  # of the 53 question-copy pairs: the same story, labelled twice
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
