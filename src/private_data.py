@@ -45,7 +45,9 @@ REPO_ID = "blanden77/dograg-data"
 #            care-guide pieces and vectors
 #   data-v11 2026-10-19 the care-guide windows end and start at sentences, and the leaflet's "where to report"
 #            boxes written out (build_care_guides.sentence_window, OCR_CORRECTIONS)
-REVISION = "data-v11"
+#   data-v12 2026-10-28 CRAG r19 asks about race horses' pet insurance, which the reports do not cover
+#            (the old question was answered from the pharmacy table); branched from data-v11, only that file
+REVISION = "data-v12"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"

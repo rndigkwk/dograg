@@ -362,6 +362,18 @@ class ReportCragTests(ChatGraphTestCase):
         tools.decompose_question.assert_not_called()
         self.assertEqual(result["answer"], "기존 분석")
 
+    def test_plain_path_abstains_when_the_answer_model_finds_nothing_asked_for(self):
+        found_nothing = {"answer": "[근거 없음] 경주마의 펫보험 가입률은 자료에 없습니다.", "evidence_rows": [],
+                         "no_evidence": "경주마의 펫보험 가입률은 자료에 없습니다.", "searched_ids": ["r1", "r2", "r3"]}
+        tools = make_tools("analysis", analyze_report=Mock(return_value=found_nothing))
+        result = self.run_chat(tools, question="경주마의 펫보험 가입률은?", crag_reports=False)
+        self.assertTrue(result["abstained"])
+        self.assertTrue(result["answer"].startswith(REPORT_ABSTAIN))
+        self.assertIn("가까운 3건", result["answer"])
+        self.assertIn("**확인하지 못한 것:** 경주마의 펫보험 가입률은 자료에 없습니다.", result["answer"])
+        self.assertNotIn("[근거 없음]", result["answer"])
+        self.assertEqual(result["evidence_rows"], [])
+
     def test_comparison_question_is_decomposed_and_graded(self):
         tools = make_tools("analysis", review_evidence=Mock(return_value=review(["r2"], True)))
         result = self.run_chat(tools, question="입양비와 생활비를 비교해줘")

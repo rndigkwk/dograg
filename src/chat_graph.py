@@ -191,6 +191,13 @@ def build_chat_graph(tools):
 
     def report_simple(state: ChatState):
         result = tools.analyze_report(state["question"])
+        if (reason := result.get("no_evidence")) is not None:
+            # The answer model found nothing the question asks for: the same abstention as a CRAG
+            # path, with its reason as what the evidence did not cover (no extra model call).
+            entry = {"step": "report_answer_grade", "candidate_ids": result.get("searched_ids", []), "decision": "incorrect"}
+            done = {**state, "feedback": reason, "trace": [*state.get("trace", []), entry]}
+            return {"answer": abstain_message(done), "evidence_rows": [], "abstained": True,
+                    "feedback": reason, "decision": "incorrect", "trace": done["trace"]}
         return {"answer": result["answer"], "evidence_rows": evidence_for_display(result["evidence_rows"], result["answer"])}
 
     def hospital(state: ChatState):
