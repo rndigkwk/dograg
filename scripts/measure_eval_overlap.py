@@ -29,6 +29,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import random
 import sys
 from collections import Counter
 from pathlib import Path
@@ -152,6 +153,14 @@ def main() -> int:
         "hit@3_without_copy": round(sum(split["other"]) / len(split["other"]), 3),
         "copy_labels_agree": agree,  # of the 53 question-copy pairs: the same story, labelled twice
     }
+    # The fine-tuned model B learned from the synthetic queries of every corpus post except 300 dev posts
+    # (scripts/build_finetune_notebook.py: random.Random(13).sample over the sorted string ids).
+    queries = [json.loads(line) for line in (PROJECT_DIR / "data" / "finetune" / "queries.jsonl").open(encoding="utf-8")]
+    dev = set(random.Random(13).sample(sorted(q["id"] for q in queries), 300))
+    copy_posts = {ids[long_rows[i]["corpus"]] for i in same}
+    trained = copy_posts - dev
+    report["training"] = {"copy_posts": len(copy_posts), "in_dev": len(copy_posts & dev), "trained_on": len(trained),
+                          "training_pairs": 2 * len(trained), "of_pairs": 2 * (len(queries) - len(dev))}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=1))
