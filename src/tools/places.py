@@ -457,6 +457,12 @@ def _from_follow_up(current: str, earlier: list[str], read):
     return None
 
 
+def searched_kind(question: str) -> str:
+    """The kind a search will look for; earlier questions on the lines above count for follow-ups."""
+    *earlier, current = [line for line in question.split("\n") if line.strip()] or [question]
+    return _from_follow_up(current, earlier, place_kind) or "hospital"
+
+
 def run_night_search(question: str, location_keywords: list[str]) -> tuple[str, list[dict]]:
     """Hospitals whose name says 24시/응급/야간, in the asked (or earlier asked) region."""
     sql, parameters = fallback_sql(question, "hospital", location_keywords)
@@ -479,7 +485,7 @@ def run_sql_search(question: str, location: tuple[float, float] | None = None) -
     question only; the kind and region fall back to earlier questions for follow-ups.
     """
     *earlier, current = [line for line in question.split("\n") if line.strip()] or [question]
-    kind = _from_follow_up(current, earlier, place_kind) or "hospital"
+    kind = searched_kind(question)
     location_keywords = _from_follow_up(current, earlier, extract_search_parameters) or []
     question = current
     if wants_nearest(question):

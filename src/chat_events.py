@@ -10,7 +10,8 @@ import logging
 
 from src.chat_graph import HEALTH_PART_HEADING, answer_documents
 from src.health_answers import evidence_row
-from src.tools.places import emergency_hospitals
+from src.places_data import KIND_LABELS
+from src.tools.places import emergency_hospitals, searched_kind, with_particle
 
 ROUTE_PROGRESS = {
     "rag": "건강 상담 자료에서 근거를 찾고 있습니다…",
@@ -24,6 +25,9 @@ ROUTE_PROGRESS = {
 def progress_message(node: str, update: dict) -> str | None:
     """그래프 노드가 끝날 때마다 다음 단계를 사용자에게 알려 줄 문구를 고릅니다."""
     if node == "classify":
+        if update.get("route") == "sql" and (question := update.get("contextual_question")):
+            # "약국 알려줘" showed "동물병원을 찾고 있습니다…" (2026-10-28): name the kind searched for.
+            return f"{with_particle(KIND_LABELS[searched_kind(question)], '을', '를')} 찾고 있습니다…"
         return ROUTE_PROGRESS.get(update.get("route"))
     if node == "hospital" and update.get("also_health"):
         return "증상에 대한 상담 자료를 찾고 있습니다…"
