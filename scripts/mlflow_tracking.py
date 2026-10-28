@@ -34,6 +34,13 @@ def configure(local: bool = False) -> str:
     """Point MLflow at DagsHub (or the local folder) and return the tracking URI."""
     from src import settings  # loads .env
 
+    # MLflow prints an emoji link when a run ends. Redirected to a file on Korean Windows, stdout is
+    # cp949 and that print raised in the middle of compare_kure.py --bge-m3 (2026-10-28), leaving
+    # the runs half logged.
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        if hasattr(stream, "reconfigure") and encoding not in ("utf8", "utf8sig"):
+            stream.reconfigure(errors="backslashreplace")
     if local:
         os.environ["MLFLOW_TRACKING_URI"] = LOCAL_URI
         return LOCAL_URI

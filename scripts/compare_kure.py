@@ -108,11 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         model_name, rows, out, run = "nlpai-lab/KURE-v1", KURE_ROWS, OUT, "kure-v1 base"
 
     import torch
+    from cost_guard import confirm
+    from relevance_set import judge, judge_model
     from sentence_transformers import SentenceTransformer
 
-    from cost_guard import confirm
-
-    from relevance_set import judge, judge_model
     from src import resources
     from src.health_answers import attach_health_answers
     from src.hybrid_retrieval import HealthBM25Index, reciprocal_rank_fusion
