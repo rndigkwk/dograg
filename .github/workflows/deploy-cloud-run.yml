@@ -9,6 +9,8 @@ name: Deploy to Cloud Run
 # One-time setup: scripts/gcp/setup_cloud_run.sh in Cloud Shell, then the repository variable
 # GCP_WORKLOAD_IDENTITY_PROVIDER (Settings > Secrets and variables > Actions > Variables).
 # Authentication is keyless (Workload Identity Federation): no service account key is stored.
+# Optional: the repository secret VERCEL_DEPLOY_HOOK_URL rebuilds the web when the API's data changed
+# (the last step).
 on:
   push:
     branches: [main]
@@ -125,6 +127,28 @@ jobs:
           python3 scripts/canary_check.py "$candidate" --expect-commit "$GITHUB_SHA" $expect \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Compare the pages' data with the serving API
+        # The places, data and fee pages are rendered on Vercel with these answers and kept for a day
+        # (revalidate = 86400, web/src/lib/prefetch.ts), and Vercel builds a push before this workflow
+        # ends: on 2026-10-29 the web showed the old place kinds until a manual redeploy. When the
+        # candidate answers differently (or either does not answer), the last step rebuilds the web.
+        id: data
+        if: ${{ (inputs.fault || 'none') == 'none' }}
+        run: |
+          url="$(gcloud run services describe "$API_SERVICE" --region="$REGION" --format='value(status.url)')"
+          candidate="https://candidate---${url#https://}"
+          changed=false
+          for path in /places/kinds /places/regions /stats/overview /fees/items; do
+            # 60 s: the serving revision may have scaled to zero (15-27 s to wake).
+            old="$(curl -sf --max-time 60 "$url$path" || true)"
+            new="$(curl -sf --max-time 60 "$candidate$path" || true)"
+            if [ -z "$old" ] || [ -z "$new" ] || [ "$old" != "$new" ]; then
+              echo "$path: changed or no answer"
+              changed=true
+            fi
+          done
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
       - name: Promote the API candidate
         # All traffic to the new revision. This also undoes a rollback (rollback-api.yml), which pins
         # the traffic to an older revision. A drill candidate (input fault) is never promoted.
@@ -146,3 +170,19 @@ jobs:
           done
           echo "::error::$url/health did not report $GITHUB_SHA (last: $body)"
           exit 1
+
+      - name: Rebuild the web when its data changed
+        # A Vercel Deploy Hook for branch main (Vercel > Project > Settings > Git > Deploy Hooks),
+        # stored as the repository secret VERCEL_DEPLOY_HOOK_URL: the new build renders the pages
+        # from the promoted API. Without the secret the step only leaves a notice. The URL is the
+        # credential: never echo it (curl -s prints neither the URL nor the response).
+        if: ${{ steps.data.outputs.changed == 'true' }}
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::notice::The pages' data changed but VERCEL_DEPLOY_HOOK_URL is not set: redeploy the web on Vercel by hand."
+            exit 0
+          fi
+          curl -sf -X POST --max-time 30 -o /dev/null "$HOOK"
+          echo "### Web: the pages' data changed, Vercel rebuild requested" >> "$GITHUB_STEP_SUMMARY"

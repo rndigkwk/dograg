@@ -170,6 +170,23 @@ class WorkflowTests(unittest.TestCase):
         for name in ("Promote the API candidate", "Check the deployed API"):
             self.assertEqual(steps[name]["if"], "${{ (inputs.fault || 'none') == 'none' }}")
 
+    def test_the_web_is_rebuilt_only_after_a_promotion_that_changed_its_data(self):
+        """Vercel kept the places page's old kinds for a day after a data release (2026-10-29)."""
+        import yaml
+
+        workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "deploy-cloud-run.yml"
+        steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["deploy"]["steps"]
+        names = [step.get("name") for step in steps]
+        compare = steps[names.index("Compare the pages' data with the serving API")]
+        rebuild = steps[names.index("Rebuild the web when its data changed")]
+        self.assertEqual(compare["if"], "${{ (inputs.fault || 'none') == 'none' }}")
+        # Every table a page prefetches on the server (web/src/app/{places,data,fees}/page.tsx).
+        for path in ("/places/kinds", "/places/regions", "/stats/overview", "/fees/items"):
+            self.assertIn(path, compare["run"])
+        self.assertEqual(rebuild["if"], f"${{{{ steps.{compare['id']}.outputs.changed == 'true' }}}}")
+        self.assertGreater(names.index(rebuild["name"]), names.index("Check the deployed API"))
+        self.assertNotIn("echo \"$HOOK", rebuild["run"])
+
 
 class FaultInjectionTests(unittest.TestCase):
     def test_a_revision_with_the_chat_fault_answers_nothing(self):
