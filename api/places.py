@@ -4,6 +4,7 @@
     GET /places/regions                                provinces and their cities, counties, districts
     GET /places/search?kind=&province=&city=&limit=    in a region, by name (total + the first `limit`)
     GET /places/nearby?kind=&lat=&lon=&limit=          nearest by straight-line distance (`distance_km`)
+        both take pet_friendly condition filters: all_areas, large_dog, no_carrier (true/false)
     GET /places/emergency?lat=&lon=                    an urgent warning's hospitals, as /chat sends them
     GET /places/{id}                                   one place
 
@@ -15,7 +16,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from src import places_search
-from src.places_data import KIND_LABELS, NO_LOCATION_KINDS
+from src.places_data import CONDITION_FILTERS, KIND_LABELS, NO_LOCATION_KINDS
 from src.tools.places import emergency_hospitals
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -28,6 +29,15 @@ def _kind(kind: str) -> str:
     if kind not in KIND_LABELS:
         raise HTTPException(422, f"kind는 {', '.join(KIND_LABELS)} 중 하나여야 합니다.")
     return kind
+
+
+def _conditions(kind: str, all_areas: bool, large_dog: bool, no_carrier: bool) -> dict[str, bool]:
+    """The condition filters asked for. Only pet_friendly places carry conditions (한국관광공사 data), and a
+    place whose condition the source left empty never matches: empty is not "no restriction"."""
+    wanted = {name: on for name, on in zip(CONDITION_FILTERS, (all_areas, large_dog, no_carrier), strict=True) if on}
+    if wanted and kind != "pet_friendly":
+        raise HTTPException(422, "동반 조건(all_areas, large_dog, no_carrier)은 pet_friendly에서만 고를 수 있습니다.")
+    return wanted
 
 
 @router.get("/kinds")
@@ -44,21 +54,23 @@ def regions() -> dict[str, list[str]]:
 
 @router.get("/search")
 def search(kind: str, province: str, city: str | None = None,
-           limit: int = Query(default=200, ge=1, le=MAX_SEARCH)) -> dict:
-    _kind(kind)
+           limit: int = Query(default=200, ge=1, le=MAX_SEARCH),
+           all_areas: bool = False, large_dog: bool = False, no_carrier: bool = False) -> dict:
+    wanted = _conditions(_kind(kind), all_areas, large_dog, no_carrier)
     if province not in places_search.REGIONS:
         raise HTTPException(422, "알 수 없는 시/도입니다.")
     if city is not None and city not in places_search.REGIONS[province]:
         raise HTTPException(422, f"{province}에 없는 시/군/구입니다.")
-    found = places_search.in_region(kind, province, city)
+    found = places_search.in_region(kind, province, city, **wanted)
     return {"total": len(found), "places": [places_search.public(row) for row in found[:limit]]}
 
 
 @router.get("/nearby")
-def nearby(kind: str, lat: float, lon: float, limit: int = Query(default=10, ge=1, le=MAX_NEARBY)) -> dict:
-    _kind(kind)
+def nearby(kind: str, lat: float, lon: float, limit: int = Query(default=10, ge=1, le=MAX_NEARBY),
+           all_areas: bool = False, large_dog: bool = False, no_carrier: bool = False) -> dict:
+    wanted = _conditions(_kind(kind), all_areas, large_dog, no_carrier)
     try:
-        found = places_search.nearest(kind, lat, lon, limit=limit)
+        found = places_search.nearest(kind, lat, lon, limit=limit, **wanted)
     except ValueError as error:  # no coordinates for this kind, or a location outside Korea
         raise HTTPException(422, str(error)) from error
     return {"places": [places_search.public(row) for row in found]}

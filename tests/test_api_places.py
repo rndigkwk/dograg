@@ -56,6 +56,20 @@ class PlacesApiTests(unittest.TestCase):
         self.assertIsInstance(place["info"], dict)
         self.assertTrue(all(":" in line for line in place["info_lines"]))
 
+    def test_condition_filters_keep_only_stated_conditions(self):
+        area = {"kind": "pet_friendly", "province": "강원특별자치도", "city": "강릉시", "limit": 1000}
+        every = self.get("/places/search", **area).json()
+        large = self.get("/places/search", large_dog="true", **area).json()
+        self.assertGreater(large["total"], 0)
+        self.assertLess(large["total"], every["total"])
+        self.assertTrue(all(place["info"]["size_rule"] == "all" for place in large["places"]))
+        near = self.get("/places/nearby", kind="pet_friendly", limit=5, no_carrier="true", all_areas="true", **CITY_HALL).json()
+        self.assertEqual(len(near["places"]), 5)
+        self.assertTrue(all(p["info"]["carrier"] is False and p["info"]["all_areas"] is True for p in near["places"]))
+        self.assertFalse(any("size_rule" in line or "carrier" in line for p in near["places"] for line in p["info_lines"]))
+        kinds = {row["kind"]: row for row in self.get("/places/kinds").json()}
+        self.assertEqual([more["title"] for more in kinds["pet_friendly"]["source"]["more"]], ["한국관광공사 반려동물 동반여행 서비스"])
+
     def test_refusals(self):
         for path, params, status in (
             ("/places/search", {"kind": "zoo", "province": "서울특별시"}, 422),
@@ -64,6 +78,7 @@ class PlacesApiTests(unittest.TestCase):
             ("/places/nearby", {"kind": "funeral", **CITY_HALL}, 422),  # no coordinates for this kind
             ("/places/nearby", {"kind": "hospital", "lat": 10, "lon": 10}, 422),  # outside Korea
             ("/places/nearby", {"kind": "hospital", "limit": 500, **CITY_HALL}, 422),
+            ("/places/search", {"kind": "hospital", "province": "서울특별시", "large_dog": "true"}, 422),  # pet_friendly only
             ("/places/emergency", {"lat": 10, "lon": 10}, 422),  # outside Korea
             ("/places/no-such-id", {}, 404),
         ):

@@ -15,7 +15,9 @@ from src import resources
 from src.places_data import (
     KIND_LABELS,
     NO_LOCATION_KINDS,
+    SOURCE_KINDS,
     describe_info,
+    matches_conditions,
     nearest_places,
 )
 
@@ -140,24 +142,34 @@ def public(row: dict) -> dict:
 
 
 def sources() -> dict[str, dict]:
-    """Where each kind's data comes from: title, url, rows, updated."""
-    return {row["kind"]: row for row in _rows("SELECT kind, title, url, rows, updated FROM source")}
+    """Where each kind's data comes from: title, url, rows, updated. A source stored under another kind
+    (SOURCE_KINDS) is listed in that kind's `more`, and its rows count in the kind's total."""
+    found = {row["kind"]: row for row in _rows("SELECT kind, title, url, rows, updated FROM source")}
+    for extra, kind in SOURCE_KINDS.items():
+        if extra in found and kind in found:
+            more = found.pop(extra)
+            found[kind] = {**found[kind], "rows": found[kind]["rows"] + more["rows"],
+                           "more": [*found[kind].get("more", []), more]}
+    return found
 
 
-def in_region(kind: str, province: str, city: str | None = None) -> list[dict]:
+def in_region(kind: str, province: str, city: str | None = None, **wanted: bool) -> list[dict]:
+    """`wanted`: CONDITION_FILTERS names (all_areas, large_dog, no_carrier) the places must meet."""
     conditions = ["kind = ?", "(road_address LIKE ? OR lot_address LIKE ?)"]
     parameters = [kind, f"{province}%", f"{province}%"]
     if city:
         conditions.append("(road_address LIKE ? OR lot_address LIKE ?)")
         parameters += [f"%{city}%", f"%{city}%"]
-    return _rows(f"SELECT {COLUMNS} FROM place WHERE {' AND '.join(conditions)} ORDER BY name", parameters)
+    rows = _rows(f"SELECT {COLUMNS} FROM place WHERE {' AND '.join(conditions)} ORDER BY name", parameters)
+    return [row for row in rows if matches_conditions(row["info"], **wanted)]
 
 
-def nearest(kind: str, latitude: float, longitude: float, limit: int = 10) -> list[dict]:
+def nearest(kind: str, latitude: float, longitude: float, limit: int = 10, **wanted: bool) -> list[dict]:
     """Raises ValueError for a kind without coordinates or a location outside Korea."""
     if kind in NO_LOCATION_KINDS:
         raise ValueError(f"{KIND_LABELS[kind]} 목록에는 좌표가 없어 지역으로만 찾을 수 있습니다.")
     rows = _rows(f"SELECT {COLUMNS} FROM place WHERE kind = ? AND latitude IS NOT NULL", [kind])
+    rows = [row for row in rows if matches_conditions(row["info"], **wanted)]
     return nearest_places(rows, latitude, longitude, limit=limit)
 
 

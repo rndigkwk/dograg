@@ -22,10 +22,14 @@ import build_places_db
 from src import resources
 from src.places_data import (
     SCHEMA,
+    all_areas,
     describe_info,
     format_phone,
+    matches_conditions,
+    needs_carrier,
     normalize_address,
     province_of,
+    size_rule,
     with_area_code,
 )
 from src.private_data import needs_private_data
@@ -143,14 +147,35 @@ class BuildTests(unittest.TestCase):
                 "반려동물 제한사항": ["목줄"] * 4, "애견 동반 추가 요금": ["없음"] * 4, "주차 가능여부": ["Y"] * 4,
                 "최종작성일": ["2025-03-24"] * 4,
             }
+            merged_cafe = {"시설명": "합칠카페", "카테고리2": "반려동물식당카페", "카테고리3": "카페", "반려동물 동반 가능정보": "Y",
+                           "도로명주소": "서울 마포구 9", "지번주소": None, "전화번호": "02-7", "홈페이지": "http://cafe",
+                           "위도": "37.55", "경도": "126.9", "운영시간": "매일 9:00~18:00", "휴무일": "월요일",
+                           "입장 가능 동물 크기": "모두", "반려동물 제한사항": "목줄", "애견 동반 추가 요금": "없음",
+                           "주차 가능여부": "Y", "최종작성일": "2022-01-01"}
+            for column, value in merged_cafe.items():
+                facility[column].append(value)
             pd.DataFrame(facility).to_csv(inputs["pet_friendly"], index=False, encoding="utf-8-sig")
+            pd.DataFrame({  # 한국관광공사: a shop, no conditions, the cafe ~60 m away, a far 멍카페, notes only
+                "contentid": ["1", "2", "3", "4", "5"], "contenttypeid": ["38", "12", "39", "39", "12"],
+                "title": ["약국", "빈공원", "합칠 카페", "멍카페", "바다공원"],
+                "도로명주소": ["서울 마포구 5", "서울 마포구 6", "서울 마포구 9", "부산 해운대구 1", "강원 강릉시 1"],
+                "전화번호": [None] * 5, "업종": ["쇼핑", "관광지", "음식점", "음식점", "관광지"],
+                "acmpyTypeCd": ["전구역 동반가능"] * 4 + [None],
+                "acmpyPsblCpam": ["전 견종 동반 가능", None, "전 견종 동반 가능", "10kg 이하", None],
+                "acmpyNeedMtr": ["목줄 착용", None, "목줄 착용", "이동장(켄넬)사용", None],
+                "etcAcmpyInfo": [None, None, "- 실내는 동반불가- 배변봉투 지참", None, "- 소형견만 입장"],
+                "relaPosesFclty": [None, None, "운동장", None, None],
+                "modifiedtime": ["20260101000000"] * 4 + ["20260301120000"],
+                "위도": ["37.55", "37.55", "37.5505", "35.16", "37.75"], "경도": ["126.9", "126.9", "126.9", "129.16", "128.9"],
+            }).to_csv(inputs["pet_travel"], index=False, encoding="utf-8-sig")
             output = root / "places.db"
             counts = build_places_db.build(output, inputs)
             with closing(sqlite3.connect(output)) as connection:
                 rows = {row[0]: row for row in connection.execute("SELECT * FROM place")}
                 sources = {row[0]: row for row in connection.execute("SELECT * FROM source")}
 
-        self.assertEqual(counts, {"boarding": 2, "funeral": 1, "grooming": 2, "hospital": 1, "pet_friendly": 1, "pharmacy": 2})
+        self.assertEqual(counts, {"boarding": 2, "funeral": 1, "grooming": 2, "hospital": 1, "pet_friendly": 1,
+                                  "pet_travel": 3, "pharmacy": 2})
         hospital = rows["hospital-1"]
         self.assertEqual(hospital[1:6], ("hospital", "영업병원", "서울특별시 종로구 창경궁로 261", None, "02-1"))
         self.assertAlmostEqual(hospital[9], 37.5846, places=3)  # EPSG:5174 -> WGS84
@@ -160,7 +185,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(rows["funeral-1"][3], "경기도 김포시")
         self.assertEqual(rows["grooming-L1"][7], "출장(자동차) 미용")
         self.assertEqual(json.loads(rows["boarding-L1"][8]), {"other_licenses": "미용"})
-        [cafe] = [row for row in rows.values() if row[1] == "pet_friendly"]
+        [cafe] = [row for key, row in rows.items() if key.startswith("pet_friendly-")]
         self.assertEqual((cafe[2], cafe[6], cafe[7]), ("멍카페", None, "카페"))  # "정보없음" homepage dropped
         self.assertEqual(json.loads(cafe[8])["size"], "소형")
         self.assertEqual(sources["hospital"][4:9], (2, 1, 1, 1, "2026-08-11 22:02:01"))
@@ -169,6 +194,55 @@ class BuildTests(unittest.TestCase):
         self.assertTrue(any("동반 불가(N) 1건" in note for note in notes))
         self.assertTrue(any("중복 1건" in note for note in notes))
         self.assertEqual(sources["grooming"][8], "2026-10-02")  # date in the file name
+        travel = {key: json.loads(row[8]) for key, row in rows.items() if key.startswith("pet_travel-")}
+        self.assertEqual(set(travel), {"pet_travel-3", "pet_travel-4", "pet_travel-5"})  # no shop, no empty one
+        merged = rows["pet_travel-3"]
+        self.assertEqual((merged[1], merged[5], merged[6], merged[7]), ("pet_friendly", "02-7", "http://cafe", "식당"))
+        self.assertEqual(travel["pet_travel-3"], {
+            "zone": "전구역", "allowed": "전 견종 동반 가능", "needs": "목줄 착용", "other": "실내는 동반불가 · 배변봉투 지참",
+            "facilities": "운동장", "written": "2026-01-01", "size_rule": "all", "carrier": False, "all_areas": False,
+            "hours": "매일 9:00~18:00", "closed": "월요일", "extra_fee": "없음", "parking": "Y"})  # 문화정보원's details kept
+        self.assertEqual((travel["pet_travel-4"]["size_rule"], travel["pet_travel-4"]["carrier"]), ("limited", True))
+        self.assertNotIn("hours", travel["pet_travel-4"])  # same name, 400 km away: another place
+        self.assertEqual({key: travel["pet_travel-5"][key] for key in ("zone", "allowed", "needs", "size_rule")},
+                         {"zone": "정보 부족, 확인 필요", "allowed": "정보 부족, 확인 필요", "needs": "정보 부족, 확인 필요",
+                          "size_rule": "limited"})
+        self.assertNotIn("carrier", travel["pet_travel-5"])  # unknown, not "no carrier"
+        self.assertEqual(sources["pet_travel"][4:6], (5, 3))
+        self.assertTrue(any("같은 곳 1건" in note for note in json.loads(sources["pet_friendly"][9])))
+
+
+class ConditionTests(unittest.TestCase):
+    def test_size_rule(self):
+        for text, rule in (("전 견종 동반 가능", "all"), ("맹견 제외 전 견종 동반 가능", "all"), ("전 견동 동반 가능", "all"),
+                           ("이동장(켄넬)에 들어가는 전 견종 동반 가능", "limited"), ("대형견 제외 전 견종 동반 가능", "limited"),
+                           ("대형견은 여름에만 동반 가능", "limited"), ("20㎏ 미만 동반 가능", "limited"), ("소형견", "limited"),
+                           ("시각 장애인 안내견", "limited"), ("반려견", None), ("전화문의", None), (None, None)):
+            with self.subTest(text):
+                self.assertEqual(size_rule(text), rule)
+        self.assertEqual(size_rule(None, "객실 당 5kg미만 소형견 2마리"), "limited")
+        self.assertIsNone(size_rule(None, "전 견종 가능"))  # the notes never make it "all"
+
+    def test_carrier(self):
+        self.assertTrue(needs_carrier("목줄 착용,이동장(켄넬)사용"))
+        self.assertTrue(needs_carrier("목줄 착용", "식당이용시 이동장 이용 필수"))
+        self.assertTrue(needs_carrier(None, None, "케이지나 반려견 유모차 이용"))
+        self.assertFalse(needs_carrier("목줄 착용", "계단이 많아 이동장은 어려울것"))
+        self.assertIsNone(needs_carrier(None))
+
+    def test_all_areas(self):
+        self.assertTrue(all_areas("전구역 동반가능", "배변봉투 지참"))
+        self.assertFalse(all_areas("전구역 동반가능", "실내는 동반불가"))
+        self.assertFalse(all_areas("전구역 동반가능", "야외 공간만 동반 가능"))
+        self.assertFalse(all_areas("일부구역 동반가능"))
+        self.assertIsNone(all_areas(None))
+
+    def test_a_missing_condition_never_matches(self):
+        info = {"size_rule": "all", "carrier": False, "all_areas": True}
+        self.assertTrue(matches_conditions(info, large_dog=True, no_carrier=True, all_areas=True))
+        self.assertTrue(matches_conditions({}, large_dog=False))
+        self.assertFalse(matches_conditions({"carrier": None}, no_carrier=True))
+        self.assertFalse(matches_conditions(json.dumps({"size": "모두 가능"}), large_dog=True))  # 문화정보원 place
 
 
 class KindTests(unittest.TestCase):
@@ -281,6 +355,24 @@ class SearchTests(unittest.TestCase):
         self.assertEqual([row["name"] for row in rows], ["멍멍카페"])
         _, rows = self.search("강남구 반려견 동반 가능한 곳 알려줘")
         self.assertEqual({row["name"] for row in rows}, {"멍멍카페", "멍멍공원"})
+
+    def test_condition_words_filter_the_places_with_stated_conditions(self):
+        with closing(sqlite3.connect(resources.DB_PATH)) as connection:
+            connection.execute(
+                "INSERT INTO place (id, kind, name, road_address, category, info) VALUES (?, ?, ?, ?, ?, ?)",
+                ("pet_travel-1", "pet_friendly", "넓은공원", "서울특별시 강남구 공원로 2", "여행지",
+                 json.dumps({"zone": "전구역", "allowed": "전 견종 동반 가능", "needs": "목줄 착용",
+                             "size_rule": "all", "carrier": False, "all_areas": True}, ensure_ascii=False)))
+            connection.commit()
+        answer, rows = self.search("강남구 대형견 동반 가능한 곳 알려줘")
+        self.assertEqual([row["name"] for row in rows], ["넓은공원"])  # 멍멍카페 has no stated conditions
+        self.assertTrue(answer.startswith(places.CONDITION_NOTICE))
+        self.assertIn("동반 가능 반려견: 전 견종 동반 가능", answer)
+        _, rows = self.search("강남구 애견동반 이동장 없이 갈 수 있는 곳")
+        self.assertEqual([row["name"] for row in rows], ["넓은공원"])
+        self.assertEqual(places.extract_search_parameters("강남구 이동장 없이"), ["강남구"])  # 이동장 holds 이동
+        _, rows = self.search("강남구 반려견 동반 가능한 곳 알려줘")
+        self.assertEqual({row["name"] for row in rows}, {"멍멍카페", "넓은공원"})
 
     def test_count_per_kind(self):
         answer, _ = self.search("서울특별시 동물병원 몇 곳이야?")

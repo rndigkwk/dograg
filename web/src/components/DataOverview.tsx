@@ -16,12 +16,15 @@ const TABS = ["프로젝트 소개", "기타를 제외한 질병 순위", "진�
 function PlaceSources({ sources }: { sources: Overview["place_sources"] }) {
   const sourceRows = sources.reduce((sum, s) => sum + s.source_rows, 0);
   const rows = sources.reduce((sum, s) => sum + s.rows, 0);
+  // One bar a kind: 반려동물 동반 시설 comes from two sources (문화정보원, 한국관광공사).
+  const byKind = new Map<string, number>();
+  for (const s of sources) byKind.set(s.label, (byKind.get(s.label) ?? 0) + s.rows);
   return (
     <div className="space-y-4">
       <BarChart
         title="종류별 시설 수"
         unit="곳"
-        rows={[...sources].sort((a, b) => b.rows - a.rows).map((s) => ({ label: s.label, count: s.rows }))}
+        rows={[...byKind].sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }))}
         note="시설 찾기에서 쓰는 수"
       />
       <div className="space-y-4 rounded-xl border border-line bg-white p-4">

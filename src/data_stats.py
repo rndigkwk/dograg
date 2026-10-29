@@ -16,7 +16,7 @@ from functools import lru_cache
 import pandas as pd
 
 from src import resources, settings
-from src.places_data import KIND_LABELS
+from src.places_data import KIND_LABELS, SOURCE_KINDS
 from src.provinces import normalize_province
 
 CONSULTATIONS = settings.PROJECT_DIR / "data" / "df.csv"
@@ -77,6 +77,6 @@ def _place_sources(database: str) -> tuple[dict, ...]:
     sources = _places(database, "SELECT * FROM source").to_dict("records")
     order = list(KIND_LABELS)
     for row in sources:
-        row["label"] = KIND_LABELS[row["kind"]]
+        row["label"] = KIND_LABELS[SOURCE_KINDS.get(row["kind"], row["kind"])]  # pet_travel: a pet_friendly source
         row["notes"] = json.loads(row["notes"] or "[]")
-    return tuple(sorted(sources, key=lambda row: order.index(row["kind"])))
+    return tuple(sorted(sources, key=lambda row: (order.index(SOURCE_KINDS.get(row["kind"], row["kind"])), row["kind"])))

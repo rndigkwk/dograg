@@ -20,7 +20,11 @@ class StatsApiTests(unittest.TestCase):
         self.assertEqual(counts, sorted(counts, reverse=True))
         self.assertEqual({row["label"] for row in stats["departments"]} >= {"내과", "외과", "피부과", "안과", "치과"}, True)
         self.assertEqual(stats["hospitals_by_province"][0]["label"], "경기도")
-        self.assertEqual([row["kind"] for row in stats["place_sources"]], list(KIND_LABELS))
+        kinds = list(KIND_LABELS)
+        kinds.insert(kinds.index("pet_friendly") + 1, "pet_travel")  # 한국관광공사, a second pet_friendly source
+        self.assertEqual([row["kind"] for row in stats["place_sources"]], kinds)
+        self.assertEqual({row["label"] for row in stats["place_sources"] if row["kind"].startswith("pet_")},
+                         {KIND_LABELS["pet_friendly"]})
         self.assertNotIn("file", stats["place_sources"][0])
         self.assertIsInstance(stats["place_sources"][0]["notes"], list)
 

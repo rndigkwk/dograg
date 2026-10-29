@@ -7,7 +7,6 @@ from src.data_charts import (
     build_disease_figure,
     build_province_figure,
 )
-from src.places_data import KIND_LABELS
 from src.ui import apply_app_theme, render_page_header
 
 apply_app_theme()
@@ -64,7 +63,7 @@ with tab4:
     )
     st.dataframe(
         pd.DataFrame({
-            "종류": sources["kind"].map(KIND_LABELS),
+            "종류": sources["label"],
             "출처": sources["title"],
             "원본 행": sources["source_rows"],
             "사용": sources["rows"],
@@ -78,7 +77,7 @@ with tab4:
     st.markdown("##### 정제 과정")
     for row in sources.to_dict("records"):
         steps = " · ".join(row["notes"])
-        st.markdown(f"- **{KIND_LABELS[row['kind']]}**: {steps}")
+        st.markdown(f"- **{row['label']}** ({row['title']}): {steps}")
     st.caption(
         "좌표는 EPSG:5174(중부원점 TM)에서 WGS84로 변환하고 대한민국 범위(위도 33~39, 경도 124~132)를 벗어난 값은 버렸습니다. "
         "주소의 시·도 이름은 현재 행정구역 이름으로 통일했습니다. 재생성: `uv run python scripts/build_places_db.py`"
