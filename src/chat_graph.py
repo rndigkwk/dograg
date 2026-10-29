@@ -74,6 +74,7 @@ class ChatState(TypedDict, total=False):
     self_rag: bool  # 건강 답변을 근거와 대조해 근거 없는 문장을 한 번 고침 (CHAT_SELF_RAG, 기본 꺼짐)
     force_route: str  # "analysis": the report page asks the reports directly, no classification call
     notes: list  # the guardian's saved consultation notes (ADR-0009), health answers only
+    urgent: bool  # the API's urgency check (src/tools/urgency.py) found an emergency the rules missed
     # classify
     route: str
     contextual_question: str
@@ -182,6 +183,7 @@ def build_chat_graph(tools):
             chat_history=state.get("chat_history"),
             profile=state.get("pet_profile"),
             notes=state.get("notes"),
+            urgent=state.get("urgent", False),
         )
         return {
             "answer": with_fee_pointer(result["answer"], state["question"]),
@@ -374,7 +376,7 @@ def build_chat_graph(tools):
             question = tools.symptom_part(question)
         answer = tools.generate_health_answer(
             question, docs, filters=state.get("filters"), chat_history=state.get("chat_history"),
-            profile=state.get("pet_profile"), notes=state.get("notes"),
+            profile=state.get("pet_profile"), notes=state.get("notes"), urgent=state.get("urgent", False),
         )
         answer, guards = _check_citations(state, question, docs, answer)
         safety_notice = tools.detect_urgent_sign(state["question"])
@@ -515,6 +517,7 @@ def run_chat(
     session_id: str | None = None,
     force_route: str | None = None,
     notes: list | None = None,
+    urgent: bool = False,
 ) -> dict[str, Any]:
     """Run the graph once. on_token receives answer text as the model writes it;
     on_step receives (node name, state update) after each node finishes.
@@ -541,7 +544,7 @@ def run_chat(
                     "question": question, "top_k": top_k, "chat_history": chat_history or [],
                     "location": location, "crag": crag, "crag_reports": crag_reports, "pet_profile": pet_profile,
                     "self_rag": self_rag, **({"force_route": force_route} if force_route else {}),
-                    "notes": notes or [],
+                    "notes": notes or [], "urgent": urgent,
                     "trace": [], "rewrite_count": 0,
                 }, on_token, on_step, config={"callbacks": chat_trace.callbacks} if chat_trace.callbacks else None)
         except Exception as exc:

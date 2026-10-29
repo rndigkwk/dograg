@@ -174,7 +174,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
 
     memory = body.memory.model_dump()
     chat_history = history_with_summary([turn.model_dump(exclude_none=True) for turn in body.history], memory)
-    if notice := urgent_notice(body.question):
+    notice = urgent_notice(body.question)
+    if notice:
         yield urgent_event(notice, body.location)
 
     events: queue.Queue = queue.Queue()
@@ -199,7 +200,8 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
                                         location=body.location, pet_profile=body.profile,
                                         on_token=on_token, on_step=on_step, session_id=person,
                                         force_route="analysis" if body.route == "report" else None,
-                                        notes=[Note(date=n.date, text=mask_pii(n.text)) for n in body.notes])
+                                        notes=[Note(date=n.date, text=mask_pii(n.text)) for n in body.notes],
+                                        urgent=bool(notice))
         except Exception as error:  # noqa: BLE001 - reported to the browser as one error event
             logger.exception("chat failed")
             outcome["error"] = True

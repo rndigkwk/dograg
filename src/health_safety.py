@@ -50,6 +50,65 @@ SENTENCE_END = re.compile(r"[.?!\n]")
 
 URGENT_NOTICE = "응급 징후가 의심됩니다. 지체하지 말고 가까운 동물병원에 연락하거나 진료를 받으세요. 온라인 답변은 진단이 아닙니다."
 
+# What to do on the way to the hospital, by kind of sign. The consultation data rarely has these,
+# so the answer said only "go to the hospital": against ChatGPT on the same urgent questions it lost
+# on safety and usefulness (scripts/compare_chatgpt.py, 2026-10-29). Fixed text, no doses or numbers:
+# the standard first steps of veterinary poison-control and emergency guidance.
+FIRST_AID = (
+    (TOXINS + r".{0,30}" + SWALLOWED, (
+        "먹은 것의 포장지나 남은 것을 챙겨 가세요. 성분과 양을 병원에서 확인할 수 있습니다.",
+        "언제, 얼마나 먹었는지 적어 두세요.",
+        "수의사가 시키기 전에는 억지로 토하게 하지 마세요. 소금물이나 과산화수소를 먹이지 마세요.",
+        "병원에 가기 전에 전화로 무엇을 먹었는지 먼저 알리세요.",
+    )),
+    (r"헛구역질", (
+        "물과 음식을 주지 마세요.",
+        "배를 누르거나 문지르지 마세요.",
+        "시간이 지나면 위험해지는 상황이니, 지켜보지 말고 바로 출발하세요.",
+    )),
+    (r"(?:소변|오줌)", (
+        "물을 억지로 먹이지 마세요.",
+        "마지막으로 소변을 본 때와, 피가 섞였는지를 병원에 알리세요.",
+        "요도가 막힌 경우 몇 시간 안에 위험해질 수 있으니, 내일까지 기다리지 마세요.",
+    )),
+    (r"발작|경련|거품", (
+        "입에 손이나 물건을 넣지 마세요.",
+        "주변의 딱딱한 물건을 치우고, 계단이나 높은 곳에서 떨어지지 않게 하세요.",
+        "발작이 시작되고 끝난 시간을 재고, 할 수 있으면 영상으로 남기세요.",
+    )),
+    (r"숨|호흡|혀|잇몸|목에", (
+        "안거나 눕힐 때 목과 가슴을 누르지 마세요. 목줄과 옷을 풀어 주세요.",
+        "흥분하지 않게 조용히 옮기세요.",
+    )),
+    (r"피|혈|상처|물려|치(?:였|여)", (
+        "피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.",
+        "다쳤으면 담요나 판자에 눕혀 몸을 덜 움직이게 옮기세요. 아파서 물 수 있으니 조심하세요.",
+    )),
+    (r"열사병", (
+        "그늘이나 시원한 곳으로 옮기고, 미지근한 물로 몸을 적셔 주세요. 얼음물은 쓰지 마세요.",
+        "식히면서 바로 병원으로 가세요.",
+    )),
+)
+
+
+TOXIN_ASKED = (
+    "이미 먹었다면 증상이 없어도 바로 동물병원에 연락하세요. 중독 증상은 늦게 나타날 수 있습니다.",
+    "수의사가 시키기 전에는 억지로 토하게 하지 마세요.",
+)
+
+
+def first_aid_steps(question: str, urgent: bool = False) -> list[str]:
+    """The fixed first steps for the urgent sign in the question, empty when there is none.
+    urgent: the model's second check (src/tools/urgency.py) found one the rules missed."""
+    if not urgent and not detect_urgent_sign(question):
+        # "포도를 먹여도 되나요?": not an emergency, but the answer said "watch for vomiting if it
+        # ate some", and poisoning shows late (scripts/compare_chatgpt.py q08, 2026-10-29).
+        return list(TOXIN_ASKED) if re.search(TOXINS, question) else []
+    for pattern, steps in FIRST_AID:
+        if re.search(pattern, question):
+            return list(steps)
+    return []
+
 
 def _in_past_sentence(question: str, start: int) -> bool:
     sentence_start = max((m.end() for m in SENTENCE_END.finditer(question, 0, start)), default=0)
