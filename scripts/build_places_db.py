@@ -13,6 +13,10 @@ Sources (download them first; they are not kept in the repository):
   Only travel, cafe/restaurant and culture places marked 동반 가능=Y are kept. Its
   medical rows are left out: the official data above covers them, and the culture data
   repeats each pharmacy about 5.5 times.
+- pet_travel: 한국관광공사 반려동물 동반여행 서비스 details (`data/pet_travel_complete.csv`, collected by
+  scripts/resume_pet_travel_details.py). Stored as pet_friendly places with their companion
+  conditions. Shops (contenttypeid 38) and places without any condition text are left out, and a
+  문화정보원 place with the same name within 300 m is merged into the 관광공사 one.
 
 Coordinates outside Korea are dropped (the place stays, without a location). Every
 step's row counts go to the `source` table, which the data page shows. The database is
@@ -24,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sqlite3
 import sys
 from contextlib import closing
@@ -38,9 +43,15 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 from src.places_data import (
     SCHEMA,
+    UNKNOWN_CONDITION,
+    all_areas,
+    distance_km,
     format_phone,
     in_korea,
+    name_key,
+    needs_carrier,
     normalize_address,
+    size_rule,
     with_area_code,
 )
 
@@ -52,6 +63,7 @@ INPUTS = {
     "grooming": DATA / "국가동물보호정보시스템_동물미용업_20261002.csv",
     "boarding": DATA / "국가동물보호정보시스템_위탁관리업_20261002.csv",
     "pet_friendly": DATA / "source" / "한국문화정보원_전국 반려동물 동반 가능 문화시설 위치 데이터_20250324.csv",
+    "pet_travel": DATA / "pet_travel_complete.csv",
 }
 OUTPUT = DATA / "places.db"
 
@@ -63,7 +75,15 @@ SOURCES = {
     "grooming": ("국가동물보호정보시스템 동물미용업 목록", ANIMAL_GO_KR),
     "boarding": ("국가동물보호정보시스템 동물위탁관리업 목록", ANIMAL_GO_KR),
     "pet_friendly": ("한국문화정보원 전국 반려동물 동반 가능 문화시설 위치 데이터", "https://www.data.go.kr"),
+    "pet_travel": ("한국관광공사 반려동물 동반여행 서비스", "https://www.data.go.kr/data/15135102/openapi.do"),
 }
+SHOP_TYPE = "38"  # 쇼핑: pharmacies, opticians... almost never with condition text
+CONDITION_COLUMNS = ("acmpyPsblCpam", "acmpyNeedMtr", "etcAcmpyInfo")
+# 관광공사 업종 -> the pet_friendly categories the search and the chat already use.
+TRAVEL_CATEGORIES = {"관광지": "여행지", "숙박": "숙박", "레포츠": "레포츠", "음식점": "식당", "문화시설": "문화시설"}
+SAME_PLACE_KM = 0.3
+# 문화정보원 details kept on the merged place when the 관광공사 one has none.
+MERGED_INFO = ("hours", "closed", "extra_fee", "parking")
 PET_FRIENDLY_GROUPS = ("반려동반여행", "반려동물식당카페", "반려문화시설")
 PET_FRIENDLY_INFO = {
     "운영시간": "hours", "휴무일": "closed", "입장 가능 동물 크기": "size", "반려동물 제한사항": "restrictions",
@@ -113,7 +133,7 @@ def date_in_name(path: Path) -> str | None:
 
 
 def place(place_id, kind, name, road, lot=None, phone=None, homepage=None, category=None, info=None, latitude=None, longitude=None):
-    info = {key: value for key, value in (info or {}).items() if value}
+    info = {key: value for key, value in (info or {}).items() if value is not None}  # keeps carrier False
     road, lot = normalize_address(clean(road)), normalize_address(clean(lot))
     return (
         place_id, kind, clean(name), road, lot,
@@ -202,6 +222,74 @@ def load_pet_friendly(path: Path) -> Loaded:
     return loaded
 
 
+def bullets(text: str | None) -> str | None:
+    """'- 맹견은 입마개- 배변봉투 지참' -> '맹견은 입마개 · 배변봉투 지참' (the source's '- ' lists, often unbroken)."""
+    if not text:
+        return None
+    parts = [" ".join(part.split()) for part in re.split(r"(?<!\d)-\s", text)]
+    return " · ".join(part for part in parts if part)
+
+
+def load_pet_travel(path: Path) -> Loaded:
+    frame = pd.read_csv(path, dtype=str, encoding="utf-8-sig")
+    places = frame[frame["contenttypeid"] != SHOP_TYPE]
+    stated = places[places[list(CONDITION_COLUMNS)].map(clean).notna().any(axis=1)]
+    modified = stated["modifiedtime"].dropna().max()
+    loaded = Loaded(source_rows=len(frame), updated=f"{modified[:4]}-{modified[4:6]}-{modified[6:8]}" if modified else None)
+    loaded.notes += [
+        f"쇼핑(약국·안경점 등) {len(frame) - len(places):,}건 제외: 동반 조건 글이 거의 없음",
+        f"동반 조건 글이 없는 {len(places) - len(stated):,}건 제외",
+        f"빈 조건은 '{UNKNOWN_CONDITION}'로 표시 (제한 없음으로 읽지 않음)",
+    ]
+    for record in stated.to_dict("records"):
+        allowed, needs, other = (clean(record[column]) for column in CONDITION_COLUMNS)
+        zone = clean(record["acmpyTypeCd"])
+        written = clean(record["modifiedtime"])
+        loaded.rows.append(place(
+            f"pet_travel-{record['contentid']}", "pet_friendly", record["title"], record["도로명주소"], None,
+            clean_phone(record["전화번호"]), None, TRAVEL_CATEGORIES.get(record["업종"], clean(record["업종"])),
+            {
+                "zone": zone.replace("동반가능", "").strip() if zone else UNKNOWN_CONDITION,
+                "allowed": allowed or UNKNOWN_CONDITION, "needs": needs or UNKNOWN_CONDITION,
+                "other": bullets(other), "facilities": clean(record["relaPosesFclty"]),
+                "written": f"{written[:4]}-{written[4:6]}-{written[6:8]}" if written else None,
+                "size_rule": size_rule(allowed, other), "carrier": needs_carrier(needs, other, allowed),
+                "all_areas": all_areas(zone, other, allowed),
+            },
+            *location(record["위도"], record["경도"]),
+        ))
+    return loaded
+
+
+def merge_same_places(travel: Loaded, culture: Loaded) -> None:
+    """Drop each 문화정보원 place that a 관광공사 place repeats (same name, within SAME_PLACE_KM) and keep
+    its hours, closed days, fee and parking on the 관광공사 place, which has the conditions."""
+    by_name: dict[str, list[int]] = {}
+    for index, row in enumerate(travel.rows):
+        if row[9] is not None:
+            by_name.setdefault(name_key(row[2]), []).append(index)
+    kept, merged, same_name = [], 0, 0
+    for row in culture.rows:
+        matches = by_name.get(name_key(row[2]), [])
+        same_name += bool(matches)
+        near = [i for i in matches if row[9] is not None
+                and distance_km(row[9], row[10], travel.rows[i][9], travel.rows[i][10]) <= SAME_PLACE_KM]
+        if not near:
+            kept.append(row)
+            continue
+        merged += 1
+        target = list(travel.rows[near[0]])
+        info = json.loads(target[8])
+        info.update({key: value for key, value in json.loads(row[8] or "{}").items() if key in MERGED_INFO and key not in info})
+        target[5], target[6] = target[5] or row[5], target[6] or row[6]  # phone, homepage
+        target[8] = json.dumps(info, ensure_ascii=False)
+        travel.rows[near[0]] = tuple(target)
+    culture.rows = kept
+    culture.notes.append(f"한국관광공사 데이터와 같은 곳 {merged:,}건은 관광공사 쪽에 합침 (이름이 같고 {SAME_PLACE_KM * 1000:.0f}m 안)")
+    travel.notes.append(f"문화정보원 데이터와 같은 곳 {merged:,}건: 운영시간·휴무일·요금·주차·전화를 가져옴 "
+                        f"(이름만 같은 {same_name - merged:,}건은 다른 곳으로 봄)")
+
+
 LOADERS = {
     "hospital": load_hospitals,
     "pharmacy": load_pharmacies,
@@ -209,6 +297,7 @@ LOADERS = {
     "grooming": lambda path: load_licensed_business(path, "grooming"),
     "boarding": lambda path: load_licensed_business(path, "boarding"),
     "pet_friendly": load_pet_friendly,
+    "pet_travel": load_pet_travel,
 }
 
 
@@ -217,8 +306,11 @@ def build(output: Path, inputs: dict[str, Path]) -> dict[str, int]:
     temporary.unlink(missing_ok=True)
     with closing(sqlite3.connect(temporary)) as connection:
         connection.executescript(SCHEMA)
-        for kind, path in inputs.items():
-            loaded = LOADERS[kind](path)
+        every = {kind: LOADERS[kind](path) for kind, path in inputs.items()}
+        if "pet_travel" in every and "pet_friendly" in every:
+            merge_same_places(every["pet_travel"], every["pet_friendly"])
+        for kind, loaded in every.items():
+            path = inputs[kind]
             rows = sorted({row[0]: row for row in loaded.rows if row[2]}.values())  # a place needs a name; ids unique
             connection.executemany(f"INSERT INTO place VALUES ({', '.join('?' * 11)})", rows)
             title, url = SOURCES[kind]

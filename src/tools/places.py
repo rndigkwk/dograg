@@ -18,6 +18,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from src import resources
 from src.places_data import (
+    CONDITION_FILTERS,
     KIND_LABELS,
     NO_LOCATION_KINDS,
     SIDO_ALIASES,
@@ -37,11 +38,12 @@ SQL_GENERATION_PROMPT = ChatPromptTemplate.from_messages([
 사용할 수 있는 테이블은 place 하나뿐이며 컬럼은 다음과 같습니다.
 id, kind, name, road_address, lot_address, phone, category, info, latitude, longitude
 kind 값: hospital(동물병원), pharmacy(동물약국), pet_friendly(반려동물 동반 가능 시설), grooming(동물미용업), boarding(위탁관리업·펫호텔), funeral(장묘업체)
-category: pet_friendly는 여행지·카페·펜션·박물관·미술관·식당·문예회관·호텔, grooming은 일반 미용·출장(자동차) 미용
-info: 운영시간(hours), 휴무일(closed), 입장 가능 크기(size), 제한사항(restrictions), 추가 요금(extra_fee), 주차(parking)를 담은 JSON 문자열
+category: pet_friendly는 여행지·카페·펜션·숙박·레포츠·박물관·미술관·식당·문화시설·문예회관·호텔, grooming은 일반 미용·출장(자동차) 미용
+info: 운영시간(hours), 휴무일(closed), 입장 가능 크기(size), 제한사항(restrictions), 추가 요금(extra_fee), 주차(parking), 동반 구역(zone), 동반 가능 반려견(allowed), 동반 시 필요(needs), 기타 안내(other)를 담은 JSON 문자열
+한국관광공사 장소의 info에는 거르기용 값도 있습니다: "size_rule": "all"(크기 제한 없음) 또는 "limited", "carrier": true/false(이동장·유모차 필요 여부), "all_areas": true/false(실내까지 모든 구역 동반 가능 여부)
 반드시 WHERE 절에 kind = '{kind}' 조건을 넣고, id, kind, name, road_address, lot_address, phone, category, info, latitude, longitude를 고르는 읽기 전용 SELECT 문 하나만 출력하세요.
 주소 검색은 road_address와 lot_address를 LIKE로 함께 고려하고, 결과는 최대 10개로 제한하세요.
-이용 조건은 info를 LIKE로 거르세요. 예: 대형견 → (info LIKE '%대형%' OR info LIKE '%모두 가능%')
+이용 조건은 info를 LIKE로 거르세요. 예: 대형견 → info LIKE '%"size_rule": "all"%', 이동장 없이 → info LIKE '%"carrier": false%', 실내까지 → info LIKE '%"all_areas": true%'
 SQL 코드 블록이나 설명 없이 SQL만 출력하세요.""",
     ),
     ("human", "{question}"),
@@ -203,9 +205,35 @@ CATEGORY_WORDS = {
         ("카페", ("카페", "커피")), ("펜션", ("펜션",)), ("호텔", ("호텔",)),
         ("식당", ("식당", "음식점", "레스토랑", "맛집")), ("박물관", ("박물관",)),
         ("미술관", ("미술관",)), ("문예회관", ("문예회관", "공연장")), ("여행지", ("여행지", "관광지")),
+        ("숙박", ("숙박", "숙소", "펜션", "리조트")), ("레포츠", ("레포츠", "액티비티")), ("문화시설", ("문화시설",)),
     ),
     "grooming": (("출장(자동차) 미용", ("출장",)),),
 }
+
+
+# Companion conditions in a pet_friendly question -> the info value the place must have
+# (src/places_data.CONDITION_FILTERS). Only 한국관광공사 places have these values.
+CONDITION_WORDS = {
+    "large_dog": ("대형견", "큰개", "큰강아지"),
+    "no_carrier": ("이동장없이", "켄넬없이", "케이지없이", "가방없이", "유모차없이"),
+    "all_areas": ("실내", "전구역", "모든구역"),
+}
+CONDITION_NOTICE = ("동반 조건은 한국관광공사 자료에 적힌 장소만 골랐습니다. 조건이 적혀 있지 않은 곳은 "
+                    "제한이 없다는 뜻이 아니어서 뺐으니, 다른 곳은 전화로 확인해 주세요.")
+
+
+def place_conditions(question: str, kind: str) -> list[str]:
+    """The CONDITION_FILTERS a pet_friendly question asks for ("대형견도 갈 수 있는", "이동장 없이")."""
+    compact = _compact(question)
+    return [name for name, words in CONDITION_WORDS.items()
+            if kind == "pet_friendly" and any(word in compact for word in words)]
+
+
+def condition_clauses(names: list[str]) -> tuple[str, list[str]]:
+    """SQL on the stored info JSON, which build_places_db writes with json.dumps defaults (', ', ': ')."""
+    values = [f"%{json.dumps({CONDITION_FILTERS[name][0]: CONDITION_FILTERS[name][1]}, ensure_ascii=False)[1:-1]}%"
+              for name in names]
+    return " AND ".join("info LIKE ?" for _ in names), values
 
 
 def place_categories(question: str, kind: str) -> list[str]:
@@ -225,6 +253,10 @@ def fallback_sql(question: str, kind: str = "hospital", location_keywords: list[
     if categories := place_categories(question, kind):
         where += f" AND category IN ({', '.join('?' for _ in categories)})"
         parameters += categories
+    if conditions := place_conditions(question, kind):
+        clauses, values = condition_clauses(conditions)
+        where += f" AND {clauses}"
+        parameters += values
     if is_count_query(question):
         return f"SELECT COUNT(*) AS count FROM place WHERE {where}", parameters
     limit = get_hospital_result_limit(question)
@@ -253,6 +285,8 @@ def wants_nearest(question: str) -> bool:
 
 
 REGION_WORD = re.compile(r"[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|도|시|군|구|동|읍|면)")
+# Words holding a real place name: "이동장" holds 이동 (a 동 in 안산·용인...), which then won over "제주".
+NOT_REGION_WORDS = ("이동장",)
 
 
 @lru_cache(maxsize=4)
@@ -314,6 +348,8 @@ def short_region_mentions(question: str) -> list[tuple[str, tuple[str, ...]]]:
 
 
 def extract_search_parameters(question: str) -> list[str]:
+    for word in NOT_REGION_WORDS:
+        question = question.replace(word, " ")
     candidates = [LOCATION_ALIASES.get(word, word) for word in REGION_WORD.findall(question)]
     try:
         known = known_region_words(resources.DB_PATH.as_posix())
@@ -515,7 +551,10 @@ def run_sql_search(question: str, location: tuple[float, float] | None = None) -
     if len(rows) == 1 and "count" in rows[0]:
         return format_sql_result(rows, kind), rows
     if not used_model:
-        return _with_stock_notice(_with_notice(format_sql_result(rows, kind), rows), kind, question), rows
+        answer = format_sql_result(rows, kind)
+        if place_conditions(question, kind):
+            answer = f"{CONDITION_NOTICE}\n\n{answer}"
+        return _with_stock_notice(_with_notice(answer, rows), kind, question), rows
     answer = (SQL_ANSWER_PROMPT | model | StrOutputParser()).invoke(
         {"label": KIND_LABELS[kind], "question": question, "rows": json.dumps(rows, ensure_ascii=False)}
     )

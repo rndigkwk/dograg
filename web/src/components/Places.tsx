@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { compareText, type RegionFees, regionFees, regionOfAddress } from "@/lib/fees";
 import { locate, type Location } from "@/lib/location";
-import { CARD_INFO, categoriesOf, directionsUrl, filterPlaces, type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
+import { CARD_INFO, categoriesOf, CONDITIONS, type Conditions, directionsUrl, filterPlaces, type Kind, kinds as loadKinds, nearby, type Place, place as loadPlace, regions as loadRegions, search, TABLE_INFO } from "@/lib/places";
 import { failureMessage } from "@/lib/failure";
 
 import FeeSourceNotice from "./FeeSourceNotice";
@@ -193,6 +193,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
   const [kinds, setKinds] = useState<Kind[]>(initial?.kinds ?? []);
   const [regionList, setRegionList] = useState<Record<string, string[]>>(initial?.regions ?? {});
   const [kind, setKind] = useState("hospital");
+  const [conditions, setConditions] = useState<Conditions>({});
   const [province, setProvince] = useState(firstProvince);
   const [city, setCity] = useState(initial?.regions[firstProvince]?.[0] ?? "");
   const [location, setLocation] = useState<Location | null>(null);
@@ -222,12 +223,14 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
   const current = kinds.find((k) => k.kind === kind);
   const label = current?.label ?? "시설";
   const byCity = kind !== "funeral"; // the funeral list names provinces only
+  const wanted = kind === "pet_friendly" ? conditions : {};
+  const filtered = Object.values(wanted).some(Boolean);
 
   async function findNear(at: Location | null = location) {
     if (!at || !current?.has_location || busy) return;
     setBusy(true);
     try {
-      setNear((await nearby(kind, at)).places);
+      setNear((await nearby(kind, at, wanted)).places);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -252,7 +255,7 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
     setBusy(true);
     setError(null);
     try {
-      const result = await search(kind, province, byCity ? city : undefined);
+      const result = await search(kind, province, byCity ? city : undefined, wanted);
       setFound({ ...result, area: byCity ? `${province} ${city}` : province, kind, province, city: byCity ? city : "" });
     } catch (e) {
       setError((e as Error).message);
@@ -314,8 +317,41 @@ export default function Places({ initial = null }: { initial?: PlacesStart | nul
             <a href={current.source.url} target="_blank" rel="noreferrer" className="underline">
               {current.source.title}
             </a>{" "}
+            {current.source.more?.map((more) => (
+              <span key={more.url}>
+                {" + "}
+                <a href={more.url} target="_blank" rel="noreferrer" className="underline">{more.title}</a>
+              </span>
+            ))}{" "}
             · {current.source.rows.toLocaleString()}곳 · 데이터 기준 {current.source.updated.slice(0, 10)}. 공공데이터라서 실제 영업 여부·영업시간·이용 조건은 방문 전 전화로 확인해 주세요.
           </p>
+        ) : null}
+        {kind === "pet_friendly" ? (
+          <fieldset className="mt-3">
+            <legend className="text-sm font-semibold">동반 조건</legend>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {CONDITIONS.map(([name, text]) => (
+                <label key={name} className="inline-flex min-h-10 items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(conditions[name])}
+                    onChange={(event) => {
+                      setConditions({ ...conditions, [name]: event.target.checked });
+                      setNear(null);
+                      setFound(null);
+                    }}
+                    className="size-4 accent-accent"
+                  />
+                  {text}
+                </label>
+              ))}
+            </div>
+            {filtered ? (
+              <p className="mt-1 text-xs text-muted">
+                한국관광공사 자료에 조건이 적힌 곳만 보여 줍니다. 조건이 적혀 있지 않은 곳은 제한이 없다는 뜻이 아니어서 뺐습니다.
+              </p>
+            ) : null}
+          </fieldset>
         ) : null}
       </fieldset>
 
