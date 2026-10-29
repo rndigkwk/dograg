@@ -372,7 +372,9 @@ def extract_search_parameters(question: str) -> list[str]:
 def format_sql_result(rows: list[dict], kind: str = "hospital") -> str:
     label = KIND_LABELS[kind]
     if len(rows) == 1 and "count" in rows[0]:
-        return f"조건에 맞는 {with_particle(label, '은', '는')} {rows[0]['count']}곳입니다."
+        # The number alone lost to ChatGPT, which named its source and how to check
+        # (scripts/compare_chatgpt.py, 2026-10-29): the source, its date and the next step.
+        return "\n".join([f"조건에 맞는 {with_particle(label, '은', '는')} {rows[0]['count']}곳입니다.", *count_basis(kind)])
     if not rows:
         return f"조건에 맞는 {with_particle(label, '을', '를')} 찾지 못했습니다."
 
@@ -385,6 +387,24 @@ def format_sql_result(rows: list[dict], kind: str = "hospital") -> str:
             lines.append(f"   전화: {row['phone']}")
         lines.extend(f"   {line}" for line in describe_info(row.get("info")))
     return "\n".join(lines)
+
+
+def count_basis(kind: str) -> list[str]:
+    """Where a count comes from (the place DB's source table) and how to see the places."""
+    try:
+        connection = _connect()
+        try:
+            source = connection.execute("SELECT title, updated FROM source WHERE kind = ?", (kind,)).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        source = None
+    lines = []
+    if source:
+        date = f"({source['updated'][:10]} 기준)" if source["updated"] else ""
+        lines.append(f"{source['title']}{date} 자료로 센 수라, 그 뒤에 문을 열거나 닫은 곳은 반영되지 않았을 수 있습니다.")
+    lines.append(f"목록이 필요하면 \"해운대구 {KIND_LABELS[kind]} 알려줘\"처럼 지역과 함께 물어보세요. 가기 전에는 전화로 확인하세요.")
+    return lines
 
 
 def _connect() -> sqlite3.Connection:

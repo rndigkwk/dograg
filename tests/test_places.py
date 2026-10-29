@@ -376,9 +376,11 @@ class SearchTests(unittest.TestCase):
 
     def test_count_per_kind(self):
         answer, _ = self.search("서울특별시 동물병원 몇 곳이야?")
-        self.assertEqual(answer, "조건에 맞는 동물병원은 2곳입니다.")
+        self.assertEqual(answer.splitlines()[0], "조건에 맞는 동물병원은 2곳입니다.")
+        self.assertIn("동물병원 알려줘", answer)  # how to see the list
+        self.assertIn("기준", answer)  # the source and its date
         answer, _ = self.search("김포시 장례식장 몇 곳이야?")
-        self.assertEqual(answer, "조건에 맞는 장묘업체는 1곳입니다.")
+        self.assertEqual(answer.splitlines()[0], "조건에 맞는 장묘업체는 1곳입니다.")
 
     def test_nearest_needs_coordinates(self):
         answer, rows = self.search("가까운 약국 찾아줘", location=(37.49, 127.04))

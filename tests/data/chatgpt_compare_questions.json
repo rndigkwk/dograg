@@ -1,0 +1,20 @@
+{
+  "description": "RagDog vs ChatGPT (web), the same 15 questions (scripts/compare_chatgpt.py, 2026-10-29). Taken from the existing sets (source: id there), holdout split where the set has one; one place question rewritten to use the 2026-10-29 condition data.",
+  "items": [
+    {"id": "q01", "group": "urgent", "source": "emergency_signs:u14", "question": "자일리톨 껌을 두 개 삼켰어요"},
+    {"id": "q02", "group": "urgent", "source": "emergency_signs:u24", "question": "밥 먹고 뛰어논 뒤 배가 불룩해지고 헛구역질만 계속해요"},
+    {"id": "q03", "group": "urgent", "source": "emergency_signs:u34", "question": "오줌을 누려고 계속 힘주는데 한 방울도 안 나와요"},
+    {"id": "q04", "group": "health", "source": "emergency_signs:n02", "question": "귀를 자주 긁고 냄새가 나요"},
+    {"id": "q05", "group": "health", "source": "emergency_signs:n04", "question": "사료를 바꾼 뒤로 변이 조금 묽어요"},
+    {"id": "q06", "group": "health", "source": "emergency_signs:n12", "question": "물을 평소보다 많이 마셔요"},
+    {"id": "q07", "group": "health", "source": "emergency_signs:n40", "question": "배를 만지면 싫어하는데 밥은 잘 먹어요"},
+    {"id": "q08", "group": "care", "source": "emergency_signs:n30", "question": "포도를 먹여도 되나요?"},
+    {"id": "q09", "group": "care", "source": "basic_care_questions:c01", "question": "심장사상충 예방약은 얼마나 자주 먹여야 하나요?"},
+    {"id": "q10", "group": "care", "source": "basic_care_questions:c10", "question": "중성화 수술은 몇 개월에 하는 게 좋아요?"},
+    {"id": "q11", "group": "fee", "source": "fee_questions:f01", "question": "강남구 초진 진찰료 얼마야?"},
+    {"id": "q12", "group": "fee", "source": "fee_questions:f05", "question": "부산 해운대 종합백신 비용 알려줘"},
+    {"id": "q13", "group": "place", "source": "place_routing_questions:pet-04 (rewritten)", "question": "강릉에서 대형견도 같이 갈 수 있는 여행지 추천해줘"},
+    {"id": "q14", "group": "place", "source": "place_routing_questions:hos-04", "question": "부산 해운대구 동물병원 몇 곳이야?"},
+    {"id": "q15", "group": "place", "source": "place_routing_questions:fun-01", "question": "김포 반려동물 장례식장 알려줘"}
+  ]
+}

@@ -16,6 +16,7 @@
 | [grader-distill.md](grader-distill.md) | 근거 채점기 증류: 작은 cross-encoder 4종이 채점 호출을 대신할 수 있나. "모두 쓴다" 기준선(질문 판단 0.88)을 넘지 못해 채택하지 않음 |
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
+| [chatgpt-comparison.md](chatgpt-comparison.md) | ChatGPT 웹·Codex(같은 모델)와 같은 15문항 블라인드 비교: 진료비·장소는 앱, 증상·관리는 기준선. 응급 대처·답 형식 개선과 남은 차이 |
 | [judge-validation.md](judge-validation.md) | LLM 판사 검증(Day 60): 다시 묻기·순서 뒤집기·다른 판사 비교, 길이·권위 편향과 양방향 판정, 사람 판정 성적표 |
 | [open-questions.md](open-questions.md) | 미해결 과제와 알려진 불일치 |
 | [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 운영 설정(태그·release), 실험·정기 회귀 평가 |
