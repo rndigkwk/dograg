@@ -90,8 +90,9 @@ def main() -> int:
         TUNED.update({f"b2-{name}": (RETRAIN_REPO, name) for name in names})
 
     def model_path(repo) -> Path:
-        if isinstance(repo, tuple):  # (repo, checkpoint folder)
-            return Path(snapshot_download(repo[0], token=token, allow_patterns=[f"{repo[1]}/*"])) / repo[1]
+        if isinstance(repo, tuple):  # (repo, checkpoint folder); plain files, since the cache's symlinks fail on Windows here
+            local = PROJECT_DIR / "output" / "models" / repo[0].split("/")[1]
+            return Path(snapshot_download(repo[0], token=token, allow_patterns=[f"{repo[1]}/*"], local_dir=local)) / repo[1]
         return Path(snapshot_download(repo, token=token))
 
     paths = {v: model_path(repo) for v, repo in TUNED.items()}
