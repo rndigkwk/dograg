@@ -64,6 +64,8 @@ EasyOCR과 비전 모델이 같은 숫자를 읽었는데 Tesseract가 다르게
 
 ## 다음에 할 것
 
+1~3은 `notebooks/kb_ocr_8b_runpod.ipynb`(`scripts/build_kb_ocr_8b_notebook.py`로 생성, RunPod RTX PRO 4000, 2026-11-02)로 진행한다. 정정 후보 목록만 만들고 검색 조각은 바꾸지 않는다.
+
 1. 되풀이 막기: `repetition_penalty`, 쪽을 위·아래로 나눠 읽기, 또는 되풀이를 감지하면 그 쪽은 Tesseract를 그대로 쓴다.
 2. 메모리 기준을 고쳐 8B로 다시 읽는다(L4 또는 A100).
 3. 비전 모델과 Tesseract가 갈리는 숫자는 쪽 그림과 대조해, 확인된 것만 정정표에 더한다. 지금 정정표 방식 그대로이고, 검색 조각 전체를 바꾸지 않는다.
