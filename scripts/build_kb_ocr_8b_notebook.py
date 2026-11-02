@@ -5,7 +5,8 @@
 Follows docs/wiki/kb-ocr-gpu.md "다음에 할 것" (2026-10-26). The 4B vision model read the nine
 hand-checked figures right where Tesseract did not, but looped on five pages and lost their second
 half, and the L4 memory check skipped the 8B model. This notebook:
-- reads the same 93 pages with Qwen3-VL-8B in bf16 (about 17 GB, an RTX PRO 4000 or L4 holds it);
+- reads the same 93 pages with Qwen3-VL-8B: bf16 (about 17 GB on disk and GPU) where it fits, else the
+  official FP8 copy (about 11 GB; the 2026-11-02 pod had 12 GB of disk left);
 - keeps a page from looping: a light repetition_penalty, and a page that still hits the output cap
   or repeats itself is read again in a top and a bottom half; a half that loops too is marked
   `tesseract` (the page keeps its Tesseract text in the app);
@@ -29,7 +30,7 @@ CELLS = [
 
 [위키](../docs/wiki/kb-ocr-gpu.md)의 2026-10-26 비교에서 비전 모델(4B)이 숫자를 가장 정확히 읽었지만(손으로 확인한 오독 9곳 모두 맞음), **5쪽에서 같은 문장을 되풀이하다 출력 상한에 닿아** 쪽 뒷부분을 잃었고 8B는 메모리 기준에 걸려 돌리지 못했습니다. 이 노트북은 그 "다음에 할 것" 1~3입니다.
 
-1. **8B로 다시 읽기:** `Qwen/Qwen3-VL-8B-Instruct`, bf16(약 17GB), 온도 0
+1. **8B로 다시 읽기:** `Qwen/Qwen3-VL-8B-Instruct`, 온도 0. bf16(약 17GB)이 디스크·GPU에 들어가지 않으면 공식 FP8판(`-FP8`, 약 11GB)을 씁니다
 2. **되풀이 막기:** 약한 `repetition_penalty`. 그래도 출력 상한에 닿거나 같은 구절을 되풀이한 쪽은 **위·아래 절반으로 나눠 다시 읽고**, 절반도 되풀이하면 그 쪽은 `tesseract`로 표시합니다(앱은 그 쪽에 Tesseract 글을 그대로 씀)
 3. **갈리는 숫자 목록:** 8B와 Tesseract가 **한 자리만 다른 숫자**(`50.2%` ↔ 30.2%)를 쪽별로 모으고, 4B·EasyOCR(10-26 실행)도 같은 숫자를 읽었는지 붙입니다. 이 목록은 쪽 그림과 대조한 뒤 확인된 것만 정정표(`OCR_CORRECTIONS`)에 넣습니다. 검색 조각은 바꾸지 않습니다
 
@@ -52,7 +53,8 @@ PAGES = [4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
          97, 99, 100, 101, 102, 103, 104, 105, 108, 109, 110, 111]
 SMOKE_PAGES = [7, 13]
 DPI = 200                       # 10-26 실행과 같은 그림
-VLM = "Qwen/Qwen3-VL-8B-Instruct"
+# (모델, 필요한 GPU GB, 필요한 디스크 GB). 첫 셀이 GPU와 디스크에 들어가는 첫 모델을 고릅니다
+VLM_CHOICES = [("Qwen/Qwen3-VL-8B-Instruct", 20, 20), ("Qwen/Qwen3-VL-8B-Instruct-FP8", 14, 11.5)]
 MAX_PIXELS = 2048 * 28 * 28     # 10-26 실행과 같은 상한. 절반으로 나눈 그림은 같은 상한 안에서 더 크게 읽힙니다
 MAX_NEW_TOKENS = 3000
 REPETITION_PENALTY = 1.05       # 표는 같은 라벨을 여러 번 쓰므로 약하게만
@@ -65,7 +67,7 @@ REPO_DIR = "/workspace/dograg-kbocr"
 MLFLOW_URI = "https://dagshub.com/rndigkwk/dograg.mlflow"
 MLFLOW_USER = "rndigkwk"
 EXPERIMENT = "kb-report-ocr"
-NEED_GPU_GB, NEED_DISK_GB = 20, 20   # 8B bf16 약 17GB + 그림"""),
+"""),
     ("code", r"""# GPU와 디스크 확인: 임베딩 학습이 돌고 있으면 멈춥니다.
 import os, shutil, subprocess
 print(subprocess.run(["nvidia-smi", "--query-gpu=name,memory.used,memory.total", "--format=csv"],
@@ -77,15 +79,18 @@ used, total = (int(x) for x in subprocess.run(["nvidia-smi", "--query-gpu=memory
                                               capture_output=True, text=True).stdout.split("\n")[0].split(","))
 free_gpu = (total - used) / 1024
 print(f"GPU 여유 {free_gpu:.1f} GB")
-assert free_gpu >= NEED_GPU_GB, f"GPU 메모리가 {NEED_GPU_GB}GB 이상 비어 있어야 합니다(8B bf16 약 17GB + 그림)"
-WORK = None
+free_disks = {}
 for choice in WORK_CHOICES:
-    parent = os.path.dirname(choice)
-    free_disk = shutil.disk_usage(parent).free / 2**30
-    print(f"{parent} 디스크 여유 {free_disk:.0f} GB")
-    if WORK is None and free_disk >= NEED_DISK_GB:
-        WORK = choice
-assert WORK, f"디스크가 {NEED_DISK_GB}GB 이상 빈 곳이 없습니다(모델 약 17GB). 학습 노트북의 정리 셀을 먼저 실행하세요"
+    free_disks[choice] = shutil.disk_usage(os.path.dirname(choice)).free / 2**30
+    print(f"{os.path.dirname(choice)} 디스크 여유 {free_disks[choice]:.1f} GB")
+VLM = WORK = None
+for name, need_gpu, need_disk in VLM_CHOICES:
+    place = next((c for c in WORK_CHOICES if free_disks[c] >= need_disk), None)
+    if free_gpu >= need_gpu and place:
+        VLM, WORK = name, place
+        break
+assert VLM, f"GPU {free_gpu:.1f}GB, 디스크 {max(free_disks.values()):.1f}GB로는 8B 모델이 들어가지 않습니다: {VLM_CHOICES}"
+print("모델:", VLM)
 os.makedirs(WORK, exist_ok=True)
 os.environ["HF_HOME"] = f"{WORK}/hf"   # 모델과 데이터를 WORK 아래에 받아 마지막에 한 번에 지웁니다
 os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
@@ -154,7 +159,7 @@ try:   # the same pixel cap as the 10-26 run, where the processor takes it
     processor = AutoProcessor.from_pretrained(VLM, max_pixels=MAX_PIXELS)
 except TypeError:
     processor = AutoProcessor.from_pretrained(VLM)
-vlm = AutoModelForImageTextToText.from_pretrained(VLM, dtype=torch.bfloat16, device_map="cuda").eval()
+vlm = AutoModelForImageTextToText.from_pretrained(VLM, dtype="auto", device_map="cuda").eval()   # bf16, or FP8 weights
 print("loaded", VLM, f"{torch.cuda.memory_allocated() / 2**30:.1f} GB")
 
 def read(image):
