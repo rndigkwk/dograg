@@ -14,7 +14,7 @@ cd /workspace && git clone --depth 1 --branch feat/embedding-retrain-gpu https:/
 ```
 
 ```bash
-pip install -q "sentence-transformers[train]>=5.1" mlflow python-dotenv huggingface_hub
+pip install -q --ignore-installed blinker && pip install -q "sentence-transformers[train]>=5.1" mlflow python-dotenv huggingface_hub
 ```
 
 토큰은 화면과 셸 기록에 남지 않게 `read -s`로 넣는다. Hugging Face 토큰은 비공개 데이터셋 읽기와 모델 저장소 쓰기 권한, DagsHub 토큰은 MLflow 기록용이다.
