@@ -54,7 +54,7 @@ PAGES = [4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
 SMOKE_PAGES = [7, 13]
 DPI = 200                       # 10-26 실행과 같은 그림
 # (모델, 필요한 GPU GB, 필요한 디스크 GB). 첫 셀이 GPU와 디스크에 들어가는 첫 모델을 고릅니다
-VLM_CHOICES = [("Qwen/Qwen3-VL-8B-Instruct", 20, 17.5), ("Qwen/Qwen3-VL-8B-Instruct-FP8", 14, 10.5)]   # 내려받기 16.3GB, 9.9GB
+VLM_CHOICES = [("Qwen/Qwen3-VL-8B-Instruct", 20, 17.5), ("Qwen/Qwen3-VL-8B-Instruct-FP8", 20, 10.5)]   # 내려받기 16.3GB, 9.9GB
 MAX_PIXELS = 2048 * 28 * 28     # 10-26 실행과 같은 상한. 절반으로 나눈 그림은 같은 상한 안에서 더 크게 읽힙니다
 MAX_NEW_TOKENS = 3000
 REPETITION_PENALTY = 1.05       # 표는 같은 라벨을 여러 번 쓰므로 약하게만
@@ -105,7 +105,7 @@ print("WORK =", WORK)
 !git clone -q --depth 1 --branch {BRANCH} https://github.com/rndigkwk/dograg.git {REPO_DIR}
 %cd {REPO_DIR}
 !pip install -q --ignore-installed blinker cryptography
-!pip install -q pymupdf "transformers>=4.57" accelerate qwen-vl-utils "kernels>=0.17.2,<0.18" mlflow huggingface_hub   # kernels: the FP8 copy's matmul
+!pip install -q pymupdf "transformers>=4.57" accelerate qwen-vl-utils mlflow huggingface_hub
 import sys, torch, transformers
 print(sys.version.split()[0], "torch", torch.__version__, "transformers", transformers.__version__, torch.cuda.get_device_name(0))"""),
     ("code", r"""# 토큰. 화면에 남지 않고, 값은 출력하지 않습니다.
@@ -156,13 +156,16 @@ print(len(pages), "pages; previous run:", sorted(previous))"""),
     ("code", r"""# Qwen3-VL-8B로 읽기. 쪽마다 결과 파일에 바로 써서, 끊긴 뒤 다시 실행하면 읽은 쪽은 건너뜁니다.
 from collections import Counter
 from PIL import Image
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, FineGrainedFP8Config
 
 try:   # the same pixel cap as the 10-26 run, where the processor takes it
     processor = AutoProcessor.from_pretrained(VLM, max_pixels=MAX_PIXELS)
 except TypeError:
     processor = AutoProcessor.from_pretrained(VLM)
-vlm = AutoModelForImageTextToText.from_pretrained(VLM, dtype="auto", device_map="cuda").eval()   # bf16, or FP8 weights
+# The FP8 copy is unpacked to bf16 on load: its FP8 matmul needs a hub kernel that the pod's triton
+# could not import (2026-11-02). Disk stays at the FP8 size; GPU memory is that of bf16 (about 16 GB).
+fp8 = {"quantization_config": FineGrainedFP8Config(dequantize=True)} if VLM.endswith("-FP8") else {}
+vlm = AutoModelForImageTextToText.from_pretrained(VLM, dtype=torch.bfloat16, device_map="cuda", **fp8).eval()
 print("loaded", VLM, f"{torch.cuda.memory_allocated() / 2**30:.1f} GB")
 
 def read(image):
