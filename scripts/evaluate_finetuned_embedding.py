@@ -2,10 +2,12 @@
 
     uv run --group tools python scripts/evaluate_finetuned_embedding.py   # needs HF_TOKEN (private models)
     uv run --group tools python scripts/evaluate_finetuned_embedding.py --variants b hn   # the hard-negative model
+    uv run --group tools python scripts/evaluate_finetuned_embedding.py --variants b --retrain   # 2026-11-02 checkpoints
 
 --variants picks the fine-tuned models to compare with the base (default a b). hn is
 blanden77/ko-sroberta-dograg-hn from notebooks/hardneg_finetune_colab.ipynb (2026-10-21): variant B plus
-one mined hard negative per pair. Candidates not graded before are graded with the judge, and the
+one mined hard negative per pair. --retrain adds the checkpoints of scripts/train_embedding_gpu.py
+(blanden77/ko-sroberta-dograg-b2, one folder per seed and epoch; all of them, or the names given). Candidates not graded before are graded with the judge, and the
 count is shown before it runs (scripts/cost_guard.py).
 
 Models: `jhgan/ko-sroberta-multitask` (base) and blanden77/ko-sroberta-dograg-a / -b, trained in
@@ -44,7 +46,8 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 BASE = "jhgan/ko-sroberta-multitask"
 ALL_TUNED = {"a": "blanden77/ko-sroberta-dograg-a", "b": "blanden77/ko-sroberta-dograg-b",
              "hn": "blanden77/ko-sroberta-dograg-hn"}
-TUNED = {name: ALL_TUNED[name] for name in ("a", "b")}  # main() narrows it to --variants
+RETRAIN_REPO = "blanden77/ko-sroberta-dograg-b2"  # scripts/train_embedding_gpu.py: s13-e1/, s13-e2/, ...
+TUNED = {name: ALL_TUNED[name] for name in ("a", "b")}  # main() narrows it to --variants (and --retrain)
 FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 CANDIDATE_K = 12
 OUT = PROJECT_DIR / "output" / "experiments" / "finetuned_embedding.json"
@@ -64,6 +67,8 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--variants", nargs="+", choices=sorted(ALL_TUNED), default=["a", "b"])
+    parser.add_argument("--retrain", nargs="*", metavar="CHECKPOINT",
+                        help="also the retrained checkpoints (all, or these names, e.g. s13-e2)")
     args = parser.parse_args()
     TUNED.clear()
     TUNED.update({name: ALL_TUNED[name] for name in args.variants})
@@ -79,7 +84,17 @@ def main() -> int:
 
     load_dotenv(PROJECT_DIR / ".env")
     token = os.environ["HF_TOKEN"]
-    paths = {v: Path(snapshot_download(repo, token=token)) for v, repo in TUNED.items()}
+    if args.retrain is not None:
+        root = Path(snapshot_download(RETRAIN_REPO, token=token, allow_patterns=["results.json"]))
+        names = args.retrain or [run["name"] for run in json.loads((root / "results.json").read_text())["runs"]]
+        TUNED.update({f"b2-{name}": (RETRAIN_REPO, name) for name in names})
+
+    def model_path(repo) -> Path:
+        if isinstance(repo, tuple):  # (repo, checkpoint folder)
+            return Path(snapshot_download(repo[0], token=token, allow_patterns=[f"{repo[1]}/*"])) / repo[1]
+        return Path(snapshot_download(repo, token=token))
+
+    paths = {v: model_path(repo) for v, repo in TUNED.items()}
     base_path = Path(snapshot_download(ALL_TUNED["a"], token=token))  # the base model's vectors live in -a
     ids = json.loads((base_path / "corpus_ids.json").read_text())
     for v in TUNED:  # every repo's vectors follow the same df.csv row order
