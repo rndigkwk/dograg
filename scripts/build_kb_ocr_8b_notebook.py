@@ -6,7 +6,7 @@ Follows docs/wiki/kb-ocr-gpu.md "다음에 할 것" (2026-10-26). The 4B vision 
 hand-checked figures right where Tesseract did not, but looped on five pages and lost their second
 half, and the L4 memory check skipped the 8B model. This notebook:
 - reads the same 93 pages with Qwen3-VL-8B: bf16 (about 17 GB on disk and GPU) where it fits, else the
-  official FP8 copy (about 11 GB; the 2026-11-02 pod had 12 GB of disk left);
+  official FP8 copy (9.9 GB download; the 2026-11-02 pod had 11.2 GB of disk left);
 - keeps a page from looping: a light repetition_penalty, and a page that still hits the output cap
   or repeats itself is read again in a top and a bottom half; a half that loops too is marked
   `tesseract` (the page keeps its Tesseract text in the app);
@@ -102,7 +102,7 @@ print("WORK =", WORK)
 !git clone -q --depth 1 --branch {BRANCH} https://github.com/rndigkwk/dograg.git {REPO_DIR}
 %cd {REPO_DIR}
 !pip install -q --ignore-installed blinker cryptography
-!pip install -q pymupdf "transformers>=4.57" accelerate qwen-vl-utils mlflow huggingface_hub
+!pip install -q pymupdf "transformers>=4.57" accelerate qwen-vl-utils "kernels>=0.17.2,<0.18" mlflow huggingface_hub   # kernels: the FP8 copy's matmul
 import sys, torch, transformers
 print(sys.version.split()[0], "torch", torch.__version__, "transformers", transformers.__version__, torch.cuda.get_device_name(0))"""),
     ("code", r"""# 토큰. 화면에 남지 않고, 값은 출력하지 않습니다.
