@@ -494,3 +494,39 @@ uv run python scripts/evaluate_app_retrieval.py
 
 **결론:** 1 epoch만 돌려 과적합 여지가 작고, 세 점검 모두 과적합이나 누수를 보이지 않는다. 2번의 약한 선호는 다음 학습에서 다시 본다.
 - 다음 학습에서 할 일: 복사본 51개를 학습에서 빼고, epoch마다 체크포인트를 남겨 220문항 `useful@3`로 고른다([lecture-review.md](lecture-review.md) Day 70).
+
+## 복사본을 빼고 다시 학습 — **채택하지 않음, B 유지** (2026-11-02, RunPod RTX PRO 4000)
+
+**왜:** 위 "다음 학습에서 할 일"이다. 평가 질문의 복사본으로 학습하지 않은 모델이 B만큼 나오는지, epoch를 늘리면 나아지는지 보았다.
+
+**어떻게:** `scripts/train_embedding_gpu.py`, 순서는 [runpod-embedding-retrain.md](../runpod-embedding-retrain.md)와 `notebooks/retrain_embedding_runpod.ipynb`
+- B와 같은 조건(기본 모델, 질의 B, 배치 64, 학습률 2e-5, 128토큰)에서 두 가지만 바꿨다. **복사본 상담 53개를 학습에서 뺐고**(`tests/data/finetune_excluded_posts.json`, 학습 51 + dev 2), **시드 3개(13·21·34) × 3 epoch**로 epoch마다 체크포인트를 남겼다.
+- 체크포인트 9개는 `blanden77/ko-sroberta-dograg-b2`(비공개)에 폴더별로, 학습 기록은 DagsHub MLflow `health-embedding`(시드마다 하위 실행)에 있다.
+- **고르기는 dev로만 했다.** 손으로 쓴 220문항으로 9개 중 고르면 그 220문항이 더는 시험 세트가 아니다. 위 계획("220문항으로 고른다")을 이렇게 바꿨다. 220문항은 dev가 고른 하나만 쟀다.
+
+**dev 300 상담, 합성 질의 `mrr@10`** (기본 모델 0.173)
+
+| | 시드 13 | 시드 21 | 시드 34 |
+| --- | ---: | ---: | ---: |
+| 1 epoch | 0.572 | 0.573 | 0.566 |
+| 2 epoch | 0.601 | 0.595 | 0.591 |
+| 3 epoch | **0.615** | 0.595 | 0.598 |
+
+- dev가 고른 것은 `s13-e3`이다. epoch를 늘리면 dev 점수는 시드 셋 모두 오른다(1→3 epoch +0.02~0.04). 시드끼리 차이(3 epoch에서 0.02)도 그만큼 크다.
+
+**220문항 (`scripts/evaluate_finetuned_embedding.py --variants b --retrain s13-e3`, 판정 호출 43번)**
+
+| | 기본 | B (앱) | 새 모델 `s13-e3` |
+| --- | ---: | ---: | ---: |
+| 짧은 질문 `useful@3` (120) | 0.625 | **0.800** (26/5, p=0.0002) | 0.742 (18/4, p=0.0043) |
+| 긴 상담 `useful@3` (100) | 0.74 | 0.85 (16/5, p=0.027) | 0.85 (20/9, p=0.061) |
+| 긴 상담 `hit@3` 라벨 일치 (561) | 0.262 | 0.262 | 0.266 |
+
+괄호 안은 기본 모델 대비 새로 맞힘/놓침과 McNemar p다.
+
+- **긴 상담은 B와 같다.** 복사본을 빼도 0.85다. 위 과적합 점검 1번(오른 점수는 복사본 없는 문항에서 나왔다)과 맞는다.
+- **짧은 질문은 B보다 낮다**(0.742 대 0.800, 7문항 차이). 복사본은 긴 상담 13문항에만 있으므로 짧은 질문이 낮아진 원인은 복사본이 아니다. 남는 차이는 epoch 수(3 대 1)와 학습률 일정이다. dev 질의는 학습 질의와 같은 생성기로 만든 합성 질의라서, epoch를 늘릴수록 dev는 오르지만 사람이 쓴 짧은 질문까지 오른다는 보장은 없다. 이번 결과가 그 어긋남으로 보인다. 다만 epoch 1 체크포인트를 220문항으로 재지 않았으므로 확인한 것은 아니다.
+- **결론:** B를 유지한다. 새 모델은 B보다 나은 축이 없다. B의 짧은 질문 점수가 평가 질문 복사본 덕분은 아니라는 근거는 하나 더 생겼다.
+- **다음에 할 것(하면):** 사람 질문에 가까운 dev가 필요하다. 짧은 질문 120문항의 dev/holdout 나눔이 있으므로(`tests/data/emergency_signs.json`의 `split`), dev 절반으로 체크포인트를 고르고 holdout 절반으로만 보고하면 시험 세트를 쓰지 않고 epoch를 고를 수 있다.
+- 결과 JSON: `output/experiments/finetuned_embedding.json`(로컬), 추가 판정은 `output/experiments/finetuned_embedding_grades.json`.
+- **MLflow:** DagsHub `health-embedding`의 `ko-sroberta retrain b2` 아래 하위 실행 `eval 220 s13-e3`(run `63c3b366`). 세 모델의 220문항 점수와 McNemar(얻음/잃음/p)를 metric으로, 결과 JSON을 artifact로 남겼다. 상위 실행에는 `selected_by_dev=s13-e3`과 결론을 tag로 달았다.
