@@ -529,3 +529,4 @@ uv run python scripts/evaluate_app_retrieval.py
 - **결론:** B를 유지한다. 새 모델은 B보다 나은 축이 없다. B의 짧은 질문 점수가 평가 질문 복사본 덕분은 아니라는 근거는 하나 더 생겼다.
 - **다음에 할 것(하면):** 사람 질문에 가까운 dev가 필요하다. 짧은 질문 120문항의 dev/holdout 나눔이 있으므로(`tests/data/emergency_signs.json`의 `split`), dev 절반으로 체크포인트를 고르고 holdout 절반으로만 보고하면 시험 세트를 쓰지 않고 epoch를 고를 수 있다.
 - 결과 JSON: `output/experiments/finetuned_embedding.json`(로컬), 추가 판정은 `output/experiments/finetuned_embedding_grades.json`.
+- **MLflow:** DagsHub `health-embedding`의 `ko-sroberta retrain b2` 아래 하위 실행 `eval 220 s13-e3`(run `63c3b366`). 세 모델의 220문항 점수와 McNemar(얻음/잃음/p)를 metric으로, 결과 JSON을 artifact로 남겼다. 상위 실행에는 `selected_by_dev=s13-e3`과 결론을 tag로 달았다.
