@@ -70,6 +70,7 @@ EXPERIMENT = "kb-report-ocr"
 """),
     ("code", r"""# GPU와 디스크 확인: 임베딩 학습이 돌고 있으면 멈춥니다.
 import os, shutil, subprocess
+from pathlib import Path
 print(subprocess.run(["nvidia-smi", "--query-gpu=name,memory.used,memory.total", "--format=csv"],
                      capture_output=True, text=True).stdout)
 ps = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
@@ -81,7 +82,9 @@ free_gpu = (total - used) / 1024
 print(f"GPU 여유 {free_gpu:.1f} GB")
 free_disks = {}
 for choice in WORK_CHOICES:
-    free_disks[choice] = shutil.disk_usage(os.path.dirname(choice)).free / 2**30
+    # A model already downloaded there (a rerun after a kernel restart) counts as room it can use.
+    held = sum(f.stat().st_size for f in Path(choice).rglob("*") if f.is_file() and not f.is_symlink())
+    free_disks[choice] = (shutil.disk_usage(os.path.dirname(choice)).free + held) / 2**30
     print(f"{os.path.dirname(choice)} 디스크 여유 {free_disks[choice]:.1f} GB")
 VLM = WORK = None
 for name, need_gpu, need_disk in VLM_CHOICES:
