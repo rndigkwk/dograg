@@ -184,6 +184,14 @@ def expected_verdict(item: dict, verdict: str) -> str:
     return "correct" if verdict in ("abstained", "correct") else verdict
 
 
+def share_with_gold(rows: list[dict], key: str) -> float | None:
+    """Share of the runs with a gold page where `key` holds. A question with no gold page (an abstention
+    expected) is left out: counted as a miss it put holdout at 18/23 when every answerable one was found
+    (2026-11-05), and every_report_in_context counted it as found."""
+    mine = [row[key] for row in rows if row[key] is not None]
+    return round(sum(mine) / len(mine), 3) if mine else None
+
+
 def has_every_gold_report(docs: list, item: dict) -> bool:
     """Does every report the gold pages come from have one of its gold pages among the docs? A question
     about two reports answered from one of them can still pass has_gold."""
@@ -314,7 +322,9 @@ def compare(repeats: int, workers: int, variants: list[str], question_set: str =
                     "seconds": round(seconds, 1), "compress_seconds": round(compress_seconds, 1),
                     "context_chars": sum(len(d.page_content) for d in docs), "verbatim": verbatim,
                     "search_seconds": round(search_seconds.get((item["id"], variant.removesuffix("_window")), 0.0), 2),
-                    "gold_in_context": has_gold(docs, item), "every_report_in_context": has_every_gold_report(docs, item)}
+                    # None for a question with no gold page (holdout a01-a05 expect an abstention)
+                    "gold_in_context": has_gold(docs, item) if item.get("gold_pages") else None,
+                    "every_report_in_context": has_every_gold_report(docs, item) if item.get("gold_pages") else None}
 
         jobs = [(item, variant, r) for r in range(repeats) for item in items for variant in variants]
         with ThreadPoolExecutor(workers) as pool:
@@ -328,8 +338,9 @@ def compare(repeats: int, workers: int, variants: list[str], question_set: str =
             "correct_rate": round(sum(row["verdict"] == "correct" for row in mine) / len(mine), 3),
             "context_chars_mean": round(statistics.mean(row["context_chars"] for row in mine)),
             "answer_seconds_p50": statistics.median(row["seconds"] for row in mine),
-            "gold_in_context": round(sum(row["gold_in_context"] for row in mine) / len(mine), 3),
-            "every_report_in_context": round(sum(row["every_report_in_context"] for row in mine) / len(mine), 3),
+            "gold_in_context": share_with_gold(mine, "gold_in_context"),
+            "every_report_in_context": share_with_gold(mine, "every_report_in_context"),
+            "runs_with_gold": sum(row["gold_in_context"] is not None for row in mine),
             "search_seconds_p50": statistics.median(row["search_seconds"] for row in mine),
         }
         if variant.startswith("compressed"):
