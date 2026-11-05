@@ -216,6 +216,33 @@
 - **외부 재검토를 다루는 법:** 다른 모델이 쓴 재검토(Fable)는 지적 하나하나를 운영에서 다시 확인한 뒤에만 고쳤다. 카드 수와 숫자 빠진 근거는 맞았고, "지역을 줘도 병원이 빠진다"는 다시 해 보니 나오지 않았다. 고치는 방향("OCR 조각을 숨긴다")은 반대였다. 실제로 숫자를 잃은 것은 PDF 조각이었다.
 - **이 기간의 교훈:** "숫자가 없는 조각"이라는 첫 기준(#327)은 다른 숫자가 26개 남은 p.62를 놓쳤다. 무엇이 빠졌는지("만 천원" 같은 빈자리)를 직접 찾는 기준(#329)이 맞았고, 같은 기준으로 OCR이 필요한 쪽도 찾을 수 있었다(#332).
 
+## 15. 2026-10-26~29: 대체 모델, 근거 없는 전제 거르기, 평가 질문의 복사본
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#349](https://github.com/rndigkwk/dograg/pull/349), [#350](https://github.com/rndigkwk/dograg/pull/350), [#353](https://github.com/rndigkwk/dograg/pull/353) | 10-26 주간 SLO의 오류 4건이 모두 OpenAI `RateLimitError`였다(오류율 3.0%, 목표 2%). 키가 학원 조직 소속이라 평가용 한도를 따로 둘 수 없다 | OpenAI가 응답하지 않는 로컬 연습: 건강 질문 73초 → 재시도 빼고 15.6초 → 차단기 뒤 두 번째 질문 **4.5초** | 상담 경로의 모델 세 개에 Claude Haiku 5.5 대체, 대체가 있으면 OpenAI 재시도 없음, 넘어간 뒤 120초는 OpenAI를 건너뜀. 배포 고장 연습 `fault=openai` ([ADR-0012](adr/0012-claude-fallback.md)) |
+| [#362](https://github.com/rndigkwk/dograg/pull/362) | 놓친 보류 14/66 중 무중력·화성 흙·가상 약 질문이 비슷한 증상 사례를 근거로 받아 답했다. 유사도 하한은 답할 질문과 값이 겹쳐 쓸 수 없다 | 근거 평가만 30문항 × 2(호출 60번): u02·u20·r20 고쳐짐, u06 절반, u04 그대로, 답할 h01–h20은 그대로 | 근거 평가에 "겪을 수 없는 전제·확인되지 않은 신제품은 문서가 그 전제를 다룰 때만 근거" |
+| [#369](https://github.com/rndigkwk/dograg/pull/369) | 보고서 경로는 근거 평가가 없어 "답하지 않음"이 나올 수 없었다("경주마의 펫보험 가입률" → 반려동물 수치로 답함) | 답할 보고서 18문항 18/18 답함, 없는 것을 묻는 질문은 보류 | 보고서 답변이 대상·기간의 수치가 하나도 없으면 `[근거 없음]` → 건강 상담과 같은 거절 화면(모델 호출 그대로) |
+| [#372](https://github.com/rndigkwk/dograg/pull/372) | AI Hub는 같은 상담을 말만 바꿔 학습·검증 파일에 하나씩 싣는다 | 긴 상담 561문항 중 복사본 53(9%). 점수 매긴 100문항의 `useful@3` 0.72 = 복사본 13문항 1.00 + 나머지 **0.678** | 복사본 측정 스크립트와 판정 74쌍. 평가 세트는 그대로 두고 두 값을 함께 적는다 |
+| [#376](https://github.com/rndigkwk/dograg/pull/376) | 건강 검색을 bge-m3 기본으로 바꾸면 나을까 | 220문항 Dense: 앱 **0.827** 대 bge-m3 0.755(p=0.026), 질문 임베딩 24ms 대 221ms | 바꾸지 않음 |
+| [#380](https://github.com/rndigkwk/dograg/pull/380) | 미세조정 임베딩 B의 큰 점수 상승이 복사본·과적합 때문일까 | 복사본 없는 87문항에서도 하이브리드 0.701 → **0.828**(p=0.027) | 과적합 아님. 다음 학습은 복사본을 빼고 epoch별로 고른다 |
+| [#379](https://github.com/rndigkwk/dograg/pull/379) | 동반 시설은 "갈 수 있나"만 있고 조건(견종 크기·이동장·실내)이 없었다 | 관광공사 9,674건 중 조건 글이 있는 **955곳**, 표본 50곳 대조에서 크기·이동장 오류 0 | 시설 DB 39,379곳, 동반 조건 거르기(웹 체크박스·API·챗봇) |
+| [#382](https://github.com/rndigkwk/dograg/pull/382) | ChatGPT 웹·Codex와 15문항 블라인드 비교에서 위급·증상 질문이 안전·쓸모로 졌다 | 종합 승수(앱/기준선/갈림) ChatGPT 웹 2/11/2 → 3/10/2, Codex 3/11/1 → 4/8/3 | 응급 신호별 고정 첫 조치, 독성 음식은 묻기만 해도 연락 안내, "간결하게" 빼고 관리 요령을 목록으로 |
+
+## 16. 2026-11-02~05: 임베딩 재학습, KB OCR 비전 모델 대조, 운영 반영 사고
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#386](https://github.com/rndigkwk/dograg/pull/386) | 복사본 53개를 빼고 다시 학습하면 B보다 나을까(RunPod, 시드 3 × 3 epoch) | dev가 고른 `s13-e3`: 짧은 질문 0.742 대 B **0.800**, 긴 상담 0.85 대 0.85 | B 유지. dev가 학습과 같은 생성기의 합성 질의라 에폭을 늘릴수록 dev만 올랐다 → 사람 질문으로 고르기 |
+| [#389](https://github.com/rndigkwk/dograg/pull/389) | 배치 안 오답이 사실상 정답(같은 증상 상담)일 수 있다 | `GISTEmbedLoss`(안내 모델 B) 짧은 질문 holdout 80: **0.850** 대 B 0.762(+9/−2, p=0.065), 긴 상담 0.82 대 0.85 | 기준(p<0.05, 긴 상담 B 이상) 미달로 B 유지. 시드 21·34 노트북(#391) |
+| [#390](https://github.com/rndigkwk/dograg/pull/390), [#392](https://github.com/rndigkwk/dograg/pull/392) | Qwen3-VL-8B로 KB 93쪽을 다시 읽으니 Tesseract와 한 자리만 다른 숫자가 117개(대부분 3을 5로) | PDF 글자 62·쪽 그림 47로 대조, 8B가 틀린 숫자 0. 정정표 9 → 100 → **115곳**. 보고서 정답 35/36, holdout 23/23 → 22/23(h01 판정 흔들림, 같은 답을 5번 다시 판정하면 5/5) | 짝이 갈린 곳은 앞뒤 글자를 넣은 긴 문자열로 정정(data-v13, v14) |
+| [#394](https://github.com/rndigkwk/dograg/pull/394) | `--supabase --replace`가 예전 main 체크아웃에서 돌아 운영 OCR 조각 151개를 정정 전 글로 덮어썼다 | 다시 실행 뒤 운영 OCR 조각의 id·본문 해시가 로컬 data-v14와 같음 | 운영 Supabase 쓰기는 막 받은 `origin/main`이고 `scripts/`·`src/`에 변경이 없을 때만(`src/git_guard.py`) |
+| [#395](https://github.com/rndigkwk/dograg/pull/395) | h01 오답은 판사 기준 문제일까 | "100%에서 뺀 비율은 맞음" 한 줄: h01 5/5 그대로, r08 partial 4 → wrong 5(호출 22번) | 기준 그대로 |
+| [#396](https://github.com/rndigkwk/dograg/pull/396), [#397](https://github.com/rndigkwk/dograg/pull/397) | r01만 정답 쪽이 근거에 없었고, holdout 정답 쪽 포함이 18/23이었다 | r01: 본문 14쪽(OCR)이 운영 1위인데 라벨은 요약 2쪽만. holdout: 빠진 5개는 정답 쪽이 없는 보류 문항 → 17/18 → **18/18**, 18/23 → **18/18** | r01 라벨에 14쪽(data-v15), 요약은 정답 쪽이 있는 문항만 센다 |
+
+- **이 기간의 교훈:** 숫자가 나쁘게 나온 세 곳(h01, r01, holdout 18/23) 중 검색이나 답이 실제로 틀린 곳은 없었다. 판정이 흔들렸거나, 라벨이 OCR 전 상태였거나, 분모에 정답 쪽이 없는 문항이 들어 있었다. 코드를 고치기 전에 같은 답을 다시 판정하고, 라벨과 분모부터 확인했다.
+- **운영 반영 사고:** 데이터를 바꾸는 명령은 코드와 함께 움직여야 한다. 명령을 어느 체크아웃에서 돌리는지가 결과를 바꿨고, 그래서 명령 쪽이 스스로 확인하게 했다(#394).
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -547,3 +574,62 @@
 | [331](https://github.com/rndigkwk/dograg/pull/331) | 2026-10-26 | feat(fees): 진료비는 농림축산식품부 지역 통계이고 실제 가격이 아님을 맨 위에 강조 |
 | [332](https://github.com/rndigkwk/dograg/pull/332) | 2026-10-26 | feat(report): 숫자가 빠졌는데 숫자 차이 기준에 안 걸린 KB 쪽(p.70·82)에도 OCR 조각 |
 | [333](https://github.com/rndigkwk/dograg/pull/333) | 2026-10-26 | feat(visit-prep): 지역 없이 만든 보고서 아래에서 지역을 골라 병원·진료비 채우기 |
+| [334](https://github.com/rndigkwk/dograg/pull/334) | 2026-10-26 | docs: 10-24~26 작업 정리 (개선 기록 14절, PR 목록 #333까지) |
+| [335](https://github.com/rndigkwk/dograg/pull/335) | 2026-10-26 | feat(reports): 보고서마다 추천 질문 5개, 첫 칸은 5종 통합 질문 |
+| [336](https://github.com/rndigkwk/dograg/pull/336) | 2026-10-26 | feat(web): 소개 페이지에 프로젝트 소개·데이터 출처 탭, 진료과 원 그래프, 시설 종류 막대 |
+| [337](https://github.com/rndigkwk/dograg/pull/337) | 2026-10-26 | feat(web): 브라우저 탭 아이콘을 기본 삼각형에서 강아지 얼굴로 |
+| [338](https://github.com/rndigkwk/dograg/pull/338) | 2026-10-26 | docs(readme): 대표 화면에 보고서 분석(통합 질문)과 소개(진료과 원 그래프) 추가 |
+| [341](https://github.com/rndigkwk/dograg/pull/341) | 2026-10-26 | ops(regression): 방문 준비 세트 care_raised_rate 기준(≥0.5) |
+| [342](https://github.com/rndigkwk/dograg/pull/342) | 2026-10-26 | eval(crag): 근거 채점기를 작은 한국어 cross-encoder로 증류하는 Colab 노트북 |
+| [343](https://github.com/rndigkwk/dograg/pull/343) | 2026-10-26 | eval(report): KB 보고서 93쪽을 GPU OCR·비전 모델로 다시 읽어 Tesseract와 비교하는 Colab 노트북 |
+| [344](https://github.com/rndigkwk/dograg/pull/344) | 2026-10-26 | docs(security): ragdog_app의 평가 기록 권한 회수 완료 기록 |
+| [345](https://github.com/rndigkwk/dograg/pull/345) | 2026-10-26 | feat(prompts): 프롬프트마다 8자리 hash를 트레이스와 평가 기록에 남김 |
+| [346](https://github.com/rndigkwk/dograg/pull/346) | 2026-10-26 | docs(architecture): 구성 요소별 구조 문서 트리 |
+| [347](https://github.com/rndigkwk/dograg/pull/347) | 2026-10-26 | docs(wiki): 근거 채점기 증류와 KB 보고서 OCR 다시 읽기 실험 |
+| [348](https://github.com/rndigkwk/dograg/pull/348) | 2026-10-26 | docs(readme): 포트폴리오용 README — 데모를 위로, 아키텍처·에이전트 다이어그램, 실행 방법은 development.md로 |
+| [349](https://github.com/rndigkwk/dograg/pull/349) | 2026-10-26 | feat(models): OpenAI가 실패하면 Claude Haiku 5.5가 대신 답하기 (ADR-0012) |
+| [350](https://github.com/rndigkwk/dograg/pull/350) | 2026-10-27 | fix(models): no OpenAI retry behind Claude; the fault=openai drill record |
+| [352](https://github.com/rndigkwk/dograg/pull/352) | 2026-10-27 | feat(eval): recheck the guide questions a failed guide rate missed |
+| [353](https://github.com/rndigkwk/dograg/pull/353) | 2026-10-27 | feat(models): skip OpenAI for 120 s after a call fails over to Claude |
+| [354](https://github.com/rndigkwk/dograg/pull/354) | 2026-10-27 | feat(web): the visit-prep report gets every health question of the chat |
+| [355](https://github.com/rndigkwk/dograg/pull/355) | 2026-10-27 | fix(release): pin the embedding model's commit; check health rows' text and vectors |
+| [356](https://github.com/rndigkwk/dograg/pull/356) | 2026-10-27 | feat(evidence): title consultation cards by the question asked; citations open their card |
+| [357](https://github.com/rndigkwk/dograg/pull/357) | 2026-10-27 | feat(places): cards on a phone, a name and category filter, Kakao Map directions |
+| [358](https://github.com/rndigkwk/dograg/pull/358) | 2026-10-27 | feat(fees): 진료비를 타일 지도로 (시·도 → 시·군·구) |
+| [359](https://github.com/rndigkwk/dograg/pull/359) | 2026-10-27 | fix(fees): 좁은 화면에서 긴 시·군·구 이름이 잘리지 않게 |
+| [360](https://github.com/rndigkwk/dograg/pull/360) | 2026-10-27 | feat(care): 수의사와 정한 날짜와 캘린더 파일(.ics) 내보내기 |
+| [361](https://github.com/rndigkwk/dograg/pull/361) | 2026-10-27 | test(web): 페이지를 잇는 사용자 여정 테스트 2개 |
+| [362](https://github.com/rndigkwk/dograg/pull/362) | 2026-10-27 | fix(crag): 사실이 아닐 수 있는 전제는 근거 평가에서 거른다 |
+| [363](https://github.com/rndigkwk/dograg/pull/363) | 2026-10-27 | feat(web): 예시로 둘러보기 (/demo) |
+| [364](https://github.com/rndigkwk/dograg/pull/364) | 2026-10-27 | test(web): 여정 테스트에 수의사와 정한 날 단계 |
+| [365](https://github.com/rndigkwk/dograg/pull/365) | 2026-10-27 | feat(web): 비어 있는 상담 화면과 소개 페이지에서 예시로 |
+| [366](https://github.com/rndigkwk/dograg/pull/366) | 2026-10-27 | fix(places): 약국 재고를 물으면 자료에 없다고 밝힌다 |
+| [367](https://github.com/rndigkwk/dograg/pull/367) | 2026-10-28 | fix(chat): 시설 검색 진행 문구에 찾는 시설 종류를 쓴다 |
+| [368](https://github.com/rndigkwk/dograg/pull/368) | 2026-10-28 | docs(wiki): Day 65~69 교안 적용 정리 |
+| [369](https://github.com/rndigkwk/dograg/pull/369) | 2026-10-28 | fix(report): 보고서에 없는 것을 물으면 답하지 않는다 |
+| [370](https://github.com/rndigkwk/dograg/pull/370) | 2026-10-28 | docs(wiki): 교안 정리를 Day 02~69 Day별로 |
+| [371](https://github.com/rndigkwk/dograg/pull/371) | 2026-10-28 | fix(ops): 예약 점검이 깨어나는 API를 기다린다 |
+| [372](https://github.com/rndigkwk/dograg/pull/372) | 2026-10-28 | eval: 평가 질문의 말뭉치 복사본 측정 (Day 69) |
+| [373](https://github.com/rndigkwk/dograg/pull/373) | 2026-10-28 | eval: 데이터 카드, 561문항 라벨 hit@3 복사본 분리, bge-m3 Colab 노트북 |
+| [374](https://github.com/rndigkwk/dograg/pull/374) | 2026-10-28 | docs: bge-m3 노트북을 Colab 링크로 열기 |
+| [375](https://github.com/rndigkwk/dograg/pull/375) | 2026-10-28 | eval: 짧은 질문 사람 검토표, 학습 데이터 속 복사본 상담 수 |
+| [376](https://github.com/rndigkwk/dograg/pull/376) | 2026-10-28 | eval: 건강 검색 기본 bge-m3 비교 — 앱 모델 유지 |
+| [377](https://github.com/rndigkwk/dograg/pull/377) | 2026-10-29 | eval: 사람 채점을 HTML 페이지로, 결과는 JSON |
+| [378](https://github.com/rndigkwk/dograg/pull/378) | 2026-10-29 | docs: 교안 Day 70(SFT) 적용 정리 |
+| [379](https://github.com/rndigkwk/dograg/pull/379) | 2026-10-29 | feat: 동반 조건 검색 (관광공사 동반여행 955곳) |
+| [380](https://github.com/rndigkwk/dograg/pull/380) | 2026-10-29 | eval: 임베딩 미세조정 과적합 점검 (과적합 아님) |
+| [381](https://github.com/rndigkwk/dograg/pull/381) | 2026-10-29 | ci: API 배포로 데이터가 바뀌면 Vercel 웹 다시 빌드 |
+| [382](https://github.com/rndigkwk/dograg/pull/382) | 2026-10-29 | feat: 건강 답변에 응급 대처·할 일 목록, 개수 답에 출처 |
+| [383](https://github.com/rndigkwk/dograg/pull/383) | 2026-10-30 | docs: 미세조정 임베딩 사람 확인 결과 (26문항) |
+| [386](https://github.com/rndigkwk/dograg/pull/386) | 2026-11-02 | feat: retrain the health embedding on a rented GPU without the eval copies (B stays) |
+| [388](https://github.com/rndigkwk/dograg/pull/388) | 2026-11-05 | docs: lecture review for Day 71-75 |
+| [389](https://github.com/rndigkwk/dograg/pull/389) | 2026-11-05 | feat: GISTEmbedLoss 실험 (안내 모델 B) + dev로만 체크포인트 고르기 |
+| [390](https://github.com/rndigkwk/dograg/pull/390) | 2026-11-05 | feat: KB 보고서 8B OCR 노트북 + 대조한 정정 91곳 추가 |
+| [391](https://github.com/rndigkwk/dograg/pull/391) | 2026-11-05 | feat: GIST 시드 21·34 노트북 |
+| [392](https://github.com/rndigkwk/dograg/pull/392) | 2026-11-05 | feat: KB OCR 정정 100곳 → 115곳, 짝이 갈린 곳 정하기 (data-v14) |
+| [393](https://github.com/rndigkwk/dograg/pull/393) | 2026-11-05 | docs: 강의 리뷰 할 일 4·5 끝남 (사람 질문 dev, GISTEmbedLoss) |
+| [394](https://github.com/rndigkwk/dograg/pull/394) | 2026-11-05 | fix: 운영 Supabase 쓰기는 origin/main 체크아웃에서만 |
+| [395](https://github.com/rndigkwk/dograg/pull/395) | 2026-11-05 | docs: 보고서 판사 기준은 그대로 (뒤집은 비율 규칙 시험) |
+| [396](https://github.com/rndigkwk/dograg/pull/396) | 2026-11-05 | fix: r01 정답 쪽에 KB 14쪽 추가 (data-v15) |
+| [397](https://github.com/rndigkwk/dograg/pull/397) | 2026-11-05 | fix: 보고서 평가의 정답 쪽 포함 비율에서 정답 쪽 없는 문항 빼기 |
+| [398](https://github.com/rndigkwk/dograg/pull/398) | 2026-11-05 | docs: README를 현재 기능에 맞추기 |
