@@ -71,7 +71,7 @@
   <text x="560" y="240" text-anchor="middle" class="lbl">시설 검색 · sql</text>
   <rect x="460" y="248" width="200" height="58" rx="10" class="sql"/>
   <text x="560" y="272" text-anchor="middle" class="h">SQLite place · 6종</text>
-  <text x="560" y="292" text-anchor="middle" class="t">38,529곳 · 읽기 전용 SQL</text>
+  <text x="560" y="292" text-anchor="middle" class="t">39,379곳 · 읽기 전용 SQL</text>
   <path d="M560 306 V330" class="arrow"/>
   <rect x="460" y="332" width="200" height="72" rx="10" class="sql"/>
   <text x="560" y="356" text-anchor="middle" class="h">종류·지역 판별</text>
