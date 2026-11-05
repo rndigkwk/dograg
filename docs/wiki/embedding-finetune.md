@@ -530,3 +530,14 @@ uv run python scripts/evaluate_app_retrieval.py
 - **다음에 할 것(하면):** 사람 질문에 가까운 dev가 필요하다. 짧은 질문 120문항의 dev/holdout 나눔이 있으므로(`tests/data/emergency_signs.json`의 `split`), dev 절반으로 체크포인트를 고르고 holdout 절반으로만 보고하면 시험 세트를 쓰지 않고 epoch를 고를 수 있다.
 - 결과 JSON: `output/experiments/finetuned_embedding.json`(로컬), 추가 판정은 `output/experiments/finetuned_embedding_grades.json`.
 - **MLflow:** DagsHub `health-embedding`의 `ko-sroberta retrain b2` 아래 하위 실행 `eval 220 s13-e3`(run `63c3b366`). 세 모델의 220문항 점수와 McNemar(얻음/잃음/p)를 metric으로, 결과 JSON을 artifact로 남겼다. 상위 실행에는 `selected_by_dev=s13-e3`과 결론을 tag로 달았다.
+
+## GISTEmbedLoss로 다시 학습 — 계획 (2026-11-05, RunPod A40)
+
+- **묻는 것:** 하드 네거티브 학습(hn, 2026-10-21)이 짧은 질문에서 B보다 떨어진 이유가 가짜 오답(false negative)인가. 같은 증상을 다루는 상담글이 많아서, 배치 안의 다른 글이 사실은 질문에 맞는 글인데 오답으로 벌을 받을 수 있다. 하드 네거티브는 그런 글을 일부러 고르므로 더 심하다.
+- **방법:** `scripts/train_embedding_gpu.py --loss gist`. 앱의 모델 B가 안내 모델이 되어, 질문과 자기 정답 글만큼 가까운 배치 안 후보를 오답에서 뺀다(`GISTEmbedLoss`). 온도 0.05는 MNRL의 scale 20과 같으므로 바뀌는 것은 이 가림 하나다. 데이터·배치·학습률은 위 `s13-e3` 재학습과 같고, 복사본 53개도 뺀다. 시드 13 × 3 epoch, 체크포인트 `gist-s13-e1~e3`은 `blanden77/ko-sroberta-dograg-gist`(비공개), 기록은 MLflow `ko-sroberta gist`.
+- **고르기와 보고(시험 세트를 보지 않는다):**
+  1. `evaluate_finetuned_embedding.py --variants b --retrain-repo gist --retrain --sets short --short-split dev --out ...gist_dev.json` — 짧은 질문 dev 40개로 세 체크포인트와 B를 잰다.
+  2. dev에서 가장 높은 하나만 `--short-split holdout holdout2`(80개)와 긴 상담(`long`, `long_useful`)으로 잰다.
+  3. B를 바꾸는 조건: holdout 80개에서 B 대비 McNemar p<0.05로 낫고, 긴 상담 `useful@3`이 B보다 낮지 않을 때. 아니면 B 유지.
+- 판정 호출은 1단계 40번 이하, 2단계 180번 이하(이미 판정한 후보는 다시 부르지 않는다). 실행 전에 `cost_guard`가 수를 보여 준다.
+- 노트북: `notebooks/gist_embedding_runpod.ipynb`. OCR 노트북이 끝난 뒤 같은 pod에서 돌린다.

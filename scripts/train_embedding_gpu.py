@@ -2,6 +2,7 @@
 
     python scripts/train_embedding_gpu.py --smoke --no-upload --local-mlflow   # a few steps, any machine
     python scripts/train_embedding_gpu.py                                      # the run (RunPod, 2026-11-02)
+    python scripts/train_embedding_gpu.py --loss gist --seeds 13               # GISTEmbedLoss, guide B (2026-11-05)
 
 The app's model B (2026-10-09, notebooks/finetune_embedding_colab.ipynb) was trained once, for one epoch,
 and on the synthetic queries of 51 corpus posts that retell a validation question
@@ -18,6 +19,13 @@ three seeds, so the spread between runs is measured too.
   <user>/ko-sroberta-dograg-b2 as one folder per checkpoint (s13-e1, ...), with results.json at the root.
 - MLflow on DagsHub (scripts/mlflow_tracking.py): experiment health-embedding, one parent run, a child
   run per seed with the dev scores per epoch (step = epoch) and the training loss.
+
+--loss gist (2026-11-05): the same data and settings with GISTEmbedLoss instead. A guide model (the
+app's model B) scores each in-batch candidate; one the guide finds as close to the query as its own
+post is not counted as a wrong answer. The hard-negative run (2026-10-21) lost short questions to B,
+and the guess was false negatives: many posts describe the same symptoms. GIST tests that guess.
+Temperature 0.05, the scale MNRL uses (20), so only the masking differs. Checkpoints go to
+<user>/ko-sroberta-dograg-gist (gist-s13-e1, ...).
 
 Environment: HF_TOKEN (read the private dataset, write the model repo) and MLFLOW_TRACKING_PASSWORD (a
 DagsHub token). Nothing about either is printed.
@@ -45,7 +53,9 @@ BATCH_SIZE = 64
 LEARNING_RATE = 2e-5
 DEV_SEED, DEV_DOCS = 13, 300
 EXCLUDED = PROJECT_DIR / "tests" / "data" / "finetune_excluded_posts.json"
-REPO_NAME = "ko-sroberta-dograg-b2"
+REPO_NAME = {"mnrl": "ko-sroberta-dograg-b2", "gist": "ko-sroberta-dograg-gist"}
+GUIDE_MODEL = "blanden77/ko-sroberta-dograg-b"  # the app's model B
+GIST_TEMPERATURE = 0.05  # MNRL's scale 20 is 1/0.05
 WORK = Path(os.environ.get("TRAIN_WORK_DIR", "/workspace/embedding-retrain"))
 
 
@@ -101,16 +111,25 @@ def load_base(device: str):
     return model
 
 
+def make_loss(kind: str, model, device: str, token: str | None):
+    from sentence_transformers import SentenceTransformer, losses
+
+    if kind == "mnrl":
+        return losses.MultipleNegativesRankingLoss(model)
+    guide = SentenceTransformer(GUIDE_MODEL, device=device, token=token)
+    guide.max_seq_length = MAX_SEQ_LENGTH
+    return losses.GISTEmbedLoss(model, guide, temperature=GIST_TEMPERATURE)
+
+
 def train_seed(seed: int, epochs: int, train_rows: list[dict], corpus: dict[str, str], evaluator, device: str,
-               smoke: bool) -> list[dict]:
-    """Train one seed; save each epoch's model and corpus vectors under WORK/s<seed>-e<epoch>."""
+               smoke: bool, loss_kind: str = "mnrl", token: str | None = None) -> list[dict]:
+    """Train one seed; save each epoch's model and corpus vectors under WORK/upload/<prefix>s<seed>-e<epoch>."""
     import numpy as np
     from datasets import Dataset
     from sentence_transformers import (
         SentenceTransformer,
         SentenceTransformerTrainer,
         SentenceTransformerTrainingArguments,
-        losses,
     )
     from sentence_transformers.training_args import BatchSamplers
 
@@ -129,7 +148,7 @@ def train_seed(seed: int, epochs: int, train_rows: list[dict], corpus: dict[str,
         **({"max_steps": 6 * epochs, "save_strategy": "steps", "save_steps": 6} if smoke else {"save_strategy": "epoch"}),
     )
     trainer = SentenceTransformerTrainer(model=model, args=args, train_dataset=data,
-                                         loss=losses.MultipleNegativesRankingLoss(model))
+                                         loss=make_loss(loss_kind, model, device, token))
     started = time.perf_counter()
     trainer.train()
     minutes = round((time.perf_counter() - started) / 60, 1)
@@ -140,7 +159,7 @@ def train_seed(seed: int, epochs: int, train_rows: list[dict], corpus: dict[str,
     for epoch, checkpoint in enumerate(checkpoints, start=1):
         tuned = SentenceTransformer(str(checkpoint), device=device)
         tuned.max_seq_length = MAX_SEQ_LENGTH
-        name = f"s{seed}-e{epoch}"
+        name = ("gist-" if loss_kind == "gist" else "") + f"s{seed}-e{epoch}"
         folder = WORK / "upload" / name
         tuned.save(str(folder))
         vectors = tuned.encode([corpus[i] for i in ids], batch_size=256, convert_to_numpy=True, show_progress_bar=False)
@@ -163,6 +182,7 @@ def main() -> int:
     parser.add_argument("--smoke", action="store_true", help="a few steps on a small subset (CPU is fine)")
     parser.add_argument("--no-upload", action="store_true", help="keep the checkpoints in TRAIN_WORK_DIR only")
     parser.add_argument("--local-mlflow", action="store_true", help="log to output/mlflow.db, not DagsHub")
+    parser.add_argument("--loss", choices=["mnrl", "gist"], default="mnrl", help="gist: GISTEmbedLoss with model B as guide")
     args = parser.parse_args()
 
     import mlflow
@@ -191,20 +211,23 @@ def main() -> int:
     evaluator = dev_evaluator(corpus, queries, dev_ids)
 
     settings = {"base_model": BASE_MODEL, "batch_size": BATCH_SIZE, "lr": LEARNING_RATE, "epochs": args.epochs,
-                "max_seq_length": MAX_SEQ_LENGTH, "queries": "short+detailed", "loss": "MNRL, no duplicates",
+                "max_seq_length": MAX_SEQ_LENGTH, "queries": "short+detailed",
+                "loss": "MNRL, no duplicates" if args.loss == "mnrl" else f"GISTEmbedLoss (guide {GUIDE_MODEL}, temperature {GIST_TEMPERATURE}), no duplicates",
                 "dev_posts": len(dev_ids), "copies_left_out": left_out, "seeds": args.seeds, "gpu": gpu, "smoke": args.smoke}
     mlflow.set_experiment("health-embedding")
     report = {"settings": settings, "base": {}, "runs": []}
-    with mlflow.start_run(run_name="ko-sroberta retrain b2" + (" (smoke)" if args.smoke else "")):
+    repo_name = REPO_NAME[args.loss]
+    run_name = "ko-sroberta retrain b2" if args.loss == "mnrl" else "ko-sroberta gist"
+    with mlflow.start_run(run_name=run_name + (" (smoke)" if args.smoke else "")):
         mlflow.log_params({k: str(v) for k, v in settings.items()})
-        mlflow.set_tags({"task": "retrain", "model_repo": REPO_NAME})
+        mlflow.set_tags({"task": "retrain", "model_repo": repo_name})
         report["base"] = scores_of(evaluator, load_base(device))
         mlflow.log_metrics({f"dev_base_{k.replace('@', '_at_')}": v for k, v in report["base"].items()})
         print("base", report["base"], flush=True)
         for seed in args.seeds:
             with mlflow.start_run(run_name=f"seed {seed}", nested=True):
                 mlflow.log_params({"seed": seed, "epochs": args.epochs})
-                runs = train_seed(seed, args.epochs, train_rows, corpus, evaluator, device, args.smoke)
+                runs = train_seed(seed, args.epochs, train_rows, corpus, evaluator, device, args.smoke, args.loss, token)
                 for run in runs:
                     mlflow.log_metrics({f"dev_{k.replace('@', '_at_')}": v for k, v in run["dev"].items()}, step=run["epoch"])
                 for step, value in runs[0].pop("loss"):
@@ -224,7 +247,7 @@ def main() -> int:
             from huggingface_hub import HfApi
 
             api = HfApi(token=token)
-            repo = f"{api.whoami()['name']}/{REPO_NAME}"
+            repo = f"{api.whoami()['name']}/{repo_name}"
             api.create_repo(repo, private=True, exist_ok=True)
             api.upload_folder(repo_id=repo, folder_path=str(WORK / "upload"),
                               commit_message=f"retrain {len(report['runs'])} checkpoints" + (" (smoke)" if args.smoke else ""))
