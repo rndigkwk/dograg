@@ -1,10 +1,10 @@
 # 🐾 라그도그 (RagDog)
 
-> 반려견 건강 상담 RAG 서비스입니다. 수의사 상담 19,206건을 근거로 답하고, **근거가 없으면 지어내지 않고 보류합니다.** 시설 찾기(38,529곳), 지역별 진료비, 반려동물 보고서 분석, 수의사 방문 준비 보고서(멀티에이전트), 관리 일정을 함께 제공합니다. 모든 개선은 같은 평가 세트로 전후를 재서 결정했습니다.
+> 반려견 건강 상담 RAG 서비스입니다. 수의사 상담 19,206건을 근거로 답하고, **근거가 없으면 지어내지 않고 보류합니다.** 시설 찾기(39,379곳, 동반 조건 포함), 지역별 진료비, 반려동물 보고서 분석, 수의사 방문 준비 보고서(멀티에이전트), 관리 일정을 함께 제공합니다. 모든 개선은 같은 평가 세트로 전후를 재서 결정했습니다.
 
 - **웹 앱:** <https://ragdog-rndigkwks-projects.vercel.app> · Next.js(Vercel) + FastAPI(Google Cloud Run 서울) + Supabase
-- **문서:** [구조](docs/architecture/README.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 11개](docs/adr/README.md) · [보안](docs/security/README.md) · [데이터 명세](docs/data-sources.md) · [실행 방법](docs/development.md)
-- 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 **오현탁이 혼자 이어서**(2026-09~10, PR 340여 개) 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
+- **문서:** [구조](docs/architecture/README.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 12개](docs/adr/README.md) · [보안](docs/security/README.md) · [데이터 명세](docs/data-sources.md) · [실행 방법](docs/development.md)
+- 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 **오현탁이 혼자 이어서**(2026-09~11, PR 390여 개) 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
 
 ## 데모
 
@@ -22,6 +22,7 @@
 | 햄스터가 해바라기 씨를 먹어도 되나요? | 강아지 자료에 근거가 없어 **보류**. 찾아본 것과 없던 것을 알려 줌 |
 | 입술 색이 거무스름하고 숨을 몰아쉬어요 | 답보다 먼저 응급 경고와 가까운 동물병원 |
 | 설사가 이틀째인데 마포구 동물병원 어디 있어? | 병원 목록을 먼저(0.4초), 아래에 증상 안내 |
+| 강릉 대형견 동반 가능한 곳 알려줘 | 관광공사 동반 조건(견종 크기·이동장·실내)으로 거른 목록. 조건 글이 없으면 "확인 필요" |
 | 강남구 엑스레이 얼마야? | 2025 정부 조사의 중간·평균·범위를 모델 없이 표 그대로 |
 | (상담 아래) 방문 준비 보고서 만들기 | 빠진 정보를 되묻고, 증상·병원·비용을 병렬 조사해 근거 번호가 달린 보고서(Word·txt) |
 
@@ -44,7 +45,7 @@
 | --- | ---: | ---: |
 | 건강 검색: 쓸모 있는 근거가 상위 3건에 있는 질문 (100문항) | 0.46 | **0.84** |
 | 짧은 질문 검색 (120문항) — 보호자 말투로 임베딩 미세조정 | 0.600 | **0.783** (p=0.0001) |
-| 보고서 답변 정답 (18문항 × 2회) — 하이브리드 검색 | 23/36 | **30/36** (p=0.016) |
+| 보고서 답변 정답 (18문항 × 2회) — 하이브리드 검색, 숫자를 잃은 쪽은 OCR | 23/36 | **35/36** (하이브리드만 30/36, p=0.016) |
 | 근거 없는 질문 보류 / 답할 질문을 잘못 보류 (60문항) | 0/20 / – | **16/20 / 1/38** |
 | 응급 신호 감지, 미리 써 둔 평가셋 | 1/20 | **19/20, 오탐 0** |
 | 위기 표현에 상담 번호 — 다른 모델이 새로 쓴 문항 | 0/5 | **5/5** (오탐 0/305) |
@@ -58,7 +59,7 @@
 flowchart LR
   U(["보호자<br/>브라우저"])
   subgraph VC["Vercel"]
-    W["Next.js 웹 앱<br/>페이지 9개"]
+    W["Next.js 웹 앱<br/>페이지 10개"]
   end
   subgraph CR["Cloud Run · 서울 · 인스턴스 0~2"]
     A["FastAPI<br/>레일 → LangGraph"]
@@ -70,6 +71,7 @@ flowchart LR
     VP[("방문 보고서<br/>체크포인트")]
   end
   O["OpenAI<br/>답 · 근거 평가 · 분류"]
+  CL["Claude Haiku<br/>OpenAI 실패 시 대신"]
   L["Langfuse<br/>글을 가린 트레이스"]
   U -->|"페이지"| W
   U -->|"질문 → 답 스트리밍(SSE)"| A
@@ -78,11 +80,12 @@ flowchart LR
   A --> PG
   A --> VP
   A --> O
+  A -.-> CL
   A -.-> L
 ```
 
 - **화면과 API를 나눴다:** 브라우저가 API를 직접 부르고 답을 SSE로 받습니다. 로그인한 보호자의 기록은 브라우저가 사용자 토큰으로 Supabase에 읽고 쓰고, RLS가 본인 행만 허용합니다. API 계정은 사용자 표에 권한이 없습니다([ADR-0008](docs/adr/0008-nextjs-frontend-fastapi-backend.md)).
-- **검색은 DB에, 질문 임베딩은 API 안에:** 미세조정한 ko-sroberta(ONNX int8)가 질문 벡터를 만들고 pgvector가 찾습니다. OpenAI가 멈춰도 건강 검색은 돌고, DB가 멈추면 이미지 안의 저장소로 답합니다([검색](docs/architecture/retrieval.md)).
+- **검색은 DB에, 질문 임베딩은 API 안에:** 미세조정한 ko-sroberta(ONNX int8)가 질문 벡터를 만들고 pgvector가 찾습니다. OpenAI가 멈춰도 건강 검색은 돌고, DB가 멈추면 이미지 안의 저장소로 답합니다([검색](docs/architecture/retrieval.md)). OpenAI가 한도·시간 초과로 실패하면 같은 호출을 Claude Haiku 5.5가 받습니다([ADR-0012](docs/adr/0012-claude-fallback.md)).
 - **배포:** 병합하면 이미지를 빌드해 트래픽 0% 후보로 올리고, 건강 질문까지 4가지를 물어 통과해야 트래픽을 넘깁니다. 비밀은 Secret Manager, 인증은 키 파일 없는 Workload Identity입니다([운영](docs/architecture/operations.md)).
 
 ## 에이전트 구조
@@ -143,10 +146,10 @@ flowchart LR
 | --- | --- | --- |
 | 질문에서 추론한 나이·진료과 **필터가 검색을 망쳤다** | 라벨이 본문과 34%·59%만 일치 → 필터 제거 | 적중 0.141 → 0.264 |
 | 짧은 질문과 긴 상담 글이 **임베딩에서 멀었다** | 보호자 말투 질의 생성($3.37) → Colab T4 미세조정 → ONNX int8 | 짧은 질문 0.600 → 0.783 ([기록](docs/wiki/embedding-finetune.md)) |
-| 보고서 오답의 원인이 **PDF에서 사라진 숫자** | 숫자를 전용 글꼴로 넣은 쪽 → OCR 조각 추가, 오독은 쪽 그림과 대조 | 오답 → 정답 ([기록](docs/wiki/retrieval-experiments.md)) |
+| 보고서 오답의 원인이 **PDF에서 사라진 숫자** | 숫자를 전용 글꼴로 넣은 쪽 → OCR 조각 추가, 비전 모델(Qwen3-VL-8B) 재독과 대조해 오독 115곳 정정 | 오답 → 정답, holdout 22~23/23 ([기록](docs/wiki/retrieval-experiments.md), [OCR](docs/wiki/kb-ocr-gpu.md)) |
 | 에이전트 팀이 **얻을 수 없는 정보를 계속 요청** | 추가 조사 1번, 같은 지적 반복이면 사람 확인 | 검수 통과 0.70 → 1.00 ([기록](docs/wiki/visit-prep-team.md)) |
 | 응급 판단이 **실제 질문의 32.5%에 경고** | 2택 → "지금 응급 / 곧 진료 / 아님" 3택 | 경고 9%, 응급 19/20 |
-| 평가 비용 때문에 **운영 챗봇이 멈췄다** | 한도 오류만 골라 검색 근거를 보여 주고, 한도 소진을 알림으로 | 장애 중에도 상담 사례가 보임 ([ADR-0011](docs/adr/0011-degrade-on-model-quota.md)) |
+| 평가 비용 때문에 **운영 챗봇이 멈췄다** | 한도 오류만 골라 검색 근거를 보여 주고, 한도 소진을 알림으로 | 장애 중에도 상담 사례가 보임. 그 뒤로는 Claude가 대신 답함 ([ADR-0011](docs/adr/0011-degrade-on-model-quota.md), [ADR-0012](docs/adr/0012-claude-fallback.md)) |
 
 ## 측정했지만 넣지 않은 것
 
@@ -168,7 +171,7 @@ flowchart LR
 
 ## 기술 스택
 
-- **LLM·RAG:** LangGraph, LangChain, OpenAI, ko-sroberta 미세조정(ONNX int8), pgvector, BM25 + RRF
+- **LLM·RAG:** LangGraph, LangChain, OpenAI, Claude(대체 모델), ko-sroberta 미세조정(ONNX int8), pgvector, BM25 + RRF
 - **백엔드:** FastAPI(SSE), Supabase(Postgres, pgvector, Auth, RLS), SQLite, LangGraph Postgres 체크포인터
 - **프론트엔드:** Next.js 15, React 19, TypeScript, Tailwind CSS, Leaflet
 - **인프라·MLOps:** Docker, Cloud Run, Secret Manager, Vercel, GitHub Actions, Langfuse, MLflow(DagsHub), Colab
@@ -177,14 +180,14 @@ flowchart LR
 
 - **사람 검수 부족:** 주 지표는 LLM 판정이고, 응급 평가셋과 답은 수의사 검토를 받지 않았습니다.
 - **작은 평가 세트:** 18~120문항이라 한 번에 ±2문항 흔들립니다. 그래서 차이가 작은 기법은 넣지 않았습니다.
-- **데이터:** 시설은 인허가 기준이라 영업 여부를 모르고, 건강 자료는 강아지 상담뿐입니다. KB 보고서 OCR에는 오독이 남아 있어 "스캔 글(OCR)"로 표시합니다.
+- **데이터:** 시설은 인허가 기준이라 영업 여부를 모르고, 건강 자료는 강아지 상담뿐입니다. KB 보고서는 PDF 글에서 숫자가 빠진 93쪽을 OCR로 보완하고 오독 115곳을 정정했지만, 그래프 라벨처럼 읽지 못한 숫자가 남아 "스캔 글(OCR)"로 표시합니다.
 - 전체: [미해결 과제](docs/wiki/open-questions.md), [한계와 다음 단계](docs/details.md#한계와-다음-단계)
 
 ## 팀과 역할
 
 **팀 프로젝트 (2026-08, 4인):** 백관민(팀장, RAG·검색·평가) · 오현탁(RAG·검색·평가) · 봉기람(데이터 수집·전처리·EDA) · 차성종(Streamlit UI·시각화·배포)
 
-**발표 이후 (2026-09~10, 오현탁):** 이 저장소의 측정, 개선, Next.js·FastAPI 전환, 로그인·보안, 운영 자동화 전부입니다. 발표 당시: [앱](https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag) · [발표 자료](docs/presentation/RAG-DOG_발표.pdf) · [노션](https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5) · [수업 과제 정리](docs/course-assignment.md)
+**발표 이후 (2026-09~11, 오현탁):** 이 저장소의 측정, 개선, Next.js·FastAPI 전환, 로그인·보안, 운영 자동화 전부입니다. 발표 당시: [앱](https://mle-01-p1-team2-f5fqyncuwejycn4hyrp64b.streamlit.app/rag) · [발표 자료](docs/presentation/RAG-DOG_발표.pdf) · [노션](https://app.notion.com/p/3b5fceb573c380ea8488c7936f77f6d5) · [수업 과제 정리](docs/course-assignment.md)
 
 ### 작업 방식과 AI 도구
 
@@ -192,6 +195,6 @@ flowchart LR
 
 - **도구가 한 일:** 코드와 테스트, 문서 초안, 커밋 메시지와 PR 설명 대부분을 작성했습니다.
 - **제가 정한 일:** 배포한 앱을 직접 써 보며 무엇을 고칠지 찾았고, 평가 세트를 먼저 쓰는 규칙·병합 조건·평가 비용 한도를 정했습니다. 측정을 보고 채택과 기각을 정했고, 데이터 이용 조건 판단과 운영 변경(DB, 데이터 업로드, 키)을 맡았습니다. 도구의 권고를 거절한 결정도 남겼습니다([ADR-0004](docs/adr/0004-no-shared-db.md)).
-- **도구가 쓴 코드를 그대로 믿지 않으려고:** 코드보다 먼저 쓴 평가 세트, 실제 모델로 도는 병합 게이트, 테스트 약 700개, 병합 뒤 운영 앱 직접 확인.
+- **도구가 쓴 코드를 그대로 믿지 않으려고:** 코드보다 먼저 쓴 평가 세트, 실제 모델로 도는 병합 게이트, 테스트 약 940개(Python 785, 웹 155), 병합 뒤 운영 앱 직접 확인.
 
 AI Hub 「반려견 성장 및 질병관련 말뭉치 데이터」(과학기술정보통신부·한국지능정보사회진흥원 사업 결과)를 활용했습니다. 돌봄 지침은 농림수산식품교육문화정보원 동물사랑배움터 교육자료와 농림축산식품부 보도자료(공공누리 제1유형)에서 출처를 밝혀 인용합니다.

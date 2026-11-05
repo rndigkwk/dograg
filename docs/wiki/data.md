@@ -6,7 +6,7 @@
 | --- | --- | ---: | --- |
 | 반려견 건강 Q&A (학습) | `data/df.csv` | 19,206행 | AI Hub 반려견 성장·질병 말뭉치 |
 | 반려견 건강 Q&A (검증) | `data/df_val.csv` | 561행 | 같은 말뭉치의 validation |
-| 반려동물 시설 | `data/places.db` (`place`, `source` 테이블) | 6종 38,529곳 (병원 5,459) | 공공데이터포털, 국가동물보호정보시스템, 한국문화정보원 → [places-data.md](places-data.md) |
+| 반려동물 시설 | `data/places.db` (`place`, `source` 테이블) | 6종 39,379곳 (병원 5,459, 출처 7곳) | 공공데이터포털, 국가동물보호정보시스템, 한국문화정보원, 한국관광공사 → [places-data.md](places-data.md) |
 | 2025 반려동물 보고서 | `data/2025 한국 반려동물 보고서.pdf` | 1개 PDF | KB경영연구소 |
 | 돌봄 지침 | `data/care_guides/` | 4개 PDF, 조각 759개 | 동물사랑배움터(농림수산식품교육문화정보원) → [아래](#돌봄-지침-2026-10-19) |
 | 벡터 저장소 | `data/chroma_db/` | `pet_care` 19,206건, `pet_analysis_1024` 127청크 | 위 데이터로 구축 |
