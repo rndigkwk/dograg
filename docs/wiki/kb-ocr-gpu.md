@@ -96,7 +96,16 @@ EasyOCR과 비전 모델이 같은 숫자를 읽었는데 Tesseract가 다르게
   - 같은 숫자가 쪽에 두 번 나오는 곳 1곳(82쪽 55.8%).
   - 6쪽 "7만"은 다른 숫자 속에도 들어 있다.
 
-### 아직 하지 않은 것
+### 검색 조각 다시 만들기와 평가 (2026-11-05, `data-v13`)
 
-- **검색 조각은 아직 다시 만들지 않았다.** 정정표가 바뀌면 OCR 조각 글이 바뀐다. 그러면 `scripts/add_kb_ocr_chunks.py`로 임베딩을 다시 만들고, 비공개 데이터셋에 새 리비전을 올리고, 보고서 평가(18문항 × 2회, 약 72번 호출)로 지금 점수(35/36)보다 나빠지지 않는지 봐야 한다.
-- **OCR 조각 전체를 8B 글로 바꾸는 안**은 정정표로 이번 오독 대부분이 잡혔으므로 우선순위를 낮춘다. 남는 차이는 그래프 라벨처럼 Tesseract가 아예 읽지 못한 숫자다.
+- `add_kb_ocr_chunks.py --local --replace`로 OCR 조각을 다시 만들었다. 조각은 147개에서 151개가 됐다(OCR 쪽 93쪽). 임베딩 호출은 151개이고, 채팅 모델 호출은 없다.
+- **검색만** (모델 호출 없음, 로컬 하이브리드 검색): 정답 쪽이 근거에 든 문항은 기존 18문항 16 → **17**(r04), holdout 23문항 18 → 18이다. 기준 답 숫자가 근거에 든 수는 기존 18/22 → 18/22, holdout 47/53 → **48/53**(h03의 27.1%p)이다. 잃은 문항은 없다.
+- **답변** (`evaluate_report_pages.py compare --variants hybrid`, 로컬, 모델 호출 118번):
+  - 기존 18문항 × 2회: 정답 **35/36**, 부분 1(r08, 단위 "마리/명")이다. 지난 기록 35/36과 같다.
+  - holdout 23문항 × 1회: 정답 **23/23**이다.
+  - 결과 파일은 `output/report_pages_eval_ocr8b.json`, `output/report_holdout_eval_ocr8b.json`(로컬)이다.
+- **반영:**
+  - 비공개 데이터셋에 `data-v13`을 만들었다. `data-v12`에서 갈라졌고, `data/chroma_db/chroma.sqlite3`와 `data/vector_store/report/*` 두 파일만 바뀌었다. 빠진 파일은 없다.
+  - `src/private_data.REVISION`을 `data-v13`으로 올렸다.
+  - 운영 Supabase `ragdog_report`의 OCR 조각은 `add_kb_ocr_chunks.py --supabase --replace`로 바꾼다.
+- **남은 것:** OCR 조각 전체를 8B 글로 바꾸는 안은 우선순위를 낮춘다. 정정표가 이번 오독 대부분을 잡았고, 남는 차이는 그래프 라벨처럼 Tesseract가 아예 읽지 못한 숫자다.
