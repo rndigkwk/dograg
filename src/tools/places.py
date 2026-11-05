@@ -90,6 +90,13 @@ PLACE_SEARCH_WORDS = ("근처", "가까운", "어디", "찾아", "목록", "주�
 # 2026-10-19): with a search word they count only when the question is about a pet as well.
 PEOPLE_PLACE_WORDS = ("카페", "펜션")
 PET_WORDS = ("강아지", "반려", "애견", "펫", "댕댕", "동반", "데려", "같이갈", "함께갈")
+# Going somewhere with the dog without a facility word: "강릉에 대형견이랑 갈 수 있는 곳 있어?" went to the
+# place search by the model router, which then looked for 동물병원 in 강릉 (2026-11-05). With a dog word
+# these mean a companion place; "화장실 갈 수 있게" is not one (no "곳"), nor "병원에 데리고 가" or
+# "대피할 때 데리고 가야" (only "데리고 갈 수 있는" counts).
+COMPANION_PHRASES = ("갈수있는곳", "갈만한곳", "갈만한여행지", "데리고갈수있는", "들어갈수있는곳",
+                     "묵을수있는", "숙소", "여행지")
+DOG_WORDS = (*PET_WORDS, "대형견", "중형견", "소형견")
 LOCATION_ALIASES = {alias: name for alias, name in SIDO_ALIASES.items() if alias.endswith(("시", "도"))}
 # "3곳", "3곳만", "세 곳", "두 군데", "4개": the number of places asked for. "만" is not required
 # ("마포구 동물병원 3곳 알려줘" listed 10, 2026-10-12). "개월", "마리", "층", "시" are not place counts,
@@ -119,6 +126,8 @@ def place_kind(question: str) -> str | None:
             return kind
     if "동물병원" in compact or any(keyword in " ".join(question.lower().split()) for keyword in HOSPITAL_QUERY_KEYWORDS):
         return "hospital"
+    if any(phrase in compact for phrase in COMPANION_PHRASES) and any(word in compact for word in DOG_WORDS):
+        return "pet_friendly"
     if any(word in compact for word in PLACE_SEARCH_WORDS):
         for kind, word in AMBIGUOUS_KIND_WORDS:
             if word in compact and (word not in PEOPLE_PLACE_WORDS or any(pet in compact for pet in PET_WORDS)):
