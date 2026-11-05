@@ -237,6 +237,23 @@ def main() -> int:
                 if device == "cuda":
                     mlflow.log_metric("gpu_peak_gb", round(torch.cuda.max_memory_allocated() / 1e9, 1))
                     torch.cuda.reset_peak_memory_stats()
+        if not args.no_upload and not args.smoke:
+            # A later run with other seeds (gist s21, s34 after s13, 2026-11-06) adds to the repo's
+            # results.json instead of replacing it; the checkpoint folders already stay.
+            from huggingface_hub import HfApi, hf_hub_download
+            from huggingface_hub.errors import (
+                EntryNotFoundError,
+                RepositoryNotFoundError,
+            )
+
+            try:
+                repo_id = f"{HfApi(token=token).whoami()['name']}/{repo_name}"
+                earlier = json.loads(Path(hf_hub_download(repo_id, "results.json", token=token)).read_text())
+                names = {r["name"] for r in report["runs"]}
+                report["runs"] = [r for r in earlier["runs"] if r["name"] not in names] + report["runs"]
+                print("kept", len(report["runs"]) - len(names), "earlier runs from", repo_id, flush=True)
+            except (EntryNotFoundError, RepositoryNotFoundError):
+                pass
         best = max(report["runs"], key=lambda r: (r["dev"]["mrr@10"], r["dev"]["accuracy@10"]))
         report["best_by_dev"] = best["name"]
         mlflow.set_tag("best_by_dev", best["name"])
