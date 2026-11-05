@@ -126,4 +126,5 @@ EasyOCR과 비전 모델이 같은 숫자를 읽었는데 Tesseract가 다르게
   - holdout 23문항: 정답 22, 오답 1(h01). h01의 근거 글은 v13과 같은 9,244자이고, 답의 "전체 가입률 11.9%"는 정답의 "미가입 88.1%"를 뒤집은 값이다. v13에서는 같은 답을 정답으로 판정했으므로 판사의 흔들림으로 본다.
   - 결과 파일: `output/report_pages_eval_ocr_v14.json`, `output/report_holdout_eval_ocr_v14.json`(로컬).
 - **반영:** 비공개 데이터셋 `data-v14`는 `data-v13`에서 갈라졌고, 같은 세 파일만 바뀌었다(파일 36개 그대로). `src/private_data.REVISION`을 `data-v14`로 올렸다. 운영 Supabase는 `add_kb_ocr_chunks.py --supabase --replace`로 바꾼다.
+- **운영 반영 사고:** 첫 실행은 예전 main(`92f5c9fc`, 정정 100곳)에서 돌아 운영 OCR 조각 151개를 data-v13 글로 다시 썼다. main을 당겨 다시 실행했고, OCR 조각의 id·본문 해시가 로컬 data-v14와 같은 것을 확인했다. 그 뒤 `--supabase` 쓰기는 지금 체크아웃이 막 받은 `origin/main`이고 `scripts/`·`src/`에 로컬 변경이 없을 때만 돈다(`src/git_guard.py`, `export_supabase_store.py`도 같다. 넘기려면 `--allow-unmerged`).
 

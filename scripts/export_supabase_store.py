@@ -26,7 +26,14 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--drop", action="store_true")
     parser.add_argument("--to-halfvec", action="store_true")
+    parser.add_argument("--allow-unmerged", action="store_true", help="skip the origin/main check (src/git_guard.py)")
     args = parser.parse_args()
+    if not args.allow_unmerged:
+        from src.git_guard import unmerged_reason
+
+        if reason := unmerged_reason(PROJECT_DIR):
+            print(f"not writing Supabase: {reason} (or pass --allow-unmerged)")
+            return 1
     from dotenv import dotenv_values
 
     from src.supabase_store import connector, create_tables, load_rows, to_halfvec
