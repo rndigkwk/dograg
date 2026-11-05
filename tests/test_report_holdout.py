@@ -53,5 +53,20 @@ class ReportHoldoutTests(unittest.TestCase):
         self.assertEqual(expected_verdict({"expected": "answer"}, "abstained"), "abstained")
 
 
+
+
+class ShareWithGoldTest(unittest.TestCase):
+    def test_questions_without_a_gold_page_are_left_out(self):
+        from evaluate_report_pages import share_with_gold
+
+        rows = [{"gold_in_context": True}, {"gold_in_context": False}, {"gold_in_context": None}]
+        self.assertEqual(share_with_gold(rows, "gold_in_context"), 0.5)
+        self.assertIsNone(share_with_gold([{"gold_in_context": None}], "gold_in_context"))
+
+    def test_abstain_questions_have_no_gold_page(self):
+        items = json.loads(HOLDOUT.read_text(encoding="utf-8"))["items"]
+        self.assertTrue(all(not item.get("gold_pages") for item in items if item.get("expected") == "abstain"))
+
+
 if __name__ == "__main__":
     unittest.main()
