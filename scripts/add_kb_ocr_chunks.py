@@ -13,6 +13,8 @@ report and page. One embedding call per chunk batch (text-embedding-3-small, as 
 no chat model calls. Chunks already present (same id) are skipped, so each target can be filled once.
 With --replace the target's OCR chunks (text_source "ocr") are deleted first and written again: a
 clean_ocr change shifts the chunk boundaries, so the ids no longer match the old pieces.
+--supabase stops unless the checkout is the fetched origin/main with no local changes in scripts/
+and src/ (src/git_guard.py): an older main once replaced newer production rows (2026-11-05).
 """
 
 from __future__ import annotations
@@ -248,12 +250,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--supabase", action="store_true")
     parser.add_argument("--replace", action="store_true", help="delete the target's OCR chunks first")
+    parser.add_argument("--allow-unmerged", action="store_true",
+                        help="write Supabase from a checkout that is not origin/main (src/git_guard.py)")
     args = parser.parse_args(argv)
     chunks = ocr_chunks()
     pages = sorted({c["metadata"]["page"] for c in chunks})
     print(f"{len(pages)} pages, {len(chunks)} OCR chunks, about {sum(len(c['text']) for c in chunks)} characters: {pages}")
     if args.dry_run or not (args.local or args.supabase):
         return 0
+    if args.supabase and not args.allow_unmerged:
+        from src.git_guard import unmerged_reason
+
+        if reason := unmerged_reason(PROJECT_DIR):
+            print(f"not writing Supabase: {reason} (or pass --allow-unmerged)")
+            return 1
     vectors = embed([c["text"] for c in chunks])
     if args.local:
         if args.replace:
