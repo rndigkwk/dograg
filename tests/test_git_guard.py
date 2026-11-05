@@ -20,6 +20,7 @@ class UnmergedReasonTest(unittest.TestCase):
         origin, self.clone = root / "origin.git", root / "clone"
         run(root, "init", "-q", "--bare", "-b", "main", str(origin))
         run(root, "clone", "-q", str(origin), str(self.clone))
+        run(self.clone, "symbolic-ref", "HEAD", "refs/heads/main")  # CI git may default to master
         for key, value in (("user.email", "t@example.com"), ("user.name", "t"), ("core.autocrlf", "false")):
             run(self.clone, "config", key, value)
         (self.clone / "src").mkdir()
