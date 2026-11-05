@@ -23,11 +23,11 @@ class CleanOcrTests(unittest.TestCase):
     def test_checked_figures_are_corrected_once_per_page(self):
         self.assertEqual(correct_ocr(7, "만지기(59.2%;, 반려견"), "만지기(39.2%;, 반려견")
         self.assertEqual(correct_ocr(14, "2025년 말\n대비 589만 1 fu\n196만 0.5%"), "2023년 말 대비 585만 1,196만 0.3%")
-        self.assertEqual(correct_ocr(5, "59.2%"), "59.2%")  # only the checked page
+        self.assertEqual(correct_ocr(3, "59.2%"), "59.2%")  # only the checked page
         with self.assertRaises(ValueError):  # a correction that no longer matches is caught
             correct_ocr(7, "39.2%")
         self.assertEqual(correct_ocr(4, "2024년 51.6%로"), "2024년 31.6%로")  # checked 2026-11-05
-        self.assertEqual((len(OCR_CORRECTIONS), sum(map(len, OCR_CORRECTIONS.values()))), (48, 100))
+        self.assertEqual((len(OCR_CORRECTIONS), sum(map(len, OCR_CORRECTIONS.values()))), (50, 115))
         for pairs in OCR_CORRECTIONS.values():  # no correction feeds another on the same page
             self.assertFalse({w for w, _ in pairs} & {r for _, r in pairs})
 

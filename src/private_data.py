@@ -48,8 +48,9 @@ REPO_ID = "blanden77/dograg-data"
 #   data-v12 2026-10-28 CRAG r19 asks about race horses' pet insurance, which the reports do not cover
 #            (the old question was answered from the pharmacy table); branched from data-v11, only that file
 #   data-v13 2026-11-05 KB OCR chunks rebuilt with 100 corrections checked against the Qwen3-VL-8B re-read
+#   data-v14 2026-11-05 KB OCR chunks rebuilt with 115 corrections (15 ambiguous pairings settled)
 #            (docs/wiki/kb-ocr-gpu.md); branched from data-v12, only the Chroma file and the report store
-REVISION = "data-v13"
+REVISION = "data-v14"
 # Written after a download; a different revision downloads again (a server keeps its files
 # across redeploys, so files being present does not mean they are the right version).
 REVISION_MARKER = "data/.private_data_revision"
