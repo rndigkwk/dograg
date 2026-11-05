@@ -24,7 +24,13 @@ Sets:
 - short: the 120 short questions of tests/data/emergency_signs.json (written by hand for the
   emergency set, not by the query generator). Their top 3 from every model are graded by the same
   judge; useful@3 and relevant@3.
-Paired McNemar tests against the base model. Results: output/experiments/finetuned_embedding.json.
+Paired McNemar tests against the base model (and against B when B is in the run).
+Results: output/experiments/finetuned_embedding.json, or --out.
+
+Choosing a checkpoint without peeking (2026-11-05): --sets short --short-split dev ranks the
+checkpoints on the 40 dev questions only; the chosen one is then reported on
+--short-split holdout holdout2 and on the long sets. --retrain-repo gist reads the GISTEmbedLoss
+checkpoints (gist-s13-e1, ...) instead of b2.
 """
 
 from __future__ import annotations
@@ -46,7 +52,9 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 BASE = "jhgan/ko-sroberta-multitask"
 ALL_TUNED = {"a": "blanden77/ko-sroberta-dograg-a", "b": "blanden77/ko-sroberta-dograg-b",
              "hn": "blanden77/ko-sroberta-dograg-hn"}
-RETRAIN_REPO = "blanden77/ko-sroberta-dograg-b2"  # scripts/train_embedding_gpu.py: s13-e1/, s13-e2/, ...
+RETRAIN_REPOS = {"b2": "blanden77/ko-sroberta-dograg-b2",  # scripts/train_embedding_gpu.py: s13-e1/, ...
+                 "gist": "blanden77/ko-sroberta-dograg-gist"}  # --loss gist: gist-s13-e1/, ...
+SETS = ("long", "long_useful", "short")
 TUNED = {name: ALL_TUNED[name] for name in ("a", "b")}  # main() narrows it to --variants (and --retrain)
 FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 CANDIDATE_K = 12
@@ -69,6 +77,11 @@ def main() -> int:
     parser.add_argument("--variants", nargs="+", choices=sorted(ALL_TUNED), default=["a", "b"])
     parser.add_argument("--retrain", nargs="*", metavar="CHECKPOINT",
                         help="also the retrained checkpoints (all, or these names, e.g. s13-e2)")
+    parser.add_argument("--retrain-repo", choices=sorted(RETRAIN_REPOS), default="b2")
+    parser.add_argument("--sets", nargs="+", choices=SETS, default=list(SETS))
+    parser.add_argument("--short-split", nargs="+", choices=["dev", "holdout", "holdout2"],
+                        help="only these short questions (emergency_signs.json split); default all 120")
+    parser.add_argument("--out", type=Path, default=OUT)
     args = parser.parse_args()
     TUNED.clear()
     TUNED.update({name: ALL_TUNED[name] for name in args.variants})
@@ -85,9 +98,11 @@ def main() -> int:
     load_dotenv(PROJECT_DIR / ".env")
     token = os.environ["HF_TOKEN"]
     if args.retrain is not None:
-        root = Path(snapshot_download(RETRAIN_REPO, token=token, allow_patterns=["results.json"]))
+        repo = RETRAIN_REPOS[args.retrain_repo]
+        root = Path(snapshot_download(repo, token=token, allow_patterns=["results.json"]))
         names = args.retrain or [run["name"] for run in json.loads((root / "results.json").read_text())["runs"]]
-        TUNED.update({f"b2-{name}": (RETRAIN_REPO, name) for name in names})
+        prefix = "b2-" if args.retrain_repo == "b2" else ""  # gist names already start with gist-
+        TUNED.update({f"{prefix}{name}": (repo, name) for name in names})
 
     def model_path(repo) -> Path:
         if isinstance(repo, tuple):  # (repo, checkpoint folder); plain files, since the cache's symlinks fail on Windows here
@@ -128,28 +143,40 @@ def main() -> int:
         return results
 
     names = ["base", *TUNED]
-    report = {}
+    report = {"sets": args.sets, "short_split": args.short_split or "all"}
+
+    def versus(scores: dict[str, list[bool]]) -> dict:
+        out = {"vs_base": {v: mcnemar(scores["base"], scores[v]) for v in TUNED}}
+        if "b" in TUNED:
+            out["vs_b"] = {v: mcnemar(scores["b"], scores[v]) for v in TUNED if v != "b"}
+        return out
 
     # long: hit@3 on 561 validation consultations
     with open(PROJECT_DIR / "data" / "df_val.csv", encoding="utf-8", newline="") as f:
         val = list(csv.DictReader(f))
-    hits = {}
-    for name in names:
-        top3 = rank(name, [row["qa.input"] for row in val])
-        hits[name] = [any(all(d.metadata[k] == row[k] for k in FIELDS) for d in docs) for row, docs in zip(val, top3)]
-        print("long hit@3", name, round(sum(hits[name]) / len(val), 4), flush=True)
-    report["long_hit@3"] = {name: round(sum(h) / len(val), 4) for name, h in hits.items()}
-    report["long_hit@3_vs_base"] = {v: mcnemar(hits["base"], hits[v]) for v in TUNED}
+    if "long" in args.sets:
+        hits = {}
+        for name in names:
+            top3 = rank(name, [row["qa.input"] for row in val])
+            hits[name] = [any(all(d.metadata[k] == row[k] for k in FIELDS) for d in docs) for row, docs in zip(val, top3)]
+            print("long hit@3", name, round(sum(hits[name]) / len(val), 4), flush=True)
+        report["long_hit@3"] = {name: round(sum(h) / len(val), 4) for name, h in hits.items()}
+        tests = versus(hits)
+        report["long_hit@3_vs_base"] = tests["vs_base"]
+        if "vs_b" in tests:
+            report["long_hit@3_vs_b"] = tests["vs_b"]
 
     # useful@3 sets: grade what was never graded
     model = judge_model()
     extra = json.loads(EXTRA_GRADES.read_text(encoding="utf-8")) if EXTRA_GRADES.exists() else {}
 
-    def useful_for(set_name: str, questions: list[str], saved: list[dict]) -> None:
+    def useful_for(set_name: str, questions: list[str], saved: list[dict], index: list[int] | None = None) -> None:
+        """index: each question's position in the full set, so the grade cache keys stay the same."""
+        index = index or list(range(len(questions)))
         tops = {name: rank(name, questions) for name in names}
         jobs = []
         for i, question in enumerate(questions):
-            known = {**saved[i], **extra.get(f"{set_name}:{i}", {})}
+            known = {**saved[i], **extra.get(f"{set_name}:{index[i]}", {})}
             missing = {d.id: d for name in names for d in tops[name][i] if d.id not in known}
             if missing:
                 docs = list(missing.values())
@@ -162,29 +189,36 @@ def main() -> int:
             raise SystemExit(1)
         with ThreadPoolExecutor(8) as pool:
             for (i, _, _), grades in zip(jobs, pool.map(lambda job: judge(model, job[1], job[2]), jobs)):
-                extra.setdefault(f"{set_name}:{i}", {}).update(grades)
+                extra.setdefault(f"{set_name}:{index[i]}", {}).update(grades)
         EXTRA_GRADES.write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
         useful, relevant = {}, {}
         for name in names:
             useful[name], relevant[name] = [], []
             for i in range(len(questions)):
-                grades = {**saved[i], **extra.get(f"{set_name}:{i}", {})}
+                grades = {**saved[i], **extra.get(f"{set_name}:{index[i]}", {})}
                 got = [grades.get(d.id) for d in tops[name][i]]
                 useful[name].append(any(g == 2 for g in got))
                 relevant[name].append(any(g is not None and g >= 1 for g in got))
         n = len(questions)
         report[set_name] = {name: {"useful@3": round(sum(useful[name]) / n, 3),
                                    "relevant@3": round(sum(relevant[name]) / n, 3)} for name in names}
-        report[f"{set_name}_useful_vs_base"] = {v: mcnemar(useful["base"], useful[v]) for v in TUNED}
-        print(set_name, json.dumps(report[set_name], ensure_ascii=False), report[f"{set_name}_useful_vs_base"], flush=True)
+        tests = versus(useful)
+        report[f"{set_name}_useful_vs_base"] = tests["vs_base"]
+        if "vs_b" in tests:
+            report[f"{set_name}_useful_vs_b"] = tests["vs_b"]
+        print(set_name, json.dumps(report[set_name], ensure_ascii=False), tests, flush=True)
 
     relevance = json.loads((PROJECT_DIR / "tests" / "data" / "health_relevance_100.json").read_text(encoding="utf-8"))["items"]
-    useful_for("long_useful", [val[item["row"]]["qa.input"] for item in relevance], [item["grades"] for item in relevance])
-    short = json.loads((PROJECT_DIR / "tests" / "data" / "emergency_signs.json").read_text(encoding="utf-8"))["items"]
-    useful_for("short", [item["question"] for item in short], [{} for _ in short])
+    if "long_useful" in args.sets:
+        useful_for("long_useful", [val[item["row"]]["qa.input"] for item in relevance], [item["grades"] for item in relevance])
+    if "short" in args.sets:
+        short = json.loads((PROJECT_DIR / "tests" / "data" / "emergency_signs.json").read_text(encoding="utf-8"))["items"]
+        keep = [i for i, item in enumerate(short) if not args.short_split or item.get("split") in args.short_split]
+        assert keep, f"no short questions in {args.short_split}"
+        useful_for("short", [short[i]["question"] for i in keep], [{} for _ in keep], keep)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=1))
     return 0
 
