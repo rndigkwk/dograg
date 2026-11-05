@@ -531,7 +531,7 @@ uv run python scripts/evaluate_app_retrieval.py
 - 결과 JSON: `output/experiments/finetuned_embedding.json`(로컬), 추가 판정은 `output/experiments/finetuned_embedding_grades.json`.
 - **MLflow:** DagsHub `health-embedding`의 `ko-sroberta retrain b2` 아래 하위 실행 `eval 220 s13-e3`(run `63c3b366`). 세 모델의 220문항 점수와 McNemar(얻음/잃음/p)를 metric으로, 결과 JSON을 artifact로 남겼다. 상위 실행에는 `selected_by_dev=s13-e3`과 결론을 tag로 달았다.
 
-## GISTEmbedLoss로 다시 학습 — 계획 (2026-11-05, RunPod A40)
+## GISTEmbedLoss로 다시 학습 — **채택하지 않음, B 유지** (2026-11-05, RunPod A40)
 
 - **묻는 것:** 하드 네거티브 학습(hn, 2026-10-21)이 짧은 질문에서 B보다 떨어진 이유가 가짜 오답(false negative)인가. 같은 증상을 다루는 상담글이 많아서, 배치 안의 다른 글이 사실은 질문에 맞는 글인데 오답으로 벌을 받을 수 있다. 하드 네거티브는 그런 글을 일부러 고르므로 더 심하다.
 - **방법:** `scripts/train_embedding_gpu.py --loss gist`. 앱의 모델 B가 안내 모델이 되어, 질문과 자기 정답 글만큼 가까운 배치 안 후보를 오답에서 뺀다(`GISTEmbedLoss`). 온도 0.05는 MNRL의 scale 20과 같으므로 바뀌는 것은 이 가림 하나다. 데이터·배치·학습률은 위 `s13-e3` 재학습과 같고, 복사본 53개도 뺀다. 시드 13 × 3 epoch, 체크포인트 `gist-s13-e1~e3`은 `blanden77/ko-sroberta-dograg-gist`(비공개), 기록은 MLflow `ko-sroberta gist`.
@@ -541,3 +541,29 @@ uv run python scripts/evaluate_app_retrieval.py
   3. B를 바꾸는 조건: holdout 80개에서 B 대비 McNemar p<0.05로 낫고, 긴 상담 `useful@3`이 B보다 낮지 않을 때. 아니면 B 유지.
 - 판정 호출은 1단계 40번 이하, 2단계 180번 이하(이미 판정한 후보는 다시 부르지 않는다). 실행 전에 `cost_guard`가 수를 보여 준다.
 - 노트북: `notebooks/gist_embedding_runpod.ipynb`. OCR 노트북이 끝난 뒤 같은 pod에서 돌린다.
+
+### 결과 — **채택하지 않음, B 유지** (2026-11-05, A40 학습 9분, 판정 호출 22번: 앞서 판정한 후보는 다시 부르지 않음)
+
+**dev 300 상담, 합성 질의 `mrr@10`** (시드 13): GIST e1 0.582 · e2 0.591 · e3 **0.600**. 같은 시드의 MNRL 재학습(b2)은 0.572 · 0.601 · 0.615였다. 합성 dev에서는 거의 같다.
+
+**짧은 질문 dev 40개로 고르기** (`useful@3`)
+
+| 기본 | B (앱) | GIST e1 | GIST e2 | GIST e3 |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.600 | **0.875** | 0.775 | 0.800 | 0.850 |
+
+e3를 골랐다. B 대비 2문항을 새로 맞히고 3문항을 놓쳤다(p=1.0).
+
+**고른 e3만 시험 세트로**
+
+| | 기본 | B (앱) | GIST e3 | e3 대 B |
+| --- | ---: | ---: | ---: | --- |
+| 짧은 질문 holdout 80개 `useful@3` | 0.637 | 0.762 | **0.850** | +9 / −2, p=0.065 |
+| 긴 상담 100개 `useful@3` | 0.74 | **0.85** | 0.82 | +3 / −6, p=0.51 |
+| 긴 상담 561개 `hit@3` | 0.262 | 0.262 | 0.262 | 21 / 21 |
+
+- **미리 정한 기준(holdout에서 B 대비 p<0.05, 긴 상담이 B보다 낮지 않음)을 둘 다 넘지 못했다.** 그래서 B를 유지한다.
+- **다만 짧은 질문에서는 처음으로 B보다 높게 나왔다.** 복사본을 뺀 MNRL 재학습(s13-e3)은 120문항 0.742로 B(0.800)보다 낮았다. 같은 데이터와 설정에서 가짜 오답 가림만 더하자 holdout 80개가 B보다 7문항 많아졌다. hn이 짧은 질문에서 떨어진 이유가 가짜 오답이라는 추측과 맞는 방향이다. 다만 유의하지 않고, 시드도 하나라 확인한 것은 아니다.
+- **B의 holdout 점수(0.762)는 dev(0.875)보다 낮다.** 40문항씩이라 반쪽마다 ±0.05 정도는 흔들린다. dev에서 B가 이기고 holdout에서 e3가 이긴 것도 그 범위 안이다.
+- **다음에 할 것(하면):** 시드 21·34를 더 학습해(A40 약 20분) 세 시드 모두 holdout에서 B보다 높은지 본다. 긴 상담 0.82가 0.85 아래로 계속 머무는지도 같이 본다.
+- 결과 JSON: `output/experiments/gist_dev.json`, `output/experiments/gist_holdout.json`(로컬). **MLflow:** `ko-sroberta gist` 아래 하위 실행 `eval short dev + holdout gist-s13-e3`(run `4fd6b090`). 상위 실행에는 `selected_by_dev`와 결론을 tag로 달았다.
