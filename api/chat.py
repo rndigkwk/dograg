@@ -151,7 +151,7 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
     from src import resources
     from src.chatbot import chatbot
     from src.tools.history import history_with_summary
-    from src.tools.urgency import urgent_notice
+    from src.tools.urgency import urgency_level
 
     if settings.get_setting("RAGDOG_FAULT") == "chat":
         # A deliberately broken revision for the canary drill (deploy-cloud-run.yml input "fault"):
@@ -174,9 +174,12 @@ def answer_events(body: ChatRequest, person: str, network: str, agent: str = "",
 
     memory = body.memory.model_dump()
     chat_history = history_with_summary([turn.model_dump(exclude_none=True) for turn in body.history], memory)
-    notice = urgent_notice(body.question)
+    notice, level = urgency_level(body.question)
     if notice:
         yield urgent_event(notice, body.location)
+    elif level:
+        # The urgency check's middle answer: the web shows a "진료 권장" badge above the answer.
+        yield event("care_level", {"level": level})
 
     events: queue.Queue = queue.Queue()
     outcome: dict = {}

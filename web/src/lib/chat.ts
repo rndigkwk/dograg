@@ -18,6 +18,8 @@ export type Answer = {
   hospitalRows?: Record<string, unknown>[];
   safetyNotice?: string | null;
   urgent?: { notice: string; hospitals: Emergency } | null;
+  // The urgency check's middle answer (api/chat.py care_level): see a vet soon, not now. Never with `urgent`.
+  careLevel?: "see_vet_soon" | null;
   // Not an answer: the question limit or a failure. Shown, but not sent back as history.
   notice?: "limited" | "error";
 };
@@ -84,6 +86,8 @@ export function applyEvent(pending: Pending, { kind, data }: StreamEvent): { pen
       return { pending: { ...pending, text: pending.text + String(d.text ?? "") } };
     case "urgent":
       return { pending: { ...pending, answer: { ...pending.answer, urgent: { notice: String(d.notice), hospitals: (d.hospitals ?? {}) as Emergency } } } };
+    case "care_level":
+      return { pending: d.level === "see_vet_soon" && !pending.answer.urgent ? { ...pending, answer: { ...pending.answer, careLevel: "see_vet_soon" } } : pending };
     case "limited":
       return { pending: { ...pending, answer: { ...pending.answer, content: String(d.message), notice: "limited" } } };
     case "error":

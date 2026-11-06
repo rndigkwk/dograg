@@ -114,6 +114,37 @@ test("an urgent warning comes before the answer, with the nearest hospitals", as
   expect(api.chats[0].location).toEqual([37.5, 127.03]);
 });
 
+test("a see-a-vet-soon answer has the badge and its 지금 할 일 list as a checklist", async ({ page }) => {
+  await fakeApi(page, [
+    [
+      ["care_level", { level: "see_vet_soon" }],
+      result("사흘째 설사라면 탈수가 걱정됩니다.\n\n**지금 할 일**\n- 물을 조금씩 자주 주세요.\n- 변 상태를 적어 두세요.\n\n피가 섞이면 병원에 가세요."),
+    ],
+    [result("물을 조금씩 주세요.\n\n- 쉬게 해 주세요.")],
+  ]);
+  await page.goto("/chat");
+  await ask(page, "사흘째 설사를 해요");
+
+  const answer = conversation(page).locator("[data-answer]").first();
+  await expect(answer.locator("[data-care-level]")).toContainText("진료 권장");
+  await expect(page.getByRole("alert").filter({ hasText: "가까운 동물병원" })).toHaveCount(0);
+  const todo = answer.getByRole("region", { name: "지금 할 일" });
+  const water = todo.getByRole("checkbox", { name: "물을 조금씩 자주 주세요." });
+  await expect(todo.getByRole("checkbox")).toHaveCount(2);
+  await water.check();
+  await expect(water).toBeChecked();
+  await todo.getByText("변 상태를 적어 두세요.").click();
+  await expect(todo.getByRole("checkbox", { name: "변 상태를 적어 두세요." })).toBeChecked();
+  await expect(answer).toContainText("피가 섞이면 병원에 가세요.");
+
+  // An answer without the level or the heading: no badge, its list as written.
+  await ask(page, "물은 줘도 되나요");
+  const next = conversation(page).locator("[data-answer]").nth(1);
+  await expect(next).toContainText("쉬게 해 주세요.");
+  await expect(next.locator("[data-care-level]")).toHaveCount(0);
+  await expect(next.getByRole("checkbox")).toHaveCount(0);
+});
+
 test("an urgent warning without a location has its own button that shows the nearest hospitals there", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 37.5, longitude: 127.03 });

@@ -6,6 +6,9 @@ call (the classification API the router uses, about 0.3 s) asks whether the guar
 to a hospital now. Off with URGENT_SECOND_CHECK=off, and skipped without an API key; any
 failure or refusal leaves the rules' answer (no warning). Measured with
 scripts/evaluate_emergency.py --second-check.
+
+The same call's middle answer, see_vet_soon, became the answer's "진료 권장" badge (2026-11-06;
+urgency_level): no extra call. Measured with scripts/evaluate_care_level.py.
 """
 
 from __future__ import annotations
@@ -34,8 +37,8 @@ def second_check_enabled() -> bool:
     return (settings.get_setting("URGENT_SECOND_CHECK") or "decisions").strip().lower() == "decisions"
 
 
-def decide_urgent(question: str) -> bool | None:
-    """One Decisions call: True for emergency_now, False for the other two, None when off, failed or refused."""
+def decide_urgency(question: str) -> str | None:
+    """One Decisions call: one of CHOICES, or None when off, failed or refused."""
     if not second_check_enabled():
         return None
     api_key = settings.get_openai_api_key()
@@ -56,9 +59,15 @@ def decide_urgent(question: str) -> bool | None:
         logger.warning("Decisions urgency check failed (%s); keeping the rules' answer", type(exc).__name__)
         return None
     if answer.get("type") == "choice" and answer.get("choice") in CHOICES:
-        return answer["choice"] == "emergency_now"
+        return answer["choice"]
     logger.info("Decisions urgency check gave no choice (%s)", answer.get("type"))
     return None
+
+
+def decide_urgent(question: str) -> bool | None:
+    """True for emergency_now, False for the other two, None when off, failed or refused."""
+    choice = decide_urgency(question)
+    return None if choice is None else choice == "emergency_now"
 
 
 def needs_second_check(question: str) -> bool:
@@ -71,10 +80,19 @@ def needs_second_check(question: str) -> bool:
     return router.symptom_part(question) != question
 
 
+def urgency_level(question: str) -> tuple[str | None, str | None]:
+    """(the red warning or None, "see_vet_soon" or None): the rules first, then one Decisions call
+    whose middle answer is the "진료 권장" badge. Never both."""
+    if notice := detect_urgent_sign(question):
+        return notice, None
+    if not needs_second_check(question):
+        return None, None
+    choice = decide_urgency(question)
+    if choice == "emergency_now":
+        return URGENT_NOTICE, None
+    return None, "see_vet_soon" if choice == "see_vet_soon" else None
+
+
 def urgent_notice(question: str) -> str | None:
     """The warning to show before the answer, or None."""
-    if notice := detect_urgent_sign(question):
-        return notice
-    if not needs_second_check(question):
-        return None
-    return URGENT_NOTICE if decide_urgent(question) else None
+    return urgency_level(question)[0]

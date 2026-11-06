@@ -35,6 +35,16 @@ describe("applyEvent", () => {
     expect(run([{ kind: "evidence", data: { rows: "x" } }]).pending.evidence).toEqual([]);
   });
 
+  it("keeps the see-a-vet-soon level for the badge, and ignores an unknown one", () => {
+    const { pending } = run([
+      { kind: "care_level", data: { level: "see_vet_soon" } },
+      { kind: "token", data: { text: "사흘째면" } },
+      { kind: "result", data: { answer: "사흘째면 병원에서 확인해 보세요.", route: "rag" } },
+    ]);
+    expect(pending.answer.careLevel).toBe("see_vet_soon");
+    expect(run([{ kind: "care_level", data: { level: "later" } }]).pending.answer.careLevel).toBeUndefined();
+  });
+
   it("keeps the urgent warning and drops the repeated safety notice", () => {
     const { pending, memory } = run([
       { kind: "urgent", data: { notice: "지금 병원에 가세요", hospitals: { nearest: [] } } },

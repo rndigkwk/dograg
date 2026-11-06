@@ -80,7 +80,7 @@ class ConversationPageTests(unittest.TestCase):
         self.detect = Mock(return_value=detected)
         with patch.object(conversation_ui, "sync_local_store", browser), \
                 patch.object(chat_page, "chatbot", side_effect=fake_chatbot), \
-                patch.object(chat_page, "suggest_memory", self.detect),                 patch.object(urgency, "decide_urgent", return_value=None):  # no Decisions call in tests
+                patch.object(chat_page, "suggest_memory", self.detect),                 patch.object(urgency, "decide_urgency", return_value=None):  # no Decisions call in tests
             if at is None:
                 at = AppTest.from_file(MAIN, default_timeout=30) if home else AppTest.from_function(chat_app, default_timeout=30)
             return at.run()
@@ -316,7 +316,7 @@ class ConversationPageTests(unittest.TestCase):
             with patch.object(conversation_ui, "sync_local_store", browser), \
                     patch.object(chat_page, "chatbot", side_effect=chatbot), \
                     patch.object(chat_page, "suggest_memory", Mock(return_value=None)), \
-                    patch.object(urgency, "decide_urgent", return_value=None):
+                    patch.object(urgency, "decide_urgency", return_value=None):
                 at.run()
         self.assertEqual(while_answering, [True])  # answered once, with the input closed
         self.assertFalse(disabled[-1])  # open again afterwards
