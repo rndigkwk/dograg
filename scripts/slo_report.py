@@ -100,10 +100,19 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
         "rag_p95_s": percentile(seconds(rag), 0.95),
         "report_p95_s": percentile(seconds(reports), 0.95),
         "rag_abstain_rate": sum(bool(r.get("abstained")) for r in rag) / len(rag) if rag else None,
+        "rag_within_target_rate": within(seconds(rag), SLO["rag_p95_s"]),
+        "report_within_target_rate": within(seconds(reports), SLO["report_p95_s"]),
         **guide_use(rag, seconds),
         "cost_per_question_usd": sum(r["cost"] for r in records) / len(records) if records else None,
         "cost_total_usd": sum(r["cost"] for r in records),
     }
+
+
+def within(values: list[float], limit: float) -> float | None:
+    """The share of answers that finished within the latency target (Day 76's attainment: goodput over
+    throughput). Watched, not judged: with one target, a share of 0.95 or more says what p95 <= target
+    says, but this shows how many guardians waited longer, which p95 hides (2026-11-06)."""
+    return sum(v <= limit for v in values) / len(values) if values else None
 
 
 def guide_use(rag: list[dict], seconds) -> dict:
@@ -161,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{args.environment}, last {args.days} days: {summary['questions']} questions {summary['by_route']}")
     print(f"  errors {fmt(summary['error_rate'] and summary['error_rate'] * 100)}%  "
           f"p50 {fmt(summary['p50_s'])} s  rag p95 {fmt(summary['rag_p95_s'])} s  report p95 {fmt(summary['report_p95_s'])} s")
+    print(f"  within target: rag {fmt(summary['rag_within_target_rate'] and summary['rag_within_target_rate'] * 100)}% "
+          f"(<= {SLO['rag_p95_s']:g} s)  report {fmt(summary['report_within_target_rate'] and summary['report_within_target_rate'] * 100)}% "
+          f"(<= {SLO['report_p95_s']:g} s)")
     print(f"  rag abstained {fmt(summary['rag_abstain_rate'] and summary['rag_abstain_rate'] * 100)}%  "
           f"cost/question ${fmt(summary['cost_per_question_usd'], 4)}  total ${fmt(summary['cost_total_usd'], 3)}")
     if summary["rag_guide_rate"] is not None:

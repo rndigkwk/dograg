@@ -43,6 +43,18 @@ class SloReportTests(unittest.TestCase):
         self.assertEqual(summary["rag_p50_with_guide_s"], 8)
         self.assertEqual(summary["rag_p50_without_guide_s"], 6)
 
+    def test_share_within_the_latency_target(self):
+        # Day 76: attainment shows how many waited past the target; p95 alone hides it.
+        chats = [chat(f"t{i}", "rag", 5 * i) for i in range(1, 9)]  # 5..40 s: 5 of 8 within 25 s
+        chats += [chat("r1", "analysis", 44), chat("r2", "report", 46)]
+        summary = slo_report.summarize(chats, [])
+        self.assertAlmostEqual(summary["rag_within_target_rate"], 5 / 8)
+        self.assertAlmostEqual(summary["report_within_target_rate"], 1 / 2)
+        self.assertIsNone(slo_report.summarize([chat("n1", "none", 1)], [])["rag_within_target_rate"])
+        self.assertEqual(slo_report.misses({**summary, "questions": slo_report.MIN_QUESTIONS, "rag_p95_s": 1.0,
+                                            "report_p95_s": 1.0, "error_rate": 0.0, "rag_abstain_rate": 0.0,
+                                            "cost_per_question_usd": 0.0}), [])  # watched, not judged
+
     def test_no_guide_records_give_no_share(self):
         summary = slo_report.summarize([chat("t1", "rag", 5)], [])
         self.assertIsNone(summary["rag_guide_rate"])
