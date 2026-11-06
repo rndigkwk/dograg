@@ -570,4 +570,6 @@ def run_chat(
         "trace_id": chat_trace.trace_id,
         "decision": state.get("decision") or None,  # CRAG grade: correct, ambiguous or incorrect
         "guards": state.get("guards", []),  # what changed the answer: citations (src/citations.py), crisis and links (src/guardrails.py)
+        # The graph's steps: ids, counts and decisions, no text. For the evaluation scripts; the API does not send it.
+        "trace": state.get("trace", []),
     }

@@ -172,7 +172,31 @@ def guide_task(*, item, **kwargs):
         "outcome": outcome(result, result.get("decision")),
         "guides": [[row.get("title"), row.get("page")] for row in guides],
         "latency_s": round(time.perf_counter() - started, 2),
+        "steps": guide_steps(result.get("trace") or []),
     }
+
+
+def guide_steps(trace: list[dict]) -> list[dict]:
+    """Where a guide was lost (#387: four guide questions lost them in CI only, 2026-10-26 and 11-02):
+    each grade's candidates and kept documents, counted as guides and consultations, its decision and
+    error; the other steps by name and decision. Ids and counts only, no text."""
+    from src.tools.care_guides import load_guides
+
+    loaded = load_guides()
+    guide_ids = {chunk["id"] for chunk in loaded[0]} if loaded else set()
+
+    def count(ids: list) -> dict:
+        guides = sum(str(value) in guide_ids for value in ids or [])
+        return {"guides": guides, "consultations": len(ids or []) - guides}
+
+    steps = []
+    for entry in trace:
+        step = {"step": entry.get("step"), "decision": entry.get("decision")}
+        if str(entry.get("step", "")).endswith("_grade"):
+            step.update(candidates=count(entry.get("candidate_ids")), kept=count(entry.get("kept_ids")),
+                        error=entry.get("error"))
+        steps.append(step)
+    return steps
 
 
 def guide_evaluators():
