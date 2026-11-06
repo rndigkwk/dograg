@@ -36,7 +36,7 @@ class ChatTests(unittest.TestCase):
         self.answer = patch("src.chatbot.chatbot", side_effect=fake_chatbot)
         self.chatbot = self.answer.start()
         self.addCleanup(self.answer.stop)
-        for item in (patch("src.tools.urgency.urgent_notice", return_value=None),
+        for item in (patch("src.tools.urgency.urgency_level", return_value=(None, None)),
                      patch.object(rate_limit, "check", return_value=rate_limit.Decision(True))):
             item.start()
             self.addCleanup(item.stop)
@@ -102,16 +102,23 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(self.post({"question": "질문", "route": "health"}).status_code, 422)  # only "report"
 
     def test_the_emergency_comes_before_the_answer(self):
-        with patch("src.tools.urgency.urgent_notice", return_value="응급 징후가 의심됩니다."), \
+        with patch("src.tools.urgency.urgency_level", return_value=("응급 징후가 의심됩니다.", None)), \
                 patch.object(chat_api, "find_emergency_hospitals", return_value={"nearest": [{"name": "24시 병원"}]}) as near:
             got = events(self.post({"question": "경련을 해요", "location": [37.5, 127.0]}))
         self.assertEqual(got[0], ("urgent", {"notice": "응급 징후가 의심됩니다.", "hospitals": {"nearest": [{"name": "24시 병원"}]}}))
         near.assert_called_once_with((37.5, 127.0))
         self.assertEqual(got[-1][1]["safety_notice"], "응급 징후가 의심됩니다.")
 
+    def test_a_see_a_vet_soon_answer_sends_the_badge_before_the_answer(self):
+        with patch("src.tools.urgency.urgency_level", return_value=(None, "see_vet_soon")):
+            got = events(self.post({"question": "사흘째 설사를 해요"}))
+        self.assertEqual(got[0], ("care_level", {"level": "see_vet_soon"}))
+        self.assertNotIn("urgent", [kind for kind, _ in got])
+        self.assertFalse(self.chatbot.call_args.kwargs["urgent"])
+
     def test_over_the_limit_no_model_but_emergencies_still_warned(self):
         with patch.object(rate_limit, "check", return_value=rate_limit.Decision(False, 25)), \
-                patch("src.tools.urgency.urgent_notice", side_effect=AssertionError("no Decisions call")):
+                patch("src.tools.urgency.urgency_level", side_effect=AssertionError("no Decisions call")):
             calm = events(self.post({"question": "귀 청소는 어떻게 해요?"}))
             urgent = events(self.post({"question": "강아지가 경련을 하고 쓰러졌어요"}))
         self.assertEqual([kind for kind, _ in calm], ["limited"])

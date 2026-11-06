@@ -88,7 +88,7 @@ class NoteRouteTests(unittest.TestCase):
 class ChatNotesTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(main.create_app())
-        for item in (patch("src.tools.urgency.urgent_notice", return_value=None),
+        for item in (patch("src.tools.urgency.urgency_level", return_value=(None, None)),
                      patch.object(rate_limit, "check", return_value=rate_limit.Decision(True))):
             item.start()
             self.addCleanup(item.stop)

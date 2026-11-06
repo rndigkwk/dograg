@@ -135,6 +135,7 @@
 | `guardrail_questions_claude` 외 2개 | 39 / 10 / 10 | 우리가 쓰지 않은 공격 | 다른 회사 모델(Claude Haiku)이 유형 설명만 보고 만들었다. 첫 세트는 고칠 때 써서 holdout 자격을 잃었다고 적었다. 그 뒤 새 holdout을 두 번 만들었다 | |
 | `pii_cases` | 25 | 개인정보 가림 | 고치기 전에 썼다 | dev 13 / holdout 12 |
 | `emergency_signs` | 120 | 응급 신호 감지 | 위 4-1 | 규칙은 dev로만 고쳤다 |
+| `care_level_questions` | 30 | "진료 권장" 배지가 필요한 곳에 뜨고 일상 질문에는 안 뜨는지 (`basic_care_questions`, `care_guide_questions`와 함께 76개) | 2026-11-06, 배지를 켜기 전에 기준(15개 중 10개 이상, 오표시 10% 이하)과 함께 썼다 | 전부 holdout. 한 번 쟀다: 14/15, 오표시 0/61 |
 
 ### 4-5. 시설·진료비, 대화·기억, 방문 준비
 

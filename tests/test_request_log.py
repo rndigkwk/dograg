@@ -86,7 +86,7 @@ class ApiTests(unittest.TestCase):
     def test_a_chat_answer_logs_one_summary(self):
         client = TestClient(main.create_app())
         with patch("src.chatbot.chatbot", side_effect=fake_chatbot), \
-                patch("src.tools.urgency.urgent_notice", return_value=None), \
+                patch("src.tools.urgency.urgency_level", return_value=(None, None)), \
                 patch.object(rate_limit, "check", return_value=rate_limit.Decision(True)), \
                 self.assertLogs("ragdog.requests", "INFO") as logs:
             client.post("/chat", json={"question": "강아지가 구토해요"}, headers={"X-RagDog-Client": CLIENT})

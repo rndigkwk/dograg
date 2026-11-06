@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useId, useState } from "react";
 
 import { type Answer, FIRST_STEP, type Pending } from "@/lib/chat";
 import type { Location } from "@/lib/location";
 import { linkCitations } from "@/lib/evidence";
+import { splitTodo } from "@/lib/todo";
 import { HANDOFF_CUT_KEY, HANDOFF_KEY } from "@/lib/visitPrep";
 
 import Evidence from "./Evidence";
@@ -22,6 +24,7 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
   return (
     <div data-answer>
       {answer.urgent ? <UrgentBox {...answer.urgent} onLocated={onLocated} /> : null}
+      {answer.careLevel && !answer.urgent && !answer.notice ? <CareBadge /> : null}
       {answer.safetyNotice ? <p role="note" className="mb-3 rounded-lg bg-warn/10 p-3">{answer.safetyNotice}</p> : null}
       {answer.notice ? (
         <>
@@ -36,7 +39,7 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
         </>
       ) : (
         // Its [사례 n] open the card below (Evidence), on a health answer that has cards.
-        <Markdown text={answer.route === "rag" && answer.evidenceRows?.length ? linkCitations(answer.content) : answer.content} />
+        <AnswerText text={answer.route === "rag" && answer.evidenceRows?.length ? linkCitations(answer.content) : answer.content} todo={answer.route === "rag"} />
       )}
       {answer.abstained && answer.route === "rag" ? (
         <p className="mt-2 text-sm text-muted">증상이 걱정되면 지역 이름으로 가까운 동물병원을 물어보세요. 예: “강남구 동물병원 알려줘”</p>
@@ -65,6 +68,63 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
         </>
       )}
     </div>
+  );
+}
+
+/** "진료 권장": the urgency check's middle answer (src/tools/urgency.py urgency_level). Not the red
+ * warning (UrgentBox): a visit soon, not now. The check does not say how soon, so no day count. */
+function CareBadge() {
+  return (
+    <p role="note" data-care-level className="mb-3 flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
+      <span className="shrink-0 rounded-full bg-warn-strong px-2 py-0.5 text-xs font-bold text-white">진료 권장</span>
+      <span>지금 위급해 보이지는 않지만, 며칠 안에 동물병원에서 확인해 보세요.</span>
+    </p>
+  );
+}
+
+/** A health answer with its "지금 할 일" list as a checklist (lib/todo.ts); other answers as written. */
+function AnswerText({ text, todo }: { text: string; todo: boolean }) {
+  const parts = todo ? splitTodo(text) : null;
+  if (!parts) return <Markdown text={text} />;
+  return (
+    <>
+      {parts.before ? <Markdown text={parts.before} /> : null}
+      <Checklist items={parts.items} />
+      {parts.after ? <Markdown text={parts.after} /> : null}
+    </>
+  );
+}
+
+/** Ticks stay on this screen only: nothing is saved. */
+function Checklist({ items }: { items: string[] }) {
+  const id = useId();
+  const [done, setDone] = useState<boolean[]>(() => items.map(() => false));
+  const toggle = (index: number) => setDone((was) => was.map((on, at) => (at === index ? !on : on)));
+  return (
+    <section aria-label="지금 할 일" data-todo className="my-3 rounded-lg border border-line bg-white p-3">
+      <h3 className="mb-2 font-bold">지금 할 일</h3>
+      <ul className="space-y-1">
+        {items.map((item, index) => (
+          <li key={index}>
+            {/* Not a <label>: the item is Markdown (a block, with [사례 n] links), so it names the box instead. */}
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                aria-labelledby={`${id}-${index}`}
+                checked={done[index] ?? false}
+                onChange={() => toggle(index)}
+                className="mt-1.5 size-4 shrink-0 cursor-pointer accent-accent"
+              />
+              <div id={`${id}-${index}`} onClick={(event) => {
+                if (!(event.target as HTMLElement).closest("a")) toggle(index);
+              }} className={`min-w-0 cursor-pointer [&_p]:m-0 ${done[index] ? "text-muted line-through" : ""}`}>
+                <Markdown text={item} />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

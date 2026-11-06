@@ -62,6 +62,18 @@ class UrgentNoticeTests(unittest.TestCase):
         self.assertEqual(notice, URGENT_NOTICE)
         post.assert_called_once()
 
+    def test_the_middle_answer_is_the_badge_never_with_the_warning(self):
+        question = "사흘째 설사를 하는데 밥은 조금씩 먹어요"
+        with patch.object(urgency.httpx, "post", return_value=decisions_reply("see_vet_soon")):
+            self.assertEqual(urgency.urgency_level(question), (None, "see_vet_soon"))
+        with patch.object(urgency.httpx, "post", return_value=decisions_reply("not_urgent")):
+            self.assertEqual(urgency.urgency_level(question), (None, None))
+        with patch.object(urgency.httpx, "post", return_value=decisions_reply("emergency_now")):
+            self.assertEqual(urgency.urgency_level(question), (URGENT_NOTICE, None))
+        with patch.object(urgency.httpx, "post") as post:  # a rule match: the warning, no call, no badge
+            self.assertEqual(urgency.urgency_level("강아지가 경련을 해요"), (URGENT_NOTICE, None))
+        post.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
