@@ -78,16 +78,24 @@ class CheckRegressionTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         results = Path(directory.name)
         judge = check_regression.JUDGES["answer"]
-        runs = {"ok": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28}},
-                "bad": {"judge_model": judge, "run_scores": {"answer_correctness": 0.20}},
+        context = {"context_recall": 0.41, "context_precision": 0.90}
+        runs = {"ok": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28, **context}},
+                "bad": {"judge_model": judge, "run_scores": {"answer_correctness": 0.20, **context}},
+                # a search drop: the answer still scores, the passages do not back the vet's answer
+                "low_recall": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28, **context, "context_recall": 0.30}},
+                "low_precision": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28, **context, "context_precision": 0.80}},
+                "no_context": {"judge_model": judge, "run_scores": {"answer_correctness": 0.28}},
                 # another judge scores on another scale: the limit no longer applies (Day 60)
-                "other_judge": {"judge_model": "gpt-4.1", "run_scores": {"answer_correctness": 0.40}},
-                "unrecorded": {"run_scores": {"answer_correctness": 0.28}}}
+                "other_judge": {"judge_model": "gpt-4.1", "run_scores": {"answer_correctness": 0.40, **context}},
+                "unrecorded": {"run_scores": {"answer_correctness": 0.28, **context}}}
         for name, result in runs.items():
             (results / f"answer_{name}.json").write_text(json.dumps(result), encoding="utf-8")
         with patch.object(check_regression, "RESULTS_DIR", results), patch.dict("os.environ", {"GITHUB_STEP_SUMMARY": ""}):
             self.assertEqual(check_regression.main(["answer", "ok"]), 0)
             self.assertEqual(check_regression.main(["answer", "bad"]), 1)
+            self.assertEqual(check_regression.main(["answer", "low_recall"]), 1)
+            self.assertEqual(check_regression.main(["answer", "low_precision"]), 1)
+            self.assertEqual(check_regression.main(["answer", "no_context"]), 1)  # a run without them is not a pass
             self.assertEqual(check_regression.main(["answer", "other_judge"]), 1)
             self.assertEqual(check_regression.main(["answer", "unrecorded"]), 1)
 
@@ -203,7 +211,8 @@ class MergeGateTests(unittest.TestCase):
 
     def test_a_set_without_a_baseline_gets_the_absolute_limits_only(self):
         (self.dir / "answer_other.json").write_text(
-            json.dumps({"run_scores": {"answer_correctness": 0.3}, "judge_model": "gpt-6-luna"}), encoding="utf-8")
+            json.dumps({"run_scores": {"answer_correctness": 0.3, "context_recall": 0.4, "context_precision": 0.9},
+                        "judge_model": "gpt-6-luna"}), encoding="utf-8")
         rows, ok, _ = check_regression.check("answer", "other")
         self.assertTrue(ok)
         self.assertNotIn("완전성", "\n".join(rows))
