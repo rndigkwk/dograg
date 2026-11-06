@@ -2,7 +2,7 @@
 
 앱의 건강 검색 모델 `blanden77/ko-sroberta-dograg-b`(비공개)가 무엇으로 학습했고, 무엇으로 평가했는지, 알려진 한계는 무엇인지 정리한다(2026-10-28, 교안 Day 69). 학습 과정과 결과는 [embedding-finetune.md](wiki/embedding-finetune.md), 원본 데이터의 출처와 이용 조건은 [데이터 명세서](data-sources.md) 1절에 있다.
 
-다음 임베딩 학습 때 이 카드를 모델 저장소 README로 함께 올린다. 지금 모델 저장소에는 카드가 없다.
+이 카드는 2026-11-06에 모델 저장소 README로 올렸다(`ko-sroberta-dograg-b`, `ko-sroberta-dograg-gist`). 카드를 고치면 README도 다시 올린다.
 
 ## 한눈에 보기
 
@@ -83,7 +83,7 @@ AI Hub는 같은 상담을 말만 바꿔 여러 번 싣는다. 검증 561문항 
 
 ## 5. 다음 학습 때 할 일
 
-1. 이 카드를 모델 저장소 README로 올린다.
+1. ~~이 카드를 모델 저장소 README로 올린다.~~ 2026-11-06에 올렸다.
 2. 평가 점수는 복사본 53문항을 뺀 값도 함께 적는다(`uv run python scripts/measure_eval_overlap.py`).
 3. **학습에서 복사본 상담을 뺀다** (2026-10-28 세어 봄, `measure_eval_overlap.py`의 `training`).
    - 복사본 상담 53개 중 2개는 개발용 300개에 들어 있어 학습에 쓰이지 않았다. 학습에 쓰인 것은 51개, 합성 질의 **102쌍**이다. 전체 37,812쌍의 0.27%다.
