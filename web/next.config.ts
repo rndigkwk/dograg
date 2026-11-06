@@ -11,7 +11,7 @@ const CSP = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://images.unsplash.com https://tile.openstreetmap.org",
+  "img-src 'self' data: blob: https://tile.openstreetmap.org",
   "font-src 'self' data:",
   `connect-src 'self' ${API} ${SUPABASE}${DEV ? " ws:" : ""}`,
   "object-src 'none'",

@@ -89,7 +89,7 @@ export default function DemoPage() {
             { href: "/chat", label: "상담하기" },
             { href: "/visit-prep", label: "방문 준비 보고서" },
             { href: "/care", label: "관리 일정" },
-            { href: "/fees", label: "지역별 진료비" },
+            { href: "/fees", label: "병원비 얼마?" },
           ].map((item) => (
             <li key={item.href}>
               <Link href={item.href} className="block rounded-xl border border-line bg-white p-3 text-center font-semibold hover:border-accent">

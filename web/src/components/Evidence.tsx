@@ -2,8 +2,10 @@ import { citeKey, consultation, guide, isGuide, reportPage, type Row, SCANNED_NO
 
 import Markdown from "./Markdown";
 
-/** The material an answer stands on: vet consultations (and care guides) for health, report pages for analysis. */
-export default function Evidence({ route, rows }: { route?: string; rows: Row[] }) {
+/** The material an answer stands on: vet consultations (and care guides) for health, report pages for analysis.
+ * `folded` (a finished health answer, 2026-11-06 guardian-view mockup): the cards sit in one closed fold
+ * under the answer, so the answer and what to do come first; a citation in the answer still opens its card. */
+export default function Evidence({ route, rows, folded = false }: { route?: string; rows: Row[]; folded?: boolean }) {
   if (!rows.length) return null;
   if (route === "analysis") {
     // The pages the answer cites come first (src/report_evidence.py evidence_for_display); the rest fold.
@@ -41,9 +43,7 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
   }
   const cases = rows.filter((row) => !isGuide(row));
   const guides = rows.filter(isGuide);
-  return (
-    <section className="mt-4" aria-label="검색 근거">
-      <h3 className="mb-2 font-bold">검색 근거</h3>
+  const cards = (
       <div className="space-y-1">
         {guides.map((row, index) => {
           const item = guide(row, index);
@@ -90,6 +90,21 @@ export default function Evidence({ route, rows }: { route?: string; rows: Row[] 
           );
         })}
       </div>
+  );
+  const counted = [cases.length ? `수의사 상담 ${cases.length}건` : "", guides.length ? `돌봄 지침 ${guides.length}건` : ""].filter(Boolean).join(" · ");
+  if (folded)
+    return (
+      <details data-evidence className="mt-4 border-t border-line pt-3">
+        <summary className="cursor-pointer text-sm font-semibold text-accent">근거 자료 보기 ({counted})</summary>
+        <section className="mt-2" aria-label="검색 근거">
+          {cards}
+        </section>
+      </details>
+    );
+  return (
+    <section className="mt-4" aria-label="검색 근거">
+      <h3 className="mb-2 font-bold">검색 근거</h3>
+      {cards}
     </section>
   );
 }

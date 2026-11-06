@@ -121,7 +121,7 @@ export function RegionFeeNote({ province, city }: { province: string; city: stri
         ))}
       </ul>
       <p className="mt-2 text-xs text-muted">
-        {fees.notice} 항목별 자세한 값은 <Link href="/fees" className="underline">지역별 진료비</Link>에서 볼 수 있습니다.
+        {fees.notice} 항목별 자세한 값은 <Link href="/fees" className="underline">병원비 얼마?</Link>에서 볼 수 있습니다.
       </p>
     </details>
   );

@@ -78,14 +78,14 @@ test("a place answer in the chat links to the place page", async ({ page }) => {
 test("the menu leads between the pages", async ({ page }) => {
   await fakeApi(page, [], PLACES);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("어떤 점이 걱정되세요?");
-  await page.getByRole("link", { name: /^시설 찾기 동물병원/ }).click(); // a shortcut card
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("무슨 일이 있나요?");
+  await page.getByRole("link", { name: /^가까운 동물병원 찾기/ }).click(); // a shortcut card
   await expect(page.getByRole("heading", { name: "반려동물 시설 찾기" })).toBeVisible();
   await page.getByRole("link", { name: "라그도그", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await openFromMenu(page, "찾기", "시설 찾기");
+  await openFromMenu(page, "병원·비용", "병원·시설 찾기");
   await expect(page.getByRole("heading", { name: "반려동물 시설 찾기" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "찾기 메뉴" }).getByRole("link", { name: "시설 찾기" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "병원·비용 메뉴" }).getByRole("link", { name: "병원·시설 찾기" })).toHaveAttribute("aria-current", "page");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBe(0);
 });

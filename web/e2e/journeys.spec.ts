@@ -41,7 +41,7 @@ test("care schedule → home question → two chat turns → citation → visit 
   await expect(conversation(page).getByText("구토가 없으면 탈수부터 살피세요.")).toBeVisible();
 
   // 3. The citation in the first answer opens its consultation.
-  const card = page.locator("details", { hasText: "사례 1 · 강아지가 이틀째 설사를 해요" });
+  const card = page.locator("details[data-cite]", { hasText: "사례 1 · 강아지가 이틀째 설사를 해요" });
   await conversation(page).getByRole("link", { name: "사례 1" }).click();
   await expect(card).toHaveAttribute("open");
 
@@ -131,7 +131,7 @@ test("chat place answer → place page and directions → the district's fees �
   await expect(page.getByText(/초진 진찰료 \(체중 5kg\).*중간 11,000원 · 전국보다 1,000원 높음/)).toBeVisible();
 
   // 4. The fee page's map reaches the same district and the same figure.
-  await page.getByRole("link", { name: "지역별 진료비" }).last().click();
+  await page.getByRole("link", { name: "병원비 얼마?" }).last().click();
   await expect(page).toHaveURL(/\/fees$/);
   const map = page.getByRole("group", { name: "지도" });
   await map.getByRole("button", { name: "서울특별시 중간값 10,000원" }).click();

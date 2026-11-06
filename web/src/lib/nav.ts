@@ -1,5 +1,6 @@
 // The menu (design A, 2026-10-24): ten top-level links became four groups. One table feeds the
-// desktop menus, the phone's bottom tabs and the group's tab row on each page.
+// desktop menus, the phone's bottom tabs and the group's tab row on each page. Guardian's words since
+// 2026-11-06 (the guardian-view mockup): what they came for, not the feature's name.
 
 import type { IconName } from "@/components/Icon";
 
@@ -13,18 +14,18 @@ export const GROUPS: NavGroup[] = [
     label: "상담",
     icon: "chat",
     pages: [
-      { href: "/chat", label: "질병 문의", icon: "chat" },
+      { href: "/chat", label: "건강 상담", icon: "chat" },
       { href: "/visit-prep", label: "방문 준비 보고서", icon: "file" },
-      { href: "/reports", label: "보고서 질문", icon: "book" },
+      { href: "/reports", label: "반려동물 보고서 묻기", icon: "book" },
     ],
   },
   {
     id: "find",
-    label: "찾기",
+    label: "병원·비용",
     icon: "pin",
     pages: [
-      { href: "/places", label: "시설 찾기", icon: "pin" },
-      { href: "/fees", label: "지역별 진료비", icon: "receipt" },
+      { href: "/places", label: "병원·시설 찾기", icon: "pin" },
+      { href: "/fees", label: "병원비 얼마?", icon: "receipt" },
     ],
   },
   {

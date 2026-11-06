@@ -117,7 +117,7 @@ export default function Chat() {
     };
   }, [records, storage]);
 
-  // A question typed on the home page (components/HomeAsk.tsx): asked once the records are read, so
+  // A question typed on the home page (components/HomeStart.tsx): asked once the records are read, so
   // it joins the right conversation and profile. Taken out first, so a reload does not ask it again.
   useEffect(() => {
     if (!loaded) return;

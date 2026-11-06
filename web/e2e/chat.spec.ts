@@ -26,6 +26,7 @@ test("a question streams into an answer with evidence and feedback", async ({ pa
 
   await expect(conversation(page).getByText("설사가 이틀 넘게 계속되면 병원에 가세요.", { exact: false })).toBeVisible();
   await expect(page.getByText("5~10%", { exact: false })).toBeVisible(); // a range, not strikethrough
+  await page.getByText(/^근거 자료 보기/).click(); // folded under the answer
   await page.getByText("사례 1 · 성견 / 내과 / 장염").click();
   await expect(page.getByText("수액 치료를 합니다.")).toBeVisible();
 
@@ -57,6 +58,7 @@ test("a care guide shows among the evidence with its source and link", async ({ 
   await page.goto("/chat");
   await ask(page, "강아지 발톱은 얼마 만에 깎아 줘야 해요?");
 
+  await page.getByText(/^근거 자료 보기/).click(); // folded under the answer
   await page.getByText("지침 1 · 건강한 반려문화 조성을 위한 행동지도 윤리 가이드라인 · 39쪽").click();
   await expect(page.getByText("반려견의 발톱은 2~3주 주기로 한 번씩 손질해 주며")).toBeVisible();
   await expect(page.getByText(/출처: 농림수산식품교육문화정보원 동물사랑배움터/)).toBeVisible();
@@ -75,7 +77,7 @@ test("a consultation card is titled by what was asked, and its citation opens it
   ]]);
   await page.goto("/chat");
   await ask(page, "강아지가 설사를 해요");
-  const card = page.locator("details", { hasText: "사례 2 · 강아지가 이틀째 설사를 해요" });
+  const card = page.locator("details[data-cite]", { hasText: "사례 2 · 강아지가 이틀째 설사를 해요" });
   await expect(card).not.toHaveAttribute("open");
   await conversation(page).getByRole("link", { name: "사례 2" }).click();
   await expect(card).toHaveAttribute("open");
@@ -243,9 +245,10 @@ test("a question typed on the home page is asked on the chat page, once", async 
   expect(api.chats).toHaveLength(1); // not asked again
 });
 
-test("an example question on the home page goes straight to the chat", async ({ page }) => {
+test("a situation's question on the home page goes straight to the chat", async ({ page }) => {
   const api = await fakeApi(page, [[result("발톱 답")]]);
   await page.goto("/");
+  await page.getByRole("button", { name: /^다쳤어요/ }).click(); // a situation opens its questions
   await page.getByRole("button", { name: "발톱이 부러져서 피가 나요" }).click();
   await expect(conversation(page).getByText("발톱 답")).toBeVisible();
   expect(api.chats[0].question).toBe("발톱이 부러져서 피가 나요");

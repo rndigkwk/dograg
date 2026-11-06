@@ -140,3 +140,13 @@ export function saveRecord(storage: KeyValue | null, record: CareRecord, key = C
     // storage full or blocked: the schedule still shows for this visit
   }
 }
+
+/** The soonest next date among the items with a record (the home page's pet card), or null. */
+export function nextCare(record: CareRecord, planned: CareRecord = {}, today = new Date()): { item: CareItem; due: Due } | null {
+  let best: { item: CareItem; due: Due } | null = null;
+  for (const item of CARE_ITEMS) {
+    const due = scheduleFor(item, record[item.id], planned[item.id], today);
+    if (due && (!best || due.days < best.due.days)) best = { item, due };
+  }
+  return best;
+}

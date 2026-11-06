@@ -4,18 +4,26 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   byMedian,
+  categoriesOf,
+  categoryName,
   DEFAULT_ITEM,
   type FeeItem,
   feeItems,
   type FeeValues,
-  groupByCategory,
   type ItemFees,
   itemFees,
+  itemName,
+  itemsOf,
   shortSido,
+  variantFor,
+  variantName,
+  variantsOf,
   versusNational,
   won,
 } from "@/lib/fees";
 import { failureMessage } from "@/lib/failure";
+import { loadProfile } from "@/lib/profile";
+import { browserStorage } from "@/lib/store";
 import { districtGrid, PROVINCES, type TileGrid } from "@/lib/feeTiles";
 
 import FeeSourceNotice from "./FeeSourceNotice";
@@ -38,7 +46,7 @@ function Summary({ title, values, national }: { title: string; values: FeeValues
     <section aria-label={`${title} 진료비`} className="rounded-xl border border-line bg-white p-4">
       <h2 className="mb-3 font-bold">{title}</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="중간값" value={values.median} strong />
+        <Stat label="보통 (중간값)" value={values.median} strong />
         <Stat label="평균" value={values.mean} />
         <Stat label="최저" value={values.min} />
         <Stat label="최고" value={values.max} />
@@ -199,6 +207,55 @@ function FeeMap({ fees, sido, gu, onSido, onGu }: { fees: ItemFees; sido: string
   );
 }
 
+/** Chips instead of the survey's 34-label list (2026-11-06 guardian-view mockup): a category, its items,
+ * and the weight or species where the survey splits the item. A new item keeps the dog's weight. */
+function ItemPicker({ items, item, weightKg, onPick }: { items: FeeItem[]; item: FeeItem; weightKg: number | null; onPick: (label: string) => void }) {
+  const chip = (on: boolean) =>
+    `inline-flex min-h-11 items-center rounded-full border px-4 text-sm ${on ? "border-accent bg-accent font-semibold text-white" : "border-line bg-white text-ink hover:border-accent"}`;
+  const variants = variantsOf(items, item.item).filter((row) => row.detail && !row.detail.startsWith("기타"));
+  const names = itemsOf(items, item.category);
+  const pickItem = (name: string) => onPick(variantFor(variantsOf(items, name), weightKg).label);
+  return (
+    <div className="space-y-4 rounded-xl border border-line bg-white p-4">
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold">무엇이 궁금하세요?</legend>
+        <div className="flex flex-wrap gap-2">
+          {categoriesOf(items).map((category) => (
+            <button key={category} type="button" aria-pressed={item.category === category} onClick={() => pickItem(itemsOf(items, category)[0])} className={chip(item.category === category)}>
+              {categoryName(category)}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      {names.length > 1 ? (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">{categoryName(item.category)} 중에서</legend>
+          <div className="flex flex-wrap gap-2">
+            {names.map((name) => (
+              <button key={name} type="button" aria-pressed={item.item === name} onClick={() => pickItem(name)} className={chip(item.item === name)}>
+                {itemName(name)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+      {variants.length > 1 ? (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">몸무게·종류</legend>
+          <div className="flex flex-wrap gap-2">
+            {variants.map((row) => (
+              <button key={row.label} type="button" aria-pressed={item.label === row.label} onClick={() => onPick(row.label)} className={chip(item.label === row.label)}>
+                {variantName(row.detail)}
+              </button>
+            ))}
+          </div>
+          {weightKg ? <p className="mt-2 text-xs text-muted">우리 아이 정보({weightKg}kg)에 가까운 무게로 골랐어요. 조사는 5·10·20kg 기준입니다.</p> : null}
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
 /** The fee page: pick a surveyed item and a region; see that region's numbers, the provinces on a tile
  * map, and the chosen province's districts on its own map (animalclinicfee.or.kr's view). */
 export type FeesStart = { items: FeeItem[]; fees: ItemFees };
@@ -211,6 +268,16 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
   const [gu, setGu] = useState(ALL);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [weightKg, setWeightKg] = useState<number | null>(null);
+
+  // The dog's weight from this browser's profile: the first figures follow it (5kg is the survey's default).
+  useEffect(() => {
+    const weight = loadProfile(browserStorage())?.weight_kg ?? null;
+    setWeightKg(weight);
+    if (!weight || !items) return;
+    const first = items.find((row) => row.label === DEFAULT_ITEM);
+    if (first) setItemLabel((label) => (label === DEFAULT_ITEM ? variantFor(variantsOf(items, first.item), weight).label : label));
+  }, [items]);
 
   useEffect(() => {
     if (initial && attempt === 0) return; // drawn from the server (lib/prefetch.ts)
@@ -256,19 +323,8 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
   return (
     <div className="space-y-4">
       <FeeSourceNotice />
-      <div className="grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block font-semibold">진료 항목</span>
-          <select value={item?.label} onChange={(e) => setItemLabel(e.target.value)} className="w-full rounded-lg border border-line bg-white px-2 py-2">
-            {groupByCategory(items).map(([category, group]) => (
-              <optgroup key={category} label={category}>
-                {group.map((option) => (
-                  <option key={option.label}>{option.label}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+      {item ? <ItemPicker items={items} item={item} weightKg={weightKg} onPick={setItemLabel} /> : null}
+      <div className="grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-2">
         <label className="text-sm">
           <span className="mb-1 block font-semibold">시·도</span>
           <select value={sido} onChange={(e) => chooseSido(e.target.value)} className="w-full rounded-lg border border-line bg-white px-2 py-2">
@@ -292,8 +348,9 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
       <Summary title={`${title} · ${fees.label}`} values={values} national={title === "전국" ? null : fees.national} />
       <FeeMap fees={fees} sido={sido} gu={gu} onSido={chooseSido} onGu={setGu} />
 
-      <aside className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm">
-        <p className="font-semibold text-warn-strong">꼭 읽어 주세요</p>
+      {/* Said once at the top (FeeSourceNotice); the details and the source fold here. */}
+      <details className="rounded-xl border border-line bg-white p-4 text-sm">
+        <summary className="cursor-pointer font-semibold">자료 출처와 더 알아 둘 점</summary>
         <ul className="mt-1 list-disc space-y-1 pl-5">
           <li>지역별 조사 통계이며 개별 병원의 가격이 아닙니다. 같은 항목도 병원의 인력·시설·장비에 따라 다릅니다.</li>
           <li>항목별 평일 주간 기준 금액입니다. 함께 받는 다른 진료·약·재료에 따라 실제 총비용은 달라집니다.</li>
@@ -306,7 +363,7 @@ export default function FeeExplorer({ initial = null }: { initial?: FeesStart | 
           </a>{" "}
           · 수집일 {fees.collected}
         </p>
-      </aside>
+      </details>
     </div>
   );
 }

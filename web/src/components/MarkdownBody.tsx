@@ -14,7 +14,8 @@ function CitationLink({ href, children }: { href: string; children: ReactNode })
         event.preventDefault(); // not a page anchor: the same number is on every answer's cards
         const card = event.currentTarget.closest("[data-answer]")?.querySelector<HTMLDetailsElement>(`[data-cite="${href.slice("#cite-".length)}"]`);
         if (!card) return;
-        card.open = true;
+        // The card may sit in the closed evidence fold (Evidence `folded`): open every fold around it.
+        for (let fold: HTMLElement | null = card; fold; fold = fold.parentElement?.closest("details") ?? null) (fold as HTMLDetailsElement).open = true;
         card.scrollIntoView({ block: "nearest", behavior: "smooth" });
         card.querySelector("summary")?.focus();
       }}
