@@ -1,6 +1,6 @@
 name: Weekly regression evaluation
 
-# Runs the CRAG answer/abstain set (60), the place routing set (41), the care-guide set (16) and the
+# Runs the CRAG answer/abstain set (60), the place routing set (53), the care-guide set (16) and the
 # visit-prep team set (12 consultations, with node visit counts) as Langfuse experiments with real model calls, runs the
 # guardrail red team (68: attacks, crisis, personal data; scripts/evaluate_guardrails.py), scores
 # 100 health answers against the vets' answers (Answer Correctness), then

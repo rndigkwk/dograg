@@ -24,8 +24,8 @@ class DatasetItemTests(unittest.TestCase):
     def test_items_have_fixed_ids_and_expected_outputs(self):
         crag = experiments.dataset_items("crag")
         routing = experiments.dataset_items("routing")
-        self.assertEqual((len(crag), len(routing)), (60, 41))  # routing +5 out of scope (2026-10-19)
-        self.assertEqual(len({item["id"] for item in crag + routing}), 101)
+        self.assertEqual((len(crag), len(routing)), (60, 53))  # routing +5 out of scope (2026-10-19), +12 companion phrasings (2026-11-06)
+        self.assertEqual(len({item["id"] for item in crag + routing}), 113)
         report = next(item for item in crag if item["metadata"]["id"] == "r06")
         self.assertEqual(report["expected_output"]["behavior"], "answer")
         self.assertTrue(report["expected_output"]["gold_pages"])
