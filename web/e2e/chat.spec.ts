@@ -253,3 +253,15 @@ test("a situation's question on the home page goes straight to the chat", async 
   await expect(conversation(page).getByText("발톱 답")).toBeVisible();
   expect(api.chats[0].question).toBe("발톱이 부러져서 피가 나요");
 });
+
+test("the home page's pet card opens the profile form, and the saved name greets on the home page", async ({ page }) => {
+  await fakeApi(page, []);
+  await page.goto("/");
+  await page.getByRole("link", { name: /우리 아이 정보 넣기/ }).first().click();
+  await expect(page).toHaveURL(/\/chat#profile$/);
+  const name = page.getByRole("textbox", { name: "이름" }).filter({ visible: true });
+  await name.fill("보리");
+  await page.getByRole("button", { name: "저장", exact: true }).filter({ visible: true }).click();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("보리에게 무슨 일이 있나요?");
+});

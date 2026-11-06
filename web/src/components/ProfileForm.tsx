@@ -11,8 +11,9 @@ const NEUTERED = [
   ["안 함", false],
 ] as const;
 
-/** "우리 아이 정보": the dog's profile, kept in this browser (src/conversation_ui.py render_profile_sidebar). */
-export default function ProfileForm({ profile, onSave }: { profile: PetProfile | null; onSave: (profile: PetProfile | null) => void }) {
+/** "우리 아이 정보": the dog's profile, kept in this browser (src/conversation_ui.py render_profile_sidebar).
+ * `startOpen`: the home page's pet card links here (/chat#profile) to add or change it. */
+export default function ProfileForm({ profile, onSave, startOpen = false }: { profile: PetProfile | null; onSave: (profile: PetProfile | null) => void; startOpen?: boolean }) {
   const current = profile ?? {};
   const [error, setError] = useState(false);
 
@@ -45,7 +46,7 @@ export default function ProfileForm({ profile, onSave }: { profile: PetProfile |
 
   const input = "w-full rounded-lg border border-line bg-white px-2 py-1";
   return (
-    <details className="rounded-lg border border-line bg-white p-3 text-sm">
+    <details open={startOpen || undefined} className="rounded-lg border border-line bg-white p-3 text-sm">
       <summary className="cursor-pointer font-bold"><Icon name="heart" size={16} className="mr-1 inline-block align-[-3px]" />우리 아이 정보</summary>
       <p className="mt-2 text-muted">{profile ? profileSummary(profile) : "입력하면 질문에 나이가 없어도 나이에 맞는 상담 자료를 먼저 찾습니다."}</p>
       {/* Keyed by the stored profile: a saved suggestion refills the form. */}

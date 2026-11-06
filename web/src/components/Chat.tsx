@@ -55,6 +55,13 @@ export default function Chat() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [draft, setDraft] = useState("");
   const [listOpen, setListOpen] = useState(false);
+  // /chat#profile (the home page's pet card): the profile form opens, on a phone with its panel.
+  const [profileOpen, setProfileOpen] = useState(false);
+  useEffect(() => {
+    if (window.location.hash !== "#profile") return;
+    setProfileOpen(true);
+    setListOpen(true);
+  }, []);
   const [profile, setProfile] = useState<PetProfile | null>(null);
   const [suggestion, setSuggestion] = useState<MemorySuggestion | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
@@ -316,7 +323,7 @@ export default function Chat() {
     void send(question);
   }
 
-  const profileForm = <ProfileForm profile={profile} onSave={keepProfile} />;
+  const profileForm = <ProfileForm key={profileOpen ? "open" : "closed"} profile={profile} onSave={keepProfile} startOpen={profileOpen} />;
   const list = (
     <Conversations
       threads={threads}
