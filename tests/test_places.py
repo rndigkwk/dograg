@@ -263,6 +263,12 @@ class KindTests(unittest.TestCase):
             "제주도에 강아지랑 갈 만한 여행지 추천해줘": "pet_friendly",
             "부산에서 강아지랑 같이 묵을 수 있는 숙소 있어?": "pet_friendly",
             "이동장 없이 강아지가 들어갈 수 있는 곳 있어?": "pet_friendly",
+            # 2026-11-06: a companion verb with 동물병원 looked for 동반 시설
+            "강아지 두 마리 데려갈 수 있는 송파구 동물병원 알려줘": "hospital",
+            "강아지랑 같이 갈 수 있는 동물병원 강남구": "hospital",
+            "고양이 함께 갈 수 있는 24시 동물병원 찾아줘": "hospital",
+            "강아지 데려갈 수 있는 미용실 알려줘": "grooming",
+            "강아지 데려갈 수 있는 여행지 추천해줘": "pet_friendly",
             "강아지가 화장실 갈 수 있게 하려면?": None,
             "지진이 나서 대피할 때 강아지는 어떻게 데리고 가야 해요?": None,
             "강아지 병원 갈 만한 증상인가요?": None,

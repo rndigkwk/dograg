@@ -80,7 +80,7 @@ KIND_KEYWORDS = (
     ("boarding", ("애견호텔", "펫호텔", "강아지호텔", "반려견호텔", "애견유치원", "강아지유치원", "반려견유치원", "위탁관리", "맡길곳", "맡길데")),
     ("grooming", ("애견미용", "강아지미용", "반려견미용", "동물미용", "펫미용", "미용실", "미용업")),
     ("pet_friendly", (
-        "애견동반", "반려견동반", "반려동물동반", "강아지동반", "동반가능", "같이갈수", "함께갈수", "데려갈수",
+        "애견동반", "반려견동반", "반려동물동반", "강아지동반", "동반가능",
         "애견카페", "강아지카페", "애견펜션", "반려견펜션", "강아지펜션",
     )),
 )
@@ -89,6 +89,9 @@ PLACE_SEARCH_WORDS = ("근처", "가까운", "어디", "찾아", "목록", "주�
 # "카페", "펜션" are where people go too ("데이트하기 좋은 카페 추천해줘" went to the place search,
 # 2026-10-19): with a search word they count only when the question is about a pet as well.
 PEOPLE_PLACE_WORDS = ("카페", "펜션")
+# "같이 갈 수", "데려갈 수" say the dog comes along, not which place: "강아지 두 마리 데려갈 수 있는 송파구
+# 동물병원 알려줘" looked for 동반 시설 (2026-11-06). They count only after the hospital check.
+COMPANION_VERBS = ("같이갈수", "함께갈수", "데려갈수")
 PET_WORDS = ("강아지", "반려", "애견", "펫", "댕댕", "동반", "데려", "같이갈", "함께갈")
 # Going somewhere with the dog without a facility word: "강릉에 대형견이랑 갈 수 있는 곳 있어?" went to the
 # place search by the model router, which then looked for 동물병원 in 강릉 (2026-11-05). With a dog word
@@ -126,6 +129,8 @@ def place_kind(question: str) -> str | None:
             return kind
     if "동물병원" in compact or any(keyword in " ".join(question.lower().split()) for keyword in HOSPITAL_QUERY_KEYWORDS):
         return "hospital"
+    if any(verb in compact for verb in COMPANION_VERBS):
+        return "pet_friendly"
     if any(phrase in compact for phrase in COMPANION_PHRASES) and any(word in compact for word in DOG_WORDS):
         return "pet_friendly"
     if any(word in compact for word in PLACE_SEARCH_WORDS):
