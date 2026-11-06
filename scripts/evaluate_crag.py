@@ -12,8 +12,12 @@ Groups (tests/data/crag_eval_questions.json):
   (how often, at what age); abstaining here is over-abstention too. Many answers here say the
   material lacks the specific fact while still answering; the outcome does not tell those apart,
   so read answer_head (docs/wiki/retrieval-experiments.md grades them by hand).
+- gap_partial (tests/data/gap_partial_questions.json, --questions): shaped like the gaps the
+  deployed app named (ragdog_data_gaps); the material covers the topic but not one part of it.
 leads_with_missing: answers whose first sentence says the material lacks something; the
 summary counts them per group (docs/wiki/safety-and-evidence.md "아는 것을 먼저").
+names_gap: answers that say somewhere what the material lacks, by the sentence rule the deployed
+app collects gaps with (src/data_gaps.gap_sentences); wanted for gap_partial.
 
 Runs on a disposable Chroma copy and writes per-run logs to a separate JSONL.
 Retrieved Q&A and report excerpts are sent to the OpenAI API.
@@ -86,6 +90,7 @@ def summarize(rows: list[dict]) -> dict:
         entry = {"count": count, **by_outcome,
                  "routes": dict(sorted({r["route"]: sum(x["route"] == r["route"] for x in items) for r in items}.items()))}
         entry["leads_with_missing"] = sum(bool(r.get("leads_with_missing")) for r in items)
+        entry["names_gap"] = sum(bool(r.get("gap_sentences")) for r in items)
         hits = [r["gold_page_hit"] for r in items if r["gold_page_hit"] is not None]
         if hits:
             entry["gold_page_hit"] = f"{sum(hits)}/{len(hits)}"
@@ -117,6 +122,7 @@ def main() -> int:
 
     from src import chat_graph, crag, resources
     from src import chatbot as app
+    from src.data_gaps import gap_sentences
 
     if args.candidate_k:
         crag.HEALTH_CANDIDATE_K = chat_graph.HEALTH_CANDIDATE_K = args.candidate_k
@@ -150,6 +156,7 @@ def main() -> int:
                 "latency_ms": round((time.perf_counter() - started) * 1000),
                 "answer_head": result.get("answer", "")[:300],
                 "leads_with_missing": row_outcome in ("answer", "partial") and leads_with_missing(result.get("answer", "")),
+                "gap_sentences": gap_sentences(result.get("answer", "")) if row_outcome in ("answer", "partial") else [],
             })
             print(f"[{index}/{len(items)}] {item['id']} {rows[-1]['route']} {row_outcome}", flush=True)
     report = {"crag": args.crag, "candidate_k": args.candidate_k or crag.HEALTH_CANDIDATE_K, "questions": questions_label(args.questions),
