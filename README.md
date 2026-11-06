@@ -3,7 +3,7 @@
 > 반려견 건강 상담 RAG 서비스입니다. 수의사 상담 19,206건을 근거로 답하고, **근거가 없으면 지어내지 않고 보류합니다.** 시설 찾기(39,379곳, 동반 조건 포함), 지역별 진료비, 반려동물 보고서 분석, 수의사 방문 준비 보고서(멀티에이전트), 관리 일정을 함께 제공합니다. 모든 개선은 같은 평가 세트로 전후를 재서 결정했습니다.
 
 - **웹 앱:** <https://ragdog-rndigkwks-projects.vercel.app> · Next.js(Vercel) + FastAPI(Google Cloud Run 서울) + Supabase
-- **문서:** [구조](docs/architecture/README.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [ADR 12개](docs/adr/README.md) · [보안](docs/security/README.md) · [데이터 명세](docs/data-sources.md) · [실행 방법](docs/development.md)
+- **문서:** [구조](docs/architecture/README.md) · [개선 기록](docs/improvement-log.md) · [실험 wiki](docs/wiki/README.md) · [평가 세트와 지표](docs/evaluation-sets.md) · [ADR 12개](docs/adr/README.md) · [보안](docs/security/README.md) · [데이터 명세](docs/data-sources.md) · [실행 방법](docs/development.md)
 - 엔코아 AI 캠퍼스 4인 팀 프로젝트(2026-08)를 발표 뒤 **오현탁이 혼자 이어서**(2026-09~11, PR 390여 개) 측정하며 개선했습니다. 의료 판단이나 응급 처치를 대신하지 않습니다.
 
 ## 데모
