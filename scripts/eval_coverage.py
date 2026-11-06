@@ -31,13 +31,21 @@ sys.path.insert(0, str(PROJECT_DIR))
 DATA = PROJECT_DIR / "tests" / "data"
 THIN = 1
 KIND_FIELDS = ("group", "kind", "category", "route", "part")
-# set file -> how it runs. Weekly: .github/workflows/regression-eval.yml; PR: pr-quality.yml.
+# set file -> how it runs. Weekly: .github/workflows/regression-eval.yml; PR: pr-quality.yml (crag and
+# routing on an answer-path change, guard on a guardrail change). tests/test_eval_coverage.py keeps
+# this in step with the sets the weekly check_regression.py line names (SET_FILES).
 AUTOMATED = {
     "crag_eval_questions.json": "주간·PR",
     "place_routing_questions.json": "주간·PR",
+    "guardrail_questions.json": "주간·PR(가드레일 변경)",
+    "care_guide_questions.json": "주간",
     "visit_prep_consultations.json": "주간",
     "health_relevance_100.json": "주간(답변 정확도)",
 }
+# check_regression.py set name -> its question file
+SET_FILES = {"crag": "crag_eval_questions.json", "routing": "place_routing_questions.json",
+             "guard": "guardrail_questions.json", "guide": "care_guide_questions.json",
+             "visit": "visit_prep_consultations.json", "answer": "health_relevance_100.json"}
 NOT_QUESTIONS = {"judge_validation.json", "region_names.json"}
 
 
