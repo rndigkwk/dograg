@@ -47,7 +47,7 @@ function PetCard({ ready, profile, next }: Pet) {
   if (!ready) return null;
   if (!profile)
     return (
-      <Link href="/care" className="flex items-center gap-3 rounded-2xl border border-dashed border-line bg-white p-4 hover:border-accent">
+      <Link href="/chat#profile" className="flex items-center gap-3 rounded-2xl border border-dashed border-line bg-white p-4 hover:border-accent">
         <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
           <Icon name="heart" size={20} />
         </span>
@@ -68,7 +68,7 @@ function PetCard({ ready, profile, next }: Pet) {
           <p className="truncate font-bold">{profile.name ?? "우리 아이"}</p>
           {facts.length ? <p className="truncate text-sm text-muted">{facts.join(" · ")}</p> : null}
         </div>
-        <Link href="/care" className="inline-flex min-h-11 items-center text-sm text-accent">
+        <Link href="/chat#profile" className="inline-flex min-h-11 items-center text-sm text-accent">
           바꾸기
         </Link>
       </div>
