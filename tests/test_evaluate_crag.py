@@ -1,6 +1,9 @@
 import unittest
 
-from scripts.evaluate_crag import leads_with_missing
+import json
+from pathlib import Path
+
+from scripts.evaluate_crag import leads_with_missing, summarize
 
 
 class LeadsWithMissingTests(unittest.TestCase):
@@ -17,6 +20,23 @@ class LeadsWithMissingTests(unittest.TestCase):
         # Advice with a negative is not a gap.
         self.assertFalse(leads_with_missing("검색된 자료에서는 아프지 않게 천천히 닦도록 안내합니다."))
         self.assertFalse(leads_with_missing("검색 자료에서는 고정이 적절하지 않은 부목은 유합이 잘 안 된다고 합니다."))
+
+
+class SummaryTests(unittest.TestCase):
+    def test_names_gap_counts_answers_with_a_gap_sentence(self):
+        row = {"group": "gap_partial", "outcome": "answer", "route": "rag", "gold_page_hit": None,
+               "total_tokens": 0, "latency_ms": 0}
+        rows = [{**row, "gap_sentences": ["검색된 자료에는 안전한 양은 없습니다."]}, {**row, "gap_sentences": []}]
+        self.assertEqual(summarize(rows)["gap_partial"]["names_gap"], 1)
+
+
+class GapPartialSetTests(unittest.TestCase):
+    def test_items_are_answerable_and_unique(self):
+        path = Path(__file__).parent / "data" / "gap_partial_questions.json"
+        items = json.loads(path.read_text(encoding="utf-8"))["items"]
+        self.assertEqual(len({item["id"] for item in items}), len(items))
+        self.assertTrue(all(item["group"] == "gap_partial" and item["expected"] == "answer" and item["kind"]
+                            for item in items))
 
 
 if __name__ == "__main__":

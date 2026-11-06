@@ -1,0 +1,15 @@
+{
+ "description": "Questions shaped like the gaps the deployed app named (ragdog_data_gaps, 25 sentences in the 60 days to 2026-11-06), written by hand on 2026-11-06 before measuring; no guardian text is stored or copied. The material covers the topic but not one part of it (home care, a safe amount, an adult dog when the case is a puppy, a regional price, a cross-tabulated figure). The right answer gives what the material has and names the missing part, so abstaining is over-abstention and an answer that opens with the missing part reads as a refusal. kind: the missing part.",
+ "items": [
+  {"id": "g01", "group": "gap_partial", "kind": "home_check", "expected": "answer", "question": "강아지가 갑자기 비틀거리다 쓰러졌어요. 발작인지 그냥 균형을 잃은 건지 집에서 어떻게 구분하나요?"},
+  {"id": "g02", "group": "gap_partial", "kind": "safe_amount", "expected": "answer", "question": "강아지가 포도를 두세 알 먹었는데 이 정도 양이면 괜찮을까요?"},
+  {"id": "g03", "group": "gap_partial", "kind": "other_age", "expected": "answer", "question": "세 살 된 강아지가 일주일째 묽은 변을 봐요. 집에서 어떻게 해 줘야 하나요?"},
+  {"id": "g04", "group": "gap_partial", "kind": "home_care", "expected": "answer", "question": "다른 개한테 물린 뒤로 다리가 붓고 기운이 없어요. 어떻게 해야 하나요?"},
+  {"id": "g05", "group": "gap_partial", "kind": "daily_rule", "expected": "answer", "question": "관절 영양제를 먹는 노견인데 계단을 오르내려도 괜찮나요?"},
+  {"id": "g06", "group": "gap_partial", "kind": "home_care", "expected": "answer", "question": "피부염이 나았다가 자꾸 재발해요. 집에서 재발을 막으려면 어떻게 해야 하나요?"},
+  {"id": "g07", "group": "gap_partial", "kind": "home_care", "expected": "answer", "question": "강아지가 오늘 두 번 토했는데 지금은 밥을 잘 먹어요. 집에서 뭘 해 주면 되나요?"},
+  {"id": "g08", "group": "gap_partial", "kind": "home_care", "expected": "answer", "question": "강아지가 귀를 자꾸 긁고 머리를 흔들어요. 집에서 해 줄 수 있는 관리가 있나요?"},
+  {"id": "g09", "group": "gap_partial", "kind": "regional_price", "expected": "answer", "question": "서울에서 강아지 중성화 수술비는 평균 얼마 정도인가요?"},
+  {"id": "g10", "group": "gap_partial", "kind": "cross_figure", "expected": "answer", "question": "혼자 있는 시간이 긴 강아지일수록 분리불안이 더 많다는 통계가 있나요?"}
+ ]
+}
