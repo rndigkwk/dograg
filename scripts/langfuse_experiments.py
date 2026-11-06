@@ -1,9 +1,10 @@
 """Evaluation sets as Langfuse datasets, and runs of the app over them as Langfuse experiments.
 
     uv run python scripts/langfuse_experiments.py upload                     # create/refresh datasets
-    uv run python scripts/langfuse_experiments.py run crag --name effort-low  # 60 questions, real model
+    uv run python scripts/langfuse_experiments.py run crag --name effort-low  # 60 questions, real model, here only
     uv run python scripts/langfuse_experiments.py run routing --name rules    # 53 questions
     uv run python scripts/langfuse_experiments.py run visit --name baseline   # 12 consultations, visit-prep team
+    uv run python scripts/langfuse_experiments.py run crag --name x --langfuse  # also send it to Langfuse
 
 Datasets (item ids are fixed, so uploading again updates items instead of adding):
 - ragdog-crag-60: tests/data/crag_eval_questions.json. Expected: answer or abstain.
@@ -21,10 +22,12 @@ These questions are our own evaluation data (AI Hub validation Q&A and hand-writ
 questions), not user conversations. Traces still go through the app's masking
 (src/tracing.py), so answers appear as lengths; the scores carry the results.
 
---local (or RAGDOG_EXPERIMENTS_LOCAL=1): the same items, tasks and scores, run here without
-Langfuse; only output/experiments/<set>_<run>.json is written, which is all check_regression.py
-reads. The CI workflows use it from 2026-10-20 to 2026-11-06: the free plan's 50,000 units were
-overrun (about 120,000, mostly experiment runs) and ingestion dropped traces until the reset.
+A run is local by default (2026-11-06): the same items, tasks and scores, run here without Langfuse;
+only output/experiments/<set>_<run>.json is written, which is all check_regression.py reads. The
+free plan's 50,000 units a month were overrun once (about 120,000 by 2026-10-20, mostly experiment
+runs: a CRAG run of 60 questions is about 60 x 15 observations), and ingestion dropped traces until the
+reset. --langfuse sends one run as a Langfuse experiment, after printing its estimated units; the
+CI workflows set RAGDOG_EXPERIMENTS_LOCAL=1, which wins over --langfuse. --local is kept as a no-op.
 """
 
 from __future__ import annotations
@@ -527,6 +530,16 @@ def run(langfuse, kind: str, run_name: str, description: str | None, concurrency
     )
 
 
+# Observations one item makes in Langfuse (trace, spans, model calls, scores): a health question was
+# about 14 (docs/wiki/observability.md "무료 사용량 한도"); rounded up for the visit-prep team.
+OBSERVATIONS_PER_ITEM = 15
+
+
+def is_local(langfuse_flag: bool, env_value: str | None) -> bool:
+    """Local unless --langfuse asks for Langfuse; RAGDOG_EXPERIMENTS_LOCAL=1 (the CI workflows) always wins."""
+    return env_value == "1" or not langfuse_flag
+
+
 def main() -> int:
     global ROUTING_RULES_ONLY
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -539,11 +552,16 @@ def main() -> int:
     run_parser.add_argument("--rules-only", action="store_true", help="routing set: keyword rules without the LLM router")
     run_parser.add_argument("--concurrency", type=int, default=1,
                             help="parallel items (default 1: the app's search caches were not built for threads)")
-    run_parser.add_argument("--local", action="store_true",
-                            help="run and score here, send nothing to Langfuse (also RAGDOG_EXPERIMENTS_LOCAL=1)")
+    run_parser.add_argument("--local", action="store_true", help="the default; kept so old commands still work")
+    run_parser.add_argument("--langfuse", action="store_true",
+                            help="also send the run to Langfuse as an experiment (uses the free plan's units)")
     args = parser.parse_args()
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    local = args.command == "run" and (args.local or os.environ.get("RAGDOG_EXPERIMENTS_LOCAL") == "1")
+    local = args.command == "run" and is_local(args.langfuse, os.environ.get("RAGDOG_EXPERIMENTS_LOCAL"))
+    if args.command == "run" and not local:
+        items = len(json.loads(DATASETS[args.set][1].read_text(encoding="utf-8"))["items"])
+        print(f"Sending {args.set} to Langfuse: about {items * OBSERVATIONS_PER_ITEM:,} units "
+              f"({items} items x ~{OBSERVATIONS_PER_ITEM}) of the free plan's 50,000 a month.", file=sys.stderr)
     if local:
         os.environ["LANGFUSE_TRACING_ENABLED"] = "false"  # the app's own traces stay off too (src/tracing.py)
 

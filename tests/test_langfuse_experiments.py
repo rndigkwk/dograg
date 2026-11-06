@@ -195,5 +195,14 @@ class LocalRunTests(unittest.TestCase):
         self.assertEqual((saved["run"], saved["url"], saved["items"]), ("ci-test", None, []))
 
 
+
+class LocalByDefaultTests(unittest.TestCase):
+    def test_runs_stay_local_unless_asked_and_ci_always_wins(self):
+        # 2026-11-06: experiment runs overran the Langfuse free plan once; sending needs --langfuse.
+        self.assertTrue(experiments.is_local(False, None))
+        self.assertFalse(experiments.is_local(True, None))
+        self.assertTrue(experiments.is_local(True, "1"))  # the CI workflows
+
+
 if __name__ == "__main__":
     unittest.main()
