@@ -109,7 +109,7 @@ LIMITS = {
 # The score an item passes on, per set with a baseline.
 ITEM_SCORES = {"crag": ("correct_behavior",), "routing": ("route_correct",), "guard": ("guard_ok",)}
 # Allowed drop from the baseline's mean, quality scores only (alarms like latency stay absolute).
-# About one question of 60 (crag) or of 41 (routing) on top of the run-to-run spread of the baseline.
+# About one question of 60 (crag) or of 53 (routing) on top of the run-to-run spread of the baseline.
 DROPS = {
     "crag": {"accuracy": 0.05, "over_abstain": 0.05, "missed_abstain": 0.10},
     "routing": {"route_accuracy": 0.03, "kind_accuracy": 0.0},

@@ -52,7 +52,7 @@ flowchart LR
 
 ### 3. 병합 게이트: 답변 경로 PR의 실제 모델 평가 (`pr-quality.yml`)
 
-- **기능:** 답이 바뀔 수 있는 파일(`ANSWER_PATH`)을 고친 PR, 또는 `quality-check` 라벨이 붙은 PR만 실제 모델로 CRAG 60문항과 라우팅 41문항을 돌립니다. 레일(`GUARD_PATH`)을 고치면 레드팀 68문항도 돌립니다.
+- **기능:** 답이 바뀔 수 있는 파일(`ANSWER_PATH`)을 고친 PR, 또는 `quality-check` 라벨이 붙은 PR만 실제 모델로 CRAG 60문항과 라우팅 53문항을 돌립니다. 레일(`GUARD_PATH`)을 고치면 레드팀 68문항도 돌립니다.
 - **통과 조건 4가지** (`scripts/check_regression.py`, 기준선 `tests/data/baselines/`):
 
   | 검사 | 실패하는 경우 |

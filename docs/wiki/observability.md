@@ -330,7 +330,7 @@
   - `src/crag.py`, `src/chat_graph.py`, `src/chatbot.py`: 거절 판단과 전체 흐름
   - `src/resources.py`, `src/supabase_store.py`, `src/hybrid_retrieval.py`: 검색 저장소와 모델
   - `src/pii.py`: 입력 가림
-- **무엇을:** CRAG 60문항과 시설 라우팅 41문항(10-19부터, 처음 36)(모델 호출 약 100회, 10~15분). 주간 회귀와 같은 기준(`scripts/check_regression.py`)과 비교한다.
+- **무엇을:** CRAG 60문항과 시설 라우팅 53문항(11-06부터; 10-19부터 41, 처음 36)(모델 호출 약 100회, 10~15분). 주간 회귀와 같은 기준(`scripts/check_regression.py`)과 비교한다.
 - **나머지 PR:** 작업이 "건너뜀"으로 끝난다. 이 검사를 브랜치 보호의 필수 검사로 지정해도, 건너뛴 작업은 통과로 셈해 병합을 막지 않는다.
 - **병합을 실제로 막으려면:** 저장소 Settings → Branches(또는 Rules)에서 main의 필수 상태 검사에 `quality`를 넣는다. 저장소 설정이라 사람이 한다.
 - 기준이 흔들림 때문에 거짓 경보를 내지 않는지는 CRAG를 3번 돌려 확인했다(정확도 0.883~0.917, 기준 0.85, [safety-and-evidence.md](safety-and-evidence.md)).

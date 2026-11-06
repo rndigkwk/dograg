@@ -18,7 +18,7 @@ class PlaceRoutingSetTests(unittest.TestCase):
 
         items = json.loads(evaluate_place_routing.QUESTIONS.read_text(encoding="utf-8"))["items"]
         summary = evaluate_place_routing.evaluate(items, use_llm=False)["summary"]
-        self.assertEqual(summary["place_searches"], 26)
+        self.assertEqual(summary["place_searches"], 36)
         self.assertEqual(summary["errors"], [])
         self.assertEqual((summary["kind_accuracy"], summary["rule_route_accuracy"]), (1.0, 1.0))
 

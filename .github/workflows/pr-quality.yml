@@ -1,7 +1,7 @@
 name: PR quality check
 
 # The answer-path quality check before merging, only for changes that can move answers: the
-# CRAG answer/abstain set (60) and the place routing set (41) with real model calls, which must pass
+# CRAG answer/abstain set (60) and the place routing set (53) with real model calls, which must pass
 # four checks against the merged code's baseline (scripts/check_regression.py, tests/data/baselines):
 # completeness, absolute floor, relative floor and no failed stable question. About 100 model calls and
 # 10-15 minutes, so it runs only when
