@@ -88,8 +88,8 @@ jobs:
 
       - name: Health answers against the vets' answers (100 consultations)
         # Judged once (docs/wiki/safety-and-evidence.md): about 100 answers in 4 processes. Answer
-        # Correctness has the limit; Context Recall and Precision (2026-10-20) are recorded to tell a
-        # search drop from an answer drop, about 600 more judge calls. ragas needs its own environment (an older LangChain).
+        # Correctness, Context Recall and Precision have limits (the last two since 2026-11-06); those two
+        # tell a search drop from an answer drop, about 600 more judge calls. ragas needs its own environment (an older LangChain).
         env:
           SEARCH_BACKEND: ${{ secrets.SEARCH_BACKEND }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

@@ -57,8 +57,14 @@ LIMITS = {
     # Health answers against the vet's own answer (scripts/evaluate_answer_quality.py): measured
     # 0.273-0.285 over three judgings and two runs, judge noise 0.012; a broken route or prompt
     # halves it (0.14 on misrouted consultations).
+    # Context Recall and Precision (2026-11-06, Day 59 to-do): until then only recorded. Recall was
+    # 0.385-0.418 over five judgings (three on 2026-10-14, weekly 10-26 and 11-02; judge noise 0.018),
+    # Precision 0.887 and 0.903 weekly; the floors sit about twice the observed spread below the lowest.
+    # A search drop shows here first; Correctness alone would not say which half broke.
     "answer": [
         ("answer_correctness", "min", 0.25, 0.28),
+        ("context_recall", "min", 0.35, 0.41),
+        ("context_precision", "min", 0.85, 0.90),
     ],
     "routing": [
         ("route_accuracy", "min", 0.94, 1.0),
