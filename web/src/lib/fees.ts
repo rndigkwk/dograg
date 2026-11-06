@@ -103,3 +103,77 @@ export function groupByCategory(items: FeeItem[]): [string, FeeItem[]][] {
   for (const item of items) groups.set(item.category, [...(groups.get(item.category) ?? []), item]);
   return [...groups.entries()];
 }
+
+// The fee picker (2026-11-06 guardian-view mockup): a category, an item and, where the survey splits it,
+// a weight or species, instead of one list of the survey's 34 labels. The survey's words stay in the
+// figures' titles (ItemFees.label); these are only the buttons.
+const CATEGORY_NAMES: Record<string, string> = {
+  진찰료: "진찰",
+  예방접종비: "예방접종",
+  혈액검사비용: "피검사",
+  영상검사비용: "영상검사",
+  입원비: "입원",
+  "투약/조제비": "기생충 예방",
+};
+const ITEM_NAMES: Record<string, string> = {
+  "초진 진찰료": "처음 진찰",
+  "재진 진찰료": "다시 진찰",
+  "진찰에 대한 상담료": "상담",
+  "종합백신 접종비": "종합백신",
+  "광견병백신 접종비": "광견병",
+  "켄넬코프백신 접종비": "켄넬코프",
+  "인플루엔자백신 접종비": "인플루엔자",
+  "코로나바이러스백신 접종비": "코로나바이러스",
+  "전혈구 검사비와 판독료": "전혈구(CBC)",
+  "혈액화학 검사비와 판독료": "혈액화학",
+  "전해질 검사비와 판독료": "전해질",
+  "엑스선 촬영비와 판독료": "엑스레이",
+  "초음파 검사비와 판독료": "초음파",
+  "컴퓨터단층촬영검사(CT)비와 판독료": "CT",
+  "자기공명영상검사(MRI)비와 판독료": "MRI",
+  입원비: "하루 입원",
+  "심장사상충 예방비": "심장사상충",
+  "외부기생충 예방비": "외부기생충",
+};
+
+export const categoryName = (category: string): string => CATEGORY_NAMES[category] ?? category;
+export const itemName = (item: string): string => ITEM_NAMES[item] ?? item;
+
+/** "체중 5kg" → "5kg", "개 체중 10kg" → "개 10kg"; "기타 상담 행위" and empty details have no button. */
+export function variantName(detail: string): string {
+  return detail.replace(/체중\s*/, "");
+}
+
+/** The survey's categories in the API's order. */
+export function categoriesOf(items: FeeItem[]): string[] {
+  return [...new Set(items.map((item) => item.category))];
+}
+
+/** The items of a category, each once, in the API's order. */
+export function itemsOf(items: FeeItem[], category: string): string[] {
+  return [...new Set(items.filter((item) => item.category === category).map((item) => item.item))];
+}
+
+/** The rows of one item: one per weight or species, or a single row. */
+export function variantsOf(items: FeeItem[], item: string): FeeItem[] {
+  return items.filter((row) => row.item === item);
+}
+
+const kgOf = (detail: string): number | null => {
+  const match = /(\d+)\s*kg/.exec(detail);
+  return match ? Number(match[1]) : null;
+};
+
+/** The variant for the dog's weight: the nearest surveyed weight (a dog's row before a cat's), or the first. */
+export function variantFor(variants: FeeItem[], weightKg?: number | null): FeeItem {
+  const dogs = variants.filter((row) => !row.detail.includes("고양이"));
+  const pool = dogs.length ? dogs : variants;
+  if (!weightKg) return pool[0];
+  let best = pool[0];
+  for (const row of pool) {
+    const kg = kgOf(row.detail);
+    const bestKg = kgOf(best.detail);
+    if (kg !== null && (bestKg === null || Math.abs(kg - weightKg) < Math.abs(bestKg - weightKg))) best = row;
+  }
+  return best;
+}

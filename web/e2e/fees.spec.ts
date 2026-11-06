@@ -62,8 +62,9 @@ test("the fee page shows the provinces on a tile map, then a province's district
   await expect(map.getByRole("button", { name: "경기도 중간값 9,000원" })).toBeVisible();
 
   // Another item: a province with no figure is named, not drawn as 0원.
-  await page.getByRole("combobox", { name: "진료 항목" }).selectOption("자기공명영상검사(MRI)비와 판독료 (체중 5kg)");
+  await page.getByRole("button", { name: "영상검사" }).click(); // a category chip picks its first item
   await expect(page.getByText("자료 없음: 세종")).toBeVisible();
   expect(api.gets).toContain(`/fees?${new URLSearchParams({ item: "자기공명영상검사(MRI)비와 판독료", detail: "체중 5kg" })}`);
+  await page.getByText("자료 출처와 더 알아 둘 점").click(); // folded under the figures
   await expect(page.getByRole("link", { name: ITEMS.source })).toHaveAttribute("href", "https://animalclinicfee.or.kr/info/payInfo.do");
 });

@@ -23,7 +23,7 @@ function HospitalLine({ row }: { row: Hospital }) {
 
 /** Without a shared location the warning has no hospitals: its own button asks for the location and
  * fills them in here, without asking the question again (the button by the box below is far away). */
-function LocateHospitals({ onLocated }: { onLocated?: (location: Location) => void }) {
+export function LocateHospitals({ onLocated }: { onLocated?: (location: Location) => void }) {
   const [found, setFound] = useState<Emergency | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

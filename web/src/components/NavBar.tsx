@@ -123,8 +123,20 @@ export default function NavBar() {
             )}
           </nav>
           <div className="flex-1 md:hidden" />
-          <Link href="/data" className="inline-flex min-h-11 items-center px-2 text-muted md:hidden">
+          <Link href="/data" className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-2 text-muted md:hidden">
             소개
+          </Link>
+          {/* Always one tap away (2026-11-06 guardian-view mockup): signs to check and the nearest hospitals. */}
+          <Link
+            href="/emergency"
+            aria-label="응급이에요"
+            aria-current={path === "/emergency" ? "page" : undefined}
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-danger/10 px-3 font-bold text-danger hover:bg-danger/15"
+          >
+            <Icon name="alert" size={16} />
+            {/* A 360px phone has the logo, 소개 and the sign-in button beside it. */}
+            <span className="sm:hidden">응급</span>
+            <span className="hidden sm:inline">응급이에요</span>
           </Link>
           <AccountButton />
         </div>

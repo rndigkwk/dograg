@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CARE_ITEMS, CARE_PLANNED_KEY, CARE_SCHEDULE_KEY, cleanPlanned, cleanRecord, dueItems, loadPlanned, loadRecord, nextDue, saveRecord, scheduleFor } from "./careSchedule";
+import { CARE_ITEMS, CARE_PLANNED_KEY, CARE_SCHEDULE_KEY, cleanPlanned, cleanRecord, dueItems, loadPlanned, loadRecord, nextCare, nextDue, saveRecord, scheduleFor } from "./careSchedule";
 
 const item = (id: string) => CARE_ITEMS.find((entry) => entry.id === id)!;
 const day = (value: string) => new Date(`${value}T09:00:00`);
@@ -92,5 +92,18 @@ describe("dates set with the vet", () => {
     expect(loadPlanned(storage)).toEqual({ rabies: "2027-01-05" });
     expect(storage.getItem(CARE_SCHEDULE_KEY)).toBeNull();
     expect(cleanPlanned({ rabies: "2027-02-30", nope: "2027-01-01", nails: "2026-12-01" })).toEqual({ nails: "2026-12-01" });
+  });
+});
+
+describe("nextCare", () => {
+  const today = new Date(2026, 10, 6);
+  it("picks the soonest item among those with a record", () => {
+    const next = nextCare({ heartworm: "2026-10-12", vaccine: "2026-03-01" }, {}, today);
+    expect(next?.item.id).toBe("heartworm");
+    expect(next?.due.from).toBe("2026-11-12");
+    expect(next?.due.days).toBe(6);
+  });
+  it("is null with nothing recorded", () => {
+    expect(nextCare({}, {}, today)).toBeNull();
   });
 });

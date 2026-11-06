@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { byMedian, compareText, groupByCategory, regionOfAddress, shortSido, versusNational, won } from "./fees";
+import { byMedian, categoriesOf, categoryName, compareText, type FeeItem, groupByCategory, itemName, itemsOf, regionOfAddress, shortSido, variantFor, variantName, variantsOf, versusNational, won } from "./fees";
 
 describe("fees", () => {
   it("shortens province names like the survey site", () => {
@@ -56,5 +56,32 @@ describe("the hospital list's fee comparison", () => {
     expect(compareText({ ...row, median: 9000, level: "sido", region: "경기도" })).toBe("중간 9,000원 · 전국보다 1,000원 낮음 (전국 10,000원)");
     expect(compareText({ ...row, median: 10000, level: "sigungu", region: "중구" })).toBe("중간 10,000원 · 전국과 같음 (전국 10,000원)");
     expect(compareText({ ...row, median: null, level: null, region: null })).toBe("전국 중간 10,000원 (이 지역 자료 없음)");
+  });
+});
+
+describe("the fee picker", () => {
+  const row = (category: string, item: string, detail: string): FeeItem => ({ category, item, detail, label: detail ? `${item} (${detail})` : item });
+  const items = [
+    row("진찰료", "초진 진찰료", "체중 5kg"),
+    row("진찰료", "초진 진찰료", "체중 10kg"),
+    row("진찰료", "초진 진찰료", "체중 20kg"),
+    row("진찰료", "진찰에 대한 상담료", "기타 상담 행위"),
+    row("입원비", "입원비", "고양이"),
+    row("입원비", "입원비", "개 체중 5kg"),
+    row("입원비", "입원비", "개 체중 10kg"),
+  ];
+
+  it("groups the survey's labels into categories, items and weights", () => {
+    expect(categoriesOf(items).map(categoryName)).toEqual(["진찰", "입원"]);
+    expect(itemsOf(items, "진찰료").map(itemName)).toEqual(["처음 진찰", "상담"]);
+    expect(variantsOf(items, "초진 진찰료").map((r) => variantName(r.detail))).toEqual(["5kg", "10kg", "20kg"]);
+    expect(variantName("개 체중 10kg")).toBe("개 10kg");
+  });
+
+  it("picks the surveyed weight nearest the dog's, and a dog's row before a cat's", () => {
+    expect(variantFor(variantsOf(items, "초진 진찰료"), 3.5).detail).toBe("체중 5kg");
+    expect(variantFor(variantsOf(items, "초진 진찰료"), 16).detail).toBe("체중 20kg");
+    expect(variantFor(variantsOf(items, "입원비"), 9).detail).toBe("개 체중 10kg");
+    expect(variantFor(variantsOf(items, "입원비"), null).detail).toBe("개 체중 5kg");
   });
 });

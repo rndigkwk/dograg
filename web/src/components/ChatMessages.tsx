@@ -44,14 +44,24 @@ export function AnswerView({ answer, question, consultation, threadId, onNoteSav
       {answer.notice ? null : (
         <>
           <PlaceLinks rows={answer.hospitalRows ?? []} />
-          {question && answer.route === "rag" && !answer.abstained ? (
-            <>
-              <VisitPrepLink consultation={consultation ?? { text: question, cut: false }} />
-              <NoteSaver question={question} answer={answer.content} threadId={threadId ?? null} onSaved={onNoteSaved} />
-            </>
-          ) : null}
+          {/* The answer first, its sources folded (2026-11-06 guardian-view mockup), then where to go next. */}
+          <Evidence route={answer.route} rows={answer.evidenceRows ?? []} folded={answer.route === "rag"} />
           <Feedback answer={answer} question={question} />
-          <Evidence route={answer.route} rows={answer.evidenceRows ?? []} />
+          {question && answer.route === "rag" && !answer.abstained ? (
+            <section aria-label="이어서 하기" className="mt-3 border-t border-line pt-3">
+              <p className="mb-2 text-sm text-muted">이어서 하기</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/places" className="inline-flex min-h-10 items-center rounded-full border border-accent px-3 text-sm text-accent hover:bg-accent/5">
+                  <Icon name="pin" size={16} className="mr-1" />근처 동물병원 보기
+                </Link>
+                <Link href="/fees" className="inline-flex min-h-10 items-center rounded-full border border-accent px-3 text-sm text-accent hover:bg-accent/5">
+                  <Icon name="receipt" size={16} className="mr-1" />진료비는 얼마쯤?
+                </Link>
+                <VisitPrepLink consultation={consultation ?? { text: question, cut: false }} />
+              </div>
+              <NoteSaver question={question} answer={answer.content} threadId={threadId ?? null} onSaved={onNoteSaved} />
+            </section>
+          ) : null}
         </>
       )}
     </div>
@@ -96,7 +106,7 @@ function VisitPrepLink({ consultation }: { consultation: { text: string; cut: bo
         }
         router.push("/visit-prep");
       }}
-      className="mt-3 rounded-lg border border-line px-3 py-1 text-sm"
+      className="inline-flex min-h-10 items-center rounded-full border border-accent px-3 text-sm text-accent hover:bg-accent/5"
     >
       <Icon name="file" size={16} className="mr-1 inline-block align-[-3px]" />이 상담으로 방문 준비 보고서 만들기
     </button>

@@ -25,7 +25,7 @@ test("a menu group opens, walks and closes from the keyboard", async ({ page, is
   await page.keyboard.press("Enter");
   await expect(group).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Tab");
-  await expect(menu.getByRole("link", { name: "질병 문의" })).toBeFocused();
+  await expect(menu.getByRole("link", { name: "건강 상담" })).toBeFocused();
 
   // Escape closes the list and puts the focus back on its button.
   await page.keyboard.press("Escape");
@@ -35,7 +35,7 @@ test("a menu group opens, walks and closes from the keyboard", async ({ page, is
   // Tab past the last page closes the list too.
   await page.keyboard.press("Enter");
   for (let i = 0; i < 4; i++) await page.keyboard.press("Tab");
-  await expect(menu.getByRole("button", { name: "찾기" })).toBeFocused();
+  await expect(menu.getByRole("button", { name: "병원·비용" })).toBeFocused();
   await expect(group).toHaveAttribute("aria-expanded", "false");
 });
 
