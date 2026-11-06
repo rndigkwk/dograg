@@ -64,6 +64,21 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(scores(raised, output={"care_raised": True}), {"care_raised": 1.0})
         self.assertEqual(scores(raised, output={"care_raised": False}), {"care_raised": 0.0})
 
+    def test_guide_steps_count_guides_and_consultations_without_text(self):
+        chunks = [{"id": "가이드-p2-0"}, {"id": "가이드-p3-0"}]
+        trace = [
+            {"step": "health_grade", "candidate_ids": ["101", "가이드-p2-0", "가이드-p3-0"], "kept_ids": ["101"],
+             "decision": "ambiguous", "error": "TimeoutError", "search_query_chars": 30},
+            {"step": "health_review", "decision": "pass"},
+        ]
+        with patch("src.tools.care_guides.load_guides", return_value=(chunks, None)):
+            steps = experiments.guide_steps(trace)
+        self.assertEqual(steps, [
+            {"step": "health_grade", "decision": "ambiguous", "error": "TimeoutError",
+             "candidates": {"guides": 2, "consultations": 1}, "kept": {"guides": 0, "consultations": 1}},
+            {"step": "health_review", "decision": "pass"},
+        ])
+
     def test_guide_scores(self):
         answered, used = experiments.guide_evaluators()
         output = {"route": "rag", "outcome": "partial", "guides": [["윤리 가이드라인", 39]], "latency_s": 7.0}
