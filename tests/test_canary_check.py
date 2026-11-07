@@ -104,6 +104,26 @@ class CanaryCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(canary_check.CheckFailed, "did not report"):
             list(canary_check.run(self.serve(commit="old0000"), COMMIT, sleep=lambda s: None))
 
+    def test_a_table_request_that_waits_for_a_second_instance_is_tried_again(self):
+        url = self.serve()
+        real_get = canary_check.get
+        timeouts = []
+
+        def second_instance(target, timeout=30):
+            timeouts.append(timeout)
+            if target.endswith("/places/kinds") and timeouts.count(canary_check.TABLES_TIMEOUT_S) == 1:
+                raise TimeoutError("The read operation timed out")
+            return real_get(target, timeout)
+
+        with patch.object(canary_check, "get", side_effect=second_instance):
+            self.assertEqual(canary_check.check_tables(url), "places and fees: 200")
+        self.assertEqual(timeouts, [60, 60, 60])
+
+    def test_a_table_that_times_out_twice_fails(self):
+        with patch.object(canary_check, "get", side_effect=TimeoutError("The read operation timed out")), \
+                self.assertRaises(TimeoutError):
+            canary_check.check_tables("http://127.0.0.1:9")
+
     def test_a_missing_table_fails(self):
         with self.assertRaisesRegex(canary_check.CheckFailed, "answered 500"):
             list(canary_check.run(self.serve(tables=500), COMMIT, sleep=lambda s: None))
