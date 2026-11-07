@@ -33,6 +33,23 @@ class EmergencySignSetTests(unittest.TestCase):
         self.assertIsNone(detect_urgent_sign("처방받은 약물을 먹었는데 토했어요"))
 
 
+class UrgencyHoldoutSetTests(unittest.TestCase):
+    """tests/data/urgency_holdout_questions.json is only measured: no question may come from the
+    sets a change to the urgency check is tuned on."""
+
+    def test_new_wording_only(self):
+        data = Path(__file__).parent / "data"
+        items = json.loads((data / "urgency_holdout_questions.json").read_text(encoding="utf-8"))["items"]
+        self.assertEqual(len({item["id"] for item in items}), len(items))
+        self.assertEqual({item["kind"] for item in items}, {"emergency", "vet_soon", "info_danger", "mild"})
+        seen = {"여름철 강아지 열사병 예방은 어떻게 해요?", "기침을 며칠째 해요"}
+        for name in ("emergency_signs", "care_level_questions", "basic_care_questions", "care_guide_questions"):
+            seen |= {item["question"] for item in json.loads((data / f"{name}.json").read_text(encoding="utf-8"))["items"]}
+        for item in items:
+            with self.subTest(item["id"]):
+                self.assertNotIn(item["question"], seen)
+
+
 class FirstAidTests(unittest.TestCase):
     def test_steps_follow_the_kind_of_sign(self):
         self.assertIn("억지로 토하게 하지 마세요", " ".join(first_aid_steps("자일리톨 껌을 두 개 삼켰어요")))
