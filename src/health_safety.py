@@ -94,6 +94,14 @@ FIRST_AID = (
         "안거나 눕힐 때 목과 가슴을 누르지 마세요. 목줄과 옷을 풀어 주세요.",
         "흥분하지 않게 조용히 옮기세요.",
     )),
+    # Before the bleeding steps: pressing a cloth on it is no step for blood that was vomited
+    # ("피를 토했어요" got "피가 나는 곳을 … 꾹 눌러 주세요" when the Decisions check warned, 2026-11-08).
+    # "커피 찌꺼기 같은 토" is digested blood (and its "피" took the bleeding steps).
+    (r"피를\s*(?:토|쏟아\s*토)|(?:피|혈).{0,8}토|커피\s*찌꺼기", (
+        "물과 음식을 주지 마세요.",
+        "토한 것의 색과 양을 사진으로 남겨 병원에 보여 주세요.",
+        "눕혀 둘 때는 고개를 옆으로 돌려, 토한 것이 기도로 넘어가지 않게 하세요.",
+    )),
     (r"피|혈|상처|물려|치(?:였|여)", (
         "피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.",
         "다쳤으면 담요나 판자에 눕혀 몸을 덜 움직이게 옮기세요. 아파서 물 수 있으니 조심하세요.",
