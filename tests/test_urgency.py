@@ -32,7 +32,7 @@ class UrgentNoticeTests(unittest.TestCase):
         post.assert_not_called()
 
     def test_only_emergency_now_warns(self):
-        question = "중성화 수술한 자리에서 피가 계속 배어 나와요"
+        question = "밥 먹고 뛰어논 뒤 배가 불룩해지고 헛구역질만 계속해요"  # the rules miss it
         self.assertEqual(self.notice(question, decisions_reply("emergency_now"))[0], URGENT_NOTICE)
         self.assertIsNone(self.notice(question, decisions_reply("see_vet_soon"))[0])
         self.assertIsNone(self.notice(question, decisions_reply("not_urgent"))[0])

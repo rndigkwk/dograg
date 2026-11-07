@@ -51,6 +51,28 @@ class GeneralQuestionTests(unittest.TestCase):
                 self.assertIsNotNone(detect_urgent_sign(question))
 
 
+class BleedingTests(unittest.TestCase):
+    """Bleeding that does not stop, continues or is heavy gets the warning (2026-11-07)."""
+
+    def test_continuing_bleeding(self):
+        for question in ("코피가 줄줄 나는데 그치지를 않아요", "중성화 수술한 자리에서 피가 계속 배어 나와요",
+                         "피를 토했어요", "발을 베였는데 피가 멈추지 않아요"):
+            with self.subTest(question):
+                self.assertIsNotNone(detect_urgent_sign(question))
+
+    def test_a_little_or_stopped_or_asked(self):
+        for question in ("피가 계속 조금씩 묻어나요", "소변에서 피가 계속 묻어나와요", "피가 많이 나지는 않아요",
+                         "피는 멈췄어요", "피가 멈추지 않으면 어떻게 해요?", "변에 피가 조금 묻었어요"):
+            with self.subTest(question):
+                self.assertIsNone(detect_urgent_sign(question))
+
+    def test_vomited_blood_gets_its_own_steps(self):
+        steps = first_aid_steps("피를 토했어요")
+        self.assertIn("물과 음식을 주지 마세요.", steps)
+        self.assertNotIn("피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.", steps)
+        self.assertIn("피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.", first_aid_steps("발을 베였는데 피가 멈추지 않아요"))
+
+
 class UrgencyHoldoutSetTests(unittest.TestCase):
     """tests/data/urgency_holdout_questions.json is only measured: no question may come from the
     sets a change to the urgency check is tuned on."""
