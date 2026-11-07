@@ -1,7 +1,7 @@
 """The "진료 권장" badge: does the urgency check's middle answer come where it should?
 
     uv run python scripts/evaluate_care_level.py [--label NAME]   # OpenAI Decisions calls
-    uv run python scripts/evaluate_care_level.py --holdout [--label NAME]
+    uv run python scripts/evaluate_care_level.py --holdout [FILE] [--label NAME]
 
 Runs src/tools/urgency.py urgency_level over tests/data/care_level_questions.json (15 should get
 the badge, 15 should not) and the everyday questions of basic_care_questions.json (30) and
@@ -15,6 +15,8 @@ four kinds: emergency, vet_soon, info_danger, mild): for a change to the rules o
 instructions, measured once before and once after. At most 54 calls, fewer where the rules
 answer; URGENT_SECOND_CHECK=off measures the rules alone with no call. Its decision rule is that
 file's description. Results: output/experiments/urgency_holdout_<label>.json.
+--holdout FILE measures another set in the same four kinds: tests/data/bleeding_holdout_questions.json
+(2026-11-07, 36 bleeding questions), results in output/experiments/<file stem>_<label>.json.
 """
 
 from __future__ import annotations
@@ -51,8 +53,8 @@ def holdout_summary(items: list[dict]) -> dict:
     return summary
 
 
-def run_holdout(label: str) -> int:
-    items = json.loads((DATA / "urgency_holdout_questions.json").read_text(encoding="utf-8"))["items"]
+def run_holdout(label: str, path: Path = DATA / "urgency_holdout_questions.json") -> int:
+    items = json.loads(path.read_text(encoding="utf-8"))["items"]
     for item in items:
         notice, level = urgency_level(item["question"])
         item["got"] = "emergency_now" if notice else (level or "none")
@@ -61,7 +63,8 @@ def run_holdout(label: str) -> int:
     for item in items:
         if item["id"] in summary["wrong_ids"]:
             print(item["kind"], item["got"], item["id"], item["question"])
-    out = PROJECT_DIR / "output" / "experiments" / f"urgency_holdout_{label}.json"
+    stem = "urgency_holdout" if path.name == "urgency_holdout_questions.json" else path.stem.removesuffix("_questions")
+    out = PROJECT_DIR / "output" / "experiments" / f"{stem}_{label}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"summary": summary, "items": items}, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0
@@ -70,10 +73,11 @@ def run_holdout(label: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--label", default="current")
-    parser.add_argument("--holdout", action="store_true", help="tests/data/urgency_holdout_questions.json")
+    parser.add_argument("--holdout", nargs="?", const=str(DATA / "urgency_holdout_questions.json"),
+                        help="a four-kind holdout file (default tests/data/urgency_holdout_questions.json)")
     args = parser.parse_args()
     if args.holdout:
-        return run_holdout(args.label)
+        return run_holdout(args.label, Path(args.holdout))
     items = questions()
     for item in items:
         notice, level = urgency_level(item["question"])

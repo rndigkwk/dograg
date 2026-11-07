@@ -56,16 +56,19 @@ class UrgencyHoldoutSetTests(unittest.TestCase):
     sets a change to the urgency check is tuned on."""
 
     def test_new_wording_only(self):
+        # bleeding_holdout_questions (2026-11-07) may not repeat the first holdout either.
         data = Path(__file__).parent / "data"
-        items = json.loads((data / "urgency_holdout_questions.json").read_text(encoding="utf-8"))["items"]
-        self.assertEqual(len({item["id"] for item in items}), len(items))
-        self.assertEqual({item["kind"] for item in items}, {"emergency", "vet_soon", "info_danger", "mild"})
         seen = {"여름철 강아지 열사병 예방은 어떻게 해요?", "기침을 며칠째 해요"}
         for name in ("emergency_signs", "care_level_questions", "basic_care_questions", "care_guide_questions"):
             seen |= {item["question"] for item in json.loads((data / f"{name}.json").read_text(encoding="utf-8"))["items"]}
-        for item in items:
-            with self.subTest(item["id"]):
-                self.assertNotIn(item["question"], seen)
+        for name in ("urgency_holdout_questions", "bleeding_holdout_questions"):
+            items = json.loads((data / f"{name}.json").read_text(encoding="utf-8"))["items"]
+            self.assertEqual(len({item["id"] for item in items}), len(items))
+            self.assertEqual({item["kind"] for item in items}, {"emergency", "vet_soon", "info_danger", "mild"})
+            for item in items:
+                with self.subTest(name=name, id=item["id"]):
+                    self.assertNotIn(item["question"], seen)
+            seen |= {item["question"] for item in items}
 
 
 class FirstAidTests(unittest.TestCase):
