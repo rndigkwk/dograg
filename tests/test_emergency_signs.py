@@ -33,6 +33,24 @@ class EmergencySignSetTests(unittest.TestCase):
         self.assertIsNone(detect_urgent_sign("처방받은 약물을 먹었는데 토했어요"))
 
 
+class GeneralQuestionTests(unittest.TestCase):
+    """A question about a danger in general gets no warning from the rules (2026-11-07); one that
+    says it is happening keeps it."""
+
+    def test_asked_in_general(self):
+        for question in ("여름철 강아지 열사병 예방은 어떻게 해요?", "열사병 증상이 뭐예요?", "발작의 원인이 뭔가요?",
+                         "강아지 열사병 예방법 알려주세요", "단두종은 호흡곤란이 잘 생기나요?"):
+            with self.subTest(question):
+                self.assertIsNone(detect_urgent_sign(question))
+
+    def test_happening_now(self):
+        for question in ("경련을 하는데 원인이 뭐예요?", "발작 증상이 10분째 계속돼요", "열사병 같아요 몸이 뜨거운데 증상이 뭐예요?",
+                         "숨을 못 쉬어요 왜 이런 거예요?", "갑작스러운 경련 증상과 함께 숨을 헐떡여요",
+                         "숨이 가빠 보이고, 때때로 헥헥거려요", "초콜릿을 섭취하였을 때 증상이 없을 수도 있나요? 어제 먹었어요"):
+            with self.subTest(question):
+                self.assertIsNotNone(detect_urgent_sign(question))
+
+
 class UrgencyHoldoutSetTests(unittest.TestCase):
     """tests/data/urgency_holdout_questions.json is only measured: no question may come from the
     sets a change to the urgency check is tuned on."""

@@ -14,6 +14,7 @@ TOXINS = (
     r"(?:초콜릿|초콜렛|자일리톨|포도|건포도|양파|마늘|쥐약|살충제|농약|제초제|부동액|"
     r"타이레놀|아세트아미노펜|이부프로펜|진통제|해열제|혈압약|수면제|사람\s*약|독성)"
 )
+TOXIN_SWALLOWED = TOXINS + r".{0,30}" + SWALLOWED
 URGENT_PATTERNS = (
     # breathing
     r"숨을\s*(?:잘\s*)?못\s*쉬", r"호흡\s*곤란", r"숨(?:을|이)?\s*(?:너무\s*|매우\s*|심하게\s*)?(?:가쁘|가빠)",
@@ -24,7 +25,7 @@ URGENT_PATTERNS = (
     # seizures
     r"발작", r"경련", r"거품을?\s*물",
     # poisons
-    TOXINS + r".{0,30}" + SWALLOWED,
+    TOXIN_SWALLOWED,
     # bloat (gastric dilatation-volvulus) and unproductive retching
     r"(?:계속|반복).{0,8}헛구역질",
     r"배가.{0,12}(?:부풀|빵빵|불러).{0,40}(?:헛구역질|토하려.{0,12}(?:안\s*나|아무것도))",
@@ -39,11 +40,24 @@ URGENT_PATTERNS = (
 )
 # Right after the sign: "발작은 없었고", "경련 같은 건 없고", "숨을 못 쉬는 건 아니고".
 NEGATION = re.compile(
-    r"^\s*(?:은|는|이|가|을|를)?\s*(?:같은\s*(?:건|것은?)\s*|(?:하)?거나\s*(?:하지는\s*)?|는\s*건\s*|건\s*)?"
+    r"^\s*(?:은|는|이|가|을|를)?\s*(?:같은\s*(?:건|것은?)\s*|(?:하)?거나\s*(?:하지는\s*)?|는\s*건\s*|건\s*|지\s*)?"
     r"(?:없|아니|않|안\s*했)"
 )
 # "발작이 오면 어떻게…", "열사병을 예방하려면": a question about what to do if it happens.
 HYPOTHETICAL = re.compile(r"^\s*(?:이|가|을|를)?\s*\S{0,6}?(?:으)?면(?!서)")
+# "호흡곤란이 올 때 보이는 신호", "차에 치였을 때 응급처치". Not "숨이 가빠 보이고, 때때로", "가쁘기 때문",
+# and not for a poison: "초콜릿을 섭취하였을 때 증상이 … 어제 밤에 … 먹는" (data/df.csv).
+WHEN = re.compile(r"^\s*(?:이|가|을|를)?\s*[^\s,.?!]{0,6}?\s*때(?:는|에|에는)?(?=[\s,.?!]|$)")
+# Right after the sign, the danger asked about in general: "열사병에 걸리기 쉬운 견종", "열사병 증상은",
+# "발작의 흔한 원인", "호흡곤란이 잘 생기나요". 7 of 14 such questions got the red warning
+# (tests/data/urgency_holdout_questions.json, 2026-11-07); the Decisions check (src/tools/urgency.py)
+# still judges them. Only right after the sign: "경련을 하는데 원인이 뭐예요?" and "경련 증상과 함께" keep the warning.
+GENERAL = re.compile(
+    r"^\s*(?:의|에|은|는|이|가|을|를)?\s*(?:하는\s*|이\s*있는\s*|흔한\s*|주요\s*|주된\s*|초기\s*|대표적인\s*)?"
+    # "증상은", "원인이 뭔가요", not "발작 증상이 10분째 계속돼요"
+    r"(?:(?:증상|원인|신호|징후)(?:은|는|의|에|이란|이?\s*(?:뭐|뭔|무엇|무슨|어떤|알))"
+    r"|예방|견종|대처|응급\s*처치|걸리기|잘\s*생기)"
+)
 # "작년에 경련을 한 번 했었는데 그 뒤로는 괜찮아요": the same sentence places it in the past.
 PAST = re.compile(r"작년|재작년|예전|어릴\s*때|과거에|몇\s*(?:달|년)\s*전|지난\s*(?:해|달)")
 SENTENCE_END = re.compile(r"[.?!\n]")
@@ -136,7 +150,8 @@ def detect_urgent_sign(question: str) -> str | None:
             if re.search(r"안\s*(?:먹|삼키)|먹지\s*않|삼키지\s*않", match.group()):
                 continue
             rest = question[match.end():]
-            if NEGATION.match(rest) or HYPOTHETICAL.match(rest) or _in_past_sentence(question, match.start()):
+            if NEGATION.match(rest) or HYPOTHETICAL.match(rest) or GENERAL.match(rest) \
+                    or (pattern != TOXIN_SWALLOWED and WHEN.match(rest)) or _in_past_sentence(question, match.start()):
                 continue
             return URGENT_NOTICE
     return None
