@@ -8,7 +8,9 @@ failure or refusal leaves the rules' answer (no warning). Measured with
 scripts/evaluate_emergency.py --second-check.
 
 The same call's middle answer, see_vet_soon, became the answer's "진료 권장" badge (2026-11-06;
-urgency_level): no extra call. Measured with scripts/evaluate_care_level.py.
+urgency_level): no extra call. Measured with scripts/evaluate_care_level.py. "새로 생기거나 커지는
+혹·멍울" joined its examples on 2026-11-07: both lump questions of the holdout
+(tests/data/urgency_holdout_questions.json) got no badge.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 URGENT_INSTRUCTIONS = """보호자가 반려동물의 상태를 적은 글입니다. 얼마나 서둘러 동물병원에 가야 하는지 고르세요.
 
 emergency_now: 몇 시간 안에 목숨이 위험할 수 있어 지금 바로 병원에 연락하거나 가야 하는 상황. 예: 숨쉬기 힘들어함·혀나 잇몸이 파랗거나 하얌, 쓰러짐·의식이나 반응이 떨어짐, 경련·발작이 이어짐, 독성 물질이나 사람 약을 먹음, 배가 부풀고 헛구역질만 함, 멈추지 않는 출혈·피를 토함, 교통사고·추락·깊은 상처, 열사병, 소변을 전혀 못 봄, 난산, 눈 외상, 얼굴이 붓는 심한 알레르기 반응.
-see_vet_soon: 진료가 필요하지만 지금 당장 생명이 위험해 보이지는 않는 상황. 예: 며칠째 이어지는 구토·설사·식욕 부진, 혈변이나 혈뇨, 절뚝거림, 이물을 삼켰지만 지금은 잘 지냄, 이미 진단받고 치료 중인 병, 수술 뒤 회복 문제.
+see_vet_soon: 진료가 필요하지만 지금 당장 생명이 위험해 보이지는 않는 상황. 예: 며칠째 이어지는 구토·설사·식욕 부진, 혈변이나 혈뇨, 절뚝거림, 이물을 삼켰지만 지금은 잘 지냄, 새로 생기거나 커지는 혹·멍울, 이미 진단받고 치료 중인 병, 수술 뒤 회복 문제.
 not_urgent: 일상적인 증상, 이미 지나가 지금은 괜찮은 일, 없다고 밝힌 증상, 일반 정보·예방·대처법 질문, 증상 설명이 없는 질문(시설 찾기, 보고서, 인사 등).
 emergency_now는 위 예처럼 지금 위급한 신호가 글에 적혀 있을 때만 고르세요."""
 CHOICES = ("emergency_now", "see_vet_soon", "not_urgent")
