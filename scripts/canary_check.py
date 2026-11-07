@@ -41,6 +41,11 @@ CLIENT = secrets.token_hex(16)  # a new browser id (32 hex) for each run, see th
 DATE_QUESTION = "오늘 날짜 알려줘"
 HEALTH_QUESTION = "강아지가 어제부터 설사를 해요"
 HEALTH_ATTEMPTS, HEALTH_WAIT_S = 30, 5
+# The table check right after /health may wait for a second instance: on 2026-10-31, 11-03 and 11-04
+# (#384) Cloud Run started one for /places/kinds while the first was busy with its warm-up (the log
+# says "due to configured scaling factors (e.g. CPU utilization)"), and the answer took 31-32 s. Since
+# 10-24 the first /places/kinds of an instance took 20-36 s 23 times; the others take 0.006 s.
+TABLES_TIMEOUT_S, TABLES_ATTEMPTS = 60, 2
 
 
 class CheckFailed(Exception):
@@ -92,8 +97,16 @@ def check_health(base: str, commit: str | None, sleep=time.sleep) -> str:
 
 
 def check_tables(base: str) -> str:
+    """/places/kinds and /fees/items answer 200; a request that times out (a second instance still
+    starting, see TABLES_TIMEOUT_S) is tried once more."""
     for path in ("/places/kinds", "/fees/items"):
-        status, body = get(f"{base}{path}")
+        for attempt in range(TABLES_ATTEMPTS):
+            try:
+                status, body = get(f"{base}{path}", timeout=TABLES_TIMEOUT_S)
+                break
+            except TimeoutError:
+                if attempt == TABLES_ATTEMPTS - 1:
+                    raise
         if status != 200:
             raise CheckFailed(f"{path} answered {status}: {body[:200]}")
     return "places and fees: 200"
