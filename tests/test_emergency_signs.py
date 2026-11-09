@@ -89,6 +89,14 @@ class FirstAidTests(unittest.TestCase):
         self.assertEqual(first_aid_steps(question), [])
         self.assertIn("물과 음식을 주지 마세요.", first_aid_steps(question, urgent=True))
 
+    def test_vomited_blood_gets_its_own_steps(self):
+        for question in ("피를 토했어요", "토사물에 커피 찌꺼기 같은 게 섞여 나오고 축 늘어졌어요", "피 섞인 토를 했어요"):
+            steps = first_aid_steps(question, urgent=True)
+            with self.subTest(question):
+                self.assertIn("물과 음식을 주지 마세요.", steps)
+                self.assertNotIn("피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.", steps)
+        self.assertIn("피가 나는 곳을 깨끗한 천으로 꾹 눌러 주세요.", first_aid_steps("발을 베였는데 피가 멈추지 않아요"))
+
     def test_no_numbers(self):
         # Fixed text that skips the citation check: a dose or a time here would go unchecked.
         from src.health_safety import FIRST_AID
