@@ -63,6 +63,15 @@ def golden_items() -> list[dict]:
              "reference": val[int(item["row"])]["qa.output"].replace("\r", "")} for index, item in enumerate(items)]
 
 
+def retold_ids() -> set[str]:
+    """Ids of the golden items whose consultation the corpus holds again in other words
+    (tests/data/eval_overlap_labels.json `same`, read pair by pair on 2026-10-28)."""
+    data = PROJECT_DIR / "tests" / "data"
+    items = json.loads((data / "health_relevance_100.json").read_text(encoding="utf-8"))["items"]
+    same = set(json.loads((data / "eval_overlap_labels.json").read_text(encoding="utf-8"))["same"])
+    return {f"long-{index}" for index, item in enumerate(items) if int(item["row"]) in same}
+
+
 def generate(run: int, shard: int, shards: int) -> int:
     sys.path.insert(0, str(PROJECT_DIR))
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -170,6 +179,12 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
         first = [s for s in scores if s["run"] == min(runs) and s["repeat"] == 0]
         run_scores = {name: statistics.fmean(v) for name in names
                       if (v := [s[name] for s in first if s[name] is not None])}
+        # The same means without the 13 questions whose consultation is retold in the corpus: the
+        # search hands those their own vet answer, so they score far higher (Context Recall 0.65-0.68
+        # against 0.36-0.38 on the other 87, weekly 10-26 and 11-02) and lift the 100-question mean.
+        retold = retold_ids()
+        run_scores |= {f"{name}_unretold": statistics.fmean(v) for name in names
+                       if (v := [s[name] for s in first if s[name] is not None and s["id"] not in retold])}
         (OUT_DIR / f"answer_{result_name}.json").write_text(json.dumps({"judge_model": judge_model, "run_scores": run_scores}, indent=1), encoding="utf-8")
     return 0
 

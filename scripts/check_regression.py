@@ -46,6 +46,10 @@ JUDGES = {"answer": "gpt-6-luna"}
 
 # (score, "min" or "max", limit, merged result for reference)
 # Operational alarms; every other score is a quality score.
+# Shown and recorded, with no limit: the answer means without the 13 retold questions
+# (scripts/evaluate_answer_quality.py retold_ids). The limits above were set on all 100, and the
+# 87 sit closer to them (Context Recall 0.36-0.38 against the 0.35 floor, 2026-10-20 to 11-02).
+RECORDED = {"answer": ["answer_correctness_unretold", "context_recall_unretold", "context_precision_unretold"]}
 ALARMS = {"latency_p90_s", "repeat_suspect_rate", "reask_rate", "no_answer_rate"}
 LIMITS = {
     "crag": [
@@ -267,6 +271,9 @@ def check(set_name: str, run_name: str) -> tuple[list[str], bool, dict]:
             shown += f" (재확인 전 {result['run_scores'].get(name, 0.0):.3f}, 재확인 통과 {', '.join(rechecked)})"
         kind = "경보" if name in ALARMS else "절대"
         rows.append(f"| {set_name} | {kind} | {name} | {shown} | {sign} {limit} | {reference} | {'✅' if passed else '❌'} |")
+    for name in RECORDED.get(set_name, []):
+        if (value := scores.get(name)) is not None:
+            rows.append(f"| {set_name} | 기록 | {name} | {value:.3f} | 없음 | | — |")
     baseline = load_baseline(set_name)
     if baseline is not None:
         gate, gate_ok = gate_rows(set_name, result, baseline)
