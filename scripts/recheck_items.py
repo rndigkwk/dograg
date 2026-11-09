@@ -13,6 +13,9 @@ grader's own verdict wobbles. On #218 two runs of unchanged code each failed one
 question (r20, then u20), which passed when asked again. A real regression fails again.
 The guide set has no stable questions: there check_regression.py lists the questions a rate below
 its limit missed (RECHECKED_RATES), and one that passes every recheck counts toward the rate.
+A guide recheck also saves each run's graph steps (guide_steps: candidates and kept documents of
+each grade, as counts) to guide_<run>_recheck_steps.json (#387: on 2026-11-02 four questions lost
+their guides on both rechecks, and nothing said at which step).
 Costs: a crag or guide question is one chat run (2-4 model calls); a routing question at most one
 call; a guard question one chat run and one judge call.
 """
@@ -39,8 +42,9 @@ QUESTION_FILES = {"crag": PROJECT_DIR / "tests" / "data" / "crag_eval_questions.
 _GUARD_RUNNER = []  # the app and its judge, loaded once for the guard set
 
 
-def passes(set_name: str, item: dict) -> bool:
-    """One run of the app on one question, scored as scripts/langfuse_experiments.py scores it."""
+def passes(set_name: str, item: dict, steps: list | None = None) -> bool:
+    """One run of the app on one question, scored as scripts/langfuse_experiments.py scores it.
+    For the guide set, the run's graph steps are appended to `steps` when it is given."""
     if set_name == "guard":  # scripts/evaluate_guardrails.py: the judge and the rule checks
         import evaluate_guardrails
 
@@ -55,6 +59,10 @@ def passes(set_name: str, item: dict) -> bool:
         result = chatbot(item["question"], crag=True, crag_reports=False)
         got = outcome(result, result.get("decision"))
         if set_name == "guide":  # answered and with a guide (guide_task in scripts/langfuse_experiments.py)
+            if steps is not None:
+                from langfuse_experiments import guide_steps
+
+                steps.append(guide_steps(result.get("trace") or []))
             return got in ("answer", "partial") and any(row.get("kind") == "care_guide" for row in result.get("evidence_rows", []))
         return got == "abstain" if item["expected"] == "abstain" else got in ("answer", "partial")
     from src.tools import places, router
@@ -79,14 +87,17 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from src import resources
 
-    verdicts = {}
+    verdicts, steps = {}, {}
     with tempfile.TemporaryDirectory(prefix="ragdog-recheck-", ignore_cleanup_errors=True) as directory:
         resources.CHROMA_DIR = Path(directory) / "chroma_db"  # Chroma writes to its folder even when reading
         shutil.copytree(PROJECT_DIR / "data" / "chroma_db", resources.CHROMA_DIR)
         for question_id in ids:
-            verdicts[question_id] = [passes(args.set, items[question_id]) for _ in range(args.repeats)]
+            runs = steps.setdefault(question_id, [])
+            verdicts[question_id] = [passes(args.set, items[question_id], runs) for _ in range(args.repeats)]
             print(f"{args.set} {question_id}: {verdicts[question_id]}", flush=True)
     (RESULTS_DIR / f"{args.set}_{args.run}_recheck.json").write_text(json.dumps(verdicts), encoding="utf-8")
+    if args.set == "guide":
+        (RESULTS_DIR / f"guide_{args.run}_recheck_steps.json").write_text(json.dumps(steps, ensure_ascii=False), encoding="utf-8")
     return 0
 
 
