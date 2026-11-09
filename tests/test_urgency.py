@@ -23,7 +23,7 @@ class UrgentNoticeTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def notice(self, question, reply=None, side_effect=None):
-        with patch.object(urgency.httpx, "post", return_value=reply, side_effect=side_effect) as post:
+        with patch.object(urgency.router, "decisions_post", return_value=reply, side_effect=side_effect) as post:
             return urgency.urgent_notice(question), post
 
     def test_a_rule_match_needs_no_call(self):
@@ -37,7 +37,7 @@ class UrgentNoticeTests(unittest.TestCase):
         self.assertIsNone(self.notice(question, decisions_reply("see_vet_soon"))[0])
         self.assertIsNone(self.notice(question, decisions_reply("not_urgent"))[0])
         _, post = self.notice(question, decisions_reply("not_urgent"))
-        body = post.call_args.kwargs["json"]
+        body = post.call_args.args[0]
         self.assertEqual([c["value"] for c in body["questions"][0]["choices"]], list(urgency.CHOICES))
         self.assertEqual(body["input"], question)
 
@@ -64,13 +64,13 @@ class UrgentNoticeTests(unittest.TestCase):
 
     def test_the_middle_answer_is_the_badge_never_with_the_warning(self):
         question = "사흘째 설사를 하는데 밥은 조금씩 먹어요"
-        with patch.object(urgency.httpx, "post", return_value=decisions_reply("see_vet_soon")):
+        with patch.object(urgency.router, "decisions_post", return_value=decisions_reply("see_vet_soon")):
             self.assertEqual(urgency.urgency_level(question), (None, "see_vet_soon"))
-        with patch.object(urgency.httpx, "post", return_value=decisions_reply("not_urgent")):
+        with patch.object(urgency.router, "decisions_post", return_value=decisions_reply("not_urgent")):
             self.assertEqual(urgency.urgency_level(question), (None, None))
-        with patch.object(urgency.httpx, "post", return_value=decisions_reply("emergency_now")):
+        with patch.object(urgency.router, "decisions_post", return_value=decisions_reply("emergency_now")):
             self.assertEqual(urgency.urgency_level(question), (URGENT_NOTICE, None))
-        with patch.object(urgency.httpx, "post") as post:  # a rule match: the warning, no call, no badge
+        with patch.object(urgency.router, "decisions_post") as post:  # a rule match: the warning, no call, no badge
             self.assertEqual(urgency.urgency_level("강아지가 경련을 해요"), (URGENT_NOTICE, None))
         post.assert_not_called()
 

@@ -22,7 +22,6 @@ import httpx
 from src import resources, settings
 from src.health_safety import URGENT_NOTICE, detect_urgent_sign
 from src.tools import places, router
-from src.tools.router import DECISIONS_TIMEOUT_SECONDS, DECISIONS_URL
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,7 @@ def decide_urgency(question: str) -> str | None:
                        "choices": [{"value": choice} for choice in CHOICES]}],
     }
     try:
-        response = httpx.post(DECISIONS_URL, json=body, headers={"Authorization": f"Bearer {api_key}"},
-                              timeout=DECISIONS_TIMEOUT_SECONDS)
+        response = router.decisions_post(body, api_key)
         response.raise_for_status()
         answer = response.json()["answers"][0]
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:

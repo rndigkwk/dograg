@@ -38,17 +38,37 @@ class DecisionsRouterTests(unittest.TestCase):
         with patch.object(resources, "load_chat_model", return_value=chat), \
                 patch.object(settings, "get_setting", side_effect=values.get), \
                 patch.object(settings, "get_openai_api_key", return_value="sk-test"), \
-                patch.object(router.httpx, "post", post):
+                patch.object(router, "decisions_post", post):
             return router.classify_question(question), chat.calls
 
     def test_the_decisions_choice_is_used_without_the_chat_model(self):
         post = Mock(return_value=response({"type": "choice", "choice": "rag", "confidence": 0.9}))
         self.assertEqual(self.classify(post), ("rag", 0))
-        body = post.call_args.kwargs["json"]
+        body, api_key = post.call_args.args
         self.assertEqual(body["questions"][0]["type"], "choice")
         self.assertEqual([c["value"] for c in body["questions"][0]["choices"]], list(router.ROUTES))
         self.assertIn(UNDECIDED, body["input"])
-        self.assertEqual(post.call_args.kwargs["headers"], {"Authorization": "Bearer sk-test"})
+        self.assertEqual(api_key, "sk-test")
+
+    def test_one_shared_client_sends_the_key(self):
+        sent = []
+
+        class Client:
+            def __init__(self, timeout):
+                self.timeout = timeout
+
+            def post(self, url, json, headers):
+                sent.append((url, headers))
+                return response({"type": "choice", "choice": "rag"})
+
+        with patch.object(router, "_DECISIONS_CLIENT", None), patch.object(router.httpx, "Client", Client) as made:
+            router.decisions_post({}, "sk-test")
+            client = router._DECISIONS_CLIENT
+            router.decisions_post({}, "sk-test")
+            self.assertIs(router._DECISIONS_CLIENT, client)
+        self.assertIsInstance(client, made)
+        self.assertEqual(client.timeout, router.DECISIONS_TIMEOUT_SECONDS)
+        self.assertEqual(sent, [(router.DECISIONS_URL, {"Authorization": "Bearer sk-test"})] * 2)
 
     def test_a_refusal_an_error_or_a_timeout_falls_back_to_the_chat_model(self):
         for post in (Mock(return_value=response({"type": "refusal"})),
@@ -65,7 +85,7 @@ class DecisionsRouterTests(unittest.TestCase):
 
     def test_no_api_key_means_no_call(self):
         with patch.object(settings, "get_openai_api_key", return_value=None), \
-                patch.object(router.httpx, "post", side_effect=AssertionError("no key")):
+                patch.object(router, "decisions_post", side_effect=AssertionError("no key")):
             self.assertIsNone(router.decide_route(UNDECIDED))
 
 

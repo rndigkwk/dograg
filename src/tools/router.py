@@ -58,6 +58,20 @@ ROUTE_INSTRUCTIONS = (
 )
 
 
+_DECISIONS_CLIENT: httpx.Client | None = None
+
+
+def decisions_post(body: dict, api_key: str) -> httpx.Response:
+    """POST to the Decisions API on one shared client, so its connections are kept and reused
+    (Day 77: a client per call set up a new TLS connection for each of the up to two calls a
+    question makes, the route and the urgency check). httpx.Client is safe to share across the
+    request threads."""
+    global _DECISIONS_CLIENT
+    if _DECISIONS_CLIENT is None:
+        _DECISIONS_CLIENT = httpx.Client(timeout=DECISIONS_TIMEOUT_SECONDS)
+    return _DECISIONS_CLIENT.post(DECISIONS_URL, json=body, headers={"Authorization": f"Bearer {api_key}"})
+
+
 def decide_route(question: str, chat_history=None) -> str | None:
     """One Decisions API call; None when it is off, fails, refuses or answers outside ROUTES."""
     if (settings.get_setting("ROUTER_FALLBACK") or "decisions").strip().lower() != "decisions":
@@ -73,8 +87,7 @@ def decide_route(question: str, chat_history=None) -> str | None:
                        "choices": [{"value": route} for route in ROUTES]}],
     }
     try:
-        response = httpx.post(DECISIONS_URL, json=body, headers={"Authorization": f"Bearer {api_key}"},
-                              timeout=DECISIONS_TIMEOUT_SECONDS)
+        response = decisions_post(body, api_key)
         response.raise_for_status()
         answer = response.json()["answers"][0]
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
