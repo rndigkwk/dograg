@@ -596,3 +596,20 @@ e3를 골랐다. B 대비 2문항을 새로 맞히고 3문항을 놓쳤다(p=1.0
 - **왜 유의하지 않은가:** holdout 80개에서 B와 갈린 문항이 10~12개뿐이다. 이 크기로는 9 대 2도 p≈0.07이다. 같은 차이를 확인하려면 짧은 질문이 지금의 두 배쯤 필요하다.
 - **다음에 할 것(하면):** 사람이 쓴 짧은 질문을 80개쯤 더 써서 holdout을 늘린다. 이미 고른 e3 셋으로 다시 재면 되므로 학습은 필요 없다. 긴 상담이 B 아래에 머무는지도 그때 함께 본다.
 - 결과 JSON: `output/experiments/gist_seeds_dev.json`, `output/experiments/gist_seeds_holdout.json`(로컬). 학습 기록은 MLflow `ko-sroberta gist`에 있다(노트북 셀 7).
+
+### 짧은 질문 160개로 다시 — **기준 못 넘음, B 유지** (2026-11-09, 판정 호출 80번)
+
+- **방법:** 일상 증상의 짧은 질문 80개를 새로 썼다(`tests/data/short_questions_2.json`, 재기 전에 기준을 파일 description에 적었다). 기존 holdout 80개와 합쳐 160개로 `gist-s13-e3`(위에서 dev로 고른 것) 하나만 B와 잰다. `evaluate_finetuned_embedding.py --variants b --retrain-repo gist --retrain gist-s13-e3 --sets long_useful short short2 --short-split holdout holdout2`. 판정은 새 질문 80개에만 했고, 나머지는 저장된 채점을 다시 썼다.
+- **미리 정한 기준:** 160개에서 B 대비 p<0.05이고 얻음 > 잃음, 그리고 긴 상담 100개 `useful@3`가 B 아래가 아닐 것.
+
+| `useful@3` | 기본 | B (앱) | GIST e3 | e3 대 B (얻음 / 잃음, p) |
+| --- | ---: | ---: | ---: | --- |
+| 기존 holdout 80개 | 0.637 | 0.762 | **0.850** | +9 / −2, 0.065 |
+| 새 short2 80개 | 0.625 | **0.900** | **0.900** | +2 / −2, 1.0 |
+| 합친 160개 | 0.631 | 0.831 | **0.875** | +11 / −4, 0.119 |
+| 긴 상담 100개 | 0.74 | **0.85** | 0.82 | +3 / −6, 0.51 |
+
+- **두 기준 모두 못 넘었다.** 160개에서 p=0.119이고, 긴 상담은 여전히 B보다 낮다. B를 유지한다.
+- **새 질문에서는 차이가 사라졌다.** B와 e3가 둘 다 0.900이고 갈린 문항이 4개뿐이다. 기존 holdout의 9 대 2는 응급 질문 쪽에서 나온 차이로 보인다. 일상 증상에서는 B도 이미 잘 찾는다. 두 모델 모두 기본 모델보다는 확실히 낫다(160개에서 B +38 / −6, e3 +41 / −2, 둘 다 p<0.001).
+- GIST 학습은 여기서 닫는다. 같은 세트로 다시 고르거나 재지 않는다(이미 결과를 봤다).
+- 결과 JSON: `output/experiments/finetuned_embedding_short2.json`(로컬). 판정 채점은 `output/experiments/finetuned_embedding_grades.json`의 `short2:*` 키.
