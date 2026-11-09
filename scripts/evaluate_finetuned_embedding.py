@@ -24,6 +24,9 @@ Sets:
 - short: the 120 short questions of tests/data/emergency_signs.json (written by hand for the
   emergency set, not by the query generator). Their top 3 from every model are graded by the same
   judge; useful@3 and relevant@3.
+- short2: the 80 short questions of tests/data/short_questions_2.json (2026-11-09, everyday
+  symptoms, written to double the short holdout). Asked for by name only, not in the default run.
+  With short, the two are also scored together ("short+short2") for one McNemar test.
 Paired McNemar tests against the base model (and against B when B is in the run).
 Results: output/experiments/finetuned_embedding.json, or --out.
 
@@ -54,7 +57,7 @@ ALL_TUNED = {"a": "blanden77/ko-sroberta-dograg-a", "b": "blanden77/ko-sroberta-
              "hn": "blanden77/ko-sroberta-dograg-hn"}
 RETRAIN_REPOS = {"b2": "blanden77/ko-sroberta-dograg-b2",  # scripts/train_embedding_gpu.py: s13-e1/, ...
                  "gist": "blanden77/ko-sroberta-dograg-gist"}  # --loss gist: gist-s13-e1/, ...
-SETS = ("long", "long_useful", "short")
+SETS = ("long", "long_useful", "short", "short2")
 TUNED = {name: ALL_TUNED[name] for name in ("a", "b")}  # main() narrows it to --variants (and --retrain)
 FIELDS = ("meta.lifeCycle", "meta.department", "meta.disease")
 CANDIDATE_K = 12
@@ -78,7 +81,7 @@ def main() -> int:
     parser.add_argument("--retrain", nargs="*", metavar="CHECKPOINT",
                         help="also the retrained checkpoints (all, or these names, e.g. s13-e2)")
     parser.add_argument("--retrain-repo", choices=sorted(RETRAIN_REPOS), default="b2")
-    parser.add_argument("--sets", nargs="+", choices=SETS, default=list(SETS))
+    parser.add_argument("--sets", nargs="+", choices=SETS, default=["long", "long_useful", "short"])
     parser.add_argument("--short-split", nargs="+", choices=["dev", "holdout", "holdout2"],
                         help="only these short questions (emergency_signs.json split); default all 120")
     parser.add_argument("--out", type=Path, default=OUT)
@@ -170,6 +173,8 @@ def main() -> int:
     model = judge_model()
     extra = json.loads(EXTRA_GRADES.read_text(encoding="utf-8")) if EXTRA_GRADES.exists() else {}
 
+    useful_by_set: dict[str, dict[str, list[bool]]] = {}
+
     def useful_for(set_name: str, questions: list[str], saved: list[dict], index: list[int] | None = None) -> None:
         """index: each question's position in the full set, so the grade cache keys stay the same."""
         index = index or list(range(len(questions)))
@@ -202,6 +207,7 @@ def main() -> int:
         n = len(questions)
         report[set_name] = {name: {"useful@3": round(sum(useful[name]) / n, 3),
                                    "relevant@3": round(sum(relevant[name]) / n, 3)} for name in names}
+        useful_by_set[set_name] = useful
         tests = versus(useful)
         report[f"{set_name}_useful_vs_base"] = tests["vs_base"]
         if "vs_b" in tests:
@@ -216,6 +222,17 @@ def main() -> int:
         keep = [i for i, item in enumerate(short) if not args.short_split or item.get("split") in args.short_split]
         assert keep, f"no short questions in {args.short_split}"
         useful_for("short", [short[i]["question"] for i in keep], [{} for _ in keep], keep)
+    if "short2" in args.sets:
+        short2 = json.loads((PROJECT_DIR / "tests" / "data" / "short_questions_2.json").read_text(encoding="utf-8"))["items"]
+        useful_for("short2", [item["question"] for item in short2], [{} for _ in short2])
+    if "short" in useful_by_set and "short2" in useful_by_set:
+        both = {name: useful_by_set["short"][name] + useful_by_set["short2"][name] for name in names}
+        report["short+short2"] = {name: {"useful@3": round(sum(v) / len(v), 3), "n": len(v)} for name, v in both.items()}
+        tests = versus(both)
+        report["short+short2_useful_vs_base"] = tests["vs_base"]
+        if "vs_b" in tests:
+            report["short+short2_useful_vs_b"] = tests["vs_b"]
+        print("short+short2", json.dumps(report["short+short2"], ensure_ascii=False), tests, flush=True)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
