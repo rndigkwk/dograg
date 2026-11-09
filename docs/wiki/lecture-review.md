@@ -1,6 +1,6 @@
-# 교안 적용 정리 (Day 02~76, 2026-11-06 Day 76 추가)
+# 교안 적용 정리 (Day 02~77, 2026-11-09 Day 77 추가)
 
-엔코아 AI 캠퍼스 교안(`class_1`의 다섯 실습 폴더, `openai-decisions-examples`, `enkoa-practice-deep-learning`)을 Day 순서로 놓고, 각 Day의 내용을 이 프로젝트에 어떻게 썼는지 정리한다. 처음 판(2026-10-09, Day 46~56)과 재검토(2026-10-16), Day 65~69 추가(2026-10-28), Day 71~75 추가(2026-11-05), Day 76 추가(2026-11-06)를 한 문서로 합쳤다.
+엔코아 AI 캠퍼스 교안(`class_1`의 다섯 실습 폴더, `openai-decisions-examples`, `enkoa-practice-deep-learning`)을 Day 순서로 놓고, 각 Day의 내용을 이 프로젝트에 어떻게 썼는지 정리한다. 처음 판(2026-10-09, Day 46~56)과 재검토(2026-10-16), Day 65~69 추가(2026-10-28), Day 71~75 추가(2026-11-05), Day 76 추가(2026-11-06), Day 77 추가(2026-11-09)를 한 문서로 합쳤다.
 
 - ✅ **적용**: 앱이나 평가·운영 도구에 들어가 있다. 어떻게 넣었고 무엇이 좋아졌는지.
 - 🧪 **테스트 후 미적용**: 같은 평가 세트로 재 보고 넣지 않았다. 결과와 이유.
@@ -597,12 +597,37 @@ Day 27~42는 Neo4j로 지식 그래프를 만들고 검색하는 단원이다. �
 | KV 캐시 자료형 fp8, 동시 실행 상한 `--max-num-seqs`, 투기적 디코딩(MTP·n-gram), `vllm bench sweep serve` | ➖ | 서빙하는 LLM이 없다. KB 보고서 OCR처럼 일괄 작업을 vLLM으로 돌린다면(Day 75 🔜) 처리량이 중요한 일이다. 그러면 교안의 "맞지 않는 경우"에 해당해 MTP는 켜지 않고, sweep으로 `max_num_seqs`만 비교한다 |
 | 서버 로그의 처리량 줄 읽기(부록) | ➖ | vLLM 서버를 운영하지 않는다 |
 
+### Day 77 · FastAPI 모델 서빙 API: 라우팅·스키마·스트리밍 중계, 서비스 키·요청 한도·오류 양식, 키 관리와 사용량 기록
+
+교안은 RunPod의 vLLM 앞에 FastAPI 상담 API(`serving_app`)를 세운다. 라우터·스키마·백엔드 계층으로 나누고, SSE를 중계하며, `X-API-Key` 서비스 키와 60초 요청 한도, 한 양식의 오류 응답(401·422·429·502·504)을 붙인다. 이어 SQLite에 키 해시와 토큰 사용량을 저장한다. 이 프로젝트의 API(`api/`, Cloud Run)도 FastAPI이고 대부분 이미 같은 방식이다. 다른 점은 둘이다. 부르는 쪽이 공개 웹 화면 하나뿐이라 서비스 키를 나눠 줄 상대가 없고, 답변 모델이 vLLM이 아니라 OpenAI·Claude API다.
+
+| 교안 내용 | 상태 | 어떻게 / 결과 / 이유 |
+| --- | --- | --- |
+| 앱을 기능별 `APIRouter`로 나누고 `include_router`로 붙이기, 상태 확인 주소(`/healthz`) | ✅ | `api/main.py`가 chat·feedback·fees·memory·places·stats·visit_prep 라우터 7개를 붙인다. `/health`는 키 없이 열려 있고 배포 커밋을 돌려준다. 배포 카나리(`scripts/canary_check.py`)가 이 값으로 새 리비전을 확인한다([cloud-run.md](cloud-run.md)) |
+| pydantic 요청 양식과 입력 제약(길이·범위·패턴), 틀리면 422 | ✅ | `api/chat.py`의 `ChatRequest`가 질문 길이(`MAX_QUESTION_CHARS`), 이전 대화 길이, 날짜 패턴(`^\d{4}-\d{2}-\d{2}$`)을 검사한다. 질문 하나가 모델 비용이 되므로 길이 상한이 곧 비용 상한이다 |
+| `response_model`로 응답에서 내부 항목 빼기 | ➖ | 같은 목적을 손으로 한다. `/chat`은 SSE라 교안 말대로 `response_model`을 쓸 수 없다. 그래서 이벤트마다 보낼 항목을 직접 고른다. 예: 그래프의 `trace`(평가용 단계 기록)는 실행 결과에는 있지만 보내지 않는다(#414). JSON 주소(fees·places·stats)는 작은 사전이라 바꿀 이득이 없다 |
+| CORS: 웹 화면의 출처만 허용 | ✅ | `RAGDOG_WEB_ORIGINS`에 적은 출처만 허용한다. 없으면 로컬 웹 하나다. 허용 헤더는 `Authorization`·`Content-Type`·`X-RagDog-Client`다. 로그인 토큰은 쿠키가 아니라 헤더로 보내므로 `allow_credentials=False`다 |
+| 자동 문서(`/docs`) | ✅ | 로컬에서는 켜고, 배포에서는 끈다(`RAGDOG_API_DOCS=1`일 때만 켬). 모든 주소와 양식을 공개 인터넷에 보일 이유가 없다([security/threat-model.md](../security/threat-model.md)) |
+| `def`와 `async def`: 동기 코드는 `def`(스레드 풀)로, `async def` 안에서는 막는 호출 금지 | ✅ | 엔드포인트는 모두 `def`다. 검색(FAISS·Supabase)·LangChain·httpx 호출이 동기라서다. `async def`는 `lifespan` 하나뿐이고, 그 안에서는 막는 일이 없다. `/chat`은 동기 제너레이터를 `StreamingResponse`에 넘기고, Starlette가 이를 스레드 풀에서 읽는다. 교안의 "async 안의 `time.sleep`이 이벤트 루프를 멈춤" 같은 실수는 없다 |
+| `lifespan`: 시작 때 준비, 종료 때 정리 | ✅ | 배포에서는 시작 때 `warm_up()`이 임베딩 모델과 검색 자료를 미리 올린다. 그래서 첫 질문이 모델 적재를 기다리지 않는다. 다만 첫 `/places/kinds`가 두 번째 인스턴스를 기다리는 일은 남아 있다(#384, 카나리에서 해결, [cloud-run.md](cloud-run.md)) |
+| 모델 응답을 SSE로 중계, 조각 도착 시각과 TTFT | ✅ | `/chat`·`/visit-prep`이 `text/event-stream`으로 step·evidence·token·result 이벤트를 보낸다. 작업 스레드가 큐에 넣고 제너레이터가 꺼내 보낸다. TTFT는 Day 76의 `scripts/measure_latency_by_feature.py`로 잰다. 요청이 끝나면 `request_log.summarized`가 경로·지연·오류를 JSON 로그 한 줄로 남긴다 |
+| 클라이언트를 하나 만들어 연결풀 재사용(요청마다 만들지 않기) | 🔜 | 답변 모델(LangChain `ChatOpenAI`, `src/resources.py`)은 캐시한 하나를 같이 쓴다. 그런데 Decisions 호출(경로 분류 `src/tools/router.py`, 응급 판정 `src/tools/urgency.py`)은 부를 때마다 `httpx.post`로 새 연결을 연다. 질문 하나에 최대 두 번 TLS 연결을 새로 맺는 셈이다. 공유 `httpx.Client` 하나로 바꾸고 그 전후로 Decisions 지연을 재 볼 만하다. 재기 전 기준: p50이 0.1초 이상 줄면 채택. 호출은 전후 20번씩 |
+| 백엔드 클라이언트 `max_retries=0`, 다시 시도는 서빙 API가 정함 | ✅ | 모델 호출마다 시간 제한이 있다(`CHAT_TIMEOUT_SECONDS` 등, 10-23). OpenAI가 실패하면 Claude로 넘기고(ADR-0012), 한동안 OpenAI를 건너뛴다(차단기). Decisions 호출은 실패하면 다시 시도하지 않고 규칙의 답을 쓴다. 다시 시도할지를 API 쪽이 정한다는 교안 원칙과 같다 |
+| 서비스 키(`X-API-Key`)와 `Depends` 의존성으로 주소 보호 | ➖ | 부르는 쪽이 공개 웹 화면뿐이다. 브라우저에 넣은 키는 누구나 볼 수 있으니 서비스 키는 막는 효과가 없다. 대신 둘을 쓴다. ① 사람(브라우저 id)·네트워크별 요청 한도. ② 평가용 비밀 헤더 `X-RagDog-Check`(`RAGDOG_CHECK_TOKEN`, `hmac.compare_digest`로 비교). 이 헤더는 한도를 건너뛰는 용도로만 쓴다. 저장(기억·방문 보고서)은 Supabase 로그인 토큰과 RLS로 본인 행만 다룬다([security/least-privilege.md](../security/least-privilege.md)) |
+| 요청 한도: 시간 창, 429와 `Retry-After` | ✅ | `src/rate_limit.py`. 사람당 1시간 10개·하루 30개, 네트워크당 60개·200개다. 교안은 서버 메모리에 두는데, 여기서는 Supabase 표에 소금 친 해시와 시각만 둔다. 그래서 인스턴스와 재시작이 같은 수를 센다. DB가 실패하면 메모리로 센다. `/chat`은 429 대신 SSE `limited` 이벤트로 "약 N분 뒤"(`wait_minutes`)를 보낸다. 화면이 스트림 하나만 읽게 하려는 것이다. JSON 주소(feedback·memory)는 `HTTPException(429)`이다. `Retry-After` 헤더는 읽을 프로그램 클라이언트가 없어 넣지 않았다 |
+| 오류 응답을 한 양식으로(`exception_handler`), 상태 코드별 오류 이름 | ➖ | JSON 주소는 FastAPI 기본 `{"detail": ...}`에 한국어 문장을 담는다. SSE는 `error`·`limited` 이벤트로 알린다. 읽는 쪽이 이 웹 화면 하나이고 두 형식을 이미 다룬다(`web/src/lib/chat.ts`). 외부 클라이언트가 생기면 그때 맞춘다 |
+| 모델 서버가 응답하지 않을 때 502·504로 구분 | ✅ | `src/model_outage.py`. 한도 소진(quota)과 응답 없음·연결 불가(unavailable)를 나누어 다른 안내를 보낸다. 상태 코드 대신 이렇게 한 이유: 모델 없이도 검색은 되므로 가까운 상담·가이드를 그대로 보여 주는 편이 사용자에게 낫다. 응급 판정은 이때도 규칙으로 한다 |
+| 키 원문 대신 해시 저장 | ✅ | 같은 생각을 요청 한도에 쓴다. 브라우저 id와 IP를 그대로 두지 않고, 소금 친 SHA-256 앞 32자로 둔다(`rate_limit._hash`). 소금은 DB 주소에서 만들거나 프로세스마다 새로 만든다. 오래된 행은 지운다(`KEEP_HOURS`) |
+| 관리자 키로 키 발급(201)·폐기(행을 지우지 않음) | ➖ | 나눠 줄 서비스 키가 없다. 비밀 값(체크 토큰, 모델 키)은 Secret Manager에 두고, 바꿀 때는 새 버전을 넣는다([cloud-run.md](cloud-run.md)) |
+| 요청마다 토큰 사용량 기록과 사용량 조회 | ✅ | 키별이 아니라 질문별이다. 모델 호출은 Langfuse에 비용과 함께 남는다. `scripts/slo_report.py`가 매주 질문당 비용을 계산한다(목표 ≤ $0.01, [SLO](../slo.md)). 31일 291개에 $0.062였다(11-07, #385). 로컬 실행은 `src/run_log.py`가 입력·출력 토큰을 적는다 |
+
 ---
 
 ## 할 일
 
 1. 판사 점수로 프롬프트를 고친다(Day 60 부록, 판사 성적표 뒤).
 2. 사람이 쓴 짧은 질문 holdout을 80개쯤 늘려 GIST e3 셋을 다시 잰다(Day 74). 세 시드가 B보다 높게 나왔지만 80개로는 유의하지 않다.
+3. Decisions 호출(경로 분류, 응급 판정)을 공유 `httpx.Client`로 바꿔 연결을 재사용하고, 전후 지연을 잰다(Day 77). 기준: p50 0.1초 이상 감소. 호출은 전후 20번씩.
 
 (리랭킹 API는 2026-10-20에 Cohere로 이미 쟀다. `useful@3` 0.80으로 운영보다 낮고 지연 +0.41초라 채택하지 않았다([retrieval-experiments.md](retrieval-experiments.md) "리랭킹 API"). 10-28 이전 판에 "할 일"로 남긴 것은 잘못이었다.)
 
