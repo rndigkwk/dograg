@@ -39,6 +39,18 @@ class CheckRegressionTests(unittest.TestCase):
         self.assertIn("| crag | 절대 | accuracy | 0.800 |", summary)
         self.assertIn("| crag | 경보 | latency_p90_s | 없음 |", summary)
 
+    def test_answer_means_without_the_retold_questions_are_shown_without_a_limit(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        results = Path(directory.name)
+        scores = {"answer_correctness": 0.29, "context_recall": 0.40, "context_precision": 0.89,
+                  "answer_correctness_unretold": 0.27, "context_recall_unretold": 0.30, "context_precision_unretold": 0.80}
+        (results / "answer_ci.json").write_text(json.dumps({"judge_model": "gpt-6-luna", "run_scores": scores}), encoding="utf-8")
+        with patch.object(check_regression, "RESULTS_DIR", results), patch.object(check_regression, "BASELINE_DIR", results):
+            rows, ok, _ = check_regression.check("answer", "ci")
+        self.assertTrue(ok)  # 0.30 is below the 0.35 floor, but the floor is on all 100
+        self.assertIn("| answer | 기록 | context_recall_unretold | 0.300 | 없음 | | — |", rows)
+
 
     def test_the_visit_team_set_fails_when_workers_repeat(self):
         directory = tempfile.TemporaryDirectory()
