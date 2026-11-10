@@ -176,7 +176,7 @@ class ChatTests(unittest.TestCase):
         self.assertEqual([kind for kind, _ in got], ["result"])
         self.assertTrue(got[0][1]["degraded"])
         self.assertEqual(got[0][1]["evidence_rows"], [{"kind": "care_guide"}])
-        search.assert_called_once_with("강아지 발톱은 얼마 만에 깎아요?", 3, kind="quota")
+        search.assert_called_once_with("강아지 발톱은 얼마 만에 깎아요?", chat_api.DEFAULT_RAG_TOP_K, kind="quota")
 
     def test_a_model_that_does_not_answer_in_time_shows_the_search_too(self):
         class APITimeoutError(Exception):
@@ -190,7 +190,7 @@ class ChatTests(unittest.TestCase):
                 patch("src.model_outage.search_only_result", return_value=found) as search:
             got = events(self.post({"question": "기침해요"}))
         self.assertEqual([kind for kind, _ in got], ["result"])
-        search.assert_called_once_with("기침해요", 3, kind="unavailable")
+        search.assert_called_once_with("기침해요", chat_api.DEFAULT_RAG_TOP_K, kind="unavailable")
 
     def test_a_memory_suggestion_comes_after_the_result_when_asked(self):
         from src.storage.models import PetProfile
