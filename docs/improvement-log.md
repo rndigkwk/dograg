@@ -243,6 +243,21 @@
 - **이 기간의 교훈:** 숫자가 나쁘게 나온 세 곳(h01, r01, holdout 18/23) 중 검색이나 답이 실제로 틀린 곳은 없었다. 판정이 흔들렸거나, 라벨이 OCR 전 상태였거나, 분모에 정답 쪽이 없는 문항이 들어 있었다. 코드를 고치기 전에 같은 답을 다시 판정하고, 라벨과 분모부터 확인했다.
 - **운영 반영 사고:** 데이터를 바꾸는 명령은 코드와 함께 움직여야 한다. 명령을 어느 체크아웃에서 돌리는지가 결과를 바꿨고, 그래서 명령 쪽이 스스로 확인하게 했다(#394).
 
+## 17. 2026-11-05~10: 동반 장소 분류, 진료 권장 배지, 응급 오경보, 답변 근거 사례 5개
+
+| PR | 발견 | 측정 (전 → 후) | 무엇을 바꿨나 |
+| --- | --- | --- | --- |
+| [#399](https://github.com/rndigkwk/dograg/pull/399), [#401](https://github.com/rndigkwk/dograg/pull/401), [#402](https://github.com/rndigkwk/dograg/pull/402) | "강릉에 대형견이랑 갈 수 있는 곳"이 동물병원을 찾고, "데려갈 수 있는 동물병원"은 동반 시설을 찾았다 | 같은 꼴 8개 중 5개가 동물병원. 고친 뒤 평가 질문 889개 중 종류가 바뀐 것은 의도한 2개뿐. 고칠 때 쓰지 않은 말투 12문항을 더한 라우팅 53문항 **53/53**(모델 호출 0) | 동반 표현은 동물병원 판정 뒤에 본다(`src/tools/places.py`) |
+| [#413](https://github.com/rndigkwk/dograg/pull/413) | 응급 판단의 중간 답("곧 진료")이 화면에 나오지 않았다 | 진료 권장 질문 배지 **14/15**(기준 10 이상), 받으면 안 되는 질문 **0/61** | 답변 위 노란 "진료 권장" 배지, "지금 할 일" 체크리스트(모델 호출 늘지 않음) |
+| [#416](https://github.com/rndigkwk/dograg/pull/416), [#417](https://github.com/rndigkwk/dograg/pull/417) | 위험을 일반적으로 묻는 정보 질문("열사병 증상은")에 빨간 경고가 떴다 | holdout 정보·예방 질문 오경보 7/14 → **0/14**, 응급 질문 경고 16/16 그대로 | 응급 단어 바로 뒤가 일반적인 물음이면 규칙 경고를 빼고 모델 판정에 맡김 |
+| [#419](https://github.com/rndigkwk/dograg/pull/419), [#420](https://github.com/rndigkwk/dograg/pull/420), [#421](https://github.com/rndigkwk/dograg/pull/421) | 출혈 규칙을 고치면 놓친 응급을 더 잡을까 | 출혈 holdout 전후 같음(응급 13/14, 호출 72번) | 규칙은 보류. "커피 찌꺼기 같은 토"에 출혈 문구가 나가던 것만 토혈 문구로 고침 |
+| [#407](https://github.com/rndigkwk/dograg/pull/407), [#430](https://github.com/rndigkwk/dograg/pull/430) | Context Recall·Precision은 기록만 했고, 100문항 중 13문항은 말뭉치에 복사본이 있어 점수가 높다 | Recall 100문항 0.41 대 복사본을 뺀 87문항 0.36~0.38 | 주간 하한(Recall 0.35, Precision 0.85). 87문항 값은 하한 없이 "기록" 행으로 함께 남김 |
+| [#424](https://github.com/rndigkwk/dograg/pull/424), [#425](https://github.com/rndigkwk/dograg/pull/425) | GIST 임베딩이 B보다 나은지 80문항으로는 판정되지 않았다 | 사람이 쓴 짧은 질문 80개를 더한 160문항: 0.875 대 B 0.831, p 0.119. 긴 상담 0.82 대 0.85 | B 유지(미리 정한 기준 미달) |
+| [#426](https://github.com/rndigkwk/dograg/pull/426), [#427](https://github.com/rndigkwk/dograg/pull/427), [#428](https://github.com/rndigkwk/dograg/pull/428), [#429](https://github.com/rndigkwk/dograg/pull/429), [#433](https://github.com/rndigkwk/dograg/pull/433) | 판사가 "핵심 조치가 빠졌다"고 한 답이 많았다 | 규칙만: dev 실패 9 → 9. 사례 5개만: 실패 25 → 24. **둘 다**(새 holdout 40): 실패 27 → **22**, Context Recall 0.349 → **0.411**, 답 시간 중앙값 5.60 → 5.35초 | 답변 근거 사례 3 → 5개, 답변 규칙 6(계속되는 증상은 조건 없이 진료 권장)과 17(수의사 답의 핵심 조치·시기를 빠뜨리지 않음) |
+
+- **이 기간의 교훈:** 판사 점수를 프롬프트로만 고치려 하면 막힌다. 빠진 조치의 대부분이 근거에 없었다. 근거만 늘려도 모델이 그것을 쓰지 않았다. 원인을 하나씩 따로 재서 둘 다 필요하다는 것을 확인한 뒤, 그 실험이 읽지 않은 새 holdout으로 함께 쟀다.
+- **안정 문항 실패:** #433의 병합 게이트에서 CRAG h03이 한 번 보류로 떨어졌다. 보류는 답을 만들기 전에 정해지고 그 단계는 이번 변경과 무관했다. 기록된 13번 중 12번이 판정 경계였다. 코드를 고치지 않고 다시 실행했다.
+
 ## 전체 PR 목록
 
 | # | 날짜 | 제목 |
@@ -633,3 +648,38 @@
 | [396](https://github.com/rndigkwk/dograg/pull/396) | 2026-11-05 | fix: r01 정답 쪽에 KB 14쪽 추가 (data-v15) |
 | [397](https://github.com/rndigkwk/dograg/pull/397) | 2026-11-05 | fix: 보고서 평가의 정답 쪽 포함 비율에서 정답 쪽 없는 문항 빼기 |
 | [398](https://github.com/rndigkwk/dograg/pull/398) | 2026-11-05 | docs: README를 현재 기능에 맞추기 |
+| [399](https://github.com/rndigkwk/dograg/pull/399) | 2026-11-05 | fix: "대형견이랑 갈 수 있는 곳"이 동물병원 대신 동반 시설을 찾게 |
+| [400](https://github.com/rndigkwk/dograg/pull/400) | 2026-11-05 | docs: 개선 기록 15·16절(10-26~11-05), PR 목록 #398까지, README 권한 검사 수 |
+| [401](https://github.com/rndigkwk/dograg/pull/401) | 2026-11-06 | fix: "데려갈 수 있는 동물병원"이 동반 시설 대신 동물병원을 찾음 |
+| [402](https://github.com/rndigkwk/dograg/pull/402) | 2026-11-06 | eval: 동반 장소 말투를 시설 라우팅 평가에 추가 (41 → 53문항) |
+| [403](https://github.com/rndigkwk/dograg/pull/403) | 2026-11-06 | docs: Day 76 교안 정리와 측정(프롬프트 캐시, 동시 요청 수) |
+| [404](https://github.com/rndigkwk/dograg/pull/404) | 2026-11-06 | feat: 주간 SLO 보고에 지연 목표 안 비율 추가 (Day 76 목표 달성률) |
+| [405](https://github.com/rndigkwk/dograg/pull/405) | 2026-11-06 | chore: Langfuse 실험은 기본 로컬, CI는 초기화 뒤에도 로컬 유지 |
+| [406](https://github.com/rndigkwk/dograg/pull/406) | 2026-11-06 | eval: 자료 빈칸 모양의 질문 10개와 names_gap 지표 |
+| [407](https://github.com/rndigkwk/dograg/pull/407) | 2026-11-06 | eval: 주간 답변 검사에 Context Recall·Precision 하한 |
+| [408](https://github.com/rndigkwk/dograg/pull/408) | 2026-11-06 | docs: GIST 시드 셋 결과(B 유지)와 데이터 카드를 모델 저장소 README로 |
+| [409](https://github.com/rndigkwk/dograg/pull/409) | 2026-11-06 | fix: eval_coverage 실행 표시를 워크플로와 맞춤 |
+| [410](https://github.com/rndigkwk/dograg/pull/410) | 2026-11-06 | docs: 평가 세트와 지표 문서 |
+| [411](https://github.com/rndigkwk/dograg/pull/411) | 2026-11-06 | web: 보호자 관점 화면 (시안 반영) |
+| [412](https://github.com/rndigkwk/dograg/pull/412) | 2026-11-06 | fix(web): 홈 반려견 카드가 우리 아이 정보 입력으로 가게 |
+| [413](https://github.com/rndigkwk/dograg/pull/413) | 2026-11-06 | feat: 건강 답변에 '진료 권장' 배지와 '지금 할 일' 체크리스트 |
+| [414](https://github.com/rndigkwk/dograg/pull/414) | 2026-11-06 | eval: 안내서 세트 결과에 어디서 안내서가 빠지는지 기록 (#387 진단) |
+| [415](https://github.com/rndigkwk/dograg/pull/415) | 2026-11-07 | fix: 카나리 표 검사가 두 번째 인스턴스 시작을 기다리도록 (#384) |
+| [416](https://github.com/rndigkwk/dograg/pull/416) | 2026-11-07 | eval(urgency): 응급 판정 변경용 홀드아웃 세트 |
+| [417](https://github.com/rndigkwk/dograg/pull/417) | 2026-11-07 | fix(urgency): 위험을 묻는 정보 질문의 빨간 경고 제거, 혹·멍울에 진료 권장 |
+| [418](https://github.com/rndigkwk/dograg/pull/418) | 2026-11-07 | docs(urgency): #417 뒤 일상 질문 46개 재측정 기록 |
+| [419](https://github.com/rndigkwk/dograg/pull/419) | 2026-11-07 | eval(urgency): 출혈 판정 변경용 홀드아웃 세트 |
+| [420](https://github.com/rndigkwk/dograg/pull/420) | 2026-11-09 | fix(first-aid): 토혈에 맞는 응급처치 문구 |
+| [421](https://github.com/rndigkwk/dograg/pull/421) | 2026-11-09 | docs(urgency): 출혈 규칙 보류 기록 |
+| [422](https://github.com/rndigkwk/dograg/pull/422) | 2026-11-09 | docs: 교안 정리에 Day 77(FastAPI 모델 서빙 API) 추가 |
+| [423](https://github.com/rndigkwk/dograg/pull/423) | 2026-11-09 | docs: Day 77 연결 재사용 측정 결과 (미적용) |
+| [424](https://github.com/rndigkwk/dograg/pull/424) | 2026-11-09 | eval(embedding): 짧은 질문 holdout 80개 추가 |
+| [425](https://github.com/rndigkwk/dograg/pull/425) | 2026-11-09 | docs: GIST e3를 짧은 질문 160개로 다시 잼, B 유지 |
+| [426](https://github.com/rndigkwk/dograg/pull/426) | 2026-11-09 | exp: 판사 점수로 답변 프롬프트 고치기, dev에서 멈춤 |
+| [427](https://github.com/rndigkwk/dograg/pull/427) | 2026-11-09 | exp(answer): 답변 근거 사례 3개 대 5개 실험 스크립트 |
+| [428](https://github.com/rndigkwk/dograg/pull/428) | 2026-11-09 | docs: 답변 근거 사례 3개 대 5개 결과, 3개 유지 |
+| [429](https://github.com/rndigkwk/dograg/pull/429) | 2026-11-09 | exp(answer): 새 holdout 40문항, 사례 5개 + 규칙 6·17 함께 비교 |
+| [430](https://github.com/rndigkwk/dograg/pull/430) | 2026-11-09 | eval(answer): 주간 답변 점수에 복사본 13문항을 뺀 값도 기록 |
+| [431](https://github.com/rndigkwk/dograg/pull/431) | 2026-11-09 | eval(guide): 재확인 실행도 단계 기록을 남김 (#387) |
+| [432](https://github.com/rndigkwk/dograg/pull/432) | 2026-11-10 | style: ruff 오류 2개 정리 (동작 변화 없음) |
+| [433](https://github.com/rndigkwk/dograg/pull/433) | 2026-11-10 | feat(health): 답변 근거 사례 5개 + 규칙 6·17 (holdout2 기준 통과) |
