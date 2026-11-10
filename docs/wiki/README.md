@@ -17,7 +17,7 @@
 | [router.md](router.md) | 질문 라우터 구조와 Jev 섀도 비교 결과 |
 | [safety-and-evidence.md](safety-and-evidence.md) | 응급 신호, 근거 부족 처리, 위치 개인정보, 보고서 근거 표시에 관한 결정 |
 | [chatgpt-comparison.md](chatgpt-comparison.md) | ChatGPT 웹·Codex(같은 모델)와 같은 15문항 블라인드 비교: 진료비·장소는 앱, 증상·관리는 기준선. 응급 대처·답 형식 개선과 남은 차이 |
-| [judge-validation.md](judge-validation.md) | LLM 판사 검증(Day 60): 다시 묻기·순서 뒤집기·다른 판사 비교, 길이·권위 편향과 양방향 판정, 사람 판정 성적표 |
+| [judge-validation.md](judge-validation.md) | LLM 판사 검증(Day 60): 다시 묻기·순서 뒤집기·다른 판사 비교, 길이·권위 편향과 양방향 판정, 사람 판정 성적표. 판사 점수로 답 고치기: 규칙만·사례 5개만은 기각, 둘을 함께 앱에(2026-11-10) |
 | [open-questions.md](open-questions.md) | 미해결 과제와 알려진 불일치 |
 | [observability.md](observability.md) | Langfuse 트레이싱: 남기는 값, 텍스트 마스킹과 검증, 운영 설정(태그·release), 실험·정기 회귀 평가 |
 | [eval-coverage.md](eval-coverage.md) | 평가 범위표(Day 60): 질문 유형·진료과별 평가 질문 수, 1개 이하인 빈칸(치과 0, 보고서 보류 2, 범위 밖 라우팅 1) |
