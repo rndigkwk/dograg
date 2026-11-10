@@ -61,6 +61,8 @@ RULE16_START = "16. [응급 대처]가"
 
 
 def candidate_template(current: str) -> str:
+    if RULE6_NEW in current and RULE17 in current:  # the app has both since 2026-11-10
+        return current
     assert current.count(RULE6_OLD) == 1, "rule 6 changed; update RULE6_OLD"
     text = current.replace(RULE6_OLD, RULE6_NEW)
     end = text.index("\n\n[응급 대처]\n")
