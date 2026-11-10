@@ -250,7 +250,7 @@ class MergeGateTests(unittest.TestCase):
 
     def test_guide_misses_within_the_limit_are_not_rechecked(self):
         self.save_guide({"g1"})  # 0.9
-        rows, ok, _ = check_regression.check("guide", "ci")
+        _, ok, _ = check_regression.check("guide", "ci")
         self.assertTrue(ok)
         self.assertFalse((self.dir / "guide_ci_regressed.json").exists())
 
