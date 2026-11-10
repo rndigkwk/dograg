@@ -116,7 +116,12 @@ def judge(repeats: int, concurrency: int, names: tuple[str, ...] = METRICS, resu
     from openai import AsyncOpenAI
     from ragas.embeddings.base import embedding_factory
     from ragas.llms import llm_factory
-    from ragas.metrics.collections import AnswerCorrectness, AnswerRelevancy, ContextPrecision, ContextRecall
+    from ragas.metrics.collections import (
+        AnswerCorrectness,
+        AnswerRelevancy,
+        ContextPrecision,
+        ContextRecall,
+    )
 
     load_dotenv(PROJECT_DIR / ".env")
     os.environ["RAGAS_DO_NOT_TRACK"] = "true"
