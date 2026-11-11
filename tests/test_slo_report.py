@@ -9,9 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import slo_report
 
 
-def chat(trace, route, seconds, abstained=False, error=None, **extra):
+def chat(trace, route, seconds, abstained=False, error=None, release=None, start="", **extra):
     record = {"route": route, "latency_ms": seconds * 1000, "abstained": abstained, "error": error, **extra}
-    return {"traceId": trace, "output": json.dumps(record)}
+    metadata = {slo_report.RELEASE_KEY: release} if release else {}
+    return {"traceId": trace, "output": json.dumps(record), "metadata": metadata, "startTime": start}
 
 
 class SloReportTests(unittest.TestCase):
@@ -54,6 +55,27 @@ class SloReportTests(unittest.TestCase):
         self.assertEqual(slo_report.misses({**summary, "questions": slo_report.MIN_QUESTIONS, "rag_p95_s": 1.0,
                                             "report_p95_s": 1.0, "error_rate": 0.0, "rag_abstain_rate": 0.0,
                                             "cost_per_question_usd": 0.0}), [])  # watched, not judged
+
+    def test_error_budget_and_burn_rate(self):
+        # Day 79: 2% of 50 answers may fail; 2 failures use the budget twice as fast as allowed.
+        chats = [chat(f"t{i}", "rag", 30 if i < 4 else 10, error="Timeout" if i < 2 else None) for i in range(50)]
+        b = slo_report.summarize(chats, [])["budgets"]
+        self.assertEqual(b["errors"], {"bad": 2, "total": 50, "allowed": 1.0, "left": -1.0, "burn_rate": 2.0})
+        self.assertEqual(b["rag_latency"]["bad"], 4)  # 4 of 50 over 25 s, 2.5 allowed
+        self.assertAlmostEqual(b["rag_latency"]["burn_rate"], 1.6)
+        self.assertIsNone(b["report_latency"])
+
+    def test_numbers_per_release_oldest_deploy_first(self):
+        chats = [chat("a1", "rag", 10, release="bbbbbbbbbb", start="2026-11-10T01:00:00Z"),
+                 chat("a2", "rag", 40, abstained=True, release="bbbbbbbbbb", start="2026-11-10T02:00:00Z"),
+                 chat("b1", "rag", 8, release="aaaaaaaaaa", start="2026-11-08T01:00:00Z"),
+                 chat("b2", "none", 1, error="Timeout", release="aaaaaaaaaa", start="2026-11-09T01:00:00Z"),
+                 chat("c1", "rag", 5)]
+        rows = slo_report.summarize(chats, [])["by_release"]
+        self.assertEqual([r["release"] for r in rows], ["unknown", "aaaaaaa", "bbbbbbb"])
+        older, newer = rows[1], rows[2]
+        self.assertEqual((older["first"], older["questions"], older["errors"], older["rag"]), ("2026-11-08", 2, 1, 1))
+        self.assertEqual((newer["rag_p95_s"], newer["rag_abstain_rate"]), (40, 0.5))
 
     def test_no_guide_records_give_no_share(self):
         summary = slo_report.summarize([chat("t1", "rag", 5)], [])
