@@ -3,6 +3,9 @@ name: Weekly service levels
 # Reads the API's last 7 days of Langfuse traces (scripts/slo_report.py: no model calls) and fails
 # when an objective of docs/slo.md is missed; the "Alert on failure" workflow then opens an issue.
 # Needs the repository secrets LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL.
+# Cloud Run's requests by response code (--cloud-run) are read as slo-reader, a service account with
+# only roles/monitoring.viewer, through Workload Identity (docs/slo.md). If that read fails, the report
+# says so and is still judged on the Langfuse numbers.
 on:
   schedule:
     - cron: "53 0 * * 1"  # Monday 09:53 KST, after the regression evaluation
@@ -10,18 +13,32 @@ on:
 
 permissions:
   contents: read
+  id-token: write  # Workload Identity, to read Cloud Monitoring
 
 jobs:
   report:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      SLO_READER: slo-reader@ragdog-511311.iam.gserviceaccount.com
       LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
+
+      - name: Authenticate to Google Cloud
+        id: gcp
+        continue-on-error: true  # the Langfuse report does not need it
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SLO_READER }}
+
+      - name: Set up gcloud
+        if: steps.gcp.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v3.0.1
 
       - name: Set up Python
         uses: actions/setup-python@v7.0.0
@@ -35,9 +52,11 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Service levels (API, 7 days)
+        env:
+          CLOUD_RUN: ${{ steps.gcp.outcome == 'success' && '--cloud-run' || '' }}
         # Only python-dotenv is needed (src/settings.py); the standard library does the rest.
         run: |
-          uv run --no-project --with python-dotenv python scripts/slo_report.py --check --json slo.json | tee slo.txt
+          uv run --no-project --with python-dotenv python scripts/slo_report.py --check --json slo.json $CLOUD_RUN | tee slo.txt
           status=${PIPESTATUS[0]}
           { echo '```'; cat slo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
