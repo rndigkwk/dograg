@@ -20,3 +20,4 @@
 | [0010](0010-public-care-guides.md) | 일상 관리 질문은 공공기관 돌봄 지침 5종으로 보강하고, 상담 컬렉션과 따로 메모리에 색인. 공공누리 없는 자료는 비공개 보관·짧은 인용·출처 링크 | 채택 |
 | [0011](0011-degrade-on-model-quota.md) | 모델 사용 한도가 떨어지면 검색 결과(상담·지침)와 안내로 버티고, 평가·CI와 운영의 OpenAI 키를 나누고, 데이터 변경도 병합 게이트에 | 채택 (키 분리는 소유자 작업 남음) |
 | [0012](0012-claude-fallback.md) | OpenAI가 한도·시간 초과·연결 실패·5xx로 응답하지 못하면 상담 경로(근거 평가, 채팅, 건강 답변)의 같은 호출을 Claude Haiku 5.5가 대신 받음. 둘 다 실패하면 0011의 낮춘 화면. 방문 준비 팀은 제외 | 채택 |
+| [0013](0013-cloud-run-not-kubernetes.md) | 운영은 Cloud Run에 두고, Kubernetes는 `deploy/k8s/` 매니페스트를 CI의 kind 클러스터에서 확인(프로브, Service, HPA, Prometheus 수집). `/metrics`는 `RAGDOG_METRICS=1`일 때만 | 채택 |
