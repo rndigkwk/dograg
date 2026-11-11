@@ -77,6 +77,12 @@ class SloReportTests(unittest.TestCase):
         self.assertEqual((older["first"], older["questions"], older["errors"], older["rag"]), ("2026-11-08", 2, 1, 1))
         self.assertEqual((newer["rag_p95_s"], newer["rag_abstain_rate"]), (40, 0.5))
 
+    def test_availability_counts_requests_that_did_not_end_in_5xx(self):
+        run = slo_report.availability({"2xx": 4273, "4xx": 82, "5xx": 2})
+        self.assertEqual(run["requests"], 4357)
+        self.assertAlmostEqual(run["availability"], 1 - 2 / 4357)
+        self.assertIsNone(slo_report.availability({})["availability"])
+
     def test_no_guide_records_give_no_share(self):
         summary = slo_report.summarize([chat("t1", "rag", 5)], [])
         self.assertIsNone(summary["rag_guide_rate"])
