@@ -33,6 +33,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10",
     "langgraph-checkpoint-postgres>=3",
     "langchain-anthropic>=1.0",
+    "prometheus-client>=0.26",
 ]
 
 [dependency-groups]

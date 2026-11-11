@@ -4,14 +4,26 @@ model calls.
     uv run python scripts/slo_report.py                 # API (cloudrun-api), last 7 days
     uv run python scripts/slo_report.py --days 28 --environment cloudrun
     uv run python scripts/slo_report.py --check         # exit 1 when an objective is missed
+    uv run python scripts/slo_report.py --cloud-run     # also Cloud Run's requests by response code
 
 Each answered question is one `chat` span (src/tracing.py) whose output is the masked run record:
 latency_ms, error, route, abstained. Its model calls are GENERATION observations with Langfuse's cost.
 Objectives are in docs/slo.md (SLO below); with --check a miss exits 1, which the weekly workflow
 turns into a GitHub issue. Fewer than MIN_QUESTIONS questions are reported but never judged.
 
+Also shown, never judged (Day 79, 2026-11-11): the error budget of each objective that counts bad
+answers (errors, answers slower than the p95 target) with its burn rate, and the same numbers per
+deployed release (the commit in each span's resource attributes), so a slowdown after a deploy points
+to its commit.
+
 Langfuse Cloud closed GET /api/public/traces for new organizations (410), so this reads
 GET /api/public/v2/observations, page by page.
+
+--cloud-run adds availability from Cloud Monitoring: the share of all requests to the service (chat,
+places, fees, health) that did not end in 5xx. It counts what the run records miss, requests that
+failed before a trace was written (503, out-of-memory restarts, timeouts). Watched, not judged. The
+token is `gcloud auth print-access-token` (the weekly workflow logs in with Workload Identity and
+needs roles/monitoring.viewer).
 """
 
 from __future__ import annotations
@@ -21,6 +33,7 @@ import base64
 import datetime as dt
 import json
 import math
+import subprocess
 import sys
 import time
 import urllib.error
@@ -42,6 +55,9 @@ SLO = {
 }
 MIN_QUESTIONS = 20
 REPORT_ROUTES = {"analysis", "report"}
+# Error budgets: the share of bad answers each objective allows. A p95 target lets 5% be slower.
+BUDGET_SHARE = {"errors": SLO["error_rate"], "rag_latency": 0.05, "report_latency": 0.05}
+RELEASE_KEY = "resourceAttributes.langfuse.release"  # set from LANGFUSE_RELEASE (src/tracing.py)
 
 
 def observations(host: str, auth: str, since: dt.datetime, until: dt.datetime, **params) -> list[dict]:
@@ -68,6 +84,37 @@ def observations(host: str, auth: str, since: dt.datetime, until: dt.datetime, *
             return rows
 
 
+def cloud_run_requests(project: str, service: str, since: dt.datetime, until: dt.datetime) -> dict:
+    """Request counts by response code class (2xx, 4xx, 5xx) from Cloud Monitoring, one-day deltas."""
+    token = subprocess.run(["gcloud", "auth", "print-access-token"], capture_output=True, text=True,
+                           check=True, shell=sys.platform == "win32").stdout.strip()
+    query = {
+        "filter": f'metric.type="run.googleapis.com/request_count" AND resource.labels.service_name="{service}"',
+        "interval.startTime": since.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "interval.endTime": until.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "aggregation.alignmentPeriod": "86400s",
+        "aggregation.perSeriesAligner": "ALIGN_DELTA",
+        "aggregation.crossSeriesReducer": "REDUCE_SUM",
+        "aggregation.groupByFields": "metric.labels.response_code_class",
+    }
+    request = urllib.request.Request(
+        f"https://monitoring.googleapis.com/v3/projects/{project}/timeSeries?{urllib.parse.urlencode(query)}",
+        headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        body = json.loads(response.read())
+    return availability({
+        series["metric"]["labels"].get("response_code_class", "unknown"):
+            sum(int(point["value"].get("int64Value", 0)) for point in series.get("points", []))
+        for series in body.get("timeSeries", [])
+    })
+
+
+def availability(counts: dict) -> dict:
+    total = sum(counts.values())
+    return {"requests": total, "by_class": dict(sorted(counts.items())),
+            "availability": 1 - counts.get("5xx", 0) / total if total else None}
+
+
 def percentile(values: list[float], q: float) -> float | None:
     """Nearest-rank percentile."""
     if not values:
@@ -85,7 +132,9 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
     for chat in chats:
         output = chat.get("output")
         record = json.loads(output) if isinstance(output, str) else (output or {})
-        records.append({**record, "cost": cost.get(chat.get("traceId"), 0.0)})
+        release = str((chat.get("metadata") or {}).get(RELEASE_KEY) or "unknown")[:7]
+        records.append({**record, "cost": cost.get(chat.get("traceId"), 0.0), "release": release,
+                        "start": chat.get("startTime") or ""})
     rag = [r for r in records if r.get("route") == "rag"]
     reports = [r for r in records if r.get("route") in REPORT_ROUTES]
     seconds = lambda rows: [r["latency_ms"] / 1000 for r in rows if isinstance(r.get("latency_ms"), (int, float))]
@@ -105,7 +154,55 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
         **guide_use(rag, seconds),
         "cost_per_question_usd": sum(r["cost"] for r in records) / len(records) if records else None,
         "cost_total_usd": sum(r["cost"] for r in records),
+        "budgets": budgets(records, rag, reports, seconds),
+        "by_release": by_release(records),
     }
+
+
+def budget(bad: int, total: int, share: float) -> dict | None:
+    """Day 79's error budget over the window: `share` of the answers may be bad. burn_rate = bad share /
+    allowed share: 1 uses the budget up exactly, 2 twice as fast. For errors, burn_rate > 1 is the same
+    as missing the error rate objective, so this is watched, not judged."""
+    if not total:
+        return None
+    allowed = share * total
+    return {"bad": bad, "total": total, "allowed": round(allowed, 2), "left": round(allowed - bad, 2),
+            "burn_rate": bad / total / share}
+
+
+def budgets(records: list[dict], rag: list[dict], reports: list[dict], seconds) -> dict:
+    return {
+        "errors": budget(sum(bool(r.get("error")) for r in records), len(records), BUDGET_SHARE["errors"]),
+        "rag_latency": budget(sum(v > SLO["rag_p95_s"] for v in seconds(rag)), len(seconds(rag)),
+                              BUDGET_SHARE["rag_latency"]),
+        "report_latency": budget(sum(v > SLO["report_p95_s"] for v in seconds(reports)), len(seconds(reports)),
+                                 BUDGET_SHARE["report_latency"]),
+    }
+
+
+def by_release(records: list[dict]) -> list[dict]:
+    """Questions, errors, health p95 and abstain rate per deployed commit, oldest deploy first (Day 79:
+    compare traces by version to find the deploy that changed them)."""
+    groups = defaultdict(list)
+    for r in records:
+        groups[r["release"]].append(r)
+    rows = []
+    for release, rows_of in groups.items():
+        rag = [r for r in rows_of if r.get("route") == "rag"]
+        latency = [r["latency_ms"] / 1000 for r in rag if isinstance(r.get("latency_ms"), (int, float))]
+        reports = [r["latency_ms"] / 1000 for r in rows_of
+                   if r.get("route") in REPORT_ROUTES and isinstance(r.get("latency_ms"), (int, float))]
+        rows.append({
+            "release": release,
+            "first": min(r["start"] for r in rows_of)[:10],
+            "questions": len(rows_of),
+            "errors": sum(bool(r.get("error")) for r in rows_of),
+            "slow": sum(v > SLO["rag_p95_s"] for v in latency) + sum(v > SLO["report_p95_s"] for v in reports),
+            "rag": len(rag),
+            "rag_p95_s": percentile(latency, 0.95),
+            "rag_abstain_rate": sum(bool(r.get("abstained")) for r in rag) / len(rag) if rag else None,
+        })
+    return sorted(rows, key=lambda row: row["first"])
 
 
 def within(values: list[float], limit: float) -> float | None:
@@ -145,6 +242,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--environment", default="cloudrun-api")
     parser.add_argument("--check", action="store_true", help="exit 1 when an objective is missed")
     parser.add_argument("--json", type=Path, help="also write the summary here")
+    parser.add_argument("--cloud-run", action="store_true", help="also read Cloud Run's requests by response code")
+    parser.add_argument("--gcp-project", default="ragdog-511311")
+    parser.add_argument("--service", default="ragdog-api")
     args = parser.parse_args(argv)
     from src import settings
 
@@ -156,12 +256,17 @@ def main(argv: list[str] | None = None) -> int:
     until = dt.datetime.now(dt.UTC)
     since = until - dt.timedelta(days=args.days)
     scope = {"environment": args.environment}
-    chats = [o for o in observations(host, auth, since, until, name="chat", fields="core,basic,io", **scope)
+    chats = [o for o in observations(host, auth, since, until, name="chat", fields="core,basic,io,metadata", **scope)
              if o.get("environment") == args.environment]
     traces = {c.get("traceId") for c in chats}
     generations = [o for o in observations(host, auth, since, until, type="GENERATION", fields="core,basic,usage", **scope)
                    if o.get("traceId") in traces]
     summary = {"environment": args.environment, "days": args.days, **summarize(chats, generations)}
+    if args.cloud_run:
+        try:
+            summary["cloud_run"] = cloud_run_requests(args.gcp_project, args.service, since, until)
+        except (OSError, subprocess.CalledProcessError, urllib.error.URLError) as error:
+            summary["cloud_run"] = {"error": str(error)[:200]}  # watched, so a failed read is not a miss
     failed = misses(summary)
     summary["missed"] = failed
     if args.json:
@@ -180,6 +285,28 @@ def main(argv: list[str] | None = None) -> int:
               f"health questions; cost ${fmt(summary['rag_cost_with_guide_usd'], 4)} with, "
               f"${fmt(summary['rag_cost_without_guide_usd'], 4)} without; "
               f"p50 {fmt(summary['rag_p50_with_guide_s'])} s with, {fmt(summary['rag_p50_without_guide_s'])} s without")
+    for name, b in summary["budgets"].items():
+        if b:
+            print(f"  budget {name}: {b['bad']} bad of {b['total']}, {b['allowed']:g} allowed, "
+                  f"{b['left']:g} left, burn rate {b['burn_rate']:.2f}")
+    if "cloud_run" in summary:
+        run = summary["cloud_run"]
+        if "error" in run:
+            print(f"  cloud run requests: not read ({run['error']})")
+        else:
+            print(f"  cloud run requests {run['requests']} {run['by_class']}: "
+                  f"availability {fmt(run['availability'] and run['availability'] * 100, 2)}% (not 5xx)")
+    releases = summary["by_release"]
+    # Every merge deploys, so a week has many releases: show those with a bad answer and the last three
+    # (all of them are in --json).
+    shown = [row for i, row in enumerate(releases) if row["errors"] or row["slow"] or i >= len(releases) - 3]
+    if shown:
+        print(f"  {len(releases)} releases; with errors or slow answers, and the last 3:")
+        print("  release  first       questions errors slow  rag  rag p95  abstained")
+        for row in shown:
+            abstained = "-" if row["rag_abstain_rate"] is None else f"{row['rag_abstain_rate'] * 100:.0f}%"
+            print(f"  {row['release']:<8} {row['first']:<11} {row['questions']:>9} {row['errors']:>6} {row['slow']:>4} "
+                  f"{row['rag']:>4} {fmt(row['rag_p95_s']):>8} {abstained:>10}")
     if summary["questions"] < MIN_QUESTIONS:
         print(f"  fewer than {MIN_QUESTIONS} questions: not judged")
     for line in failed:

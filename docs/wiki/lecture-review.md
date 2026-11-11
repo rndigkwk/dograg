@@ -621,6 +621,38 @@ Day 27~42는 Neo4j로 지식 그래프를 만들고 검색하는 단원이다. �
 | 관리자 키로 키 발급(201)·폐기(행을 지우지 않음) | ➖ | 나눠 줄 서비스 키가 없다. 비밀 값(체크 토큰, 모델 키)은 Secret Manager에 두고, 바꿀 때는 새 버전을 넣는다([cloud-run.md](cloud-run.md)) |
 | 요청마다 토큰 사용량 기록과 사용량 조회 | ✅ | 키별이 아니라 질문별이다. 모델 호출은 Langfuse에 비용과 함께 남는다. `scripts/slo_report.py`가 매주 질문당 비용을 계산한다(목표 ≤ $0.01, [SLO](../slo.md)). 31일 291개에 $0.062였다(11-07, #385). 로컬 실행은 `src/run_log.py`가 입력·출력 토큰을 적는다 |
 
+### Day 78 · 모델 배포: Docker 이미지, VM에 compose 배포, GitHub Actions CI/CD
+
+교안은 Day 77의 상담 API를 Docker 이미지로 만들어 GHCR에 올리고, VM에서 compose로 띄운다. RunPod GPU에서는 vLLM 컨테이너와 같이 띄운다. 이어 `ci.yml`(단위 테스트 → 이미지 테스트 → 푸시)과 `cd.yml`(CI가 끝나면 SSH로 VM에 배포, 새 이미지가 도는지 확인)을 만든다. 이 프로젝트는 Cloud Run에 배포하고 답변 모델은 API로 부르므로, compose·SSH·GPU 부분은 해당이 없다. 나머지는 이미 같은 방식이거나 더 나아가 있다.
+
+| 교안 내용 | 상태 | 어떻게 / 결과 / 이유 |
+| --- | --- | --- |
+| slim 베이스, uv 버전 고정, `uv sync --locked --no-dev`, 잠금 파일을 먼저 복사해 층 캐시, `.dockerignore` | ✅ | `Dockerfile`이 python:3.12-slim, uv 0.11.29, `--locked --no-install-project --no-default-groups`로 같은 순서를 쓴다. 빌드 캐시 마운트를 더하고, 임베딩 모델을 이미지 안에 미리 받아 둔다(`HF_HUB_OFFLINE=1`, 토큰은 비밀 마운트) |
+| 이미지 태그를 커밋 sha로, 레지스트리에 올리기 | ✅ | Artifact Registry에 커밋 sha 태그로 올린다(`deploy-cloud-run.yml`). 롤백은 이 태그의 이전 리비전으로 트래픽을 옮긴다(`rollback-api.yml`) |
+| CI를 통과한 main 커밋만 배포(`workflow_run`), sha가 40자리 16진수인지 검사 | ✅ | 배포는 main 병합 뒤에만 돌고, 병합 전에 품질 게이트(`pr-quality.yml`)를 통과해야 한다 |
+| 배포 뒤 "지금 도는 컨테이너가 새 이미지인가" 확인, `/healthz` 재시도 | ✅ | 새 리비전을 트래픽 0%로 올리고 `scripts/canary_check.py`가 그 주소의 `/health` 커밋, 시설·진료비 표, 날짜 질문을 확인한 뒤 승격한다. 실패하면 이전 리비전이 그대로 받는다([cloud-run.md](cloud-run.md)) |
+| SSH 키를 저장소 비밀 값에 두고 VM에 접속 | ➖ | 키 파일이 없는 Workload Identity로 GCP에 로그인한다. 새어 나갈 장기 키가 없다 |
+| compose와 볼륨, RunPod GPU에서 vLLM 컨테이너 | ➖ | Cloud Run 하나에 API 컨테이너 하나다. 답변 모델은 OpenAI·Claude API다(Day 75) |
+| 컨테이너를 root가 아닌 사용자로 실행 | 🔜 | 교안 Dockerfile에도 `USER`가 없고, 이 프로젝트도 root로 돈다. 모델 캐시(`/app/.hf`)와 `.venv` 권한을 맞춘 뒤 배포에서 확인해야 해서 따로 한다 |
+
+### Day 79 · 서빙 운영: Prometheus 메트릭, Langfuse 운영 추적, SLI·SLO·에러 버짓, 배포 장애와 롤백
+
+교안은 상담 API에 Prometheus `/metrics`(요청 수 카운터, 지연 히스토그램)를 붙이고 vLLM 메트릭과 함께 본다. Langfuse에는 응답 헤더의 trace id, 모델 단가, 사용자별 비용, 시간 초과를 ERROR로 남긴다. 이어 SLI·SLO·SLA를 정하고 에러 버짓과 소진 속도(burn rate)를 계산한다. 마지막으로 배포가 일으킨 장애를 버전별 trace 비교로 찾고 롤백한다.
+
+| 교안 내용 | 상태 | 어떻게 / 결과 / 이유 |
+| --- | --- | --- |
+| Prometheus `/metrics`: 카운터, 히스토그램 버킷, 구간 스냅샷의 차이로 비율 계산 | ➖ | Cloud Run은 질문이 없으면 인스턴스가 0개가 되고, 여러 인스턴스가 따로 뜬다. 프로세스 안 카운터는 그때마다 0으로 돌아가고, 긁어 갈 Prometheus 서버도 없다. 요청 수·지연·응답 코드는 Cloud Run이 Cloud Monitoring에 자동으로 남긴다. 그 값을 읽는 것은 아래 "가용성" 줄이다 |
+| vLLM 메트릭(KV 캐시 사용률, 대기 요청, 접두어 캐시 적중) | ➖ | 서빙하는 LLM이 없다(Day 75·76) |
+| Langfuse 운영 추적: 사용자별 토큰·비용, 실패를 ERROR 레벨로 | ✅ | 질문 글을 가린 trace에 배포 커밋(`release`)과 환경을 붙이고, 실패는 ERROR 레벨로 남긴다(`src/tracing.py`). 비용은 Langfuse가 모델별로 계산하고 주간 SLO 보고가 질문당 비용을 본다 |
+| trace id를 응답에 담기 | ✅ | `/chat`의 결과 이벤트가 `trace_id`를 보내고, 화면의 피드백이 그 trace에 점수를 단다(`api/feedback.py`). 교안은 응답 헤더에 넣는데, SSE라 본문 이벤트로 보낸다 |
+| 모델 단가 등록, trace로 정확한 p95 계산 | ✅ | OpenAI·Claude는 Langfuse에 단가가 있다. p95는 `scripts/slo_report.py`가 기록 전체에서 가장 가까운 순위로 계산한다 |
+| 지연 SLI를 "목표 안 비율"로 | ✅ | Day 76 때 넣었다(#404) |
+| 에러 버짓과 소진 속도 = 나쁜 비율 ÷ (1 − 목표) | ✅ | 2026-11-11에 주간 SLO 보고에 넣었다. 오류는 2%, 지연은 p95 목표라 5%가 버짓이다. 최근 28일 오류 316문항 중 4개(허용 6.3, 소진 0.63), 지연 0개. 판정은 하지 않는다. 오류의 소진 속도 1 초과는 오류율 목표 위반과 같고, 한 주 표본이 작아 짧은 창의 빠른 소진 알림은 흔들린다([SLO](../slo.md)) |
+| 배포 버전별 trace 비교로 장애를 일으킨 배포 찾기 | ✅ | 2026-11-11에 주간 보고에 버전별 표를 넣었다. 기록의 `resourceAttributes.langfuse.release`를 읽는다. 최근 28일은 버전 159개였고, 오류 4개가 모두 10-19 두 버전에서 났다. 그날의 모델 한도 소진과 같은 시각이다 |
+| 가용성 SLI를 서버 응답 코드로 세기 | ✅ | 오류율은 실행 기록의 `error`라 기록이 남기 전에 실패한 요청(503, 메모리 초과 재시작, 시간 초과)이 빠진다. 2026-11-11부터 주간 보고가 Cloud Monitoring의 Cloud Run 요청 수를 응답 코드별로 읽는다(읽기 전용 계정 `slo-reader`). 첫 측정 7일: 요청 1,290개 중 5xx 2개(99.84%)였고, 같은 기간 실행 기록의 오류는 0개였다. 둘 다 시설 조회가 새 인스턴스를 기다리다 끊긴 500이다. 판정은 아직 하지 않는다([SLO](../slo.md)) |
+| 롤백 워크플로, 네 구간(배포 전·장애·롤백·복구) 비교 | ✅ | `rollback-api.yml`로 이전 리비전에 트래픽을 옮기고, 장애 훈련을 했다([cloud-run.md](cloud-run.md)). 카나리가 먼저 막으므로 승격 뒤 장애는 드물다 |
+| SLA(사용자와의 약속, 어기면 보상) | ➖ | 포트폴리오 서비스라 약속할 상대가 없다. SLO만 둔다 |
+
 ---
 
 ## 할 일
