@@ -10,6 +10,11 @@ latency_ms, error, route, abstained. Its model calls are GENERATION observations
 Objectives are in docs/slo.md (SLO below); with --check a miss exits 1, which the weekly workflow
 turns into a GitHub issue. Fewer than MIN_QUESTIONS questions are reported but never judged.
 
+Also shown, never judged (Day 79, 2026-11-11): the error budget of each objective that counts bad
+answers (errors, answers slower than the p95 target) with its burn rate, and the same numbers per
+deployed release (the commit in each span's resource attributes), so a slowdown after a deploy points
+to its commit.
+
 Langfuse Cloud closed GET /api/public/traces for new organizations (410), so this reads
 GET /api/public/v2/observations, page by page.
 """
@@ -42,6 +47,9 @@ SLO = {
 }
 MIN_QUESTIONS = 20
 REPORT_ROUTES = {"analysis", "report"}
+# Error budgets: the share of bad answers each objective allows. A p95 target lets 5% be slower.
+BUDGET_SHARE = {"errors": SLO["error_rate"], "rag_latency": 0.05, "report_latency": 0.05}
+RELEASE_KEY = "resourceAttributes.langfuse.release"  # set from LANGFUSE_RELEASE (src/tracing.py)
 
 
 def observations(host: str, auth: str, since: dt.datetime, until: dt.datetime, **params) -> list[dict]:
@@ -85,7 +93,9 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
     for chat in chats:
         output = chat.get("output")
         record = json.loads(output) if isinstance(output, str) else (output or {})
-        records.append({**record, "cost": cost.get(chat.get("traceId"), 0.0)})
+        release = str((chat.get("metadata") or {}).get(RELEASE_KEY) or "unknown")[:7]
+        records.append({**record, "cost": cost.get(chat.get("traceId"), 0.0), "release": release,
+                        "start": chat.get("startTime") or ""})
     rag = [r for r in records if r.get("route") == "rag"]
     reports = [r for r in records if r.get("route") in REPORT_ROUTES]
     seconds = lambda rows: [r["latency_ms"] / 1000 for r in rows if isinstance(r.get("latency_ms"), (int, float))]
@@ -105,7 +115,55 @@ def summarize(chats: list[dict], generations: list[dict]) -> dict:
         **guide_use(rag, seconds),
         "cost_per_question_usd": sum(r["cost"] for r in records) / len(records) if records else None,
         "cost_total_usd": sum(r["cost"] for r in records),
+        "budgets": budgets(records, rag, reports, seconds),
+        "by_release": by_release(records),
     }
+
+
+def budget(bad: int, total: int, share: float) -> dict | None:
+    """Day 79's error budget over the window: `share` of the answers may be bad. burn_rate = bad share /
+    allowed share: 1 uses the budget up exactly, 2 twice as fast. For errors, burn_rate > 1 is the same
+    as missing the error rate objective, so this is watched, not judged."""
+    if not total:
+        return None
+    allowed = share * total
+    return {"bad": bad, "total": total, "allowed": round(allowed, 2), "left": round(allowed - bad, 2),
+            "burn_rate": bad / total / share}
+
+
+def budgets(records: list[dict], rag: list[dict], reports: list[dict], seconds) -> dict:
+    return {
+        "errors": budget(sum(bool(r.get("error")) for r in records), len(records), BUDGET_SHARE["errors"]),
+        "rag_latency": budget(sum(v > SLO["rag_p95_s"] for v in seconds(rag)), len(seconds(rag)),
+                              BUDGET_SHARE["rag_latency"]),
+        "report_latency": budget(sum(v > SLO["report_p95_s"] for v in seconds(reports)), len(seconds(reports)),
+                                 BUDGET_SHARE["report_latency"]),
+    }
+
+
+def by_release(records: list[dict]) -> list[dict]:
+    """Questions, errors, health p95 and abstain rate per deployed commit, oldest deploy first (Day 79:
+    compare traces by version to find the deploy that changed them)."""
+    groups = defaultdict(list)
+    for r in records:
+        groups[r["release"]].append(r)
+    rows = []
+    for release, rows_of in groups.items():
+        rag = [r for r in rows_of if r.get("route") == "rag"]
+        latency = [r["latency_ms"] / 1000 for r in rag if isinstance(r.get("latency_ms"), (int, float))]
+        reports = [r["latency_ms"] / 1000 for r in rows_of
+                   if r.get("route") in REPORT_ROUTES and isinstance(r.get("latency_ms"), (int, float))]
+        rows.append({
+            "release": release,
+            "first": min(r["start"] for r in rows_of)[:10],
+            "questions": len(rows_of),
+            "errors": sum(bool(r.get("error")) for r in rows_of),
+            "slow": sum(v > SLO["rag_p95_s"] for v in latency) + sum(v > SLO["report_p95_s"] for v in reports),
+            "rag": len(rag),
+            "rag_p95_s": percentile(latency, 0.95),
+            "rag_abstain_rate": sum(bool(r.get("abstained")) for r in rag) / len(rag) if rag else None,
+        })
+    return sorted(rows, key=lambda row: row["first"])
 
 
 def within(values: list[float], limit: float) -> float | None:
@@ -156,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     until = dt.datetime.now(dt.UTC)
     since = until - dt.timedelta(days=args.days)
     scope = {"environment": args.environment}
-    chats = [o for o in observations(host, auth, since, until, name="chat", fields="core,basic,io", **scope)
+    chats = [o for o in observations(host, auth, since, until, name="chat", fields="core,basic,io,metadata", **scope)
              if o.get("environment") == args.environment]
     traces = {c.get("traceId") for c in chats}
     generations = [o for o in observations(host, auth, since, until, type="GENERATION", fields="core,basic,usage", **scope)
@@ -180,6 +238,21 @@ def main(argv: list[str] | None = None) -> int:
               f"health questions; cost ${fmt(summary['rag_cost_with_guide_usd'], 4)} with, "
               f"${fmt(summary['rag_cost_without_guide_usd'], 4)} without; "
               f"p50 {fmt(summary['rag_p50_with_guide_s'])} s with, {fmt(summary['rag_p50_without_guide_s'])} s without")
+    for name, b in summary["budgets"].items():
+        if b:
+            print(f"  budget {name}: {b['bad']} bad of {b['total']}, {b['allowed']:g} allowed, "
+                  f"{b['left']:g} left, burn rate {b['burn_rate']:.2f}")
+    releases = summary["by_release"]
+    # Every merge deploys, so a week has many releases: show those with a bad answer and the last three
+    # (all of them are in --json).
+    shown = [row for i, row in enumerate(releases) if row["errors"] or row["slow"] or i >= len(releases) - 3]
+    if shown:
+        print(f"  {len(releases)} releases; with errors or slow answers, and the last 3:")
+        print("  release  first       questions errors slow  rag  rag p95  abstained")
+        for row in shown:
+            abstained = "-" if row["rag_abstain_rate"] is None else f"{row['rag_abstain_rate'] * 100:.0f}%"
+            print(f"  {row['release']:<8} {row['first']:<11} {row['questions']:>9} {row['errors']:>6} {row['slow']:>4} "
+                  f"{row['rag']:>4} {fmt(row['rag_p95_s']):>8} {abstained:>10}")
     if summary["questions"] < MIN_QUESTIONS:
         print(f"  fewer than {MIN_QUESTIONS} questions: not judged")
     for line in failed:
