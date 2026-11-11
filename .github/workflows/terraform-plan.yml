@@ -1,0 +1,63 @@
+name: Terraform drift check
+
+# infra/terraform describes the GCP resources that already exist; nothing here applies. Each run
+# imports them again into an empty state and must plan 0 to add, 0 to change, 0 to destroy
+# (docs/terraform.md). A pull request gets fmt and validate only: Workload Identity accepts main.
+on:
+  pull_request:
+    paths: [infra/terraform/**, .github/workflows/terraform-plan.yml]
+  push:
+    branches: [main]
+    paths: [infra/terraform/**, .github/workflows/terraform-plan.yml]
+  schedule:
+    - cron: "17 1 * * 1"  # Monday 10:17 KST, after the weekly service levels
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_IN_AUTOMATION: "1"
+  PLANNER: terraform-plan@ragdog-511311.iam.gserviceaccount.com
+
+jobs:
+  terraform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.12.2
+          terraform_wrapper: false
+
+      - name: Format and validate
+        run: |
+          terraform fmt -check -recursive
+          terraform init -input=false -backend=false
+          terraform validate
+
+      - name: Authenticate to Google Cloud (read-only planner)
+        if: github.event_name != 'pull_request'
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.PLANNER }}
+
+      - name: Plan (must change nothing)
+        if: github.event_name != 'pull_request'
+        run: |
+          terraform plan -input=false -no-color -lock=false | tee plan.txt
+          summary=$(grep -E '^Plan:|^No changes' plan.txt || true)
+          { echo '```'; echo "$summary"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "$summary" | grep -Eq ' 0 to add, 0 to change, 0 to destroy|^No changes' || {
+            echo "::error::infra/terraform and GCP differ: someone changed a resource by hand, or the code"
+            exit 1
+          }
