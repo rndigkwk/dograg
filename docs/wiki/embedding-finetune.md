@@ -613,3 +613,7 @@ e3를 골랐다. B 대비 2문항을 새로 맞히고 3문항을 놓쳤다(p=1.0
 - **새 질문에서는 차이가 사라졌다.** B와 e3가 둘 다 0.900이고 갈린 문항이 4개뿐이다. 기존 holdout의 9 대 2는 응급 질문 쪽에서 나온 차이로 보인다. 일상 증상에서는 B도 이미 잘 찾는다. 두 모델 모두 기본 모델보다는 확실히 낫다(160개에서 B +38 / −6, e3 +41 / −2, 둘 다 p<0.001).
 - GIST 학습은 여기서 닫는다. 같은 세트로 다시 고르거나 재지 않는다(이미 결과를 봤다).
 - 결과 JSON: `output/experiments/finetuned_embedding_short2.json`(로컬). 판정 채점은 `output/experiments/finetuned_embedding_grades.json`의 `short2:*` 키.
+
+## 모델 레지스트리 (2026-11-11)
+
+위의 "미리 정한 기준"을 `scripts/model_registry.py`의 게이트로 옮기고, 후보를 MLflow 등록 모델 `ragdog-health-embedding`에 넣는다. B가 v1(champion), GIST `gist-s13-e3`가 v2(게이트 실패, 11/4, p 0.1185, 긴 상담 0.82 < 0.85)다. 배포는 `src/resources.py`의 모델이 champion인지 먼저 확인한다([model-registry.md](../model-registry.md)).

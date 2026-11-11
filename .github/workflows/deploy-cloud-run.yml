@@ -52,6 +52,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
+      # The health embedding model in src/resources.py must be the MLflow registry's champion
+      # (scripts/model_registry.py: gate -> registry -> promotion). Standard library only; if DagsHub
+      # cannot be read it warns and the deploy goes on.
+      - name: The shipped embedding model is the registry's champion
+        env:
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: python3 scripts/model_registry.py check
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3.0.0
         with:
