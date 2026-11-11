@@ -1,0 +1,84 @@
+# The API: the Cloud Run image and command, with metrics on (api/metrics.py).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ragdog-api
+data:
+  RAGDOG_METRICS: "1"
+  LANGFUSE_TRACING_ENABLED: "false"  # no traces from the test cluster
+  # No model, Supabase or Langfuse keys: the cluster check uses routes that need none. To run
+  # questions, put the keys in a Secret named ragdog-api (envFrom below accepts it when present).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ragdog-api
+  labels: {app: ragdog-api}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: ragdog-api}
+  template:
+    metadata:
+      labels: {app: ragdog-api}
+      annotations:  # read by the scrape config in prometheus.yaml
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      securityContext:
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: api
+          image: ragdog-api
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "exec uvicorn api.main:app --host 0.0.0.0 --port 8080"]
+          ports:
+            - {name: http, containerPort: 8080}
+          envFrom:
+            - configMapRef: {name: ragdog-api}
+            - secretRef: {name: ragdog-api, optional: true}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            # Cloud Run gives 1 CPU and 2 GiB (docs/wiki/deployment-resources.md).
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {memory: 2Gi}
+          # Start-up warms the embedding model and the search store (api/main.py, warm_up); give it
+          # up to 2 minutes before the other probes count.
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ragdog-api
+spec:
+  selector: {app: ragdog-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+---
+# Cloud Run scales on concurrent requests; here CPU stands in for it.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ragdog-api
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: ragdog-api}
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}

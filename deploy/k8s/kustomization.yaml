@@ -1,0 +1,14 @@
+# The API on Kubernetes, tried in a kind cluster by .github/workflows/k8s-kind.yml (docs/k8s.md).
+# Production stays on Cloud Run (ADR-0013); this shows the same image runs on a cluster too.
+#
+#   kubectl apply -k deploy/k8s
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ragdog
+resources:
+  - namespace.yaml
+  - api.yaml
+  - prometheus.yaml
+images:
+  - name: ragdog-api
+    newTag: kind  # loaded into the cluster with `kind load docker-image ragdog-api:kind`

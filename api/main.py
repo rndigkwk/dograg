@@ -95,6 +95,10 @@ def create_app() -> FastAPI:
     app.include_router(places_router)
     app.include_router(stats_router)
     app.include_router(visit_prep_router)
+    if settings.get_setting("RAGDOG_METRICS") == "1":  # the kind cluster only (api/metrics.py)
+        from api import metrics
+
+        metrics.install(app)
 
     @app.get("/health")
     def health() -> dict:

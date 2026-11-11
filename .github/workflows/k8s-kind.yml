@@ -1,0 +1,87 @@
+name: Kubernetes (kind)
+
+# Runs the API image on a throwaway kind cluster inside the runner (deploy/k8s/, docs/k8s.md):
+# probes, Service, HPA with metrics-server, and Prometheus scraping each pod's /metrics. Production
+# stays on Cloud Run (ADR-0013); nothing here reaches GCP, and no model is called.
+# The image holds the private data (Dockerfile), so it is built here and never pushed anywhere.
+on:
+  pull_request:
+    paths:
+      - deploy/k8s/**
+      - .github/workflows/k8s-kind.yml
+      - api/metrics.py
+      - api/main.py
+      - Dockerfile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: k8s-kind-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kind:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Build the image
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: DOCKER_BUILDKIT=1 docker build --secret id=hf_token,env=HF_TOKEN -t ragdog-api:kind .
+
+      - name: Create the kind cluster
+        uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: ragdog
+
+      - name: Load the image and metrics-server
+        run: |
+          kind load docker-image ragdog-api:kind --name ragdog
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml
+          # kind's kubelets have self-signed certificates
+          kubectl -n kube-system patch deployment metrics-server --type=json \
+            -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+      - name: Deploy
+        run: |
+          kubectl apply -k deploy/k8s
+          kubectl -n ragdog rollout status deployment/ragdog-api --timeout=300s
+          kubectl -n ragdog rollout status deployment/prometheus --timeout=180s
+
+      - name: Check the API through its Service
+        run: |
+          kubectl -n ragdog port-forward service/ragdog-api 8080:80 >/dev/null 2>&1 &
+          sleep 3
+          curl -fsS http://localhost:8080/health | tee health.json
+          for i in 1 2 3 4 5; do curl -fsS -o /dev/null http://localhost:8080/health; done
+          curl -fsS http://localhost:8080/metrics | grep 'ragdog_requests_total{method="GET",route="/health",status="200"}'
+
+      - name: Check that Prometheus scrapes the pod
+        run: |
+          kubectl -n ragdog port-forward service/prometheus 9090:9090 >/dev/null 2>&1 &
+          sleep 3
+          query() { curl -fsS --get http://localhost:9090/api/v1/query --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // "none"'; }
+          for i in $(seq 1 18); do  # up to 3 minutes: the first scrape comes within 15 s of discovery
+            up=$(query 'up{job="ragdog-api"}')
+            seen=$(query 'sum(ragdog_requests_total{route="/health"})')
+            echo "up=$up health requests=$seen"
+            if [ "$up" = "1" ] && [ "$seen" != "none" ]; then exit 0; fi
+            sleep 10
+          done
+          exit 1
+
+      - name: Autoscaler (shown, not checked)
+        if: always()
+        run: kubectl -n ragdog get hpa,deploy,pods -o wide
+
+      - name: Diagnose
+        if: failure()
+        run: |
+          kubectl -n ragdog describe pods
+          kubectl -n ragdog logs deployment/ragdog-api --tail=100 || true
+          kubectl -n ragdog logs deployment/prometheus --tail=50 || true
